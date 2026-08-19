@@ -2,7 +2,6 @@ package saga
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/review-saga/review-saga/internal/diffuri"
-	"github.com/review-saga/review-saga/internal/gitattribution"
 )
 
 func Load(root string) (*Saga, Validation, error) {
@@ -61,7 +59,6 @@ func Load(root string) (*Saga, Validation, error) {
 		}
 	}
 	validateDocument(document, &validation)
-	attributeReviewEvents(document)
 	validation.Valid = !hasErrors(validation.Issues)
 	return document, validation, nil
 }
@@ -248,11 +245,10 @@ func loadReviews(root, dir string, validation *Validation) ([]Review, error) {
 			addIssue(validation, "error", relativePath(root, path), err.Error())
 			return
 		}
+		value.Path = path
 		if value.Version != CurrentVersion || value.ID == "" || value.CreatedAt.IsZero() || !validReviewState(value.State) {
 			addIssue(validation, "error", relativePath(root, path), "review requires version 2, id, created_at, and a valid state")
 		}
-		value.Path = path
-		value.LegacyClaimedAuthor = value.Author
 		result = append(result, value)
 	})
 	return result, err
@@ -279,7 +275,7 @@ func loadThreads(root, sagaID string, validation *Validation) ([]*Thread, error)
 			addIssue(validation, "error", relativePath(root, manifestPath), err.Error())
 			continue
 		}
-		thread := Thread{Version: threadManifest.Version, ID: threadManifest.ID, Target: threadManifest.Target, Anchor: threadManifest.Anchor, Kind: threadManifest.Kind, Suggestion: threadManifest.Suggestion, CreatedBy: threadManifest.CreatedBy, LegacyClaimedAuthor: threadManifest.CreatedBy, CreatedAt: threadManifest.CreatedAt, Path: manifestPath}
+		thread := Thread{Version: threadManifest.Version, ID: threadManifest.ID, Target: threadManifest.Target, Anchor: threadManifest.Anchor, Kind: threadManifest.Kind, Suggestion: threadManifest.Suggestion, CreatedBy: threadManifest.CreatedBy, CreatedAt: threadManifest.CreatedAt}
 		thread.Directory = dir
 		validateThread(thread, sagaID, relativePath(root, manifestPath), validation)
 		thread.Messages, err = loadMessages(root, dir, sagaID, validation)
@@ -313,11 +309,10 @@ func loadDiffReviews(root string, validation *Validation) ([]DiffReview, error) 
 			return
 		}
 		reference, uriErr := diffuri.Parse(value.URI)
+		value.Path = path
 		if value.Version != CurrentVersion || !stableID.MatchString(value.ID) || value.CreatedAt.IsZero() || value.State != "reviewed" && value.State != "unreviewed" || uriErr != nil || reference.Kind != "file" {
 			addIssue(validation, "error", relativePath(root, path), "diff review requires version 2, id, created_at, reviewed/unreviewed state, and a file diff URI")
 		}
-		value.Path = path
-		value.LegacyClaimedAuthor = value.Author
 		reviews = append(reviews, value)
 	})
 	sort.Slice(reviews, func(i, j int) bool { return reviews[i].CreatedAt.Before(reviews[j].CreatedAt) })
@@ -348,7 +343,7 @@ func loadMessages(root, threadDir, sagaID string, validation *Validation) ([]*Me
 		if manifest.Version != CurrentVersion || manifest.ID == "" || manifest.CreatedAt.IsZero() {
 			addIssue(validation, "error", relativePath(root, manifestPath), "message requires version 2, id, and created_at")
 		}
-		message := &Message{ID: manifest.ID, Author: manifest.Author, LegacyClaimedAuthor: manifest.Author, CreatedAt: manifest.CreatedAt, Path: manifestPath}
+		message := &Message{Path: manifestPath, ID: manifest.ID, Author: manifest.Author, CreatedAt: manifest.CreatedAt}
 		children, err := os.ReadDir(messageDir)
 		if err != nil {
 			return nil, err
@@ -380,11 +375,10 @@ func loadThreadEvents(root, threadDir string, validation *Validation) ([]ThreadE
 			addIssue(validation, "error", relativePath(root, path), err.Error())
 			return
 		}
+		value.Path = path
 		if value.Version != CurrentVersion || value.ID == "" || value.CreatedAt.IsZero() || value.State != "open" && value.State != "resolved" {
 			addIssue(validation, "error", relativePath(root, path), "thread event requires version 2, id, created_at, and open/resolved state")
 		}
-		value.Path = path
-		value.LegacyClaimedAuthor = value.Author
 		events = append(events, value)
 	})
 	return events, err
@@ -404,61 +398,6 @@ func loadMetaJSON(dir string, fn func(string)) error {
 		}
 	}
 	return nil
-}
-
-func attributeReviewEvents(document *Saga) {
-	var paths []string
-	for _, review := range allReviews(document.Section) {
-		paths = append(paths, review.Path)
-	}
-	for _, review := range document.DiffReviews {
-		paths = append(paths, review.Path)
-	}
-	for _, thread := range document.Threads {
-		paths = append(paths, thread.Path)
-		for _, message := range thread.Messages {
-			paths = append(paths, message.Path)
-		}
-		for _, event := range thread.Events {
-			paths = append(paths, event.Path)
-		}
-	}
-	resolved := gitattribution.Resolve(context.Background(), document.Root, paths)
-	for _, review := range allReviews(document.Section) {
-		review.Attribution = resolved[filepath.Clean(review.Path)]
-	}
-	for i := range document.DiffReviews {
-		document.DiffReviews[i].Attribution = resolved[filepath.Clean(document.DiffReviews[i].Path)]
-	}
-	for _, thread := range document.Threads {
-		thread.Attribution = resolved[filepath.Clean(thread.Path)]
-		for _, message := range thread.Messages {
-			message.Attribution = resolved[filepath.Clean(message.Path)]
-		}
-		for i := range thread.Events {
-			thread.Events[i].Attribution = resolved[filepath.Clean(thread.Events[i].Path)]
-		}
-		thread.StateAttribution = thread.Attribution
-		if len(thread.Events) > 0 {
-			thread.StateAttribution = thread.Events[len(thread.Events)-1].Attribution
-		}
-	}
-}
-
-func allReviews(section *Section) []*Review {
-	result := make([]*Review, 0)
-	for i := range section.Reviews {
-		result = append(result, &section.Reviews[i])
-	}
-	for _, fragment := range section.Fragments {
-		for i := range fragment.Reviews {
-			result = append(result, &fragment.Reviews[i])
-		}
-	}
-	for _, child := range section.Children {
-		result = append(result, allReviews(child)...)
-	}
-	return result
 }
 
 func readJSON(path string, dst any) error {

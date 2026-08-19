@@ -24,11 +24,13 @@ one application boundary:
 - The server builds additional target, thread, diff, and review indexes inside
   HTML view-model functions.
 
-Version 2 retains optional legacy `author` and `created_by` properties for
-reading existing records. New CLI and HTTP writes omit them. The reviewer is
-the **committer** of the Git commit that first introduces the event file. Git
-author fields are distinct and are not review identity, and no write request
-accepts a reviewer name.
+There is also a format mismatch that must be resolved before exposing new AI
+writes. Version 2 records currently require `author` or `created_by`, and every
+CLI and HTTP write accepts those values. The product decision in
+`ux-reframe.md` is stricter: the reviewer is the **committer** of the Git commit
+that first introduces the event file. Git author fields are distinct and are
+not review identity. A request-supplied name is not authoritative and new
+records must not ask for one.
 
 ## Decision
 
@@ -441,11 +443,12 @@ The event payload is never a fallback identity. If a prior introducing commit
 is no longer reachable, clients see the attribution from rewritten history or
 `history_unavailable`; they must not silently show a stale cached person.
 
-Legacy `author` and `created_by` fields are optional in Go models, validation,
-and version 2 schemas, so old records remain accepted while new writers omit
-them. Existing values load into
+Migration requires making legacy `author` and `created_by` fields optional in
+Go models, validation, and version 2 schemas while continuing to accept old
+records. New writers omit them. Existing values load into
 `legacy_claimed_author` for diagnostics only. UI and AI result models display
-Git attribution, or an honest local/unavailable state.
+Git attribution, or an honest local/unavailable state. This compatibility
+change must land before any new mutation adapter is declared safe.
 
 The introducing file is specific to the semantic event: `thread.json` for a
 thread, `message.json` for each message, and the individual JSON file for a

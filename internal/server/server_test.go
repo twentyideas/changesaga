@@ -13,8 +13,10 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/review-saga/review-saga/internal/diffuri"
+	"github.com/review-saga/review-saga/internal/gitattribution"
 	"github.com/review-saga/review-saga/internal/gitdiff"
 	"github.com/review-saga/review-saga/internal/saga"
 )
@@ -110,8 +112,62 @@ func TestReviewDecisionPersistsAndReturnsToChapter(t *testing.T) {
 		t.Fatalf("written review should validate: validation=%#v err=%v", validation, err)
 	}
 	reviews := document.Section.Fragments[0].Reviews
-	if len(reviews) != 1 || reviews[0].State != "approved" || reviews[0].Author != "" || reviews[0].Body != "Ready to merge." || reviews[0].Attribution.Status != saga.AttributionHistoryUnavailable {
+	if len(reviews) != 1 || reviews[0].State != "approved" || reviews[0].Author != "" || reviews[0].Body != "Ready to merge." {
 		t.Fatalf("unexpected persisted review: %#v", reviews)
+	}
+}
+
+func TestPageAttributesSagaFromItsOwnRepository(t *testing.T) {
+	repo := t.TempDir()
+	serverGit(t, repo, "init", "-b", "main")
+	root := filepath.Join(repo, "test.saga")
+	writeServerFile(t, filepath.Join(root, "saga.json"), `{"version":2,"id":"test","title":"Test","source":{"repository":"https://example.test/a.git","base":"main","head":"HEAD"}}`)
+	writeServerFile(t, filepath.Join(root, "overview.fragment", "fragment.json"), `{"version":2,"id":"overview","title":"Overview","media_type":"text/markdown","entrypoint":"content.md"}`)
+	writeServerFile(t, filepath.Join(root, "overview.fragment", "content.md"), "# Story\n")
+	writeServerFile(t, filepath.Join(root, "overview.fragment", "___approvals", "review.json"), `{"version":2,"id":"review","author":"Payload Name","state":"approved","created_at":"2026-08-19T12:00:00Z"}`)
+	serverGit(t, repo, "add", ".")
+	serverGitEnv(t, repo, []string{
+		"GIT_AUTHOR_NAME=Git Author", "GIT_AUTHOR_EMAIL=author@example.test",
+		"GIT_COMMITTER_NAME=Saga Reviewer", "GIT_COMMITTER_EMAIL=reviewer@example.test",
+	}, "commit", "-m", "saga review")
+
+	tmpl := template.Must(template.New("page").Parse(`{{define "page"}}{{(index .Root.FragmentViews 0).ReviewAuthor}}|{{(index .Root.FragmentViews 0).ReviewDetail}}{{end}}`))
+	application := &app{root: root, sourceDir: t.TempDir(), template: tmpl}
+	recorder := httptest.NewRecorder()
+	application.page(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "Saga Reviewer") || !strings.Contains(recorder.Body.String(), "reviewer@example.test") || strings.Contains(recorder.Body.String(), "Payload Name") {
+		t.Fatalf("saga repository attribution was not canonical: status=%d body=%q", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestUnavailableHistoryNeverFallsBackToPayloadIdentityOrChangesEventTime(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "test.saga")
+	eventTime := time.Date(2026, time.August, 19, 12, 0, 0, 0, time.UTC)
+	path := filepath.Join(root, "event.json")
+	document := &saga.Saga{
+		Section: &saga.Section{Reviews: []saga.Review{{Path: path, Author: "Payload Approval", CreatedAt: eventTime}}},
+		Threads: []*saga.Thread{{
+			Directory: filepath.Join(root, "thread.thread"), CreatedBy: "Payload Thread", CreatedAt: eventTime,
+			Messages: []*saga.Message{{Path: path, Author: "Payload Reply", CreatedAt: eventTime}},
+			Events:   []saga.ThreadEvent{{Path: path, Author: "Payload State", CreatedAt: eventTime}},
+		}},
+		DiffReviews: []saga.DiffReview{{Path: path, Author: "Payload Diff", CreatedAt: eventTime}},
+	}
+	applyGitAttribution(t.Context(), gitattribution.New(t.Context(), root), document)
+	authors := []string{
+		document.Section.Reviews[0].Author,
+		document.Threads[0].CreatedBy,
+		document.Threads[0].Messages[0].Author,
+		document.Threads[0].Events[0].Author,
+		document.DiffReviews[0].Author,
+	}
+	for _, author := range authors {
+		if author != "Git history unavailable" {
+			t.Fatalf("unavailable history trusted payload identity: %q", author)
+		}
+	}
+	if !document.Section.Reviews[0].CreatedAt.Equal(eventTime) || !document.Threads[0].CreatedAt.Equal(eventTime) || !document.DiffReviews[0].CreatedAt.Equal(eventTime) {
+		t.Fatal("attribution changed event ordering timestamps")
 	}
 }
 
@@ -178,8 +234,8 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	if strings.Count(renderedPage, `class="annotation-toolbox"`) != 1 || strings.Contains(renderedPage, `class="review-form"`) {
 		t.Fatal("review controls were not consolidated")
 	}
-	if strings.Contains(renderedPage, `name="author"`) || strings.Contains(renderedPage, `id="reviewer-name"`) || strings.Contains(renderedPage, `placeholder="Your name"`) {
-		t.Fatal("review UI still asks for explicit identity")
+	if strings.Contains(renderedPage, `name="author"`) || strings.Contains(renderedPage, "Your name") || strings.Contains(renderedPage, "reviewer-name") {
+		t.Fatal("review UI asked for editable author identity")
 	}
 	if strings.Contains(renderedPage, "text/markdown") || strings.Contains(renderedPage, "text/plain") || strings.Contains(renderedPage, "private/root.chapter") || strings.Contains(renderedPage, "format v") || strings.Contains(renderedPage, ">Chapter<") {
 		t.Fatal("reviewer-facing format metadata leaked into the page")
@@ -356,10 +412,9 @@ func multipartRequest(t *testing.T, path string, fields map[string]string) *http
 func serverTemplate(t *testing.T) *template.Template {
 	t.Helper()
 	tmpl, err := template.New("page").Funcs(template.FuncMap{
-		"markdown":    markdown,
-		"attribution": attributionLabel,
-		"coord":       func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
-		"points":      func([]saga.Point) string { return "" },
+		"markdown": markdown,
+		"coord":    func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
+		"points":   func([]saga.Point) string { return "" },
 	}).Parse(pageTemplate)
 	if err != nil {
 		t.Fatal(err)
@@ -371,6 +426,18 @@ func serverGit(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 	command := exec.Command("git", args...)
 	command.Dir = dir
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, output)
+	}
+	return string(output)
+}
+
+func serverGitEnv(t *testing.T, dir string, environment []string, args ...string) string {
+	t.Helper()
+	command := exec.Command("git", args...)
+	command.Dir = dir
+	command.Env = append(os.Environ(), environment...)
 	output, err := command.CombinedOutput()
 	if err != nil {
 		t.Fatalf("git %v: %v\n%s", args, err, output)

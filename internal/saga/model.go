@@ -1,10 +1,6 @@
 package saga
 
-import (
-	"time"
-
-	"github.com/review-saga/review-saga/internal/gitattribution"
-)
+import "time"
 
 const (
 	CurrentVersion = 2
@@ -92,34 +88,30 @@ type DiffReference struct {
 }
 
 type Review struct {
-	Version             int         `json:"version"`
-	ID                  string      `json:"id"`
-	Author              string      `json:"author,omitempty"`
-	LegacyClaimedAuthor string      `json:"legacy_claimed_author,omitempty"`
-	State               string      `json:"state"`
-	Body                string      `json:"body,omitempty"`
-	CreatedAt           time.Time   `json:"created_at"`
-	Path                string      `json:"-"`
-	Attribution         Attribution `json:"-"`
+	Path              string    `json:"-"`
+	AttributionDetail string    `json:"-"`
+	Version           int       `json:"version"`
+	ID                string    `json:"id"`
+	Author            string    `json:"author,omitempty"`
+	State             string    `json:"state"`
+	Body              string    `json:"body,omitempty"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 type Thread struct {
-	Version             int           `json:"version"`
-	ID                  string        `json:"id"`
-	Target              string        `json:"target"`
-	Anchor              Anchor        `json:"anchor"`
-	Kind                string        `json:"kind,omitempty"`
-	Suggestion          *Suggestion   `json:"suggestion,omitempty"`
-	CreatedBy           string        `json:"created_by,omitempty"`
-	LegacyClaimedAuthor string        `json:"legacy_claimed_author,omitempty"`
-	CreatedAt           time.Time     `json:"created_at"`
-	Directory           string        `json:"-"`
-	Path                string        `json:"-"`
-	Attribution         Attribution   `json:"-"`
-	Messages            []*Message    `json:"messages,omitempty"`
-	Events              []ThreadEvent `json:"events,omitempty"`
-	State               string        `json:"state"`
-	StateAttribution    Attribution   `json:"-"`
+	Version           int           `json:"version"`
+	ID                string        `json:"id"`
+	Target            string        `json:"target"`
+	Anchor            Anchor        `json:"anchor"`
+	Kind              string        `json:"kind,omitempty"`
+	Suggestion        *Suggestion   `json:"suggestion,omitempty"`
+	CreatedBy         string        `json:"created_by,omitempty"`
+	CreatedAt         time.Time     `json:"created_at"`
+	Directory         string        `json:"-"`
+	AttributionDetail string        `json:"-"`
+	Messages          []*Message    `json:"messages,omitempty"`
+	Events            []ThreadEvent `json:"events,omitempty"`
+	State             string        `json:"state"`
 }
 
 type ThreadManifest struct {
@@ -181,47 +173,34 @@ type MessageManifest struct {
 }
 
 type Message struct {
-	ID                  string      `json:"id"`
-	Author              string      `json:"author,omitempty"`
-	LegacyClaimedAuthor string      `json:"legacy_claimed_author,omitempty"`
-	CreatedAt           time.Time   `json:"created_at"`
-	Path                string      `json:"-"`
-	Attribution         Attribution `json:"-"`
-	Fragments           []*Fragment `json:"fragments"`
+	Path              string      `json:"-"`
+	AttributionDetail string      `json:"-"`
+	ID                string      `json:"id"`
+	Author            string      `json:"author,omitempty"`
+	CreatedAt         time.Time   `json:"created_at"`
+	Fragments         []*Fragment `json:"fragments"`
 }
 
 type ThreadEvent struct {
-	Version             int         `json:"version"`
-	ID                  string      `json:"id"`
-	Author              string      `json:"author,omitempty"`
-	LegacyClaimedAuthor string      `json:"legacy_claimed_author,omitempty"`
-	State               string      `json:"state"`
-	CreatedAt           time.Time   `json:"created_at"`
-	Path                string      `json:"-"`
-	Attribution         Attribution `json:"-"`
+	Path              string    `json:"-"`
+	AttributionDetail string    `json:"-"`
+	Version           int       `json:"version"`
+	ID                string    `json:"id"`
+	Author            string    `json:"author,omitempty"`
+	State             string    `json:"state"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 type DiffReview struct {
-	Version             int         `json:"version"`
-	ID                  string      `json:"id"`
-	URI                 string      `json:"uri"`
-	Author              string      `json:"author,omitempty"`
-	LegacyClaimedAuthor string      `json:"legacy_claimed_author,omitempty"`
-	State               string      `json:"state"`
-	CreatedAt           time.Time   `json:"created_at"`
-	Path                string      `json:"-"`
-	Attribution         Attribution `json:"-"`
+	Path              string    `json:"-"`
+	AttributionDetail string    `json:"-"`
+	Version           int       `json:"version"`
+	ID                string    `json:"id"`
+	URI               string    `json:"uri"`
+	Author            string    `json:"author,omitempty"`
+	State             string    `json:"state"`
+	CreatedAt         time.Time `json:"created_at"`
 }
-
-type Attribution = gitattribution.Attribution
-type AttributionStatus = gitattribution.Status
-type Committer = gitattribution.Committer
-
-const (
-	AttributionCommitted          = gitattribution.Committed
-	AttributionUncommitted        = gitattribution.Uncommitted
-	AttributionHistoryUnavailable = gitattribution.HistoryUnavailable
-)
 
 type Saga struct {
 	Root        string       `json:"root"`

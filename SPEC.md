@@ -265,26 +265,6 @@ Thread lifecycle changes are append-only files in `events/` with state `open` or
 and state events are history and should not be rewritten or deleted during
 ordinary review.
 
-### Git-derived review identity
-
-Review identity is not editable saga data. For every thread root, message,
-thread-state event, approval event, and file-review event, the canonical
-reviewer is the committer name and email of the Git commit that introduced that
-individual event file. The attribution also includes the full commit OID and
-committer timestamp. Git author fields are never review identity.
-
-An event file absent from `HEAD`, including an untracked or staged-new file, is
-`uncommitted` and has no reviewer identity yet. An event outside a worktree or
-whose introducing history cannot be resolved is `history_unavailable`. A
-history rewrite recomputes attribution from the current reachable history; the
-payload is never used as a stale fallback.
-
-Version 2 `author` and `created_by` properties remain optional for compatibility
-with existing records. Loaders may expose them as `legacy_claimed_author` for
-diagnostics, but new writers omit them and review forms and requests never ask
-for a name. This is a compatible schema evolution and does not introduce a new
-format version.
-
 ### Append-only file granularity
 
 Review mutations never append to a shared JSON array or rewrite a neighboring
@@ -327,7 +307,7 @@ real directories, not symlinks. Other names beginning with `___` are invalid.
 - `saga status --json` emits uncovered atoms including ready-to-use absolute
   URIs, stale links, overlap, target totals, and saga-only changes.
 - `saga thread` and `saga reply` edit the review overlay without modifying
-  authored fragment content or accepting reviewer identity.
+  authored fragment content.
 - `saga review` appends a saga-, chapter-, section-, or fragment-level decision.
 - `saga open` serves a Saga view with attached-diff drawers and a Code Diff view
   with a changed-file tree. Both surfaces support diff comments and suggestions;

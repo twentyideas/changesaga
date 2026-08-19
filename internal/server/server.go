@@ -23,6 +23,7 @@ import (
 
 	"github.com/review-saga/review-saga/internal/coverage"
 	"github.com/review-saga/review-saga/internal/diffuri"
+	"github.com/review-saga/review-saga/internal/gitattribution"
 	"github.com/review-saga/review-saga/internal/gitdiff"
 	"github.com/review-saga/review-saga/internal/reviewstore"
 	"github.com/review-saga/review-saga/internal/saga"
@@ -60,27 +61,29 @@ type chapterIndexView struct {
 
 type sectionView struct {
 	*saga.Section
-	DOMID             string
-	Changes           []*diffAtomView
-	Threads           []*threadView
-	FragmentViews     []*fragmentView
-	ChildViews        []*sectionView
-	ReviewState       string
-	ReviewAttribution saga.Attribution
+	DOMID         string
+	Changes       []*diffAtomView
+	Threads       []*threadView
+	FragmentViews []*fragmentView
+	ChildViews    []*sectionView
+	ReviewState   string
+	ReviewAuthor  string
+	ReviewDetail  string
 }
 
 type fragmentView struct {
 	*saga.Fragment
-	DOMID             string
-	URL               string
-	Markdown          template.HTML
-	Plain             string
-	Interactive       bool
-	Image             bool
-	Changes           []*diffAtomView
-	Threads           []*threadView
-	ReviewState       string
-	ReviewAttribution saga.Attribution
+	DOMID        string
+	URL          string
+	Markdown     template.HTML
+	Plain        string
+	Interactive  bool
+	Image        bool
+	Changes      []*diffAtomView
+	Threads      []*threadView
+	ReviewState  string
+	ReviewAuthor string
+	ReviewDetail string
 }
 
 type diffAtomView struct {
@@ -95,6 +98,8 @@ type fileDiffView = FileDiffView
 type threadView struct {
 	*saga.Thread
 	MessageViews [][]*fragmentView
+	StateAuthor  string
+	StateDetail  string
 }
 
 func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool, out io.Writer) error {
@@ -111,9 +116,8 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 		sourceDir = abs
 	}
 	tmpl, err := template.New("page").Funcs(template.FuncMap{
-		"markdown":    markdown,
-		"attribution": attributionLabel,
-		"coord":       func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
+		"markdown": markdown,
+		"coord":    func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
 		"points": func(values []saga.Point) string {
 			parts := make([]string, 0, len(values))
 			for _, point := range values {
@@ -173,6 +177,9 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	// Review identity belongs to the repository containing the saga, which can
+	// be different from the source checkout used to evaluate product diffs.
+	applyGitAttribution(r.Context(), gitattribution.New(r.Context(), a.root), document)
 	changes, diffErr := gitdiff.Read(r.Context(), a.sourceDir, document.Manifest.Source.Repository, document.Manifest.Source.Base, document.Manifest.Source.Head)
 	var report coverage.Report
 	if diffErr == nil {
@@ -337,7 +344,7 @@ func makeSectionView(section *saga.Section, changes map[string][]gitdiff.Atom, t
 		reviews := append([]saga.Review(nil), section.Reviews...)
 		sort.Slice(reviews, func(i, j int) bool { return reviews[i].CreatedAt.Before(reviews[j].CreatedAt) })
 		last := reviews[len(reviews)-1]
-		view.ReviewState, view.ReviewAttribution = last.State, last.Attribution
+		view.ReviewState, view.ReviewAuthor, view.ReviewDetail = last.State, last.Author, last.AttributionDetail
 	}
 	for _, fragment := range section.Fragments {
 		view.FragmentViews = append(view.FragmentViews, makeFragmentView(fragment, changes[fragment.Target], threads[fragment.Target], diffThreads))
@@ -350,7 +357,7 @@ func makeSectionView(section *saga.Section, changes map[string][]gitdiff.Atom, t
 
 func makeFragmentView(fragment *saga.Fragment, changes []gitdiff.Atom, threads []*threadView, diffThreads map[string][]*threadView) *fragmentView {
 	view := &fragmentView{Fragment: fragment, DOMID: domID(fragment.Target), Changes: makeAtomViews(changes, fragment.Target, diffThreads), Threads: threads}
-	view.ReviewState, view.ReviewAttribution = latestReview(fragment.Reviews)
+	view.ReviewState, view.ReviewAuthor, view.ReviewDetail = latestReview(fragment.Reviews)
 	view.URL = "/f/" + url.PathEscape(fragment.ID) + "/" + strings.Join(pathEscapeParts(filepath.ToSlash(fragment.Entrypoint)), "/")
 	switch fragment.MediaType {
 	case "text/markdown":
@@ -371,6 +378,10 @@ func makeFragmentView(fragment *saga.Fragment, changes []gitdiff.Atom, threads [
 
 func makeThreadView(thread *saga.Thread) *threadView {
 	view := &threadView{Thread: thread}
+	if len(thread.Events) > 0 {
+		last := thread.Events[len(thread.Events)-1]
+		view.StateAuthor, view.StateDetail = last.Author, last.AttributionDetail
+	}
 	for _, message := range thread.Messages {
 		var fragments []*fragmentView
 		for _, fragment := range message.Fragments {
@@ -417,7 +428,7 @@ func makeFileViews(changes gitdiff.ChangeSet, target string, reviews []saga.Diff
 			digest := sha256.Sum256([]byte(path))
 			file = &fileDiffView{ID: fmt.Sprintf("diff-%x", digest[:8]), Path: path, URI: uri}
 			if review, ok := latest[uri]; ok {
-				file.Reviewed, file.ReviewAttribution = review.State == "reviewed", review.Attribution
+				file.Reviewed, file.Reviewer, file.ReviewerDetail = review.State == "reviewed", review.Author, review.AttributionDetail
 			}
 			byPath[path] = file
 		}
@@ -440,31 +451,68 @@ func makeFileViews(changes gitdiff.ChangeSet, target string, reviews []saga.Diff
 	return result
 }
 
-func latestReview(reviews []saga.Review) (string, saga.Attribution) {
+func latestReview(reviews []saga.Review) (string, string, string) {
 	if len(reviews) == 0 {
-		return "", saga.Attribution{}
+		return "", "", ""
 	}
 	values := append([]saga.Review(nil), reviews...)
 	sort.Slice(values, func(i, j int) bool { return values[i].CreatedAt.Before(values[j].CreatedAt) })
 	last := values[len(values)-1]
-	return last.State, last.Attribution
+	return last.State, last.Author, last.AttributionDetail
 }
 
-func attributionLabel(value saga.Attribution) string {
-	switch value.Status {
-	case saga.AttributionCommitted:
-		if value.Committer == nil || value.CommittedAt == nil {
-			return "Git history unavailable"
+func applyGitAttribution(ctx context.Context, resolver *gitattribution.Resolver, document *saga.Saga) {
+	apply := func(path string, author *string, detail *string) {
+		value := resolver.Resolve(ctx, path)
+		switch value.State {
+		case gitattribution.Committed:
+			*author = value.Name
+			commitID := value.CommitID
+			if len(commitID) > 12 {
+				commitID = commitID[:12]
+			}
+			*detail = fmt.Sprintf("%s · committed %s · %s", value.Email, value.CommittedAt.Format("2006-01-02 15:04 MST"), commitID)
+		case gitattribution.Uncommitted:
+			*author = "Local / uncommitted"
+			*detail = "This review event has not been committed yet."
+		case gitattribution.Rewritten:
+			*author = "History rewritten"
+			*detail = "Git history no longer contains the commit that introduced this review event. Stored legacy identity is not authoritative."
+		default:
+			*author = "Git history unavailable"
+			*detail = "Git attribution is unavailable. Stored legacy identity is not authoritative."
 		}
-		commit := value.Commit
-		if len(commit) > 12 {
-			commit = commit[:12]
+	}
+	var walk func(*saga.Section)
+	walk = func(section *saga.Section) {
+		for index := range section.Reviews {
+			review := &section.Reviews[index]
+			apply(review.Path, &review.Author, &review.AttributionDetail)
 		}
-		return fmt.Sprintf("%s <%s> · %s · commit %s", value.Committer.Name, value.Committer.Email, value.CommittedAt.Format(time.RFC3339), commit)
-	case saga.AttributionUncommitted:
-		return "Local, uncommitted"
-	default:
-		return "Git history unavailable"
+		for _, fragment := range section.Fragments {
+			for index := range fragment.Reviews {
+				review := &fragment.Reviews[index]
+				apply(review.Path, &review.Author, &review.AttributionDetail)
+			}
+		}
+		for _, child := range section.Children {
+			walk(child)
+		}
+	}
+	walk(document.Section)
+	for _, thread := range document.Threads {
+		apply(filepath.Join(thread.Directory, "thread.json"), &thread.CreatedBy, &thread.AttributionDetail)
+		for _, message := range thread.Messages {
+			apply(message.Path, &message.Author, &message.AttributionDetail)
+		}
+		for index := range thread.Events {
+			event := &thread.Events[index]
+			apply(event.Path, &event.Author, &event.AttributionDetail)
+		}
+	}
+	for index := range document.DiffReviews {
+		review := &document.DiffReviews[index]
+		apply(review.Path, &review.Author, &review.AttributionDetail)
 	}
 }
 

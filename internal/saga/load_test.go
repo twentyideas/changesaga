@@ -3,9 +3,7 @@ package saga
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/review-saga/review-saga/internal/diffuri"
@@ -52,85 +50,6 @@ func TestLoadRecursiveFragmentsAndReviewOverlay(t *testing.T) {
 	if len(document.Threads) != 1 || len(document.Threads[0].Messages) != 1 || document.Threads[0].Target != flow.Target {
 		t.Fatalf("review overlay was not loaded: %#v", document.Threads)
 	}
-	if document.Threads[0].LegacyClaimedAuthor != "Ada" || document.Threads[0].Messages[0].LegacyClaimedAuthor != "Ada" {
-		t.Fatalf("legacy claimed identity was not retained: %#v", document.Threads[0])
-	}
-	if document.Threads[0].Attribution.Status != AttributionHistoryUnavailable || document.Threads[0].Messages[0].Attribution.Status != AttributionHistoryUnavailable {
-		t.Fatalf("non-Git history should be reported honestly: %#v", document.Threads[0])
-	}
-}
-
-func TestLoadAttributesEveryReviewEventToItsIntroducingCommitter(t *testing.T) {
-	repo := t.TempDir()
-	sagaGit(t, repo, nil, "init", "-b", "main")
-	root := filepath.Join(repo, "test.saga")
-	writeTestFile(t, filepath.Join(root, "saga.json"), `{"version":2,"id":"test","title":"A saga","source":{"repository":"https://example.test/acme/app.git","base":"main","head":"HEAD"}}`)
-	writeTestFile(t, filepath.Join(root, "overview.fragment", "fragment.json"), `{"version":2,"id":"overview","title":"Overview","media_type":"text/markdown","entrypoint":"content.md"}`)
-	writeTestFile(t, filepath.Join(root, "overview.fragment", "content.md"), "# Story\n")
-	sagaGit(t, repo, nil, "add", ".")
-	sagaGit(t, repo, reviewIdentity("Setup", "setup@example.test"), "commit", "-m", "saga")
-
-	threadDir := filepath.Join(root, "___review", "threads", "thread-1.thread")
-	writeTestFile(t, filepath.Join(threadDir, "thread.json"), `{"version":2,"id":"thread-1","target":"urn:review-saga:test:fragment:overview","anchor":{"type":"target"},"created_by":"Payload Name","created_at":"2026-08-19T12:00:00Z"}`)
-	sagaGit(t, repo, nil, "add", ".")
-	sagaGit(t, repo, reviewIdentity("Thread Committer", "thread@example.test"), "commit", "-m", "thread root")
-
-	messageDir := filepath.Join(threadDir, "messages", "message-1.message")
-	writeTestFile(t, filepath.Join(messageDir, "message.json"), `{"version":2,"id":"message-1","author":"Another Payload Name","created_at":"2026-08-19T12:01:00Z"}`)
-	writeTestFile(t, filepath.Join(messageDir, "body.fragment", "fragment.json"), `{"version":2,"id":"message-body","media_type":"text/markdown","entrypoint":"content.md"}`)
-	writeTestFile(t, filepath.Join(messageDir, "body.fragment", "content.md"), "Comment\n")
-	sagaGit(t, repo, nil, "add", ".")
-	sagaGit(t, repo, reviewIdentity("Reply Committer", "reply@example.test"), "commit", "-m", "message")
-
-	fileURI, err := diffuri.Build(diffuri.Reference{Repository: "https://example.test/acme/app.git", Base: "aaa", Head: "bbb", Kind: "file", Path: "app.go"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	writeTestFile(t, filepath.Join(threadDir, "events", "event-1.json"), `{"version":2,"id":"event-1","state":"resolved","created_at":"2026-08-19T12:02:00Z"}`)
-	writeTestFile(t, filepath.Join(root, "overview.fragment", "___approvals", "review-1.json"), `{"version":2,"id":"review-1","state":"approved","created_at":"2026-08-19T12:02:00Z"}`)
-	writeTestFile(t, filepath.Join(root, "___review", "diffs", "diff-1.json"), fmt.Sprintf(`{"version":2,"id":"diff-1","uri":%q,"state":"reviewed","created_at":"2026-08-19T12:02:00Z"}`, fileURI))
-	sagaGit(t, repo, nil, "add", ".")
-	sagaGit(t, repo, reviewIdentity("Event Committer", "events@example.test"), "commit", "-m", "review events")
-
-	document, validation, err := Load(root)
-	if err != nil || !validation.Valid {
-		t.Fatalf("load: validation=%#v err=%v", validation, err)
-	}
-	thread := document.Threads[0]
-	assertCommitter(t, thread.Attribution, "Thread Committer", "thread@example.test")
-	assertCommitter(t, thread.Messages[0].Attribution, "Reply Committer", "reply@example.test")
-	assertCommitter(t, thread.Events[0].Attribution, "Event Committer", "events@example.test")
-	assertCommitter(t, document.Section.Fragments[0].Reviews[0].Attribution, "Event Committer", "events@example.test")
-	assertCommitter(t, document.DiffReviews[0].Attribution, "Event Committer", "events@example.test")
-	if thread.LegacyClaimedAuthor != "Payload Name" || thread.Messages[0].LegacyClaimedAuthor != "Another Payload Name" {
-		t.Fatalf("legacy claims were not separated from canonical identity: %#v", thread)
-	}
-}
-
-func assertCommitter(t *testing.T, attribution Attribution, name, email string) {
-	t.Helper()
-	if attribution.Status != AttributionCommitted || attribution.Committer == nil || attribution.Committer.Name != name || attribution.Committer.Email != email || attribution.Commit == "" || attribution.CommittedAt == nil || strings.Contains(attribution.Committer.Name, "Git Author") {
-		t.Fatalf("attribution = %#v, want %s <%s>", attribution, name, email)
-	}
-}
-
-func reviewIdentity(name, email string) []string {
-	return []string{
-		"GIT_AUTHOR_NAME=Git Author", "GIT_AUTHOR_EMAIL=git-author@example.test",
-		"GIT_COMMITTER_NAME=" + name, "GIT_COMMITTER_EMAIL=" + email,
-	}
-}
-
-func sagaGit(t *testing.T, dir string, environment []string, args ...string) string {
-	t.Helper()
-	command := exec.Command("git", args...)
-	command.Dir = dir
-	command.Env = append(os.Environ(), environment...)
-	output, err := command.CombinedOutput()
-	if err != nil {
-		t.Fatalf("git %v: %v\n%s", args, err, output)
-	}
-	return string(output)
 }
 
 func TestLoadRejectsNestedChapter(t *testing.T) {

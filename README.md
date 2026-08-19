@@ -160,13 +160,6 @@ separate `.thread` directories, every reply creates a separate `.message`
 directory, and every state or approval transition is a new event file. Review
 actions never update a shared comments array.
 
-Reviewer identity comes from Git: each event is attributed to the committer of
-the commit that introduced its individual event file, including committer name,
-email, timestamp, and commit OID. New review writes do not accept or persist a
-name. Local event files show as uncommitted until committed; unavailable or
-rewritten history is reported from the current Git graph rather than falling
-back to editable payload fields.
-
 See [SPEC.md](SPEC.md) for the format contract and [CONTRIBUTING.md](CONTRIBUTING.md)
 for development commands.
 
