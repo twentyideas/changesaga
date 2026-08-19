@@ -11,7 +11,8 @@ resumption contract explicit. The overview, one chapter, and one code file are
 separate pages. Each page has one primary task, one quiet status/action cluster,
 and stable URLs. Annotation tools persist once per chapter page; decisions move
 to one compact dialog; code review uses a nested file tree, a single-file diff,
-and a related-fragments sidebar.
+and a related-fragments sidebar. Review interactions never request identity;
+the Git commit introducing each event file is the authorship record.
 
 This turns “review the PR” into “finish the next chapter,” while preserving the
 append-only review records and diff URIs already used by the server.
@@ -22,7 +23,7 @@ append-only review records and diff URIs already used by the server.
 | --- | --- | --- | --- |
 | P0 | `template.go` recursively renders the root, every chapter, and every fragment on `/`. | There is no finishable session or trustworthy return point. | Give overview and each chapter an isolated route; render only the requested scope. |
 | P0 | Code Diff stacks every file and uses anchors in a flat path list. | Review cost grows with the whole PR and selected-file state is not durable. | Render one URL-addressable file and navigate with a nested, filterable tree. |
-| P0 | Author fields, approval forms, and annotation buttons repeat on sections and fragments. | Controls visually outweigh the narrative and identity is re-entered continually. | Keep identity at session level, one persistent annotation toolbar, and one decision dialog per invoked target. |
+| P0 | Author fields, approval forms, and annotation buttons repeat on sections and fragments. | Controls visually outweigh the narrative and ask users to self-report identity that Git should supply. | Remove identity fields, keep one persistent annotation toolbar, and use one decision dialog per invoked target. |
 | P0 | Coverage ownership is only projected from narrative target to diff rows. | A reviewer in code cannot recover the author’s explanation. | Build the reverse index and show all owning fragments/sections for the selected file or line. |
 | P1 | Every fragment shows a linked-diff button, including `0`, and opens an empty drawer. | Empty controls create false affordances and noise. | Omit the action when no current diff atom is linked. |
 | P1 | The custom diff has one line number, handcrafted rows, no context expansion, and no accessible review mode. | It is harder to compare and navigate than established review tools. | Use a local Monaco read-only diff editor or meet the same explicit baseline. |
@@ -60,6 +61,13 @@ because its URI contains base/head; chapter and fragment reviews are not. Before
 resumption can be trusted across a new head, bind those reviews to a source OID
 or render them as **possibly stale** after source movement. This is the largest
 data-model risk.
+
+Git is the identity and audit layer. No comment, reply, suggestion, decision,
+thread-state, or viewed-state interaction asks for a name. For a committed event,
+display the author of the commit that introduced its file. Display an event not
+yet committed as **Local · uncommitted**. Keep legacy files with explicit author
+fields readable; where introducing-commit attribution is unavailable, label the
+fallback honestly rather than presenting editable payload identity as verified.
 
 ### Global shell
 
@@ -121,8 +129,8 @@ The toolbox is sticky and enters annotation mode only after a fragment is
 focused or chosen. `Pointer` is the safe default. A fragment’s overflow menu
 contains “Review fragment”; no approval form is visible inline. The chapter
 header’s **Review** button opens a compact dialog with status, optional note,
-and actions: Approve, Request changes, Close, or Reopen. Identity comes from a
-session setting and is editable in that dialog’s overflow, not every form.
+and actions: Approve, Request changes, Close, or Reopen. It contains no identity
+field; attribution appears only after Git can resolve the introducing commit.
 
 Linked code is an icon button only when links exist. It opens a non-modal panel
 on wide screens and a modal drawer on narrow screens, grouped by file with a
@@ -163,7 +171,7 @@ diagnostics. If ownership points to missing/stale content, show the target name,
 | Overview | No saved location | First unfinished chapter is primary. | Focus remains on page heading after load. |
 | Overview | Valid saved location for current head | “Resume · {chapter/file}.” | Activating follows a real URL; Back returns to the same overview row. |
 | Chapter row | `not started` / `open` / `rejected` / `approved` / `closed` | “Not started” / “In progress” / “Needs changes” / “Approved” / “Closed,” with distinct icon and text. | Latest append-only event wins; never color-only. |
-| Decision | Review invoked | Labeled modal dialog; current state selected, optional note, explicit submit. | Initial focus on dialog heading, focus trapped, Escape cancels, close restores invoker. On save, focus returns to status/action cluster and live region announces state. |
+| Decision | Review invoked | Labeled modal dialog; current state selected, optional note, explicit submit, no identity input. | Initial focus on dialog heading, focus trapped, Escape cancels, close restores invoker. On save, focus returns to status/action cluster and live region announces “Saved locally; commit to attribute.” |
 | Annotation | Pointer | Content behaves normally; overlays are inert. | Default on page load and after save/cancel. |
 | Annotation | Tool chosen, no active fragment | Toolbar says “Choose a fragment”; compatible fragments get a subtle focus target. | Focus stays on chosen toolbar button (`aria-pressed=true`). |
 | Annotation | Drawing/highlighting | Preview appears; composer opens only after a valid anchor exists. | First Escape removes preview and returns Pointer; second Escape closes composer. No partial record is written. |
@@ -171,6 +179,7 @@ diagnostics. If ownership points to missing/stale content, show the target name,
 | File tree | Folder collapsed/expanded | Children hidden/shown; aggregate changed and unviewed counts remain. | Expansion and filter are per-browser preferences; selection is URL-owned. |
 | File tree | Filter or “Hide viewed” | Matching paths plus ancestors remain; no-match message replaces the tree body. | Clearing restores expansion state; selected file remains visible or a warning offers next match. |
 | File | Mark viewed | Text/icon state changes and next-unviewed becomes available. | Append a diff-review event for the exact base/head file URI; announce save. |
+| Event attribution | Committed / uncommitted / history unavailable / legacy explicit author | Git author / “Local · uncommitted” / “Attribution unavailable” / clearly labeled legacy fallback. | Introducing commit is authoritative; payload identity is never editable in review UI. |
 | Diff | Loading / ready / too large / failed | Skeleton / editor / explicit size fallback / retry plus diagnostics. | Never mark viewed automatically on failed or partial render. |
 | Related fragments | Hidden / file scope / line scope / none / stale | Toggle / grouped owners / exact owners first / explanatory empty state / warning. | Toggle preference persists. Opening a fragment uses a real URL and retains the diff URL for Back. |
 | Async mutation | Saving / saved / error | Action disabled with progress / quiet confirmation / inline actionable error. | Do not optimistically discard input; focus moves only on success. |
@@ -234,7 +243,7 @@ Remove from normal review pages:
   media types, schema version, and generation timestamp.
 - [ ] Literal “Chapter:” labels and repeated card borders where heading hierarchy
   and spacing already communicate structure.
-- [ ] Repeated author fields, review forms, fragment tool rows, empty diff
+- [ ] All author/name fields, repeated review forms, fragment tool rows, empty diff
   buttons/drawers, and always-visible line action buttons.
 - [ ] Duplicate “reviewed” totals in the top bar, page heading, tree, and file
   header; keep the local state and one overview summary only.
@@ -299,10 +308,15 @@ Retain or add only when useful:
 15. **PERSIST-01 — compatibility:** Existing comment, reply, suggestion,
     approval, thread-state, annotation, and diff-review fixtures load; each new
     mutation still creates one event file and validates against v2 schemas.
-16. **A11Y-01 — focus:** Automated checks plus keyboard tests find no unlabeled
+16. **PERSIST-02 — Git attribution:** No mutation form contains a name/author
+    control. Before commit, a new event reads “Local · uncommitted.” After a
+    different Git user commits it, the rendered author/timestamp/commit ID match
+    the introducing commit. Rewritten or unavailable history has an honest
+    fallback, and legacy explicit-author fixtures remain readable.
+17. **A11Y-01 — focus:** Automated checks plus keyboard tests find no unlabeled
     controls, focus trap, hidden focused element, or modal background focus.
     Dialogs restore their invoker and route changes focus the destination `h1`.
-17. **A11Y-02 — zoom/reflow:** At 320×640 CSS px and at 400% zoom, overview and
+18. **A11Y-02 — zoom/reflow:** At 320×640 CSS px and at 400% zoom, overview and
     chapter have no horizontal page scroll; code navigation and comments reflow,
     with horizontal scrolling confined to the code viewport.
 
@@ -337,9 +351,11 @@ Retain or add only when useful:
 
 1. **Resolve stale chapter approval semantics first.** Without a source OID or
    deterministic invalidation rule, the most important resume signal can lie.
-2. Establish isolated route/view-model contracts and reverse target metadata.
-3. Consolidate identity, decisions, and annotations without changing the
-   append-only storage layout.
-4. Replace the diff surface and add the nested tree plus related fragments.
-5. Finish with browser-level route, responsive, keyboard, and assistive-
+2. **Define Git attribution fallbacks.** Shallow clones, rebases, squashes, and
+   uncommitted files must not produce a false or editable author identity.
+3. Establish isolated route/view-model contracts and reverse target metadata.
+4. Consolidate decisions and annotations without changing the append-only
+   storage layout or asking for identity.
+5. Replace the diff surface and add the nested tree plus related fragments.
+6. Finish with browser-level route, responsive, keyboard, and assistive-
    technology checks. Keep Monaco and all runtime assets local/offline.
