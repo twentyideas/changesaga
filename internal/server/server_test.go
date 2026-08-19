@@ -130,15 +130,16 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	fragment := &saga.Fragment{ID: "overview", Title: "Overview", Target: "urn:review-saga:test:fragment:overview", Directory: fragmentDir, MediaType: "text/markdown", Entrypoint: "content.md"}
 	section := &saga.Section{Kind: "chapter", ID: "root", Title: "Test", Target: "urn:review-saga:test:saga", Fragments: []*saga.Fragment{fragment}}
 	thread := &saga.Thread{ID: "thread", Target: fragment.Target, Anchor: saga.Anchor{Type: "region", Coordinate: "normalized", Shapes: []saga.Shape{{Type: "rect", X: .1, Y: .2, Width: .3, Height: .4}}}, State: "open"}
+	lineURI := "saga-diff://v1/line?base=aaa&end=1&head=product-bbb&path=app.go&repository=https%3A%2F%2Fexample.test%2Fa.git&side=new&start=1"
 	data := pageData{
 		Saga:   &saga.Saga{Manifest: saga.Manifest{ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/a.git", Base: "main", Head: "HEAD"}}, Section: section},
-		Report: coverage.Report{Complete: true}, Root: makeSectionView(section, nil, map[string][]*threadView{fragment.Target: {makeThreadView(thread)}}, nil), Percent: 73,
+		Report: coverage.Report{Complete: true}, Root: makeSectionView(section, map[string][]gitdiff.Atom{fragment.Target: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}}, map[string][]*threadView{fragment.Target: {makeThreadView(thread)}}, nil), Percent: 73,
 	}
 	var output bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&output, "page", data); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(output.String(), "ZgotmplZ") || !strings.Contains(output.String(), "width:73%") || !strings.Contains(output.String(), "/app.js") || !strings.Contains(output.String(), `x="100.00"`) || !strings.Contains(output.String(), "Approve chapter") {
+	if strings.Contains(output.String(), "ZgotmplZ") || !strings.Contains(output.String(), "width:73%") || !strings.Contains(output.String(), "/app.js") || !strings.Contains(output.String(), `x="100.00"`) || !strings.Contains(output.String(), "Approve chapter") || !strings.Contains(output.String(), `data-diff-ref="saga-diff://v1/line?`) {
 		t.Fatalf("template produced unsafe or incomplete output")
 	}
 	rendered := string(markdown("# Heading\n\n- one\n- <script>bad</script>"))

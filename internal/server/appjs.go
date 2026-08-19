@@ -40,7 +40,7 @@ const appJavaScript = `(() => {
     form.classList.toggle('suggesting', suggestion);
     form.classList.add('open');
     q('[name=target]', form).value = button.dataset.target;
-    q('[name=anchor]', form).value = JSON.stringify({type:'diff', diff:{uri:button.dataset.uri}});
+	q('[name=anchor]', form).value = JSON.stringify({type:'diff', diff:{uri:button.dataset.diffRef}});
     q('[name=kind]', form).value = suggestion ? 'suggestion' : 'comment';
     q('.diff-compose-head strong', form).textContent = suggestion ? 'Suggest a replacement' : 'Comment on this change';
 	q('[name=replacement]', form).value = suggestion ? (button.dataset.content || '') : '';
