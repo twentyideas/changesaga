@@ -38,6 +38,11 @@ also reveal excerpts from every related saga fragment.
   a congratulatory percentage.
 - Review data stays append-friendly. UX changes must preserve one-event-per-file
   review storage and avoid shared mutable metadata files.
+- Git is the identity and audit layer. Review forms never ask for an author;
+  the author of a comment, reply, approval, or other review event is the
+  **committer** of the commit that introduced its file. Use Git committer name
+  and email, not the distinct author fields. The renderer may show that Git
+  attribution, but the saga payload must not duplicate editable identity data.
 
 ## Prior art translated into decisions
 
@@ -95,7 +100,10 @@ Acceptance criteria:
 
 - Replace repeated approval/change forms with one icon/menu per reviewable
   target that opens a popover or modal.
-- Keep author identity/session defaults outside repeated forms where possible.
+- Remove author fields from all review interactions. Persist the review event,
+  then derive its author from Git history after it is committed. Uncommitted
+  review events should be presented as local/uncommitted rather than asking the
+  reviewer to self-identify.
 - Provide one always-available annotation toolbox for comment, text highlight,
   rectangle, freehand, and selection modes.
 - Apply the selected annotation tool to the active fragment; do not render a
@@ -105,7 +113,12 @@ Acceptance criteria:
 - Render a linked-diff icon only when a section or fragment actually owns diff
   atoms.
 - Maintain existing persisted review/thread/shape semantics and one-file-per-
-  event conflict resistance.
+  event conflict resistance. Evolve explicit author fields compatibly: existing
+  files continue to load, while new events rely on Git attribution.
+- Add a Git attribution service that resolves the introducing commit for each
+  event file and exposes canonical committer name/email, commit timestamp, and
+  commit ID to the renderer. Define honest states for uncommitted, rewritten,
+  and unavailable history.
 
 Acceptance criteria:
 
@@ -114,6 +127,8 @@ Acceptance criteria:
 - A fragment with zero linked changes has no diff icon or empty diff drawer.
 - Existing comment, reply, suggestion, approval, and annotation records remain
   loadable and writable.
+- No comment, reply, suggestion, approval, or reviewed-state form asks for a
+  name. After commit, attribution matches the commit that added the event file.
 
 ## Workstream C: focused code review
 
