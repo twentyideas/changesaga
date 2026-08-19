@@ -49,18 +49,17 @@ func Read(ctx context.Context, fromDir, repositoryURI, base, head string) (Chang
 		return ChangeSet{}, err
 	}
 
-	args := []string{"-C", repo, "diff", "--unified=0", "--no-color", "--no-ext-diff", "--find-renames"}
-	headIdentity := ""
+	comparison := baseCommit
 	if head == "WORKTREE" {
-		args = append(args, baseCommit, "--")
+		// The comparison remains base..worktree.
 	} else {
 		headCommit, err := resolveRevision(ctx, repo, head)
 		if err != nil {
 			return ChangeSet{}, err
 		}
-		headIdentity = headCommit
-		args = append(args, baseCommit+"..."+headCommit, "--")
+		comparison = baseCommit + "..." + headCommit
 	}
+	args := []string{"-C", repo, "diff", "--unified=0", "--no-color", "--no-ext-diff", "--find-renames", comparison, "--"}
 	cmd := exec.CommandContext(ctx, "git", args...)
 	output, err := cmd.Output()
 	if err != nil {
@@ -70,10 +69,13 @@ func Read(ctx context.Context, fromDir, repositoryURI, base, head string) (Chang
 		}
 		return ChangeSet{}, fmt.Errorf("git diff: %w", err)
 	}
-	if head == "WORKTREE" {
-		digest := sha256.Sum256(output)
-		headIdentity = fmt.Sprintf("worktree-%x", digest[:])
+	productArgs := []string{"-C", repo, "diff", "--binary", "--full-index", "--no-color", "--no-ext-diff", "--find-renames", comparison, "--", ".", ":(exclude,glob)**/*.saga/**"}
+	productPatch, err := exec.CommandContext(ctx, "git", productArgs...).Output()
+	if err != nil {
+		return ChangeSet{}, fmt.Errorf("build product diff identity: %w", err)
 	}
+	digest := sha256.Sum256(productPatch)
+	headIdentity := fmt.Sprintf("product-%x", digest[:])
 	atoms, err := Parse(output)
 	if err != nil {
 		return ChangeSet{}, err

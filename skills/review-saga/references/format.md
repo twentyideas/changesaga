@@ -64,7 +64,8 @@ urn:review-saga:<saga-id>:fragment:<fragment-id>
 
 Evidence contains absolute `saga-diff://v1/line?...` or
 `saga-diff://v1/event?...` URIs. Each URI includes the absolute repository URI,
-resolved base/head identities, and line range or event. Do not hand-edit a URI
+resolved base identity, stable product-patch identity, and line range or event. Saga-only
+commits preserve the product identity; product changes do not. Do not hand-edit a URI
 to make stale evidence pass; regenerate it against the intended source state.
 `saga-diff://v1/file?...` identifies a whole changed file only for review
 progress; it is not coverage evidence.

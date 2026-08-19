@@ -1,6 +1,11 @@
 package gitdiff
 
 import (
+	"context"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -62,5 +67,59 @@ func TestIsSagaPath(t *testing.T) {
 		if got := IsSagaPath(path); got != want {
 			t.Errorf("IsSagaPath(%q) = %v, want %v", path, got, want)
 		}
+	}
+}
+
+func TestProductIdentityIgnoresSagaOnlyCommits(t *testing.T) {
+	repo := t.TempDir()
+	gitTest(t, repo, "init", "-b", "main")
+	gitTest(t, repo, "config", "user.name", "Test")
+	gitTest(t, repo, "config", "user.email", "test@example.test")
+	writeGitTestFile(t, filepath.Join(repo, "README.md"), "base\n")
+	gitTest(t, repo, "add", ".")
+	gitTest(t, repo, "commit", "-m", "base")
+	base := strings.TrimSpace(gitTest(t, repo, "rev-parse", "HEAD"))
+	writeGitTestFile(t, filepath.Join(repo, "app.go"), "package app\n")
+	gitTest(t, repo, "add", ".")
+	gitTest(t, repo, "commit", "-m", "product")
+	productHead := strings.TrimSpace(gitTest(t, repo, "rev-parse", "HEAD"))
+
+	before, err := Read(context.Background(), repo, "https://example.test/acme/app.git", base, productHead)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeGitTestFile(t, filepath.Join(repo, "pr-1.saga", "note.txt"), "review metadata\n")
+	gitTest(t, repo, "add", ".")
+	gitTest(t, repo, "commit", "-m", "review")
+	after, err := Read(context.Background(), repo, "https://example.test/acme/app.git", base, "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.HeadOID != after.HeadOID || len(before.Atoms) != 1 || len(after.Atoms) != 1 || before.Atoms[0].URI != after.Atoms[0].URI {
+		t.Fatalf("saga-only commit changed product identity: before=%#v after=%#v", before, after)
+	}
+	if len(after.SagaChanges) != 1 {
+		t.Fatalf("saga-only change should still be reported: %#v", after.SagaChanges)
+	}
+}
+
+func gitTest(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	command := exec.Command("git", args...)
+	command.Dir = dir
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, output)
+	}
+	return string(output)
+}
+
+func writeGitTestFile(t *testing.T, path, body string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }

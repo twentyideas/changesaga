@@ -1,6 +1,6 @@
 ---
 name: review-saga
-description: Build, update, reconcile, validate, or open a Git-native Review Saga for a large pull request or working-tree change. Use for authoring `.saga` overview, chapter, section, and fragment hierarchies, creating Markdown/SVG/image/interactive HTML review content, attaching absolute cross-repository diff URIs, accounting for uncovered changes, repairing stale evidence, or working with anchored review threads.
+description: Create, update, validate, open, or review a Git-native Review Saga for a large pull request number, URL, branch, commit range, or working-tree change. Use for requests like "make a review saga for PR 123," for authoring overview/chapter/section/fragment hierarchies, explaining complex changes with Markdown/diagrams/interactive HTML, attaching and accounting for absolute diff URIs, reconciling evolving changes, or conducting an incremental chapter-by-chapter review.
 ---
 
 # Review Saga
@@ -14,46 +14,56 @@ Prefer an installed `saga` executable. In the Review Saga source repository, use
 `go run ./cmd/saga` when the executable is unavailable. Keep one invocation form
 for the whole task.
 
-Read [references/format.md](references/format.md) before creating or editing a
-saga. Run `saga spec` if the installed CLI disagrees with the reference; follow
-the installed CLI's active version and report the mismatch.
+Read [references/format.md](references/format.md) before changing saga files.
+When authoring a new saga, also read
+[references/authoring.md](references/authoring.md). Run `saga spec` if the
+installed CLI disagrees with the references; follow the CLI and report the
+mismatch.
 
 ## Author a saga
 
-1. Inspect the repository, source comparison, and existing `.saga` directories.
-   Do not assume `main`; identify the actual PR base and head when available.
-2. Initialize the saga when none exists:
+1. Resolve the request to an exact source comparison. For a PR number or URL,
+   use the available hosting integration or CLI to obtain its title, URL, base,
+   and head, and ensure the head is available locally. Never infer the base from
+   the default branch when PR metadata is available.
+2. Inspect the PR description, commit/file summary, full diff, tests, and any
+   existing `.saga`. Do not modify product code while authoring unless asked.
+3. Initialize the saga when none exists:
 
    ```sh
-   saga init --base <base> --head <head> --title "<title>" <name>.saga
+   saga init --base <base> --head <head> --title "<title>" \
+     [--pr <number> --pr-url <url>] <name>.saga
    ```
 
    Use `WORKTREE` as the head only for tracked in-progress changes. Warn that the
    current engine does not account for untracked files.
-3. Run `saga status --json <name>.saga`. Treat its uncovered atoms as the work
+4. Run `saga status --json <name>.saga`. Treat its uncovered atoms as the work
    queue and its stale diff URIs as reconciliation work.
-4. Read the relevant code and diff context. Group changes by reviewer intent,
+5. Read the relevant code and diff context. Draft the overview and chapter map
+   before attaching evidence. Group changes by reviewer intent,
    such as architecture, request flow, data migration, frontend behavior,
    operational risk, or tests. Do not group solely by file extension or assign a
    broad range before understanding it.
-5. Divide the change into a small set of independently reviewable chapters with
+6. Divide the change into a small set of independently reviewable chapters with
    `saga add-chapter`. Treat each chapter like a PR that could be assigned and
    approved on its own. Use recursive sections inside a chapter only when they
    improve a reviewer's path through that unit.
-6. Build each chapter and section from focused fragments with `saga add-fragment`. Use
+7. Replace the root and chapter overview placeholders with the content contract
+   in `references/authoring.md`. Build focused fragments with `saga add-fragment`. Use
    Markdown for explanation, SVG or images for visual models, and sandboxed HTML
    with bundled JavaScript for interactions that materially improve
    understanding. Keep one review idea per fragment and avoid decorative media.
-7. Attach only the atoms actually explained or demonstrated by a fragment (or a
+8. Attach only the atoms actually explained or demonstrated by a fragment (or a
    deliberately higher target) with `saga cover --target`. Use `old` for
    deletions and `new` for additions. Cover rename, mode, and binary events
    explicitly. Prefer the absolute URIs emitted by `status --json` when source
    and saga live in different repositories.
-8. Repeat `saga status --json` until every product atom is covered and no stale
+9. Repeat `saga status --json` until every product atom is covered and no stale
    selector remains. Inspect overlaps and keep them only when multiple reviewer
    journeys genuinely need the same change.
-9. Run both `saga validate --json` and `saga status --json`. Summarize the section
-   structure, coverage result, saga-only changes, and any limitations.
+10. Run both `saga validate --json` and `saga status --json`, then perform the
+    reviewer-readiness checks in `references/authoring.md`. Summarize the
+    chapter structure, coverage result, saga-only changes, and limitations.
 
 Never make a selector wider merely to reach 100%. If an atom does not fit the
 current story, improve the structure or call out the unexplained change.
@@ -70,6 +80,8 @@ Run status against the new head, then handle both sides of drift:
   delete them to make the current state look cleaner.
 - Never consolidate comments, replies, or state events into shared files. Each
   review action is an independent append-only record to minimize Git conflicts.
+- Saga-only commits intentionally preserve the product diff identity. Product
+  changes make old evidence stale and require reconciliation.
 
 ## Open or conduct a review
 

@@ -88,7 +88,8 @@ Deleted lines use `--side old`. A pure file event is covered with, for example,
 `--event rename --old-path old.go --new-path new.go`.
 
 Each resulting evidence record contains a `saga-diff://v1/...` URI with the
-absolute source repository URI and resolved base/head identities. For a saga in
+absolute source repository URI, resolved base identity, and a stable digest of
+the product patch. Saga-only commits do not invalidate the digest. For a saga in
 a separate repository, add `--repo /path/to/source-checkout` to `cover`,
 `status`, and `open`.
 

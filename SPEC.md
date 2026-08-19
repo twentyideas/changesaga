@@ -169,10 +169,14 @@ require `path`, `side` (`old` or `new`), `start`, and `end`. Event URIs use
 require `path`. File URIs identify the complete changed file for review-progress
 events; they are not valid coverage links.
 
-Commit comparisons use resolved commit OIDs in links. A `WORKTREE` head uses
-`worktree-<sha256-of-patch>`, so links become stale whenever tracked worktree
-content changes. Engines compare the complete URI identity, preventing evidence
-from silently matching a similar path in a different repository or revision.
+The base identity is its resolved commit OID. The head identity is
+`product-<sha256-of-binary-patch>` where the patch excludes paths beneath any
+`.saga` directory. Product edits therefore make links stale, while committing
+comments, replies, approvals, or other saga-only changes does not invalidate
+otherwise identical evidence. `HEAD` and `WORKTREE` produce the same identity
+when their tracked product changes are identical. Engines compare the complete
+URI identity, preventing evidence from silently matching a similar path in a
+different repository or product comparison.
 
 ## 6. Attaching diffs
 
