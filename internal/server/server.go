@@ -37,20 +37,29 @@ type app struct {
 
 type pageData struct {
 	Saga          *saga.Saga
-	Report        coverage.Report
 	Root          *sectionView
-	Percent       int
-	Generated     time.Time
+	Chapters      []*chapterIndexView
+	Overview      bool
+	Chapter       bool
+	Diagnostic    string
 	Error         string
-	SchemaInfo    string
 	Files         []*fileDiffView
 	ReviewedFiles int
+}
+
+type chapterIndexView struct {
+	ID      string
+	Title   string
+	URL     string
+	Summary string
+	Status  string
+	Action  string
+	Active  bool
 }
 
 type sectionView struct {
 	*saga.Section
 	DOMID         string
-	DisplayPath   string
 	Changes       []*diffAtomView
 	Threads       []*threadView
 	FragmentViews []*fragmentView
@@ -124,6 +133,7 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 	}
 	application := &app{root: abs, sourceDir: sourceDir, template: tmpl}
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /chapters/{chapter}", application.page)
 	mux.HandleFunc("GET /", application.page)
 	mux.HandleFunc("GET /app.js", application.javascript)
 	mux.HandleFunc("GET /f/{id}/{path...}", application.fragmentFile)
@@ -201,18 +211,40 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 			reviewedFiles++
 		}
 	}
-	percent := 100
-	if report.Summary.Total > 0 {
-		percent = report.Summary.Covered * 100 / report.Summary.Total
+	rootView := makeSectionView(document.Section, changesByTarget, threadsByTarget, threadsByDiff)
+	chapterID, chapterRoute := requestedChapter(r)
+	if r.URL.Path != "/" && !chapterRoute {
+		http.NotFound(w, r)
+		return
+	}
+	selected := rootView
+	if chapterRoute {
+		selected = nil
+		for _, child := range rootView.ChildViews {
+			if child.Kind == "chapter" && child.ID == chapterID {
+				selected = child
+				break
+			}
+		}
+		if selected == nil {
+			http.NotFound(w, r)
+			return
+		}
+	} else {
+		// The overview owns only root-level content. Chapter bodies are rendered
+		// exclusively by their stable chapter routes.
+		selected = cloneSectionWithoutChildren(rootView)
 	}
 	data := pageData{
-		Saga: document, Report: report,
-		Root:    makeSectionView(document.Section, changesByTarget, threadsByTarget, threadsByDiff),
-		Percent: percent, Generated: time.Now(), SchemaInfo: fmt.Sprintf("format v%d", saga.CurrentVersion),
-		Files: files, ReviewedFiles: reviewedFiles,
+		Saga: document,
+		Root: selected, Overview: !chapterRoute, Chapter: chapterRoute,
+		Chapters: makeChapterIndex(rootView, chapterID),
+		Files:    files, ReviewedFiles: reviewedFiles,
 	}
 	if diffErr != nil {
-		data.Error = diffErr.Error()
+		data.Error = "The source comparison could not be loaded. Run saga validate for diagnostic details."
+	} else if !report.Complete {
+		data.Diagnostic = "Review is blocked because this saga does not account for every source change. Run saga validate for diagnostic details."
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := a.template.ExecuteTemplate(w, "page", data); err != nil {
@@ -220,11 +252,89 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func makeSectionView(section *saga.Section, changes map[string][]gitdiff.Atom, threads map[string][]*threadView, diffThreads map[string][]*threadView) *sectionView {
-	view := &sectionView{Section: section, DOMID: domID(section.Target), DisplayPath: section.Path, Changes: makeAtomViews(changes[section.Target], section.Target, diffThreads), Threads: threads[section.Target]}
-	if view.DisplayPath == "" {
-		view.DisplayPath = "Overview"
+func requestedChapter(r *http.Request) (string, bool) {
+	if value := r.PathValue("chapter"); value != "" {
+		return value, true
 	}
+	const prefix = "/chapters/"
+	if !strings.HasPrefix(r.URL.Path, prefix) {
+		return "", false
+	}
+	value := strings.TrimPrefix(r.URL.Path, prefix)
+	return value, value != "" && !strings.Contains(value, "/")
+}
+
+func cloneSectionWithoutChildren(view *sectionView) *sectionView {
+	clone := *view
+	clone.ChildViews = nil
+	return &clone
+}
+
+func makeChapterIndex(root *sectionView, activeID string) []*chapterIndexView {
+	chapters := make([]*chapterIndexView, 0, len(root.ChildViews))
+	for _, child := range root.ChildViews {
+		if child.Kind != "chapter" {
+			continue
+		}
+		sections, fragments := sectionSize(child)
+		status := "Unreviewed"
+		action := "Open"
+		if child.ReviewState == "approved" {
+			status = "Approved"
+		} else if sectionHasActivity(child) {
+			status = "In progress"
+			action = "Resume"
+		}
+		parts := make([]string, 0, 2)
+		if sections > 0 {
+			parts = append(parts, fmt.Sprintf("%d %s", sections, plural(sections, "section", "sections")))
+		}
+		parts = append(parts, fmt.Sprintf("%d %s", fragments, plural(fragments, "fragment", "fragments")))
+		chapters = append(chapters, &chapterIndexView{
+			ID: child.ID, Title: child.Title, URL: "/chapters/" + url.PathEscape(child.ID),
+			Summary: strings.Join(parts, " · "), Status: status, Action: action, Active: child.ID == activeID,
+		})
+	}
+	return chapters
+}
+
+func sectionSize(view *sectionView) (int, int) {
+	sections := len(view.ChildViews)
+	fragments := len(view.FragmentViews)
+	for _, child := range view.ChildViews {
+		childSections, childFragments := sectionSize(child)
+		sections += childSections
+		fragments += childFragments
+	}
+	return sections, fragments
+}
+
+func sectionHasActivity(view *sectionView) bool {
+	if view.ReviewState != "" || len(view.Threads) > 0 {
+		return true
+	}
+	for _, fragment := range view.FragmentViews {
+		if fragment.ReviewState != "" || len(fragment.Threads) > 0 {
+			return true
+		}
+	}
+	for _, child := range view.ChildViews {
+		if sectionHasActivity(child) {
+			return true
+		}
+	}
+	return false
+}
+
+func plural(count int, singular, plural string) string {
+	if count == 1 {
+		return singular
+	}
+	return plural
+}
+
+func makeSectionView(section *saga.Section, changes map[string][]gitdiff.Atom, threads map[string][]*threadView, diffThreads map[string][]*threadView) *sectionView {
+	view := &sectionView{Section: section, DOMID: domID(section.Target), Changes: makeAtomViews(changes[section.Target], section.Target, diffThreads), Threads: threads[section.Target]}
 	if len(section.Reviews) > 0 {
 		reviews := append([]saga.Review(nil), section.Reviews...)
 		sort.Slice(reviews, func(i, j int) bool { return reviews[i].CreatedAt.Before(reviews[j].CreatedAt) })
@@ -420,7 +530,7 @@ func (a *app) createThread(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	http.Redirect(w, r, "/#"+domID(target), http.StatusSeeOther)
+	redirectAfterReview(w, r, "/#"+domID(target))
 }
 
 func (a *app) reply(w http.ResponseWriter, r *http.Request) {
@@ -434,7 +544,7 @@ func (a *app) reply(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	http.Redirect(w, r, "/#"+domID(r.FormValue("target")), http.StatusSeeOther)
+	redirectAfterReview(w, r, "/#"+domID(r.FormValue("target")))
 }
 
 func (a *app) threadState(w http.ResponseWriter, r *http.Request) {
@@ -447,7 +557,7 @@ func (a *app) threadState(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	http.Redirect(w, r, "/#"+domID(r.FormValue("target")), http.StatusSeeOther)
+	redirectAfterReview(w, r, "/#"+domID(r.FormValue("target")))
 }
 
 func (a *app) review(w http.ResponseWriter, r *http.Request) {
@@ -470,7 +580,7 @@ func (a *app) review(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	http.Redirect(w, r, "/#"+domID(r.FormValue("target")), http.StatusSeeOther)
+	redirectAfterReview(w, r, "/#"+domID(r.FormValue("target")))
 }
 
 func (a *app) diffReview(w http.ResponseWriter, r *http.Request) {
@@ -483,7 +593,16 @@ func (a *app) diffReview(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	http.Redirect(w, r, "/?view=code#"+r.FormValue("file"), http.StatusSeeOther)
+	redirectAfterReview(w, r, "/?view=code#"+r.FormValue("file"))
+}
+
+func redirectAfterReview(w http.ResponseWriter, r *http.Request, fallback string) {
+	destination := r.FormValue("return_to")
+	parsed, err := url.Parse(destination)
+	if err != nil || destination == "" || !strings.HasPrefix(destination, "/") || strings.HasPrefix(destination, "//") || parsed.IsAbs() || parsed.Host != "" {
+		destination = fallback
+	}
+	http.Redirect(w, r, destination, http.StatusSeeOther)
 }
 
 func parseMultipart(r *http.Request, w http.ResponseWriter) ([]string, error) {
