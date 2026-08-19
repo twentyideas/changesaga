@@ -12,7 +12,7 @@ separate pages. Each page has one primary task, one quiet status/action cluster,
 and stable URLs. Annotation tools persist once per chapter page; decisions move
 to one compact dialog; code review uses a nested file tree, a single-file diff,
 and a related-fragments sidebar. Review interactions never request identity;
-the Git commit introducing each event file is the authorship record.
+the introducing commit’s committer name and email are the identity record.
 
 This turns “review the PR” into “finish the next chapter,” while preserving the
 append-only review records and diff URIs already used by the server.
@@ -64,10 +64,11 @@ data-model risk.
 
 Git is the identity and audit layer. No comment, reply, suggestion, decision,
 thread-state, or viewed-state interaction asks for a name. For a committed event,
-display the author of the commit that introduced its file. Display an event not
-yet committed as **Local · uncommitted**. Keep legacy files with explicit author
-fields readable; where introducing-commit attribution is unavailable, label the
-fallback honestly rather than presenting editable payload identity as verified.
+display the committer name and email of the commit that introduced its file—not
+the distinct Git author fields. Display an event not yet committed as **Local ·
+uncommitted**. Keep legacy files with explicit author fields readable; where
+introducing-commit attribution is unavailable, label the fallback honestly
+rather than presenting editable payload identity as verified.
 
 ### Global shell
 
@@ -179,7 +180,7 @@ diagnostics. If ownership points to missing/stale content, show the target name,
 | File tree | Folder collapsed/expanded | Children hidden/shown; aggregate changed and unviewed counts remain. | Expansion and filter are per-browser preferences; selection is URL-owned. |
 | File tree | Filter or “Hide viewed” | Matching paths plus ancestors remain; no-match message replaces the tree body. | Clearing restores expansion state; selected file remains visible or a warning offers next match. |
 | File | Mark viewed | Text/icon state changes and next-unviewed becomes available. | Append a diff-review event for the exact base/head file URI; announce save. |
-| Event attribution | Committed / uncommitted / history unavailable / legacy explicit author | Git author / “Local · uncommitted” / “Attribution unavailable” / clearly labeled legacy fallback. | Introducing commit is authoritative; payload identity is never editable in review UI. |
+| Event attribution | Committed / uncommitted / history unavailable / legacy explicit author | Git committer name/email / “Local · uncommitted” / “Attribution unavailable” / clearly labeled legacy fallback. | The introducing commit’s committer is authoritative; Git author fields and payload identity are not editable review identity. |
 | Diff | Loading / ready / too large / failed | Skeleton / editor / explicit size fallback / retry plus diagnostics. | Never mark viewed automatically on failed or partial render. |
 | Related fragments | Hidden / file scope / line scope / none / stale | Toggle / grouped owners / exact owners first / explanatory empty state / warning. | Toggle preference persists. Opening a fragment uses a real URL and retains the diff URL for Back. |
 | Async mutation | Saving / saved / error | Action disabled with progress / quiet confirmation / inline actionable error. | Do not optimistically discard input; focus moves only on success. |
@@ -213,7 +214,8 @@ diagnostics. If ownership points to missing/stale content, show the target name,
   removed, viewed, selected, status, and stale states have text/shape indicators
   in addition to color. Focus indicators remain visible above sticky chrome.
 - Annotation shapes have a navigable textual counterpart in the thread list:
-  author, tool/anchor type, target, comment, and a “Show annotation” action.
+  Git-derived committer identity, tool/anchor type, target, comment, and a “Show
+  annotation” action.
   Pointer drawing is an enhancement; target and text comments provide full
   keyboard alternatives.
 - Use a polite live region for “File selected,” “Viewed,” and save outcomes;
@@ -310,9 +312,10 @@ Retain or add only when useful:
     mutation still creates one event file and validates against v2 schemas.
 16. **PERSIST-02 — Git attribution:** No mutation form contains a name/author
     control. Before commit, a new event reads “Local · uncommitted.” After a
-    different Git user commits it, the rendered author/timestamp/commit ID match
-    the introducing commit. Rewritten or unavailable history has an honest
-    fallback, and legacy explicit-author fixtures remain readable.
+    commit whose author and committer differ, the rendered identity matches the
+    introducing commit’s committer name/email; timestamp/commit ID also match
+    that commit. Rewritten or unavailable history has an honest fallback, and
+    legacy explicit-author fixtures remain readable.
 17. **A11Y-01 — focus:** Automated checks plus keyboard tests find no unlabeled
     controls, focus trap, hidden focused element, or modal background focus.
     Dialogs restore their invoker and route changes focus the destination `h1`.
