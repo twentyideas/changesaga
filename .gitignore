@@ -1,3 +1,4 @@
 /bin/
 /saga
 .DS_Store
+.devswarm-temp/
