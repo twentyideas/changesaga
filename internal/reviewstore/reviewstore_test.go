@@ -17,7 +17,7 @@ func TestReviewRecordsAreAppendOnlyAndFileGranular(t *testing.T) {
 		t.Fatal(err)
 	}
 	target := "urn:review-saga:test:fragment:overview"
-	first, err := AddThread(root, target, "Ada", "First comment", saga.Anchor{Type: "target"}, "comment", "", nil)
+	first, err := AddThread(root, target, "First comment", saga.Anchor{Type: "target"}, "comment", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,14 +31,14 @@ func TestReviewRecordsAreAppendOnlyAndFileGranular(t *testing.T) {
 	messageBefore := readReviewFile(t, firstMessage)
 
 	runConcurrently(t,
-		func() error { _, err := AddReply(root, first, "Grace", "Reply one", nil); return err },
-		func() error { _, err := AddReply(root, first, "Linus", "Reply two", nil); return err },
+		func() error { _, err := AddReply(root, first, "Reply one", nil); return err },
+		func() error { _, err := AddReply(root, first, "Reply two", nil); return err },
 		func() error {
-			_, err := AddThread(root, target, "Margaret", "Second comment", saga.Anchor{Type: "target"}, "comment", "", nil)
+			_, err := AddThread(root, target, "Second comment", saga.Anchor{Type: "target"}, "comment", "", nil)
 			return err
 		},
 		func() error {
-			_, err := AddThread(root, target, "Edsger", "Third comment", saga.Anchor{Type: "target"}, "comment", "", nil)
+			_, err := AddThread(root, target, "Third comment", saga.Anchor{Type: "target"}, "comment", "", nil)
 			return err
 		},
 	)
@@ -70,10 +70,10 @@ func TestReviewRecordsAreAppendOnlyAndFileGranular(t *testing.T) {
 		t.Fatal(err)
 	}
 	runConcurrently(t,
-		func() error { return AddReview(root, root, "Ada", "approved", "Looks good") },
-		func() error { return AddReview(root, root, "Grace", "rejected", "One concern") },
-		func() error { return AddDiffReview(root, fileURI, "Ada", "reviewed") },
-		func() error { return AddDiffReview(root, fileURI, "Grace", "unreviewed") },
+		func() error { return AddReview(root, root, "approved", "Looks good") },
+		func() error { return AddReview(root, root, "rejected", "One concern") },
+		func() error { return AddDiffReview(root, fileURI, "reviewed") },
+		func() error { return AddDiffReview(root, fileURI, "unreviewed") },
 	)
 	assertEntryCount(t, filepath.Join(root, "___approvals"), 2)
 	assertEntryCount(t, filepath.Join(root, "___review", "diffs"), 2)

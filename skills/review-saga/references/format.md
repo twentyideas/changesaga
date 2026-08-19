@@ -44,7 +44,7 @@ saga cover --target path/to/demo.fragment --uri 'saga-diff://v1/line?...' <name>
 saga validate --json <name>.saga
 saga status --json --repo <source-checkout> <name>.saga
 saga open --repo <source-checkout> <name>.saga
-saga review --target path/to/demo.fragment --author "Name" --state approved <name>.saga
+saga review --target path/to/demo.fragment --state approved <name>.saga
 ```
 
 `--repo` may be omitted when the saga is inside the source checkout. Flags
@@ -83,3 +83,8 @@ include explicit replacement text.
 Every top-level comment has its own `.thread` directory; every initial comment
 or reply has its own `.message` directory; and each state or approval transition
 is a new JSON file. Never consolidate these records into shared arrays.
+
+Do not supply or persist reviewer names. Canonical identity is the committer
+name and email, commit OID, and committer timestamp of the commit that first
+introduced each individual event file. Legacy `author` and `created_by` fields
+remain loadable but are not authoritative.

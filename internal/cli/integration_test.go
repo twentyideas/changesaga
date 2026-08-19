@@ -72,13 +72,13 @@ func TestAuthoringLoopAgainstGitDiff(t *testing.T) {
 	}
 	attachment := filepath.Join(t.TempDir(), "note.svg")
 	writeFile(t, attachment, `<svg xmlns="http://www.w3.org/2000/svg"><circle r="4"/></svg>`)
-	if err := Thread(context.Background(), []string{"--target", "overview.fragment", "--author", "Ada", "--body", "Please clarify this.", "--attachment", attachment, root}, &output); err != nil {
+	if err := Thread(context.Background(), []string{"--target", "overview.fragment", "--body", "Please clarify this.", "--attachment", attachment, root}, &output); err != nil {
 		t.Fatal(err)
 	}
-	if err := Review(context.Background(), []string{"--target", ".", "--author", "Grace", "--state", "approved", root}, &output); err != nil {
+	if err := Review(context.Background(), []string{"--target", ".", "--state", "approved", root}, &output); err != nil {
 		t.Fatal(err)
 	}
-	if err := Review(context.Background(), []string{"--target", "overview.fragment", "--author", "Grace", "--state", "approved", root}, &output); err != nil {
+	if err := Review(context.Background(), []string{"--target", "overview.fragment", "--state", "approved", root}, &output); err != nil {
 		t.Fatal(err)
 	}
 	document, validation, err := saga.Load(root)

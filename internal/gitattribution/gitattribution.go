@@ -14,7 +14,7 @@ const (
 	Committed   = "committed"
 	Uncommitted = "uncommitted"
 	Rewritten   = "rewritten"
-	Unavailable = "unavailable"
+	Unavailable = "history_unavailable"
 )
 
 type Attribution struct {

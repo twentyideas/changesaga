@@ -178,7 +178,9 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	applyGitAttribution(r.Context(), gitattribution.New(r.Context(), a.sourceDir), document)
+	// Review identity belongs to the repository containing the saga, which can
+	// be different from the source checkout used to evaluate product diffs.
+	applyGitAttribution(r.Context(), gitattribution.New(r.Context(), a.root), document)
 	changes, diffErr := gitdiff.Read(r.Context(), a.sourceDir, document.Manifest.Source.Repository, document.Manifest.Source.Base, document.Manifest.Source.Head)
 	var report coverage.Report
 	if diffErr == nil {
@@ -502,12 +504,11 @@ func latestReview(reviews []saga.Review) (string, string, string) {
 }
 
 func applyGitAttribution(ctx context.Context, resolver *gitattribution.Resolver, document *saga.Saga) {
-	apply := func(path string, author *string, createdAt *time.Time, detail *string) {
+	apply := func(path string, author *string, detail *string) {
 		value := resolver.Resolve(ctx, path)
 		switch value.State {
 		case gitattribution.Committed:
 			*author = value.Name
-			*createdAt = value.CommittedAt
 			commitID := value.CommitID
 			if len(commitID) > 12 {
 				commitID = commitID[:12]
@@ -517,27 +518,23 @@ func applyGitAttribution(ctx context.Context, resolver *gitattribution.Resolver,
 			*author = "Local / uncommitted"
 			*detail = "This review event has not been committed yet."
 		case gitattribution.Rewritten:
-			if strings.TrimSpace(*author) == "" {
-				*author = "History rewritten"
-			}
-			*detail = "Git history no longer contains the commit that introduced this review event; legacy payload identity is shown when present."
+			*author = "History rewritten"
+			*detail = "Git history no longer contains the commit that introduced this review event. Stored legacy identity is not authoritative."
 		default:
-			if strings.TrimSpace(*author) == "" {
-				*author = "Attribution unavailable"
-			}
-			*detail = "Git attribution is unavailable; legacy payload identity is shown when present."
+			*author = "Git history unavailable"
+			*detail = "Git attribution is unavailable. Stored legacy identity is not authoritative."
 		}
 	}
 	var walk func(*saga.Section)
 	walk = func(section *saga.Section) {
 		for index := range section.Reviews {
 			review := &section.Reviews[index]
-			apply(review.Path, &review.Author, &review.CreatedAt, &review.AttributionDetail)
+			apply(review.Path, &review.Author, &review.AttributionDetail)
 		}
 		for _, fragment := range section.Fragments {
 			for index := range fragment.Reviews {
 				review := &fragment.Reviews[index]
-				apply(review.Path, &review.Author, &review.CreatedAt, &review.AttributionDetail)
+				apply(review.Path, &review.Author, &review.AttributionDetail)
 			}
 		}
 		for _, child := range section.Children {
@@ -546,18 +543,18 @@ func applyGitAttribution(ctx context.Context, resolver *gitattribution.Resolver,
 	}
 	walk(document.Section)
 	for _, thread := range document.Threads {
-		apply(filepath.Join(thread.Directory, "thread.json"), &thread.CreatedBy, &thread.CreatedAt, &thread.AttributionDetail)
+		apply(filepath.Join(thread.Directory, "thread.json"), &thread.CreatedBy, &thread.AttributionDetail)
 		for _, message := range thread.Messages {
-			apply(message.Path, &message.Author, &message.CreatedAt, &message.AttributionDetail)
+			apply(message.Path, &message.Author, &message.AttributionDetail)
 		}
 		for index := range thread.Events {
 			event := &thread.Events[index]
-			apply(event.Path, &event.Author, &event.CreatedAt, &event.AttributionDetail)
+			apply(event.Path, &event.Author, &event.AttributionDetail)
 		}
 	}
 	for index := range document.DiffReviews {
 		review := &document.DiffReviews[index]
-		apply(review.Path, &review.Author, &review.CreatedAt, &review.AttributionDetail)
+		apply(review.Path, &review.Author, &review.AttributionDetail)
 	}
 }
 
@@ -635,7 +632,7 @@ func (a *app) createThread(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid annotation anchor", http.StatusBadRequest)
 		return
 	}
-	if _, err := reviewstore.AddThread(a.root, target, "", r.FormValue("body"), anchor, r.FormValue("kind"), r.FormValue("replacement"), attachments); err != nil {
+	if _, err := reviewstore.AddThread(a.root, target, r.FormValue("body"), anchor, r.FormValue("kind"), r.FormValue("replacement"), attachments); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -649,7 +646,7 @@ func (a *app) reply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer removeTemporary(attachments)
-	if _, err := reviewstore.AddReply(a.root, r.FormValue("thread"), "", r.FormValue("body"), attachments); err != nil {
+	if _, err := reviewstore.AddReply(a.root, r.FormValue("thread"), r.FormValue("body"), attachments); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -662,7 +659,7 @@ func (a *app) threadState(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := reviewstore.SetState(a.root, r.FormValue("thread"), "", r.FormValue("state")); err != nil {
+	if err := reviewstore.SetState(a.root, r.FormValue("thread"), r.FormValue("state")); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -685,7 +682,7 @@ func (a *app) review(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "review target does not exist", http.StatusBadRequest)
 		return
 	}
-	if err := reviewstore.AddReview(a.root, dir, "", r.FormValue("state"), r.FormValue("body")); err != nil {
+	if err := reviewstore.AddReview(a.root, dir, r.FormValue("state"), r.FormValue("body")); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -698,7 +695,7 @@ func (a *app) diffReview(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := reviewstore.AddDiffReview(a.root, r.FormValue("uri"), "", r.FormValue("state")); err != nil {
+	if err := reviewstore.AddDiffReview(a.root, r.FormValue("uri"), r.FormValue("state")); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

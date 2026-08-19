@@ -13,7 +13,7 @@ import (
 	"github.com/review-saga/review-saga/internal/store"
 )
 
-func AddThread(root, target, _ string, body string, anchor saga.Anchor, kind, replacement string, attachments []string) (string, error) {
+func AddThread(root, target, body string, anchor saga.Anchor, kind, replacement string, attachments []string) (string, error) {
 	if target == "" {
 		return "", fmt.Errorf("target is required")
 	}
@@ -55,13 +55,13 @@ func AddThread(root, target, _ string, body string, anchor saga.Anchor, kind, re
 	if err := store.WriteJSON(filepath.Join(threadDir, "thread.json"), thread, true); err != nil {
 		return "", err
 	}
-	if _, err := addMessage(threadDir, "", body, attachments, now); err != nil {
+	if _, err := addMessage(threadDir, body, attachments, now); err != nil {
 		return "", err
 	}
 	return id, nil
 }
 
-func AddDiffReview(root, uri, _ string, state string) error {
+func AddDiffReview(root, uri, state string) error {
 	reference, err := diffuri.Parse(uri)
 	if err != nil || reference.Kind != "file" {
 		return fmt.Errorf("diff review requires a valid file diff URI")
@@ -79,7 +79,7 @@ func AddDiffReview(root, uri, _ string, state string) error {
 	return store.WriteJSON(filepath.Join(dir, id+"-"+state+".json"), review, true)
 }
 
-func AddReply(root, threadID, _ string, body string, attachments []string) (string, error) {
+func AddReply(root, threadID, body string, attachments []string) (string, error) {
 	if strings.TrimSpace(threadID) == "" {
 		return "", fmt.Errorf("thread is required")
 	}
@@ -93,10 +93,10 @@ func AddReply(root, threadID, _ string, body string, attachments []string) (stri
 	if _, err := store.EnsureDirWithin(root, threadDir); err != nil {
 		return "", err
 	}
-	return addMessage(threadDir, "", body, attachments, time.Now().UTC())
+	return addMessage(threadDir, body, attachments, time.Now().UTC())
 }
 
-func SetState(root, threadID, _ string, state string) error {
+func SetState(root, threadID, state string) error {
 	if state != "open" && state != "resolved" {
 		return fmt.Errorf("thread state must be open or resolved")
 	}
@@ -114,7 +114,7 @@ func SetState(root, threadID, _ string, state string) error {
 	return store.WriteJSON(filepath.Join(eventsDir, id+"-"+state+".json"), event, true)
 }
 
-func AddReview(root, targetDir, _ string, state, body string) error {
+func AddReview(root, targetDir, state, body string) error {
 	if state != "approved" && state != "rejected" && state != "closed" && state != "open" {
 		return fmt.Errorf("review requires approved, rejected, closed, or open state")
 	}
@@ -128,7 +128,7 @@ func AddReview(root, targetDir, _ string, state, body string) error {
 	return store.WriteJSON(filepath.Join(dir, id+"-"+state+".json"), review, true)
 }
 
-func addMessage(threadDir, _ string, body string, attachments []string, now time.Time) (string, error) {
+func addMessage(threadDir, body string, attachments []string, now time.Time) (string, error) {
 	if strings.TrimSpace(body) == "" && len(attachments) == 0 {
 		return "", fmt.Errorf("message body or attachment is required")
 	}
