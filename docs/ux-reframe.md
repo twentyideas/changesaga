@@ -39,8 +39,9 @@ also reveal excerpts from every related saga fragment.
 - Review data stays append-friendly. UX changes must preserve one-event-per-file
   review storage and avoid shared mutable metadata files.
 - Git is the identity and audit layer. Review forms never ask for an author;
-  the author of a comment, reply, approval, or other review event is derived
-  from the commit that introduced its file. The renderer may show that Git
+  the author of a comment, reply, approval, or other review event is the
+  **committer** of the commit that introduced its file. Use Git committer name
+  and email, not the distinct author fields. The renderer may show that Git
   attribution, but the saga payload must not duplicate editable identity data.
 
 ## Prior art translated into decisions
@@ -115,9 +116,9 @@ Acceptance criteria:
   event conflict resistance. Evolve explicit author fields compatibly: existing
   files continue to load, while new events rely on Git attribution.
 - Add a Git attribution service that resolves the introducing commit for each
-  event file and exposes author, committer, timestamp, and commit ID to the
-  renderer. Define honest states for uncommitted, rewritten, and unavailable
-  history.
+  event file and exposes canonical committer name/email, commit timestamp, and
+  commit ID to the renderer. Define honest states for uncommitted, rewritten,
+  and unavailable history.
 
 Acceptance criteria:
 
