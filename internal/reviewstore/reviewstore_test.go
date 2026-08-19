@@ -77,6 +77,19 @@ func TestReviewRecordsAreAppendOnlyAndFileGranular(t *testing.T) {
 	)
 	assertEntryCount(t, filepath.Join(root, "___approvals"), 2)
 	assertEntryCount(t, filepath.Join(root, "___review", "diffs"), 2)
+	err = filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil || entry.IsDir() || filepath.Ext(path) != ".json" {
+			return err
+		}
+		data := readReviewFile(t, path)
+		if bytes.Contains(data, []byte(`"author"`)) || bytes.Contains(data, []byte(`"created_by"`)) {
+			t.Fatalf("new review event duplicated editable identity in %s: %s", path, data)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func runConcurrently(t *testing.T, operations ...func() error) {

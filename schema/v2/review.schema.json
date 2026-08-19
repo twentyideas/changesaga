@@ -4,7 +4,7 @@
   "title": "Review Saga approval event",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "id", "author", "state", "created_at"],
+  "required": ["version", "id", "state", "created_at"],
   "properties": {
     "version": { "const": 2 },
     "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },

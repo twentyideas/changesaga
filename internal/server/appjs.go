@@ -153,14 +153,6 @@ const appJavaScript = `(() => {
     drawing = {fragment: activeFragment, overlay, mode, points: []};
   }
 
-  const reviewer = q('#reviewer-name');
-  if (reviewer) {
-    try { reviewer.value = localStorage.getItem('review-saga-author') || ''; } catch (_) {}
-    reviewer.addEventListener('input', () => {
-      try { localStorage.setItem('review-saga-author', reviewer.value); } catch (_) {}
-    });
-  }
-
   document.addEventListener('mousedown', event => {
     if (event.target.closest('[data-tool="text"]')) event.preventDefault();
   });
@@ -196,16 +188,6 @@ const appJavaScript = `(() => {
 
   document.addEventListener('submit', event => {
     const form = event.target;
-    const sessionAuthors = qa('.session-author', form);
-    if (sessionAuthors.length) {
-      const author = reviewer ? reviewer.value.trim() : '';
-      if (!author) {
-        event.preventDefault();
-        if (reviewer) reviewer.focus();
-        return;
-      }
-      sessionAuthors.forEach(input => { input.value = author; });
-    }
     if (form.matches('form[action^="/api/"]')) {
       let returnTo = q('[name=return_to]', form);
       if (!returnTo) {

@@ -4,7 +4,7 @@
   "title": "Review Saga anchored thread",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "id", "target", "anchor", "created_by", "created_at"],
+  "required": ["version", "id", "target", "anchor", "created_at"],
   "properties": {
     "version": { "const": 2 },
     "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
