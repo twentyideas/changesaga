@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "id": "loader-validation",
+  "title": "Safe strict loader",
+  "media_type": "text/markdown",
+  "entrypoint": "content.md"
+}

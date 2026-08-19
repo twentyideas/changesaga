@@ -1,0 +1,21 @@
+# Chapter purpose
+
+Make the format usable for a human reviewing a large change over several sessions. This chapter owns the local server, narrative renderer, complete diff browser, annotation tooling, and mutation endpoints.
+
+# Boundary and dependencies
+
+The UI consumes the loaded saga, coverage report, source atoms, and append-only review store defined in the first two chapters. It does not introduce a separate browser database or hidden review state.
+
+# Reviewer journey
+
+Saga view starts with coverage health, then presents the root overview and chapters in authored order. Every section or fragment can open its attached code in a scrollable right-hand drawer without losing narrative context. Code Diff view reuses the same diff rows but exposes the complete comparison with a changed-file tree.
+
+Reviewers can comment on targets, select text, draw rectangles or freehand paths, attach rich fragments, comment on diff lines, propose replacement code, resolve threads, approve narrative targets, and mark files reviewed. Because both views use the same stored threads, a comment made in either context appears everywhere that diff is shown.
+
+# Security and interaction risks
+
+Interactive HTML and SVG run in sandboxed iframes with scripts enabled but network, forms, objects, and parent access denied. Fragment file serving resolves symlinks and rejects reserved metadata paths. The server is intentionally local-only by default and has no authentication.
+
+# Reviewer checks
+
+Verify the same line thread appears in attached drawers and the full diff view; review state survives reload because it is file-backed; text and shape anchors remain attached to the correct fragment; unsafe fragment paths are rejected; and responsive layouts preserve access to primary controls.

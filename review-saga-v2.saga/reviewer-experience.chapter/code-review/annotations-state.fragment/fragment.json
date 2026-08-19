@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "id": "annotations-state",
+  "title": "Rich annotations and incremental state",
+  "media_type": "text/markdown",
+  "entrypoint": "content.md"
+}

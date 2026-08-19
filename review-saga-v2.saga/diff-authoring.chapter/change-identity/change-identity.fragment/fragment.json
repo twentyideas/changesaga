@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "id": "change-identity",
+  "title": "Portable diff URIs",
+  "media_type": "text/markdown",
+  "entrypoint": "content.md"
+}

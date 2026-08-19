@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "id": "cli-ai-workflow",
+  "title": "CLI and AI workflow",
+  "media_type": "text/markdown",
+  "entrypoint": "content.md"
+}

@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "id": "format-history-overview",
+  "title": "Chapter overview",
+  "media_type": "text/markdown",
+  "entrypoint": "content.md"
+}

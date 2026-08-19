@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 660" role="img" aria-labelledby="title desc">
+  <title id="title">Fractal Review Saga directory model</title><desc id="desc">A saga overview contains chapters, recursive sections, fragments, local diff evidence, and a separate append-only review overlay.</desc>
+  <style>.root{fill:#19342a}.chapter{fill:#e3f0e8;stroke:#32715a;stroke-width:2}.node{fill:#fff;stroke:#c9c5b8;stroke-width:2}.meta{fill:#fff1d9;stroke:#bd7b25;stroke-width:2}.w{font:600 24px system-ui;fill:#fff}.t{font:600 21px system-ui;fill:#20372e}.s{font:15px ui-monospace,monospace;fill:#5b6c64}.line{stroke:#8ca397;stroke-width:3}</style>
+  <rect width="1100" height="660" rx="26" fill="#f4f1e8"/><rect class="root" x="50" y="50" width="1000" height="85" rx="17"/><text class="w" x="85" y="88">change.saga/</text><text x="85" y="114" fill="#bfe0cf" font-family="ui-monospace,monospace">saga.json · overview.fragment · ___review/</text>
+  <path class="line" d="M230 135v65M820 135v65"/>
+  <rect class="chapter" x="70" y="200" width="430" height="390" rx="20"/><text class="t" x="100" y="240">backend.chapter/</text><text class="s" x="100" y="268">chapter.json · ___diffs/ · ___approvals/</text>
+  <rect class="node" x="105" y="305" width="355" height="75" rx="13"/><text class="t" x="130" y="338">overview.fragment/</text><text class="s" x="130" y="362">fragment.json + content.md</text>
+  <rect class="node" x="105" y="410" width="355" height="135" rx="13"/><text class="t" x="130" y="443">request-flow/</text><text class="s" x="130" y="469">section.json</text><text class="s" x="155" y="500">interactive.fragment/</text><text class="s" x="155" y="525">fragment.json + index.html + assets</text>
+  <rect class="meta" x="560" y="200" width="470" height="390" rx="20"/><text class="t" x="595" y="240">___review/ — separate overlay</text>
+  <rect class="node" x="600" y="285" width="390" height="120" rx="13"/><text class="t" x="625" y="320">threads/&lt;id&gt;.thread/</text><text class="s" x="625" y="348">thread.json · events/</text><text class="s" x="625" y="374">messages/&lt;id&gt;.message/fragments…</text>
+  <rect class="node" x="600" y="440" width="180" height="95" rx="13"/><text class="t" x="625" y="475">diffs/</text><text class="s" x="625" y="503">one event/file</text>
+  <rect class="node" x="810" y="440" width="180" height="95" rx="13"/><text class="t" x="835" y="475">approvals/</text><text class="s" x="835" y="503">one event/file</text>
+</svg>
