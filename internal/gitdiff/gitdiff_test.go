@@ -56,6 +56,28 @@ Binary files a/logo.png and b/logo.png differ
 	}
 }
 
+func TestParseKeepsDisplayContextOutOfCoverageAtoms(t *testing.T) {
+	patch := []byte(`diff --git a/app.go b/app.go
+--- a/app.go
++++ b/app.go
+@@ -8,3 +8,3 @@
+ unchanged before
+-old value
++new value
+ unchanged after
+`)
+	atoms, lines, err := parse(patch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(atoms) != 2 {
+		t.Fatalf("coverage atoms = %d, want only added and removed lines", len(atoms))
+	}
+	if len(lines) != 4 || lines[0].Kind != "context" || lines[0].OldLine != 8 || lines[0].NewLine != 8 || lines[1].Kind != "old" || lines[2].Kind != "new" || lines[3].Kind != "context" {
+		t.Fatalf("unexpected display lines: %#v", lines)
+	}
+}
+
 func TestIsSagaPath(t *testing.T) {
 	tests := map[string]bool{
 		"pr-12.saga/title.md":              true,

@@ -43,11 +43,27 @@ type FileDiffView struct {
 	URI      string
 	Href     string
 	Atoms    []*diffAtomView
+	Lines    []*DiffLineView
 	Added    int
 	Deleted  int
 	Reviewed bool
 	Reviewer string
 	Selected bool
+}
+
+// DiffLineView is presentation-only. Atom is populated for changed lines and
+// events so existing fully-qualified comment and suggestion contracts remain
+// attached to the same diff atom.
+type DiffLineView struct {
+	Kind    string
+	Path    string
+	OldLine int
+	NewLine int
+	Content string
+	Event   string
+	OldPath string
+	NewPath string
+	Atom    *diffAtomView
 }
 
 type ChangedFileTreeView struct {
@@ -187,6 +203,9 @@ func makeCodeReviewView(document *saga.Saga, changes gitdiff.ChangeSet, report c
 	view.SelectedFile = selected
 	view.SelectedDiffURI = selection.diffURI
 	view.SelectedDiffs = selectedAtoms
+	for _, atom := range selectedAtoms {
+		atom.Selected = true
+	}
 	if len(selectedAtoms) == 1 {
 		view.SelectedDiff = selectedAtoms[0]
 	}

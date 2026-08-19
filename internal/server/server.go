@@ -85,9 +85,10 @@ type fragmentView struct {
 
 type diffAtomView struct {
 	gitdiff.Atom
-	Threads []*threadView
-	Target  string
-	Href    string
+	Threads  []*threadView
+	Target   string
+	Href     string
+	Selected bool
 }
 
 type fileDiffView = FileDiffView
@@ -425,6 +426,47 @@ func makeFileViews(changes gitdiff.ChangeSet, target string, reviews []saga.Diff
 			file.Added++
 		} else if atom.Side == "old" {
 			file.Deleted++
+		}
+	}
+	// Keep a stable key lookup so renderer-only context lines can point back to
+	// the exact changed atom used by comments, suggestions, and coverage.
+	atomsByKey := map[string]*diffAtomView{}
+	for _, file := range byPath {
+		for _, atom := range file.Atoms {
+			atomsByKey[atom.Key] = atom
+		}
+	}
+	for _, line := range changes.DisplayLines {
+		linePath := line.Path
+		if renamed, ok := renameTo[linePath]; ok {
+			linePath = renamed
+		}
+		file := byPath[linePath]
+		if file == nil {
+			continue
+		}
+		file.Lines = append(file.Lines, &DiffLineView{
+			Kind: line.Kind, Path: linePath, OldLine: line.OldLine, NewLine: line.NewLine,
+			Content: line.Content, Event: line.Event, OldPath: line.OldPath, NewPath: line.NewPath,
+			Atom: atomsByKey[line.AtomKey],
+		})
+	}
+	// Manually constructed ChangeSets (and older callers) have no display
+	// context. Fall back to the changed atoms without weakening their actions.
+	for _, file := range byPath {
+		if len(file.Lines) != 0 {
+			continue
+		}
+		for _, atom := range file.Atoms {
+			line := &DiffLineView{Kind: atom.Side, Path: file.Path, Content: atom.Content, Event: atom.Event, OldPath: atom.OldPath, NewPath: atom.NewPath, Atom: atom}
+			if atom.Kind == "event" {
+				line.Kind = "event"
+			} else if atom.Side == "old" {
+				line.OldLine = atom.Line
+			} else {
+				line.NewLine = atom.Line
+			}
+			file.Lines = append(file.Lines, line)
 		}
 	}
 	paths := make([]string, 0, len(byPath))

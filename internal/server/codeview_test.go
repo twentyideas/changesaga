@@ -148,6 +148,29 @@ func TestRelatedSagaEmptyStateIsExplicit(t *testing.T) {
 	}
 }
 
+func TestFileViewsAttachRendererContextWithoutChangingAtoms(t *testing.T) {
+	old := gitdiff.Atom{Key: "line:app.go:old:2", Kind: "line", Path: "app.go", Side: "old", Line: 2, Content: "old", URI: "old-uri"}
+	added := gitdiff.Atom{Key: "line:app.go:new:2", Kind: "line", Path: "app.go", Side: "new", Line: 2, Content: "new", URI: "new-uri"}
+	changes := gitdiff.ChangeSet{
+		Repository: "https://example.test/a.git", BaseOID: "aaa", HeadOID: "bbb", Atoms: []gitdiff.Atom{old, added},
+		DisplayLines: []gitdiff.DisplayLine{
+			{Kind: "context", Path: "app.go", OldLine: 1, NewLine: 1, Content: "package app"},
+			{Kind: "old", Path: "app.go", OldLine: 2, Content: "old", AtomKey: old.Key},
+			{Kind: "new", Path: "app.go", NewLine: 2, Content: "new", AtomKey: added.Key},
+		},
+	}
+	files := makeFileViews(changes, "urn:review-saga:test:saga", nil, nil)
+	if len(files) != 1 || len(files[0].Atoms) != 2 || len(files[0].Lines) != 3 {
+		if len(files) == 0 {
+			t.Fatal("focused file was not built")
+		}
+		t.Fatalf("unexpected focused file: atoms=%d lines=%d lines=%#v", len(files[0].Atoms), len(files[0].Lines), files[0].Lines)
+	}
+	if files[0].Lines[0].Atom != nil || files[0].Lines[1].Atom == nil || files[0].Lines[1].Atom.URI != "old-uri" || files[0].Lines[2].Atom.URI != "new-uri" {
+		t.Fatalf("display lines did not preserve atom actions: %#v", files[0].Lines)
+	}
+}
+
 func TestFragmentExcerptIsConciseAndCannotFollowEscapingSymlink(t *testing.T) {
 	directory := t.TempDir()
 	writeServerFile(t, filepath.Join(directory, "content.md"), "# Heading\n"+strings.Repeat("word ", 100))

@@ -36,6 +36,22 @@ type ChangeSet struct {
 	HeadOID     string `json:"head_oid"`
 	Atoms       []Atom `json:"atoms"`
 	SagaChanges []Atom `json:"saga_changes"`
+	// DisplayLines contains bounded unchanged context alongside changed atoms.
+	// It is renderer-only: coverage and persisted diff identity continue to use
+	// Atoms exclusively.
+	DisplayLines []DisplayLine `json:"-"`
+}
+
+type DisplayLine struct {
+	Kind    string
+	Path    string
+	OldLine int
+	NewLine int
+	Content string
+	AtomKey string
+	Event   string
+	OldPath string
+	NewPath string
 }
 
 func Read(ctx context.Context, fromDir, repositoryURI, base, head string) (ChangeSet, error) {
@@ -59,7 +75,9 @@ func Read(ctx context.Context, fromDir, repositoryURI, base, head string) (Chang
 		}
 		comparison = baseCommit + "..." + headCommit
 	}
-	args := []string{"-C", repo, "diff", "--unified=0", "--no-color", "--no-ext-diff", "--find-renames", comparison, "--"}
+	// Twenty lines gives the renderer useful expandable context while keeping
+	// large comparisons bounded. These lines are not coverage atoms.
+	args := []string{"-C", repo, "diff", "--unified=20", "--no-color", "--no-ext-diff", "--find-renames", comparison, "--"}
 	cmd := exec.CommandContext(ctx, "git", args...)
 	output, err := cmd.Output()
 	if err != nil {
@@ -76,11 +94,11 @@ func Read(ctx context.Context, fromDir, repositoryURI, base, head string) (Chang
 	}
 	digest := sha256.Sum256(productPatch)
 	headIdentity := fmt.Sprintf("product-%x", digest[:])
-	atoms, err := Parse(output)
+	atoms, displayLines, err := parse(output)
 	if err != nil {
 		return ChangeSet{}, err
 	}
-	result := ChangeSet{Repository: repositoryURI, Base: base, Head: head, BaseOID: baseCommit, HeadOID: headIdentity}
+	result := ChangeSet{Repository: repositoryURI, Base: base, Head: head, BaseOID: baseCommit, HeadOID: headIdentity, DisplayLines: displayLines}
 	for _, atom := range atoms {
 		reference := diffuri.Reference{Repository: repositoryURI, Base: baseCommit, Head: headIdentity, Kind: atom.Kind, Path: atom.Path, Side: atom.Side, Start: atom.Line, End: atom.Line, Event: atom.Event, OldPath: atom.OldPath, NewPath: atom.NewPath}
 		atom.URI, err = diffuri.Build(reference)
@@ -126,21 +144,28 @@ func errorAs(err error, target any) bool {
 var hunkPattern = regexp.MustCompile(`^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@`)
 
 func Parse(patch []byte) ([]Atom, error) {
+	atoms, _, err := parse(patch)
+	return atoms, err
+}
+
+func parse(patch []byte) ([]Atom, []DisplayLine, error) {
 	scanner := bufio.NewScanner(bytes.NewReader(patch))
 	// Binary patch lines can be long.
 	scanner.Buffer(make([]byte, 64*1024), 16*1024*1024)
 	var atoms []Atom
+	var displayLines []DisplayLine
 	seen := map[string]bool{}
 	var oldPath, newPath, renameFrom string
 	var oldLine, newLine int
 	inHunk := false
 
-	add := func(atom Atom) {
+	add := func(atom Atom) Atom {
 		atom.Key = Key(atom)
 		if !seen[atom.Key] {
 			seen[atom.Key] = true
 			atoms = append(atoms, atom)
 		}
+		return atom
 	}
 
 	for scanner.Scan() {
@@ -163,31 +188,37 @@ func Parse(patch []byte) ([]Atom, error) {
 		case strings.HasPrefix(line, "rename to "):
 			to := unquoteGitPath(strings.TrimPrefix(line, "rename to "))
 			newPath = to
-			add(Atom{Kind: "event", Event: "rename", Path: to, OldPath: renameFrom, NewPath: to})
+			atom := add(Atom{Kind: "event", Event: "rename", Path: to, OldPath: renameFrom, NewPath: to})
+			displayLines = append(displayLines, DisplayLine{Kind: "event", Path: to, AtomKey: atom.Key, Event: atom.Event, OldPath: atom.OldPath, NewPath: atom.NewPath})
 			inHunk = false
 		case strings.HasPrefix(line, "old mode "):
 			path := preferredPath(newPath, oldPath)
-			add(Atom{Kind: "event", Event: "mode", Path: path})
+			atom := add(Atom{Kind: "event", Event: "mode", Path: path})
+			displayLines = append(displayLines, DisplayLine{Kind: "event", Path: path, AtomKey: atom.Key, Event: atom.Event})
 			inHunk = false
 		case strings.HasPrefix(line, "GIT binary patch") || strings.HasPrefix(line, "Binary files "):
 			path := preferredPath(newPath, oldPath)
-			add(Atom{Kind: "event", Event: "binary", Path: path, OldPath: oldPath, NewPath: newPath})
+			atom := add(Atom{Kind: "event", Event: "binary", Path: path, OldPath: oldPath, NewPath: newPath})
+			displayLines = append(displayLines, DisplayLine{Kind: "event", Path: path, AtomKey: atom.Key, Event: atom.Event, OldPath: atom.OldPath, NewPath: atom.NewPath})
 			inHunk = false
 		case strings.HasPrefix(line, "@@ "):
 			match := hunkPattern.FindStringSubmatch(line)
 			if match == nil {
-				return nil, fmt.Errorf("parse hunk header %q", line)
+				return nil, nil, fmt.Errorf("parse hunk header %q", line)
 			}
 			oldLine, _ = strconv.Atoi(match[1])
 			newLine, _ = strconv.Atoi(match[3])
 			inHunk = true
 		case inHunk && strings.HasPrefix(line, "-"):
-			add(Atom{Kind: "line", Path: oldPath, Side: "old", Line: oldLine, Content: strings.TrimPrefix(line, "-")})
+			atom := add(Atom{Kind: "line", Path: oldPath, Side: "old", Line: oldLine, Content: strings.TrimPrefix(line, "-")})
+			displayLines = append(displayLines, DisplayLine{Kind: "old", Path: oldPath, OldLine: oldLine, Content: atom.Content, AtomKey: atom.Key})
 			oldLine++
 		case inHunk && strings.HasPrefix(line, "+"):
-			add(Atom{Kind: "line", Path: newPath, Side: "new", Line: newLine, Content: strings.TrimPrefix(line, "+")})
+			atom := add(Atom{Kind: "line", Path: newPath, Side: "new", Line: newLine, Content: strings.TrimPrefix(line, "+")})
+			displayLines = append(displayLines, DisplayLine{Kind: "new", Path: newPath, NewLine: newLine, Content: atom.Content, AtomKey: atom.Key})
 			newLine++
 		case inHunk && strings.HasPrefix(line, " "):
+			displayLines = append(displayLines, DisplayLine{Kind: "context", Path: preferredPath(newPath, oldPath), OldLine: oldLine, NewLine: newLine, Content: strings.TrimPrefix(line, " ")})
 			oldLine++
 			newLine++
 		case inHunk && strings.HasPrefix(line, "\\ No newline"):
@@ -197,9 +228,9 @@ func Parse(patch []byte) ([]Atom, error) {
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("scan Git diff: %w", err)
+		return nil, nil, fmt.Errorf("scan Git diff: %w", err)
 	}
-	return atoms, nil
+	return atoms, displayLines, nil
 }
 
 func Key(atom Atom) string {
