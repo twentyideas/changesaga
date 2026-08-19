@@ -37,17 +37,17 @@ type CodeReviewView struct {
 }
 
 type FileDiffView struct {
-	ID       string
-	Name     string
-	Path     string
-	URI      string
-	Href     string
-	Atoms    []*diffAtomView
-	Added    int
-	Deleted  int
-	Reviewed bool
-	Reviewer string
-	Selected bool
+	ID                string
+	Name              string
+	Path              string
+	URI               string
+	Href              string
+	Atoms             []*diffAtomView
+	Added             int
+	Deleted           int
+	Reviewed          bool
+	ReviewAttribution saga.Attribution
+	Selected          bool
 }
 
 type ChangedFileTreeView struct {

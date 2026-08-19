@@ -24,7 +24,6 @@ func TestCreateAnchoredThreadWritesOverlayRecords(t *testing.T) {
 	application := &app{root: root}
 	fields := map[string]string{
 		"target":    "urn:review-saga:test:fragment:overview",
-		"author":    "Ada",
 		"body":      "Check this edge case.",
 		"anchor":    `{"type":"region","coordinate_space":"normalized","shapes":[{"type":"rect","x":0.1,"y":0.2,"width":0.3,"height":0.4}]}`,
 		"return_to": "/chapters/backend#target-overview",
@@ -56,7 +55,6 @@ func TestCreateDiffSuggestionAndMarkFileReviewed(t *testing.T) {
 	application := &app{root: root}
 	request := multipartRequest(t, "/api/thread", map[string]string{
 		"target":      "urn:review-saga:test:fragment:overview",
-		"author":      "Ada",
 		"body":        "Prefer the guarded form.",
 		"kind":        "suggestion",
 		"replacement": "if ready { return nil }",
@@ -71,7 +69,7 @@ func TestCreateDiffSuggestionAndMarkFileReviewed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	values := url.Values{"uri": {fileURI}, "author": {"Grace"}, "state": {"reviewed"}, "file": {"diff-app-go"}}
+	values := url.Values{"uri": {fileURI}, "state": {"reviewed"}, "file": {"diff-app-go"}}
 	request = httptest.NewRequest(http.MethodPost, "/api/diff-review", strings.NewReader(values.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	recorder = httptest.NewRecorder()
@@ -96,7 +94,6 @@ func TestReviewDecisionPersistsAndReturnsToChapter(t *testing.T) {
 	application := &app{root: root}
 	values := url.Values{
 		"target":    {"urn:review-saga:test:fragment:overview"},
-		"author":    {"Ada"},
 		"state":     {"approved"},
 		"body":      {"Ready to merge."},
 		"return_to": {"/chapters/backend#target-overview"},
@@ -113,7 +110,7 @@ func TestReviewDecisionPersistsAndReturnsToChapter(t *testing.T) {
 		t.Fatalf("written review should validate: validation=%#v err=%v", validation, err)
 	}
 	reviews := document.Section.Fragments[0].Reviews
-	if len(reviews) != 1 || reviews[0].State != "approved" || reviews[0].Author != "Ada" || reviews[0].Body != "Ready to merge." {
+	if len(reviews) != 1 || reviews[0].State != "approved" || reviews[0].Author != "" || reviews[0].Body != "Ready to merge." || reviews[0].Attribution.Status != saga.AttributionHistoryUnavailable {
 		t.Fatalf("unexpected persisted review: %#v", reviews)
 	}
 }
@@ -180,6 +177,9 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	}
 	if strings.Count(renderedPage, `class="annotation-toolbox"`) != 1 || strings.Contains(renderedPage, `class="review-form"`) {
 		t.Fatal("review controls were not consolidated")
+	}
+	if strings.Contains(renderedPage, `name="author"`) || strings.Contains(renderedPage, `id="reviewer-name"`) || strings.Contains(renderedPage, `placeholder="Your name"`) {
+		t.Fatal("review UI still asks for explicit identity")
 	}
 	if strings.Contains(renderedPage, "text/markdown") || strings.Contains(renderedPage, "text/plain") || strings.Contains(renderedPage, "private/root.chapter") || strings.Contains(renderedPage, "format v") || strings.Contains(renderedPage, ">Chapter<") {
 		t.Fatal("reviewer-facing format metadata leaked into the page")
@@ -356,9 +356,10 @@ func multipartRequest(t *testing.T, path string, fields map[string]string) *http
 func serverTemplate(t *testing.T) *template.Template {
 	t.Helper()
 	tmpl, err := template.New("page").Funcs(template.FuncMap{
-		"markdown": markdown,
-		"coord":    func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
-		"points":   func([]saga.Point) string { return "" },
+		"markdown":    markdown,
+		"attribution": attributionLabel,
+		"coord":       func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
+		"points":      func([]saga.Point) string { return "" },
 	}).Parse(pageTemplate)
 	if err != nil {
 		t.Fatal(err)

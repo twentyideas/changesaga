@@ -101,8 +101,8 @@ func validMediaType(value string) bool {
 }
 
 func validateThread(thread Thread, sagaID, path string, result *Validation) {
-	if thread.Version != CurrentVersion || !stableID.MatchString(thread.ID) || thread.CreatedBy == "" || thread.CreatedAt.IsZero() {
-		addIssue(result, "error", path, "thread requires version 2, id, created_by, and created_at")
+	if thread.Version != CurrentVersion || !stableID.MatchString(thread.ID) || thread.CreatedAt.IsZero() {
+		addIssue(result, "error", path, "thread requires version 2, id, and created_at")
 	}
 	prefix := "urn:review-saga:" + sagaID + ":"
 	if !strings.HasPrefix(thread.Target, prefix) {

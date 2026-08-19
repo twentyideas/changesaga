@@ -13,9 +13,9 @@ import (
 	"github.com/review-saga/review-saga/internal/store"
 )
 
-func AddThread(root, target, author, body string, anchor saga.Anchor, kind, replacement string, attachments []string) (string, error) {
-	if target == "" || strings.TrimSpace(author) == "" {
-		return "", fmt.Errorf("target and author are required")
+func AddThread(root, target, body string, anchor saga.Anchor, kind, replacement string, attachments []string) (string, error) {
+	if target == "" {
+		return "", fmt.Errorf("target is required")
 	}
 	if err := saga.ValidateAnchor(anchor); err != nil {
 		return "", err
@@ -48,26 +48,26 @@ func AddThread(root, target, author, body string, anchor saga.Anchor, kind, repl
 	if err := os.Mkdir(threadDir, 0o755); err != nil {
 		return "", err
 	}
-	thread := saga.ThreadManifest{Version: saga.CurrentVersion, ID: id, Target: target, Anchor: anchor, Kind: kind, CreatedBy: author, CreatedAt: now}
+	thread := saga.ThreadManifest{Version: saga.CurrentVersion, ID: id, Target: target, Anchor: anchor, Kind: kind, CreatedAt: now}
 	if kind == "suggestion" {
 		thread.Suggestion = &saga.Suggestion{Replacement: replacement}
 	}
 	if err := store.WriteJSON(filepath.Join(threadDir, "thread.json"), thread, true); err != nil {
 		return "", err
 	}
-	if _, err := addMessage(threadDir, author, body, attachments, now); err != nil {
+	if _, err := addMessage(threadDir, body, attachments, now); err != nil {
 		return "", err
 	}
 	return id, nil
 }
 
-func AddDiffReview(root, uri, author, state string) error {
+func AddDiffReview(root, uri, state string) error {
 	reference, err := diffuri.Parse(uri)
 	if err != nil || reference.Kind != "file" {
 		return fmt.Errorf("diff review requires a valid file diff URI")
 	}
-	if strings.TrimSpace(author) == "" || state != "reviewed" && state != "unreviewed" {
-		return fmt.Errorf("diff review requires an author and reviewed or unreviewed state")
+	if state != "reviewed" && state != "unreviewed" {
+		return fmt.Errorf("diff review requires reviewed or unreviewed state")
 	}
 	dir, err := store.EnsureDirWithin(root, filepath.Join(root, "___review", "diffs"))
 	if err != nil {
@@ -75,13 +75,13 @@ func AddDiffReview(root, uri, author, state string) error {
 	}
 	now := time.Now().UTC()
 	id := store.EventID(now)
-	review := saga.DiffReview{Version: saga.CurrentVersion, ID: id, URI: uri, Author: author, State: state, CreatedAt: now}
+	review := saga.DiffReview{Version: saga.CurrentVersion, ID: id, URI: uri, State: state, CreatedAt: now}
 	return store.WriteJSON(filepath.Join(dir, id+"-"+state+".json"), review, true)
 }
 
-func AddReply(root, threadID, author, body string, attachments []string) (string, error) {
-	if strings.TrimSpace(author) == "" || strings.TrimSpace(threadID) == "" {
-		return "", fmt.Errorf("thread and author are required")
+func AddReply(root, threadID, body string, attachments []string) (string, error) {
+	if strings.TrimSpace(threadID) == "" {
+		return "", fmt.Errorf("thread is required")
 	}
 	if err := validateAttachments(attachments); err != nil {
 		return "", err
@@ -93,13 +93,10 @@ func AddReply(root, threadID, author, body string, attachments []string) (string
 	if _, err := store.EnsureDirWithin(root, threadDir); err != nil {
 		return "", err
 	}
-	return addMessage(threadDir, author, body, attachments, time.Now().UTC())
+	return addMessage(threadDir, body, attachments, time.Now().UTC())
 }
 
-func SetState(root, threadID, author, state string) error {
-	if strings.TrimSpace(author) == "" {
-		return fmt.Errorf("thread state requires an author")
-	}
+func SetState(root, threadID, state string) error {
 	if state != "open" && state != "resolved" {
 		return fmt.Errorf("thread state must be open or resolved")
 	}
@@ -113,13 +110,13 @@ func SetState(root, threadID, author, state string) error {
 	}
 	now := time.Now().UTC()
 	id := store.EventID(now)
-	event := saga.ThreadEvent{Version: saga.CurrentVersion, ID: id, Author: author, State: state, CreatedAt: now}
+	event := saga.ThreadEvent{Version: saga.CurrentVersion, ID: id, State: state, CreatedAt: now}
 	return store.WriteJSON(filepath.Join(eventsDir, id+"-"+state+".json"), event, true)
 }
 
-func AddReview(root, targetDir, author, state, body string) error {
-	if strings.TrimSpace(author) == "" || state != "approved" && state != "rejected" && state != "closed" && state != "open" {
-		return fmt.Errorf("review requires an author and approved, rejected, closed, or open state")
+func AddReview(root, targetDir, state, body string) error {
+	if state != "approved" && state != "rejected" && state != "closed" && state != "open" {
+		return fmt.Errorf("review requires approved, rejected, closed, or open state")
 	}
 	dir, err := store.EnsureDirWithin(root, filepath.Join(targetDir, "___approvals"))
 	if err != nil {
@@ -127,11 +124,11 @@ func AddReview(root, targetDir, author, state, body string) error {
 	}
 	now := time.Now().UTC()
 	id := store.EventID(now)
-	review := saga.Review{Version: saga.CurrentVersion, ID: id, Author: author, State: state, Body: strings.TrimSpace(body), CreatedAt: now}
+	review := saga.Review{Version: saga.CurrentVersion, ID: id, State: state, Body: strings.TrimSpace(body), CreatedAt: now}
 	return store.WriteJSON(filepath.Join(dir, id+"-"+state+".json"), review, true)
 }
 
-func addMessage(threadDir, author, body string, attachments []string, now time.Time) (string, error) {
+func addMessage(threadDir, body string, attachments []string, now time.Time) (string, error) {
 	if strings.TrimSpace(body) == "" && len(attachments) == 0 {
 		return "", fmt.Errorf("message body or attachment is required")
 	}
@@ -144,7 +141,7 @@ func addMessage(threadDir, author, body string, attachments []string, now time.T
 	if err := os.Mkdir(messageDir, 0o755); err != nil {
 		return "", err
 	}
-	message := saga.MessageManifest{Version: saga.CurrentVersion, ID: id, Author: author, CreatedAt: now}
+	message := saga.MessageManifest{Version: saga.CurrentVersion, ID: id, CreatedAt: now}
 	if err := store.WriteJSON(filepath.Join(messageDir, "message.json"), message, true); err != nil {
 		return "", err
 	}

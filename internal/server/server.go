@@ -60,27 +60,27 @@ type chapterIndexView struct {
 
 type sectionView struct {
 	*saga.Section
-	DOMID         string
-	Changes       []*diffAtomView
-	Threads       []*threadView
-	FragmentViews []*fragmentView
-	ChildViews    []*sectionView
-	ReviewState   string
-	ReviewAuthor  string
+	DOMID             string
+	Changes           []*diffAtomView
+	Threads           []*threadView
+	FragmentViews     []*fragmentView
+	ChildViews        []*sectionView
+	ReviewState       string
+	ReviewAttribution saga.Attribution
 }
 
 type fragmentView struct {
 	*saga.Fragment
-	DOMID        string
-	URL          string
-	Markdown     template.HTML
-	Plain        string
-	Interactive  bool
-	Image        bool
-	Changes      []*diffAtomView
-	Threads      []*threadView
-	ReviewState  string
-	ReviewAuthor string
+	DOMID             string
+	URL               string
+	Markdown          template.HTML
+	Plain             string
+	Interactive       bool
+	Image             bool
+	Changes           []*diffAtomView
+	Threads           []*threadView
+	ReviewState       string
+	ReviewAttribution saga.Attribution
 }
 
 type diffAtomView struct {
@@ -111,8 +111,9 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 		sourceDir = abs
 	}
 	tmpl, err := template.New("page").Funcs(template.FuncMap{
-		"markdown": markdown,
-		"coord":    func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
+		"markdown":    markdown,
+		"attribution": attributionLabel,
+		"coord":       func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
 		"points": func(values []saga.Point) string {
 			parts := make([]string, 0, len(values))
 			for _, point := range values {
@@ -336,7 +337,7 @@ func makeSectionView(section *saga.Section, changes map[string][]gitdiff.Atom, t
 		reviews := append([]saga.Review(nil), section.Reviews...)
 		sort.Slice(reviews, func(i, j int) bool { return reviews[i].CreatedAt.Before(reviews[j].CreatedAt) })
 		last := reviews[len(reviews)-1]
-		view.ReviewState, view.ReviewAuthor = last.State, last.Author
+		view.ReviewState, view.ReviewAttribution = last.State, last.Attribution
 	}
 	for _, fragment := range section.Fragments {
 		view.FragmentViews = append(view.FragmentViews, makeFragmentView(fragment, changes[fragment.Target], threads[fragment.Target], diffThreads))
@@ -349,7 +350,7 @@ func makeSectionView(section *saga.Section, changes map[string][]gitdiff.Atom, t
 
 func makeFragmentView(fragment *saga.Fragment, changes []gitdiff.Atom, threads []*threadView, diffThreads map[string][]*threadView) *fragmentView {
 	view := &fragmentView{Fragment: fragment, DOMID: domID(fragment.Target), Changes: makeAtomViews(changes, fragment.Target, diffThreads), Threads: threads}
-	view.ReviewState, view.ReviewAuthor = latestReview(fragment.Reviews)
+	view.ReviewState, view.ReviewAttribution = latestReview(fragment.Reviews)
 	view.URL = "/f/" + url.PathEscape(fragment.ID) + "/" + strings.Join(pathEscapeParts(filepath.ToSlash(fragment.Entrypoint)), "/")
 	switch fragment.MediaType {
 	case "text/markdown":
@@ -416,7 +417,7 @@ func makeFileViews(changes gitdiff.ChangeSet, target string, reviews []saga.Diff
 			digest := sha256.Sum256([]byte(path))
 			file = &fileDiffView{ID: fmt.Sprintf("diff-%x", digest[:8]), Path: path, URI: uri}
 			if review, ok := latest[uri]; ok {
-				file.Reviewed, file.Reviewer = review.State == "reviewed", review.Author
+				file.Reviewed, file.ReviewAttribution = review.State == "reviewed", review.Attribution
 			}
 			byPath[path] = file
 		}
@@ -439,14 +440,32 @@ func makeFileViews(changes gitdiff.ChangeSet, target string, reviews []saga.Diff
 	return result
 }
 
-func latestReview(reviews []saga.Review) (string, string) {
+func latestReview(reviews []saga.Review) (string, saga.Attribution) {
 	if len(reviews) == 0 {
-		return "", ""
+		return "", saga.Attribution{}
 	}
 	values := append([]saga.Review(nil), reviews...)
 	sort.Slice(values, func(i, j int) bool { return values[i].CreatedAt.Before(values[j].CreatedAt) })
 	last := values[len(values)-1]
-	return last.State, last.Author
+	return last.State, last.Attribution
+}
+
+func attributionLabel(value saga.Attribution) string {
+	switch value.Status {
+	case saga.AttributionCommitted:
+		if value.Committer == nil || value.CommittedAt == nil {
+			return "Git history unavailable"
+		}
+		commit := value.Commit
+		if len(commit) > 12 {
+			commit = commit[:12]
+		}
+		return fmt.Sprintf("%s <%s> · %s · commit %s", value.Committer.Name, value.Committer.Email, value.CommittedAt.Format(time.RFC3339), commit)
+	case saga.AttributionUncommitted:
+		return "Local, uncommitted"
+	default:
+		return "Git history unavailable"
+	}
 }
 
 func (a *app) fragmentFile(w http.ResponseWriter, r *http.Request) {
@@ -523,7 +542,7 @@ func (a *app) createThread(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid annotation anchor", http.StatusBadRequest)
 		return
 	}
-	if _, err := reviewstore.AddThread(a.root, target, r.FormValue("author"), r.FormValue("body"), anchor, r.FormValue("kind"), r.FormValue("replacement"), attachments); err != nil {
+	if _, err := reviewstore.AddThread(a.root, target, r.FormValue("body"), anchor, r.FormValue("kind"), r.FormValue("replacement"), attachments); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -537,7 +556,7 @@ func (a *app) reply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer removeTemporary(attachments)
-	if _, err := reviewstore.AddReply(a.root, r.FormValue("thread"), r.FormValue("author"), r.FormValue("body"), attachments); err != nil {
+	if _, err := reviewstore.AddReply(a.root, r.FormValue("thread"), r.FormValue("body"), attachments); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -550,7 +569,7 @@ func (a *app) threadState(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := reviewstore.SetState(a.root, r.FormValue("thread"), r.FormValue("author"), r.FormValue("state")); err != nil {
+	if err := reviewstore.SetState(a.root, r.FormValue("thread"), r.FormValue("state")); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -573,7 +592,7 @@ func (a *app) review(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "review target does not exist", http.StatusBadRequest)
 		return
 	}
-	if err := reviewstore.AddReview(a.root, dir, r.FormValue("author"), r.FormValue("state"), r.FormValue("body")); err != nil {
+	if err := reviewstore.AddReview(a.root, dir, r.FormValue("state"), r.FormValue("body")); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -586,7 +605,7 @@ func (a *app) diffReview(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := reviewstore.AddDiffReview(a.root, r.FormValue("uri"), r.FormValue("author"), r.FormValue("state")); err != nil {
+	if err := reviewstore.AddDiffReview(a.root, r.FormValue("uri"), r.FormValue("state")); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

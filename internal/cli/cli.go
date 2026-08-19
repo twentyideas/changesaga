@@ -382,7 +382,6 @@ func Thread(_ context.Context, args []string, out io.Writer) error {
 	flags := flag.NewFlagSet("thread", flag.ContinueOnError)
 	flags.SetOutput(out)
 	target := flags.String("target", ".", "section/fragment path or target URN")
-	author := flags.String("author", "", "comment author")
 	body := flags.String("body", "", "initial Markdown comment")
 	anchorJSON := flags.String("anchor", `{"type":"target"}`, "anchor JSON")
 	kind := flags.String("kind", "comment", "comment or suggestion")
@@ -407,7 +406,7 @@ func Thread(_ context.Context, args []string, out io.Writer) error {
 	if err := json.Unmarshal([]byte(*anchorJSON), &anchor); err != nil {
 		return fmt.Errorf("parse --anchor: %w", err)
 	}
-	id, err := reviewstore.AddThread(document.Root, targetURI, *author, *body, anchor, *kind, *replacement, attachments)
+	id, err := reviewstore.AddThread(document.Root, targetURI, *body, anchor, *kind, *replacement, attachments)
 	if err != nil {
 		return err
 	}
@@ -419,7 +418,6 @@ func Reply(_ context.Context, args []string, out io.Writer) error {
 	flags := flag.NewFlagSet("reply", flag.ContinueOnError)
 	flags.SetOutput(out)
 	threadID := flags.String("thread", "", "thread identifier")
-	author := flags.String("author", "", "reply author")
 	body := flags.String("body", "", "Markdown reply")
 	state := flags.String("state", "", "optionally set thread to open or resolved")
 	var attachments stringList
@@ -435,12 +433,12 @@ func Reply(_ context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if *body != "" || len(attachments) > 0 {
-		if _, err := reviewstore.AddReply(document.Root, *threadID, *author, *body, attachments); err != nil {
+		if _, err := reviewstore.AddReply(document.Root, *threadID, *body, attachments); err != nil {
 			return err
 		}
 	}
 	if *state != "" {
-		if err := reviewstore.SetState(document.Root, *threadID, *author, *state); err != nil {
+		if err := reviewstore.SetState(document.Root, *threadID, *state); err != nil {
 			return err
 		}
 	}
@@ -455,7 +453,6 @@ func Review(_ context.Context, args []string, out io.Writer) error {
 	flags := flag.NewFlagSet("review", flag.ContinueOnError)
 	flags.SetOutput(out)
 	target := flags.String("target", ".", "saga, chapter, section, or fragment path")
-	author := flags.String("author", "", "reviewer")
 	state := flags.String("state", "", "approved, rejected, closed, or open")
 	body := flags.String("body", "", "optional review note")
 	if err := flags.Parse(args); err != nil {
@@ -472,7 +469,7 @@ func Review(_ context.Context, args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if err := reviewstore.AddReview(document.Root, targetDir, *author, *state, *body); err != nil {
+	if err := reviewstore.AddReview(document.Root, targetDir, *state, *body); err != nil {
 		return err
 	}
 	fmt.Fprintf(out, "Recorded %s review for %s\n", *state, *target)
