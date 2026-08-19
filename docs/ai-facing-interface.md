@@ -27,9 +27,10 @@ one application boundary:
 There is also a format mismatch that must be resolved before exposing new AI
 writes. Version 2 records currently require `author` or `created_by`, and every
 CLI and HTTP write accepts those values. The product decision in
-`ux-reframe.md` is stricter: the reviewer is the author of the Git commit that
-first introduces the event file. A request-supplied name is not authoritative
-and new records must not ask for one.
+`ux-reframe.md` is stricter: the reviewer is the **committer** of the Git commit
+that first introduces the event file. Git author fields are distinct and are
+not review identity. A request-supplied name is not authoritative and new
+records must not ask for one.
 
 ## Decision
 
@@ -248,17 +249,17 @@ review events, and file-review events. Each review event has attribution:
   "attribution": {
     "status": "committed",
     "commit": "9f42...",
-    "author": {"name": "Ada Lovelace", "email": "ada@example.test"},
-    "committer": {"name": "Merge Bot", "email": "bot@example.test"},
-    "authored_at": "2026-08-19T18:42:00Z",
-    "committed_at": "2026-08-19T18:43:12Z"
+    "committer": {"name": "Ada Lovelace", "email": "ada@example.test"},
+    "committed_at": "2026-08-19T18:42:00Z"
   }
 }
 ```
 
 The other attribution statuses are `uncommitted` and `history_unavailable`.
-Only `committed` has an author. A legacy payload name may be exposed separately
-as `legacy_claimed_author` during migration, never as `attribution.author`.
+Only `committed` has a committer identity. Git author fields are deliberately
+absent from this schema because they are not the reviewer. A legacy payload
+name may be exposed separately as `legacy_claimed_author` during migration,
+never as `attribution.committer`.
 
 `gaps` exposes uncovered atoms, stale selectors (the current `Orphans`), and
 overlaps as separate typed records. `stale` is the public term; `orphan` remains
@@ -415,7 +416,7 @@ does not take a mandatory MCP dependency. Add it only when at least one target
 host gains material value from tool discovery or retained sessions beyond what
 request-response CLI calls provide.
 
-## Git-derived authorship
+## Git-derived review identity
 
 Attribution is an application service keyed by the event's actual relative
 file path, which loaders retain as non-serialized provenance. For each event
@@ -428,8 +429,10 @@ file it:
    selected saga revision. The implementation uses Git's path history with
    rename following and addition filtering, rather than `blame` on editable
    identity fields.
-4. Reads author name/email/time, committer name/email/time, and full commit OID
-   from that commit.
+4. Reads the canonical reviewer from the commit's committer name and email,
+   plus the committer timestamp and full commit OID. Git author name, email,
+   and timestamp are not review identity and are not returned in the canonical
+   attribution object.
 5. Reports `uncommitted` when the event has no introducing commit, including
    untracked and staged-new files. It reports `history_unavailable` when the
    saga is outside Git, history is shallow/missing, or the commit cannot be
