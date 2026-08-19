@@ -79,6 +79,9 @@ func TestCreateDiffSuggestionAndMarkFileReviewed(t *testing.T) {
 	if recorder.Code != http.StatusSeeOther {
 		t.Fatalf("diff review status = %d: %s", recorder.Code, recorder.Body.String())
 	}
+	if location := recorder.Header().Get("Location"); location != CodeDiffURL("app.go", "") {
+		t.Fatalf("diff review redirect = %q, want focused file", location)
+	}
 	document, validation, err := saga.Load(root)
 	if err != nil || !validation.Valid {
 		t.Fatalf("review data should validate: validation=%#v err=%v", validation, err)
@@ -165,6 +168,7 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	data := pageData{
 		Saga: &saga.Saga{Manifest: saga.Manifest{ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/a.git", Base: "main", Head: "HEAD"}}, Section: section},
 		Root: makeSectionView(section, map[string][]gitdiff.Atom{fragment.Target: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}}, map[string][]*threadView{fragment.Target: {makeThreadView(thread)}}, nil), Chapter: true,
+		Code: &CodeReviewView{},
 	}
 	var output bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&output, "page", data); err != nil {
@@ -241,7 +245,9 @@ func TestPageHandlerRendersRealGitComparison(t *testing.T) {
 	serverGit(t, repo, "commit", "-m", "base")
 	base := strings.TrimSpace(serverGit(t, repo, "rev-parse", "HEAD"))
 	writeServerFile(t, filepath.Join(repo, "app.go"), "package app\n")
+	writeServerFile(t, filepath.Join(repo, "web", "view.js"), "export const ready = true\n")
 	serverGit(t, repo, "add", "app.go")
+	serverGit(t, repo, "add", "web/view.js")
 	serverGit(t, repo, "commit", "-m", "feature")
 	root := filepath.Join(repo, "pr-1.saga")
 	repository := (&url.URL{Scheme: "file", Path: filepath.ToSlash(repo)}).String()
@@ -249,11 +255,39 @@ func TestPageHandlerRendersRealGitComparison(t *testing.T) {
 	writeServerFile(t, filepath.Join(root, "overview.fragment", "fragment.json"), `{"version":2,"id":"overview","media_type":"text/markdown","entrypoint":"content.md"}`)
 	writeServerFile(t, filepath.Join(root, "overview.fragment", "content.md"), "# Story\n")
 	application := &app{root: root, sourceDir: repo, template: serverTemplate(t)}
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request := httptest.NewRequest(http.MethodGet, CodeDiffURL("web/view.js", ""), nil)
 	recorder := httptest.NewRecorder()
 	application.page(recorder, request)
-	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "Review readiness check failed") || !strings.Contains(recorder.Body.String(), "Overview") || !strings.Contains(recorder.Body.String(), "Code Diff") || !strings.Contains(recorder.Body.String(), "app.go") || strings.Contains(recorder.Body.String(), "%</") {
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "Review readiness check failed") || !strings.Contains(recorder.Body.String(), "Overview") || !strings.Contains(recorder.Body.String(), "Code Diff") || !strings.Contains(recorder.Body.String(), "app.go") || strings.Contains(recorder.Body.String(), "%</") || strings.Count(recorder.Body.String(), `<article class="file-diff"`) != 1 || !strings.Contains(recorder.Body.String(), `<code>web/view.js</code>`) {
 		t.Fatalf("real page did not render expected diff state: status=%d", recorder.Code)
+	}
+	changes, err := gitdiff.Read(t.Context(), repo, repository, base, "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var selectedURI string
+	for _, atom := range changes.Atoms {
+		if atom.Path == "web/view.js" {
+			selectedURI = atom.URI
+			break
+		}
+	}
+	if selectedURI == "" {
+		t.Fatal("missing web/view.js atom")
+	}
+	application.template = template.Must(template.New("page").Parse(`{{define "page"}}{{.Code.SelectedFile.Path}}|{{.Code.SelectedDiff.URI}}|{{len .Code.SelectedDiffs}}{{end}}`))
+	request = httptest.NewRequest(http.MethodGet, CodeDiffURL("", selectedURI), nil)
+	recorder = httptest.NewRecorder()
+	application.page(recorder, request)
+	expectedSelection := "web/view.js|" + strings.ReplaceAll(selectedURI, "&", "&amp;") + "|1"
+	if recorder.Code != http.StatusOK || recorder.Body.String() != expectedSelection {
+		t.Fatalf("exact diff handler selection: status=%d body=%q", recorder.Code, recorder.Body.String())
+	}
+	request = httptest.NewRequest(http.MethodGet, CodeDiffURL("missing.go", ""), nil)
+	recorder = httptest.NewRecorder()
+	application.page(recorder, request)
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("unknown focused file status=%d", recorder.Code)
 	}
 }
 

@@ -42,6 +42,7 @@ type pageData struct {
 	Overview      bool
 	Chapter       bool
 	Diagnostic    string
+	Code          *CodeReviewView
 	Error         string
 	Files         []*fileDiffView
 	ReviewedFiles int
@@ -86,18 +87,10 @@ type diffAtomView struct {
 	gitdiff.Atom
 	Threads []*threadView
 	Target  string
+	Href    string
 }
 
-type fileDiffView struct {
-	ID       string
-	Path     string
-	URI      string
-	Atoms    []*diffAtomView
-	Added    int
-	Deleted  int
-	Reviewed bool
-	Reviewer string
-}
+type fileDiffView = FileDiffView
 
 type threadView struct {
 	*saga.Thread
@@ -204,12 +197,13 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 			threadsByTarget[thread.Target] = append(threadsByTarget[thread.Target], view)
 		}
 	}
-	files := makeFileViews(changes, saga.SagaTarget(document.Manifest.ID), document.DiffReviews, threadsByDiff)
-	reviewedFiles := 0
-	for _, file := range files {
-		if file.Reviewed {
-			reviewedFiles++
-		}
+	code, selectionErr := makeCodeReviewView(document, changes, report, threadsByDiff, codeSelectionFromRequest(r))
+	if selectionErr != nil && diffErr == nil {
+		http.Error(w, selectionErr.Error(), selectionErr.status)
+		return
+	}
+	if code != nil {
+		rebaseCodeReviewURLs(code, r.URL.Path)
 	}
 	rootView := makeSectionView(document.Section, changesByTarget, threadsByTarget, threadsByDiff)
 	chapterID, chapterRoute := requestedChapter(r)
@@ -239,7 +233,10 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 		Saga: document,
 		Root: selected, Overview: !chapterRoute, Chapter: chapterRoute,
 		Chapters: makeChapterIndex(rootView, chapterID),
-		Files:    files, ReviewedFiles: reviewedFiles,
+		Code:     code,
+	}
+	if code != nil {
+		data.Files, data.ReviewedFiles = code.Files, code.ReviewedFiles
 	}
 	if diffErr != nil {
 		data.Error = "The source comparison could not be loaded. Run saga validate for diagnostic details."
@@ -593,7 +590,11 @@ func (a *app) diffReview(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	redirectAfterReview(w, r, "/?view=code#"+r.FormValue("file"))
+	fallback := "/?view=code#" + url.PathEscape(r.FormValue("file"))
+	if reference, err := diffuri.Parse(r.FormValue("uri")); err == nil && reference.Kind == "file" {
+		fallback = CodeDiffURL(reference.Path, "")
+	}
+	redirectAfterReview(w, r, fallback)
 }
 
 func redirectAfterReview(w http.ResponseWriter, r *http.Request, fallback string) {
