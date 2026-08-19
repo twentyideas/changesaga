@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reviewsaga.dev/schema/v2/diff-review.schema.json",
+  "title": "Review Saga file review event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "id", "uri", "author", "state", "created_at"],
+  "properties": {
+    "version": { "const": 2 },
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "uri": { "type": "string", "pattern": "^saga-diff://v1/file\\?" },
+    "author": { "type": "string", "minLength": 1 },
+    "state": { "enum": ["reviewed", "unreviewed"] },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

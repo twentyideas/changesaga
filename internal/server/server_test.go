@@ -1,0 +1,258 @@
+package server
+
+import (
+	"bytes"
+	"html/template"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"testing"
+
+	"github.com/review-saga/review-saga/internal/coverage"
+	"github.com/review-saga/review-saga/internal/diffuri"
+	"github.com/review-saga/review-saga/internal/gitdiff"
+	"github.com/review-saga/review-saga/internal/saga"
+)
+
+func TestCreateAnchoredThreadWritesOverlayRecords(t *testing.T) {
+	root := validServerSaga(t)
+	application := &app{root: root}
+	fields := map[string]string{
+		"target": "urn:review-saga:test:fragment:overview",
+		"author": "Ada",
+		"body":   "Check this edge case.",
+		"anchor": `{"type":"region","coordinate_space":"normalized","shapes":[{"type":"rect","x":0.1,"y":0.2,"width":0.3,"height":0.4}]}`,
+	}
+	request := multipartRequest(t, "/api/thread", fields)
+	recorder := httptest.NewRecorder()
+	application.createThread(recorder, request)
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("thread status = %d, want %d: %s", recorder.Code, http.StatusSeeOther, recorder.Body.String())
+	}
+	document, validation, err := saga.Load(root)
+	if err != nil || !validation.Valid {
+		t.Fatalf("written overlay should validate: validation=%#v err=%v", validation, err)
+	}
+	if len(document.Threads) != 1 || document.Threads[0].Anchor.Type != "region" || len(document.Threads[0].Messages) != 1 {
+		t.Fatalf("unexpected thread: %#v", document.Threads)
+	}
+}
+
+func TestCreateDiffSuggestionAndMarkFileReviewed(t *testing.T) {
+	root := validServerSaga(t)
+	lineURI, err := diffuri.Build(diffuri.Reference{Repository: "https://example.test/a.git", Base: "aaa", Head: "bbb", Kind: "line", Path: "app.go", Side: "new", Start: 4, End: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	application := &app{root: root}
+	request := multipartRequest(t, "/api/thread", map[string]string{
+		"target":      "urn:review-saga:test:fragment:overview",
+		"author":      "Ada",
+		"body":        "Prefer the guarded form.",
+		"kind":        "suggestion",
+		"replacement": "if ready { return nil }",
+		"anchor":      `{"type":"diff","diff":{"uri":"` + lineURI + `"}}`,
+	})
+	recorder := httptest.NewRecorder()
+	application.createThread(recorder, request)
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("suggestion status = %d: %s", recorder.Code, recorder.Body.String())
+	}
+	fileURI, err := diffuri.Build(diffuri.Reference{Repository: "https://example.test/a.git", Base: "aaa", Head: "bbb", Kind: "file", Path: "app.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := url.Values{"uri": {fileURI}, "author": {"Grace"}, "state": {"reviewed"}, "file": {"diff-app-go"}}
+	request = httptest.NewRequest(http.MethodPost, "/api/diff-review", strings.NewReader(values.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recorder = httptest.NewRecorder()
+	application.diffReview(recorder, request)
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("diff review status = %d: %s", recorder.Code, recorder.Body.String())
+	}
+	document, validation, err := saga.Load(root)
+	if err != nil || !validation.Valid {
+		t.Fatalf("review data should validate: validation=%#v err=%v", validation, err)
+	}
+	if len(document.Threads) != 1 || document.Threads[0].Kind != "suggestion" || document.Threads[0].Suggestion == nil || len(document.DiffReviews) != 1 || document.DiffReviews[0].State != "reviewed" {
+		t.Fatalf("unexpected persisted diff review: threads=%#v reviews=%#v", document.Threads, document.DiffReviews)
+	}
+}
+
+func TestFragmentFileRejectsSymlinkOutsidePackage(t *testing.T) {
+	root := validServerSaga(t)
+	outside := filepath.Join(filepath.Dir(root), "secret.txt")
+	writeServerFile(t, outside, "secret")
+	fragmentDir := filepath.Join(root, "overview.fragment")
+	if err := os.Symlink(outside, filepath.Join(fragmentDir, "secret.txt")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	application := &app{root: root}
+	request := httptest.NewRequest(http.MethodGet, "/f/overview/secret.txt", nil)
+	request.SetPathValue("id", "overview")
+	request.SetPathValue("path", "secret.txt")
+	recorder := httptest.NewRecorder()
+	application.fragmentFile(recorder, request)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("fragment status = %d, want %d", recorder.Code, http.StatusForbidden)
+	}
+}
+
+func TestInteractiveFragmentIsServedWithSandboxCSP(t *testing.T) {
+	root := validServerSaga(t)
+	writeServerFile(t, filepath.Join(root, "demo.fragment", "fragment.json"), `{"version":2,"id":"demo","media_type":"text/html","entrypoint":"index.html"}`)
+	writeServerFile(t, filepath.Join(root, "demo.fragment", "index.html"), `<button onclick="this.textContent='ok'">Run</button>`)
+	application := &app{root: root}
+	request := httptest.NewRequest(http.MethodGet, "/f/demo/index.html", nil)
+	request.SetPathValue("id", "demo")
+	request.SetPathValue("path", "index.html")
+	recorder := httptest.NewRecorder()
+	application.fragmentFile(recorder, request)
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "onclick") {
+		t.Fatalf("interactive fragment was not served: status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+	csp := recorder.Header().Get("Content-Security-Policy")
+	if !strings.Contains(csp, "script-src") || !strings.Contains(csp, "connect-src 'none'") {
+		t.Fatalf("unexpected fragment CSP: %s", csp)
+	}
+}
+
+func TestPageTemplateAndMarkdown(t *testing.T) {
+	tmpl := serverTemplate(t)
+	fragmentDir := t.TempDir()
+	writeServerFile(t, filepath.Join(fragmentDir, "content.md"), "# Story\n")
+	fragment := &saga.Fragment{ID: "overview", Title: "Overview", Target: "urn:review-saga:test:fragment:overview", Directory: fragmentDir, MediaType: "text/markdown", Entrypoint: "content.md"}
+	section := &saga.Section{Kind: "chapter", ID: "root", Title: "Test", Target: "urn:review-saga:test:saga", Fragments: []*saga.Fragment{fragment}}
+	thread := &saga.Thread{ID: "thread", Target: fragment.Target, Anchor: saga.Anchor{Type: "region", Coordinate: "normalized", Shapes: []saga.Shape{{Type: "rect", X: .1, Y: .2, Width: .3, Height: .4}}}, State: "open"}
+	data := pageData{
+		Saga:   &saga.Saga{Manifest: saga.Manifest{ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/a.git", Base: "main", Head: "HEAD"}}, Section: section},
+		Report: coverage.Report{Complete: true}, Root: makeSectionView(section, nil, map[string][]*threadView{fragment.Target: {makeThreadView(thread)}}, nil), Percent: 73,
+	}
+	var output bytes.Buffer
+	if err := tmpl.ExecuteTemplate(&output, "page", data); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(output.String(), "ZgotmplZ") || !strings.Contains(output.String(), "width:73%") || !strings.Contains(output.String(), "/app.js") || !strings.Contains(output.String(), `x="100.00"`) || !strings.Contains(output.String(), "Approve chapter") {
+		t.Fatalf("template produced unsafe or incomplete output")
+	}
+	rendered := string(markdown("# Heading\n\n- one\n- <script>bad</script>"))
+	if strings.Contains(rendered, "<script>") || !strings.Contains(rendered, "&lt;script&gt;") {
+		t.Fatalf("unexpected Markdown rendering: %s", rendered)
+	}
+}
+
+func TestPageHandlerRendersRealGitComparison(t *testing.T) {
+	repo := t.TempDir()
+	serverGit(t, repo, "init", "-b", "main")
+	serverGit(t, repo, "config", "user.name", "Test")
+	serverGit(t, repo, "config", "user.email", "test@example.test")
+	writeServerFile(t, filepath.Join(repo, "base.txt"), "base\n")
+	serverGit(t, repo, "add", "base.txt")
+	serverGit(t, repo, "commit", "-m", "base")
+	base := strings.TrimSpace(serverGit(t, repo, "rev-parse", "HEAD"))
+	writeServerFile(t, filepath.Join(repo, "app.go"), "package app\n")
+	serverGit(t, repo, "add", "app.go")
+	serverGit(t, repo, "commit", "-m", "feature")
+	root := filepath.Join(repo, "pr-1.saga")
+	repository := (&url.URL{Scheme: "file", Path: filepath.ToSlash(repo)}).String()
+	writeServerFile(t, filepath.Join(root, "saga.json"), `{"version":2,"id":"test","title":"Test","source":{"repository":"`+repository+`","base":"`+base+`","head":"HEAD"}}`)
+	writeServerFile(t, filepath.Join(root, "overview.fragment", "fragment.json"), `{"version":2,"id":"overview","media_type":"text/markdown","entrypoint":"content.md"}`)
+	writeServerFile(t, filepath.Join(root, "overview.fragment", "content.md"), "# Story\n")
+	application := &app{root: root, sourceDir: repo, template: serverTemplate(t)}
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	recorder := httptest.NewRecorder()
+	application.page(recorder, request)
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "unaccounted changes") || !strings.Contains(recorder.Body.String(), "Overview") || !strings.Contains(recorder.Body.String(), "Code Diff") || !strings.Contains(recorder.Body.String(), "app.go") {
+		t.Fatalf("real page did not render expected diff state: status=%d", recorder.Code)
+	}
+}
+
+func TestFileViewsGroupRenameAndUseDistinctAnchors(t *testing.T) {
+	changes := gitdiff.ChangeSet{
+		Repository: "https://example.test/a.git", BaseOID: "aaa", HeadOID: "bbb",
+		Atoms: []gitdiff.Atom{
+			{Kind: "event", Event: "rename", OldPath: "old.go", NewPath: "new.go", Path: "new.go"},
+			{Kind: "line", Path: "old.go", Side: "old", Line: 1, Content: "old"},
+			{Kind: "line", Path: "new.go", Side: "new", Line: 1, Content: "new"},
+			{Kind: "line", Path: "another.go", Side: "new", Line: 1, Content: "new"},
+		},
+	}
+	files := makeFileViews(changes, "urn:review-saga:test:saga", nil, nil)
+	if len(files) != 2 {
+		t.Fatalf("files = %d, want renamed file plus another file", len(files))
+	}
+	if files[0].ID == files[1].ID {
+		t.Fatal("file DOM anchors must be collision resistant")
+	}
+	for _, file := range files {
+		if file.Path == "new.go" && len(file.Atoms) != 3 {
+			t.Fatalf("renamed file has %d atoms, want 3", len(file.Atoms))
+		}
+	}
+}
+
+func validServerSaga(t *testing.T) string {
+	t.Helper()
+	root := filepath.Join(t.TempDir(), "test.saga")
+	writeServerFile(t, filepath.Join(root, "saga.json"), `{"version":2,"id":"test","title":"Test","source":{"repository":"https://example.test/a.git","base":"main","head":"HEAD"}}`)
+	writeServerFile(t, filepath.Join(root, "overview.fragment", "fragment.json"), `{"version":2,"id":"overview","title":"Overview","media_type":"text/markdown","entrypoint":"content.md"}`)
+	writeServerFile(t, filepath.Join(root, "overview.fragment", "content.md"), "# Story\n")
+	return root
+}
+
+func multipartRequest(t *testing.T, path string, fields map[string]string) *http.Request {
+	t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for key, value := range fields {
+		if err := writer.WriteField(key, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, path, &body)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	return request
+}
+
+func serverTemplate(t *testing.T) *template.Template {
+	t.Helper()
+	tmpl, err := template.New("page").Funcs(template.FuncMap{
+		"markdown": markdown,
+		"coord":    func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
+		"points":   func([]saga.Point) string { return "" },
+	}).Parse(pageTemplate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tmpl
+}
+
+func serverGit(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	command := exec.Command("git", args...)
+	command.Dir = dir
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, output)
+	}
+	return string(output)
+}
+
+func writeServerFile(t *testing.T, path, body string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}

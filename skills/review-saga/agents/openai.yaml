@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Saga"
+  short_description: "Build and reconcile large-change review sagas"
+  default_prompt: "Use $review-saga to build or review a complete saga for this change."

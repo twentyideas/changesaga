@@ -1,0 +1,117 @@
+package reviewstore
+
+import (
+	"bytes"
+	"os"
+	"path/filepath"
+	"sync"
+	"testing"
+
+	"github.com/review-saga/review-saga/internal/diffuri"
+	"github.com/review-saga/review-saga/internal/saga"
+)
+
+func TestReviewRecordsAreAppendOnlyAndFileGranular(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "test.saga")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	target := "urn:review-saga:test:fragment:overview"
+	first, err := AddThread(root, target, "Ada", "First comment", saga.Anchor{Type: "target"}, "comment", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	threadDir := filepath.Join(root, "___review", "threads", first+".thread")
+	threadBefore := readReviewFile(t, filepath.Join(threadDir, "thread.json"))
+	messagesBefore, err := os.ReadDir(filepath.Join(threadDir, "messages"))
+	if err != nil || len(messagesBefore) != 1 {
+		t.Fatalf("initial comment should have one message directory: entries=%d err=%v", len(messagesBefore), err)
+	}
+	firstMessage := filepath.Join(threadDir, "messages", messagesBefore[0].Name(), "message.json")
+	messageBefore := readReviewFile(t, firstMessage)
+
+	runConcurrently(t,
+		func() error { _, err := AddReply(root, first, "Grace", "Reply one", nil); return err },
+		func() error { _, err := AddReply(root, first, "Linus", "Reply two", nil); return err },
+		func() error {
+			_, err := AddThread(root, target, "Margaret", "Second comment", saga.Anchor{Type: "target"}, "comment", "", nil)
+			return err
+		},
+		func() error {
+			_, err := AddThread(root, target, "Edsger", "Third comment", saga.Anchor{Type: "target"}, "comment", "", nil)
+			return err
+		},
+	)
+
+	if !bytes.Equal(threadBefore, readReviewFile(t, filepath.Join(threadDir, "thread.json"))) || !bytes.Equal(messageBefore, readReviewFile(t, firstMessage)) {
+		t.Fatal("adding comments or replies rewrote an existing record")
+	}
+	threads, err := os.ReadDir(filepath.Join(root, "___review", "threads"))
+	if err != nil || len(threads) != 3 {
+		t.Fatalf("comments should use three independent thread directories: entries=%d err=%v", len(threads), err)
+	}
+	messages, err := os.ReadDir(filepath.Join(threadDir, "messages"))
+	if err != nil || len(messages) != 3 {
+		t.Fatalf("comment and replies should use three independent message directories: entries=%d err=%v", len(messages), err)
+	}
+	commentFiles := 0
+	err = filepath.WalkDir(filepath.Join(root, "___review", "threads"), func(path string, entry os.DirEntry, err error) error {
+		if err == nil && !entry.IsDir() && filepath.Base(path) == "content.md" {
+			commentFiles++
+		}
+		return err
+	})
+	if err != nil || commentFiles != 5 {
+		t.Fatalf("each of five comments/replies should have its own content file: files=%d err=%v", commentFiles, err)
+	}
+
+	fileURI, err := diffuri.Build(diffuri.Reference{Repository: "https://example.test/a.git", Base: "aaa", Head: "bbb", Kind: "file", Path: "app.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runConcurrently(t,
+		func() error { return AddReview(root, root, "Ada", "approved", "Looks good") },
+		func() error { return AddReview(root, root, "Grace", "rejected", "One concern") },
+		func() error { return AddDiffReview(root, fileURI, "Ada", "reviewed") },
+		func() error { return AddDiffReview(root, fileURI, "Grace", "unreviewed") },
+	)
+	assertEntryCount(t, filepath.Join(root, "___approvals"), 2)
+	assertEntryCount(t, filepath.Join(root, "___review", "diffs"), 2)
+}
+
+func runConcurrently(t *testing.T, operations ...func() error) {
+	t.Helper()
+	var group sync.WaitGroup
+	errors := make(chan error, len(operations))
+	for _, operation := range operations {
+		group.Add(1)
+		go func(operation func() error) {
+			defer group.Done()
+			errors <- operation()
+		}(operation)
+	}
+	group.Wait()
+	close(errors)
+	for err := range errors {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func readReviewFile(t *testing.T, path string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
+func assertEntryCount(t *testing.T, path string, want int) {
+	t.Helper()
+	entries, err := os.ReadDir(path)
+	if err != nil || len(entries) != want {
+		t.Fatalf("%s has %d entries, want %d (err=%v)", path, len(entries), want, err)
+	}
+}

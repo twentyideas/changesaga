@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reviewsaga.dev/schema/v1/coverage.schema.json",
+  "title": "Review Saga coverage evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "changes"],
+  "properties": {
+    "version": { "const": 1 },
+    "changes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "side", "ranges"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "side": { "enum": ["old", "new"] },
+              "ranges": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["start", "end"],
+                  "properties": {
+                    "start": { "type": "integer", "minimum": 1 },
+                    "end": { "type": "integer", "minimum": 1 }
+                  }
+                }
+              },
+              "note": { "type": "string" }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["event"],
+            "anyOf": [
+              { "required": ["path"] },
+              { "required": ["old_path"] },
+              { "required": ["new_path"] }
+            ],
+            "properties": {
+              "event": { "enum": ["rename", "mode", "binary"] },
+              "path": { "type": "string", "minLength": 1 },
+              "old_path": { "type": "string", "minLength": 1 },
+              "new_path": { "type": "string", "minLength": 1 },
+              "note": { "type": "string" }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

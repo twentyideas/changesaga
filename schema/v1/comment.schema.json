@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reviewsaga.dev/schema/v1/comment.schema.json",
+  "title": "Review Saga comment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "author", "body", "created_at"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "author": { "type": "string", "minLength": 1 },
+    "body": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

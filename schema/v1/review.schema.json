@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reviewsaga.dev/schema/v1/review.schema.json",
+  "title": "Review Saga review event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "author", "state", "created_at"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "author": { "type": "string", "minLength": 1 },
+    "state": { "enum": ["approved", "rejected", "closed", "open"] },
+    "body": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

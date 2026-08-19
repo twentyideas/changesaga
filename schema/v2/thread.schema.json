@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reviewsaga.dev/schema/v2/thread.schema.json",
+  "title": "Review Saga anchored thread",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "id", "target", "anchor", "created_by", "created_at"],
+  "properties": {
+    "version": { "const": 2 },
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "target": { "type": "string", "pattern": "^urn:review-saga:" },
+    "created_by": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "kind": { "enum": ["comment", "suggestion"] },
+    "suggestion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["replacement"],
+      "properties": { "replacement": { "type": "string", "minLength": 1 } }
+    },
+    "anchor": { "$ref": "#/$defs/anchor" }
+  },
+  "allOf": [
+    {
+      "if": { "required": ["kind"], "properties": { "kind": { "const": "suggestion" } } },
+      "then": { "required": ["suggestion"] },
+      "else": { "not": { "required": ["suggestion"] } }
+    }
+  ],
+  "$defs": {
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "shape": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["rect", "ellipse", "line", "path"] },
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 },
+        "width": { "type": "number", "minimum": 0, "maximum": 1 },
+        "height": { "type": "number", "minimum": 0, "maximum": 1 },
+        "points": { "type": "array", "items": { "$ref": "#/$defs/point" } },
+        "color": { "type": "string" },
+        "stroke_width": { "type": "number", "minimum": 0 }
+      }
+    },
+    "text": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exact"],
+      "properties": {
+        "exact": { "type": "string", "minLength": 1 },
+        "prefix": { "type": "string" },
+        "suffix": { "type": "string" },
+        "start": { "type": "integer", "minimum": 0 },
+        "end": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "anchor": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": { "type": { "const": "target" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "coordinate_space", "shapes"],
+          "properties": {
+            "type": { "enum": ["region", "drawing"] },
+            "coordinate_space": { "const": "normalized" },
+            "shapes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/shape" } }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "text"],
+          "properties": {
+            "type": { "const": "text" },
+            "text": { "$ref": "#/$defs/text" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "diff"],
+          "properties": {
+            "type": { "const": "diff" },
+            "diff": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["uri"],
+              "properties": {
+                "uri": { "type": "string", "pattern": "^saga-diff://v1/(line|event)\\?" }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

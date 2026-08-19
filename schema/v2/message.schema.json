@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reviewsaga.dev/schema/v2/message.schema.json",
+  "title": "Review Saga thread message",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "id", "author", "created_at"],
+  "properties": {
+    "version": { "const": 2 },
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "author": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}
