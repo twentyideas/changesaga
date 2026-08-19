@@ -37,18 +37,19 @@ type CodeReviewView struct {
 }
 
 type FileDiffView struct {
-	ID       string
-	Name     string
-	Path     string
-	URI      string
-	Href     string
-	Atoms    []*diffAtomView
-	Lines    []*DiffLineView
-	Added    int
-	Deleted  int
-	Reviewed bool
-	Reviewer string
-	Selected bool
+	ID             string
+	Name           string
+	Path           string
+	URI            string
+	Href           string
+	Atoms          []*diffAtomView
+	Lines          []*DiffLineView
+	Added          int
+	Deleted        int
+	Reviewed       bool
+	Reviewer       string
+	ReviewerDetail string
+	Selected       bool
 }
 
 // DiffLineView is presentation-only. Atom is populated for changed lines and

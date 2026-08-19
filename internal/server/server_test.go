@@ -113,7 +113,7 @@ func TestReviewDecisionPersistsAndReturnsToChapter(t *testing.T) {
 		t.Fatalf("written review should validate: validation=%#v err=%v", validation, err)
 	}
 	reviews := document.Section.Fragments[0].Reviews
-	if len(reviews) != 1 || reviews[0].State != "approved" || reviews[0].Author != "Ada" || reviews[0].Body != "Ready to merge." {
+	if len(reviews) != 1 || reviews[0].State != "approved" || reviews[0].Author != "" || reviews[0].Body != "Ready to merge." {
 		t.Fatalf("unexpected persisted review: %#v", reviews)
 	}
 }
@@ -180,6 +180,9 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	}
 	if strings.Count(renderedPage, `class="annotation-toolbox"`) != 1 || strings.Contains(renderedPage, `class="review-form"`) {
 		t.Fatal("review controls were not consolidated")
+	}
+	if strings.Contains(renderedPage, `name="author"`) || strings.Contains(renderedPage, "Your name") || strings.Contains(renderedPage, "reviewer-name") {
+		t.Fatal("review UI asked for editable author identity")
 	}
 	if strings.Contains(renderedPage, "text/markdown") || strings.Contains(renderedPage, "text/plain") || strings.Contains(renderedPage, "private/root.chapter") || strings.Contains(renderedPage, "format v") || strings.Contains(renderedPage, ">Chapter<") {
 		t.Fatal("reviewer-facing format metadata leaked into the page")

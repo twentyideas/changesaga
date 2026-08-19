@@ -88,27 +88,30 @@ type DiffReference struct {
 }
 
 type Review struct {
-	Version   int       `json:"version"`
-	ID        string    `json:"id"`
-	Author    string    `json:"author"`
-	State     string    `json:"state"`
-	Body      string    `json:"body,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+	Path              string    `json:"-"`
+	AttributionDetail string    `json:"-"`
+	Version           int       `json:"version"`
+	ID                string    `json:"id"`
+	Author            string    `json:"author,omitempty"`
+	State             string    `json:"state"`
+	Body              string    `json:"body,omitempty"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 type Thread struct {
-	Version    int           `json:"version"`
-	ID         string        `json:"id"`
-	Target     string        `json:"target"`
-	Anchor     Anchor        `json:"anchor"`
-	Kind       string        `json:"kind,omitempty"`
-	Suggestion *Suggestion   `json:"suggestion,omitempty"`
-	CreatedBy  string        `json:"created_by"`
-	CreatedAt  time.Time     `json:"created_at"`
-	Directory  string        `json:"-"`
-	Messages   []*Message    `json:"messages,omitempty"`
-	Events     []ThreadEvent `json:"events,omitempty"`
-	State      string        `json:"state"`
+	Version           int           `json:"version"`
+	ID                string        `json:"id"`
+	Target            string        `json:"target"`
+	Anchor            Anchor        `json:"anchor"`
+	Kind              string        `json:"kind,omitempty"`
+	Suggestion        *Suggestion   `json:"suggestion,omitempty"`
+	CreatedBy         string        `json:"created_by,omitempty"`
+	CreatedAt         time.Time     `json:"created_at"`
+	Directory         string        `json:"-"`
+	AttributionDetail string        `json:"-"`
+	Messages          []*Message    `json:"messages,omitempty"`
+	Events            []ThreadEvent `json:"events,omitempty"`
+	State             string        `json:"state"`
 }
 
 type ThreadManifest struct {
@@ -118,7 +121,7 @@ type ThreadManifest struct {
 	Anchor     Anchor      `json:"anchor"`
 	Kind       string      `json:"kind,omitempty"`
 	Suggestion *Suggestion `json:"suggestion,omitempty"`
-	CreatedBy  string      `json:"created_by"`
+	CreatedBy  string      `json:"created_by,omitempty"`
 	CreatedAt  time.Time   `json:"created_at"`
 }
 
@@ -165,32 +168,38 @@ type TextSelector struct {
 type MessageManifest struct {
 	Version   int       `json:"version"`
 	ID        string    `json:"id"`
-	Author    string    `json:"author"`
+	Author    string    `json:"author,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
 type Message struct {
-	ID        string      `json:"id"`
-	Author    string      `json:"author"`
-	CreatedAt time.Time   `json:"created_at"`
-	Fragments []*Fragment `json:"fragments"`
+	Path              string      `json:"-"`
+	AttributionDetail string      `json:"-"`
+	ID                string      `json:"id"`
+	Author            string      `json:"author,omitempty"`
+	CreatedAt         time.Time   `json:"created_at"`
+	Fragments         []*Fragment `json:"fragments"`
 }
 
 type ThreadEvent struct {
-	Version   int       `json:"version"`
-	ID        string    `json:"id"`
-	Author    string    `json:"author"`
-	State     string    `json:"state"`
-	CreatedAt time.Time `json:"created_at"`
+	Path              string    `json:"-"`
+	AttributionDetail string    `json:"-"`
+	Version           int       `json:"version"`
+	ID                string    `json:"id"`
+	Author            string    `json:"author,omitempty"`
+	State             string    `json:"state"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 type DiffReview struct {
-	Version   int       `json:"version"`
-	ID        string    `json:"id"`
-	URI       string    `json:"uri"`
-	Author    string    `json:"author"`
-	State     string    `json:"state"`
-	CreatedAt time.Time `json:"created_at"`
+	Path              string    `json:"-"`
+	AttributionDetail string    `json:"-"`
+	Version           int       `json:"version"`
+	ID                string    `json:"id"`
+	URI               string    `json:"uri"`
+	Author            string    `json:"author,omitempty"`
+	State             string    `json:"state"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 type Saga struct {

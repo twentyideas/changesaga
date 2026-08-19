@@ -245,8 +245,9 @@ func loadReviews(root, dir string, validation *Validation) ([]Review, error) {
 			addIssue(validation, "error", relativePath(root, path), err.Error())
 			return
 		}
-		if value.Version != CurrentVersion || value.ID == "" || strings.TrimSpace(value.Author) == "" || value.CreatedAt.IsZero() || !validReviewState(value.State) {
-			addIssue(validation, "error", relativePath(root, path), "review requires version 2, id, author, created_at, and a valid state")
+		value.Path = path
+		if value.Version != CurrentVersion || value.ID == "" || value.CreatedAt.IsZero() || !validReviewState(value.State) {
+			addIssue(validation, "error", relativePath(root, path), "review requires version 2, id, created_at, and a valid state")
 		}
 		result = append(result, value)
 	})
@@ -308,8 +309,9 @@ func loadDiffReviews(root string, validation *Validation) ([]DiffReview, error) 
 			return
 		}
 		reference, uriErr := diffuri.Parse(value.URI)
-		if value.Version != CurrentVersion || !stableID.MatchString(value.ID) || strings.TrimSpace(value.Author) == "" || value.CreatedAt.IsZero() || value.State != "reviewed" && value.State != "unreviewed" || uriErr != nil || reference.Kind != "file" {
-			addIssue(validation, "error", relativePath(root, path), "diff review requires version 2, id, author, created_at, reviewed/unreviewed state, and a file diff URI")
+		value.Path = path
+		if value.Version != CurrentVersion || !stableID.MatchString(value.ID) || value.CreatedAt.IsZero() || value.State != "reviewed" && value.State != "unreviewed" || uriErr != nil || reference.Kind != "file" {
+			addIssue(validation, "error", relativePath(root, path), "diff review requires version 2, id, created_at, reviewed/unreviewed state, and a file diff URI")
 		}
 		reviews = append(reviews, value)
 	})
@@ -338,10 +340,10 @@ func loadMessages(root, threadDir, sagaID string, validation *Validation) ([]*Me
 			addIssue(validation, "error", relativePath(root, manifestPath), err.Error())
 			continue
 		}
-		if manifest.Version != CurrentVersion || manifest.ID == "" || manifest.Author == "" || manifest.CreatedAt.IsZero() {
-			addIssue(validation, "error", relativePath(root, manifestPath), "message requires version 2, id, author, and created_at")
+		if manifest.Version != CurrentVersion || manifest.ID == "" || manifest.CreatedAt.IsZero() {
+			addIssue(validation, "error", relativePath(root, manifestPath), "message requires version 2, id, and created_at")
 		}
-		message := &Message{ID: manifest.ID, Author: manifest.Author, CreatedAt: manifest.CreatedAt}
+		message := &Message{Path: manifestPath, ID: manifest.ID, Author: manifest.Author, CreatedAt: manifest.CreatedAt}
 		children, err := os.ReadDir(messageDir)
 		if err != nil {
 			return nil, err
@@ -373,8 +375,9 @@ func loadThreadEvents(root, threadDir string, validation *Validation) ([]ThreadE
 			addIssue(validation, "error", relativePath(root, path), err.Error())
 			return
 		}
-		if value.Version != CurrentVersion || value.ID == "" || value.Author == "" || value.CreatedAt.IsZero() || value.State != "open" && value.State != "resolved" {
-			addIssue(validation, "error", relativePath(root, path), "thread event requires version 2, id, author, created_at, and open/resolved state")
+		value.Path = path
+		if value.Version != CurrentVersion || value.ID == "" || value.CreatedAt.IsZero() || value.State != "open" && value.State != "resolved" {
+			addIssue(validation, "error", relativePath(root, path), "thread event requires version 2, id, created_at, and open/resolved state")
 		}
 		events = append(events, value)
 	})
