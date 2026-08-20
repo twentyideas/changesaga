@@ -406,21 +406,21 @@ func indexManifestTargets(document *saga.Saga) map[string]manifestTargetLocation
 			Target: target, Title: title, Kind: kind, Chapter: chapter, Href: href,
 		}, order: order}
 	}
-	add(document.Section.Target, document.Manifest.Title, "Saga", "Overview", "/#"+domID(document.Section.Target))
+	add(document.Section.Target, document.Manifest.Title, "Saga", "Overview", sagaHref(document.Section.Target))
 	var walk func(*saga.Section, string, string)
 	walk = func(section *saga.Section, chapter, chapterHref string) {
 		if section.Kind == "chapter" {
-			chapter, chapterHref = section.Title, "/chapters/"+url.PathEscape(section.ID)
-			add(section.Target, section.Title, "Chapter", chapter, chapterHref+"#"+domID(section.Target))
+			chapter, chapterHref = section.Title, ""
+			add(section.Target, section.Title, "Chapter", chapter, sagaHref(section.Target))
 		} else if section.Kind == "section" {
-			add(section.Target, section.Title, "Section", chapter, chapterHref+"#"+domID(section.Target))
+			add(section.Target, section.Title, "Section", chapter, sagaHref(section.Target))
 		}
 		for _, fragment := range section.Fragments {
 			title := fragment.Title
 			if title == "" {
 				title = fragment.ID
 			}
-			fragmentHref := chapterHref + "#" + domID(fragment.Target)
+			fragmentHref := sagaHref(fragment.Target)
 			add(fragment.Target, title, "Fragment", chapter, fragmentHref)
 			for index := range fragment.Landmarks {
 				landmark := &fragment.Landmarks[index]
@@ -431,6 +431,6 @@ func indexManifestTargets(document *saga.Saga) map[string]manifestTargetLocation
 			walk(child, chapter, chapterHref)
 		}
 	}
-	walk(document.Section, "Overview", "/")
+	walk(document.Section, "Overview", "")
 	return result
 }

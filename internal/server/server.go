@@ -41,9 +41,6 @@ type pageData struct {
 	Saga          *saga.Saga
 	Root          *sectionView
 	Nav           []*navNodeView
-	Chapters      []*chapterIndexView
-	Overview      bool
-	Chapter       bool
 	Diagnostic    string
 	Code          *CodeReviewView
 	Manifest      *CoverageManifestView
@@ -63,16 +60,6 @@ type reviewProgressItem struct {
 	StateClass string
 	Status     string
 	Note       string
-}
-
-type chapterIndexView struct {
-	ID         string
-	Title      string
-	URL        string
-	Status     string
-	StateClass string
-	StateIcon  string
-	Active     bool
 }
 
 // navNodeView is the sidebar documentation tree. It exposes titles, links and a
@@ -253,6 +240,21 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	chapterID, chapterRoute := requestedChapter(r)
+	if r.URL.Path != "/" {
+		if !chapterRoute {
+			http.NotFound(w, r)
+			return
+		}
+		for _, child := range document.Section.Children {
+			if child.Kind == "chapter" && child.ID == chapterID {
+				http.Redirect(w, r, "/#"+domID(child.Target), http.StatusFound)
+				return
+			}
+		}
+		http.NotFound(w, r)
+		return
+	}
 	// Review identity belongs to the repository containing the saga, which can
 	// be different from the source checkout used to evaluate product diffs.
 	applyGitAttribution(r.Context(), gitattribution.New(r.Context(), a.root), document)
@@ -290,41 +292,17 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if code != nil {
-		rebaseCodeReviewURLs(code, r.URL.Path)
+		rebaseCodeReviewURLs(code, "/")
 	}
 	rootView := makeSectionView(document.Section, changesByTarget, threadsByTarget, threadsByDiff)
-	chapterID, chapterRoute := requestedChapter(r)
-	if r.URL.Path != "/" && !chapterRoute {
-		http.NotFound(w, r)
-		return
-	}
-	selected := rootView
-	if chapterRoute {
-		selected = nil
-		for _, child := range rootView.ChildViews {
-			if child.Kind == "chapter" && child.ID == chapterID {
-				selected = child
-				break
-			}
-		}
-		if selected == nil {
-			http.NotFound(w, r)
-			return
-		}
-	} else {
-		// The overview owns only root-level content. Chapter bodies are rendered
-		// exclusively by their stable chapter routes.
-		selected = cloneSectionWithoutChildren(rootView)
-	}
 	data := pageData{
 		Saga: document,
-		Root: selected, Overview: !chapterRoute, Chapter: chapterRoute,
-		Chapters: makeChapterIndex(rootView, chapterID),
-		Code:     code,
+		Root: rootView,
+		Code: code,
 	}
 	data.ReviewItems = makeReviewProgressItems(rootView)
 	data.ReviewDecided, data.ReviewTotal = reviewProgressSummary(data.ReviewItems)
-	data.Nav = makeNavTree(document.Manifest.Title, rootView, selected, chapterRoute, chapterID)
+	data.Nav = makeNavTree(document.Manifest.Title, rootView)
 	if diffErr == nil {
 		data.Manifest = makeCoverageManifestView(document, changes, report)
 	}
@@ -360,21 +338,6 @@ func cloneSectionWithoutChildren(view *sectionView) *sectionView {
 	return &clone
 }
 
-func makeChapterIndex(root *sectionView, activeID string) []*chapterIndexView {
-	chapters := make([]*chapterIndexView, 0, len(root.ChildViews))
-	for _, child := range root.ChildViews {
-		if child.Kind != "chapter" {
-			continue
-		}
-		status, class, icon := reviewProgress(child)
-		chapters = append(chapters, &chapterIndexView{
-			ID: child.ID, Title: child.Title, URL: "/chapters/" + url.PathEscape(child.ID),
-			Status: status, StateClass: class, StateIcon: icon, Active: child.ID == activeID,
-		})
-	}
-	return chapters
-}
-
 // reviewProgress reports resume state for one chapter. It is deliberately
 // coarse: reviewers need to know where to continue, not a completion score.
 func reviewProgress(view *sectionView) (status, class, icon string) {
@@ -387,15 +350,13 @@ func reviewProgress(view *sectionView) (status, class, icon string) {
 	return "Unreviewed", "", "circle"
 }
 
-// makeNavTree builds the collapsed documentation tree in the sidebar: the
-// overview, then every chapter. Only the open page expands, and it expands into
-// its own headings so a long chapter stays navigable.
-func makeNavTree(title string, root, selected *sectionView, chapterRoute bool, activeID string) []*navNodeView {
-	overview := &navNodeView{Title: "Overview", Href: "/", NodeID: "nav-overview", Active: !chapterRoute}
-	if !chapterRoute && selected != nil {
-		overview.Children = withoutRedundantLead(documentOutline(selected), overview.Title)
-		overview.Expanded = len(overview.Children) > 0
-	}
+// makeNavTree builds a documentation outline for the one-page saga. Chapter
+// children are present for instant navigation but collapsed until requested.
+func makeNavTree(title string, root *sectionView) []*navNodeView {
+	overviewOnly := cloneSectionWithoutChildren(root)
+	overview := &navNodeView{Title: "Overview", Href: sagaHref(root.Target), NodeID: "nav-overview", Active: true}
+	overview.Children = withoutRedundantLead(documentOutline(overviewOnly), overview.Title)
+	overview.Expanded = len(overview.Children) > 0
 	nodes := []*navNodeView{overview}
 	for _, child := range root.ChildViews {
 		if child.Kind != "chapter" {
@@ -403,14 +364,11 @@ func makeNavTree(title string, root, selected *sectionView, chapterRoute bool, a
 		}
 		status, class, icon := reviewProgress(child)
 		node := &navNodeView{
-			Title: child.Title, Href: "/chapters/" + url.PathEscape(child.ID),
-			NodeID: "nav-" + domID(child.Target), Active: chapterRoute && child.ID == activeID,
+			Title: child.Title, Href: sagaHref(child.Target),
+			NodeID:     "nav-" + domID(child.Target),
 			StateLabel: status, StateClass: class, StateIcon: icon,
 		}
-		if node.Active && selected != nil {
-			node.Children = withoutRedundantLead(documentOutline(selected), node.Title)
-			node.Expanded = len(node.Children) > 0
-		}
+		node.Children = withoutRedundantLead(documentOutline(child), node.Title)
 		nodes = append(nodes, node)
 	}
 	return nodes
@@ -481,20 +439,16 @@ func makeReviewProgressItems(root *sectionView) []*reviewProgressItem {
 		if title == "" {
 			title = view.ID
 		}
-		result = append(result, makeReviewProgressItem(view.Target, title, base+"#"+view.DOMID, view.ReviewState, view.ReviewBody))
+		result = append(result, makeReviewProgressItem(view.Target, title, "#"+view.DOMID, view.ReviewState, view.ReviewBody))
 		for _, fragment := range view.FragmentViews {
 			fragmentTitle := fragment.Title
 			if fragmentTitle == "" {
 				fragmentTitle = fragment.ID
 			}
-			result = append(result, makeReviewProgressItem(fragment.Target, fragmentTitle, base+"#"+fragment.DOMID, fragment.ReviewState, fragment.ReviewBody))
+			result = append(result, makeReviewProgressItem(fragment.Target, fragmentTitle, "#"+fragment.DOMID, fragment.ReviewState, fragment.ReviewBody))
 		}
 		for _, child := range view.ChildViews {
-			childBase := base
-			if child.Kind == "chapter" {
-				childBase = "/chapters/" + url.PathEscape(child.ID)
-			}
-			walk(child, childBase)
+			walk(child, base)
 		}
 	}
 	walk(root, "/")
@@ -1149,6 +1103,8 @@ func domID(value string) string {
 	digest := sha256.Sum256([]byte(value))
 	return fmt.Sprintf("target-%s-%x", store.Slug(value), digest[:6])
 }
+
+func sagaHref(target string) string { return "#" + domID(target) }
 
 const defaultAnnotationColor = "#d04832"
 

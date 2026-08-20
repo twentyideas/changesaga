@@ -21,7 +21,7 @@ func TestFocusedCodeRendererIncludesAccessibleLocalDiffControls(t *testing.T) {
 	code := &CodeReviewView{
 		Files: []*FileDiffView{file}, SelectedFile: file,
 		Tree:        ChangedFileTreeView{Nodes: []*ChangedFileTreeNode{{Name: "src", Kind: "folder", Expanded: true, Children: []*ChangedFileTreeNode{{Name: "app.go", Kind: "file", File: file}}}}, FileCount: 1, Added: 1, Deleted: 1},
-		RelatedSaga: []*RelatedSagaChapterView{{Title: "Backend", Href: "/chapters/backend", Fragments: []*RelatedSagaFragmentView{{Title: "Request flow", Excerpt: "Explains the new branch.", Href: "/chapters/backend#target-flow"}}}},
+		RelatedSaga: []*RelatedSagaChapterView{{Title: "Backend", Href: "#target-backend", Fragments: []*RelatedSagaFragmentView{{Title: "Request flow", Excerpt: "Explains the new branch.", Href: "#target-flow"}}}},
 	}
 	data := pageData{Saga: &saga.Saga{Manifest: saga.Manifest{ID: "test", Title: "Test"}}, Root: &sectionView{Section: &saga.Section{}}, Code: code, Files: code.Files}
 	var output bytes.Buffer
@@ -35,7 +35,7 @@ func TestFocusedCodeRendererIncludesAccessibleLocalDiffControls(t *testing.T) {
 		`data-diff-surface`, `data-context-row`, `aria-label="Unchanged line 6"`,
 		`aria-label="Removed old line 7"`, `aria-label="Added new line 7"`,
 		`data-selection-action="comment"`, `data-selection-action="suggestion"`,
-		`class="diff-row new selected"`, `/chapters/backend#target-flow`, `Explains the new branch.`,
+		`class="diff-row new selected"`, `href="#target-flow"`, `Explains the new branch.`,
 		`<script src="/app.js" defer></script>`,
 	} {
 		if !strings.Contains(body, expected) {

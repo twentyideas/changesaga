@@ -70,7 +70,7 @@ func TestCodeReviewViewScopesReverseOwnershipAndKeepsForwardLinks(t *testing.T) 
 	if strings.Contains(strings.ToLower(flow.Excerpt), "script") || strings.Contains(flow.Excerpt, "alert") || !strings.Contains(flow.Excerpt, "Visible explanation") {
 		t.Fatalf("excerpt was not safe visible text: %q", flow.Excerpt)
 	}
-	if flow.Href != "/chapters/backend#"+domID(flow.Target) || len(flow.DiffURIs) != 2 {
+	if flow.Href != sagaHref(flow.Target) || len(flow.DiffURIs) != 2 {
 		t.Fatalf("fragment reverse link is not exact: %#v", flow)
 	}
 
@@ -154,7 +154,7 @@ func TestRelatedSagaLinksBackToExactLandmark(t *testing.T) {
 	location := narrativeLocation{
 		fragment: fragment, target: landmarkTarget, itemID: "submit-action", title: "Submit action",
 		chapterID: "backend", chapterTitle: "Backend", chapterTarget: saga.ChapterTarget("test", "backend"),
-		chapterHref: "/chapters/backend", fragmentHref: "/chapters/backend#" + domID(fragment.Target) + "--submit-action",
+		chapterHref: sagaHref(saga.ChapterTarget("test", "backend")), fragmentHref: sagaHref(fragment.Target) + "--submit-action",
 	}
 	atom := &diffAtomView{Atom: gitdiff.Atom{Key: "changed", URI: "saga-diff://example"}}
 	result := makeRelatedSagaViews([]narrativeLocation{location}, []*diffAtomView{atom}, map[string][]coverage.Assignment{

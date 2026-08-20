@@ -405,8 +405,16 @@ const appJavaScript = `(() => {
     qa('[data-landmark-visual].active').forEach(element => element.classList.remove('active'));
     qa('.content-landmark-active').forEach(element => element.classList.remove('content-landmark-active'));
     const id = decodeURIComponent(location.hash.replace(/^#/, ''));
+    const destination = id ? document.getElementById(id) : null;
+    if (destination) {
+      setChapterOpen(destination.closest('[data-chapter]'), true);
+      setView('saga', false);
+    }
     const target = id ? q('[data-landmark-anchor="' + CSS.escape(id) + '"]') : null;
-    if (!target) return;
+    if (!target) {
+      destination?.scrollIntoView({block:'start'});
+      return;
+    }
     const fragment = target.closest('.fragment');
     if (!fragment) return;
     setActiveFragment(fragment);
@@ -610,6 +618,23 @@ const appJavaScript = `(() => {
     const expanded = button.getAttribute('aria-expanded') === 'true';
     button.setAttribute('aria-expanded', String(!expanded));
     children.hidden = expanded;
+  }
+
+  function setChapterOpen(chapter, open) {
+    if (!chapter) return;
+    const body = q('[data-chapter-body]', chapter);
+    const toggle = q('[data-chapter-toggle]', chapter);
+    if (!body || !toggle) return;
+    body.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.setAttribute('aria-label', (open ? 'Close ' : 'Open ') + (q('.chapter-head h2', chapter)?.textContent.trim() || 'chapter'));
+    chapter.classList.toggle('open', open);
+    if (open) positionLandmarkHotspots();
+  }
+
+  function toggleChapter(button) {
+    const chapter = button.closest('[data-chapter]');
+    setChapterOpen(chapter, button.getAttribute('aria-expanded') !== 'true');
   }
 
   function setView(name, updateURL = true) {
@@ -1369,6 +1394,15 @@ const appJavaScript = `(() => {
   });
 
   document.addEventListener('click', event => {
+    const sagaLink = event.target.closest?.('a[href^="#"]');
+    if (sagaLink) {
+      const id = decodeURIComponent(sagaLink.getAttribute('href').slice(1));
+      const destination = id ? document.getElementById(id) : null;
+      if (destination?.closest('[data-view="saga"]')) {
+        setChapterOpen(destination.closest('[data-chapter]'), true);
+        setView('saga', false);
+      }
+    }
     const permalink = event.target.closest('[data-copy-link]');
     if (permalink) { copyPermalink(permalink); return; }
     if (event.target.closest('[data-undo]')) { performHistoryAction('undo'); return; }
@@ -1389,6 +1423,8 @@ const appJavaScript = `(() => {
     if (annotation) { selectAnnotation(annotation); return; }
     const docTwisty = event.target.closest('[data-doc-twisty]');
     if (docTwisty) { toggleDocNode(docTwisty); return; }
+    const chapterToggle = event.target.closest('[data-chapter-toggle]');
+    if (chapterToggle) { toggleChapter(chapterToggle); return; }
     const viewTab = event.target.closest('[data-view-tab]');
     if (viewTab) { setView(viewTab.dataset.viewTab); return; }
     const manifestMode = event.target.closest('[data-manifest-mode]');

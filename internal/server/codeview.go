@@ -368,22 +368,22 @@ func indexNarrativeFragments(document *saga.Saga) []narrativeLocation {
 	walk = func(section *saga.Section, chapter narrativeLocation) {
 		if section.Kind == "chapter" {
 			chapter.chapterID, chapter.chapterTitle, chapter.chapterTarget = section.ID, section.Title, section.Target
-			chapter.chapterHref = "/chapters/" + url.PathEscape(section.ID)
+			chapter.chapterHref = sagaHref(section.Target)
 		}
 		for _, fragment := range section.Fragments {
 			location := chapter
 			if location.chapterTitle == "" {
-				location.chapterTitle, location.chapterTarget, location.chapterHref = "Overview", document.Section.Target, "/"
+				location.chapterTitle, location.chapterTarget, location.chapterHref = "Overview", document.Section.Target, sagaHref(document.Section.Target)
 			}
 			location.fragment = fragment
 			location.target, location.itemID, location.title, location.diffs = fragment.Target, fragment.ID, fragment.Title, fragment.Diffs
-			location.fragmentHref = location.chapterHref + "#" + domID(fragment.Target)
+			location.fragmentHref = sagaHref(fragment.Target)
 			result = append(result, location)
 			for index := range fragment.Landmarks {
 				landmark := &fragment.Landmarks[index]
 				landmarkLocation := location
 				landmarkLocation.target, landmarkLocation.itemID, landmarkLocation.title, landmarkLocation.diffs = landmark.Target, landmark.ID, landmark.Label, landmark.Diffs
-				landmarkLocation.fragmentHref = location.chapterHref + "#" + domID(fragment.Target) + "--" + landmark.ID
+				landmarkLocation.fragmentHref = sagaHref(fragment.Target) + "--" + landmark.ID
 				result = append(result, landmarkLocation)
 			}
 		}

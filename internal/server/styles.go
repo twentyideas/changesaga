@@ -129,16 +129,18 @@ a{color:var(--accent)}
 /* Chapter list ----------------------------------------------------------- */
 .chapter-index{margin-top:28px;border-top:1px solid var(--line-soft);padding-top:14px}
 .chapter-index>h2{margin:0 0 4px;font:600 12px var(--ui);color:var(--muted)}
-.chapter-row{display:flex;align-items:center;gap:9px;padding:7px 8px;margin:0 -8px;border-radius:var(--radius);color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line-soft)}
-.chapter-row:last-of-type{border-bottom:0}
-.chapter-row:hover{background:var(--bg-subtle)}
-.chapter-row .chapter-state{color:var(--faint)}
-.chapter-row .chapter-state.approved{color:var(--green)}
-.chapter-row .chapter-state.progress{color:var(--amber)}
-.chapter-title{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
-.chapter-row .chapter-go{color:var(--faint);opacity:0;transition:opacity .12s}
-.chapter-row:hover .chapter-go,.chapter-row:focus-visible .chapter-go{opacity:1}
-.chapter-row.active{background:var(--sel)}
+.chapter-pages{border-bottom:1px solid var(--line-soft)}
+.chapter-pages>.chapter{margin:0;padding:0;border-top:1px solid var(--line-soft)}
+.chapter>.chapter-head{min-height:44px;padding:4px 2px}
+.chapter-head h2{min-width:0;flex:1;font-size:15px}
+.chapter-head h2 a{color:inherit;text-decoration:none}
+.chapter-head h2 a:hover{color:var(--accent)}
+.chapter-toggle{display:grid;place-items:center;width:26px;height:26px;padding:0;border:0;border-radius:4px;background:transparent;color:var(--faint)}
+.chapter-toggle:hover{background:var(--bg-subtle);color:var(--ink)}
+.chapter-toggle .twisty{transition:transform .14s ease}
+.chapter.open>.chapter-head .chapter-toggle .twisty{transform:rotate(90deg)}
+.chapter-body{padding:2px 0 22px 28px}
+.chapter-body[hidden]{display:none}
 
 /* Sections and fragments ------------------------------------------------- */
 .section{scroll-margin-top:calc(var(--top) + 12px);margin:22px 0}

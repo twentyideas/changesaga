@@ -215,7 +215,7 @@ func TestStickyNoteOverlayRendersSafelyAndDeepLinks(t *testing.T) {
 	threads := map[string][]*threadView{fragment.Target: {makeThreadView(sticky), makeThreadView(hostile)}}
 	data := pageData{
 		Saga: &saga.Saga{Manifest: saga.Manifest{ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/a.git", Base: "main", Head: "HEAD"}}, Section: section},
-		Root: makeSectionView(section, nil, threads, nil), Chapter: true, Code: &CodeReviewView{},
+		Root: makeSectionView(section, nil, threads, nil), Code: &CodeReviewView{},
 	}
 	var output bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&output, "page", data); err != nil {
@@ -449,7 +449,7 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	}
 	data := pageData{
 		Saga: &saga.Saga{Manifest: saga.Manifest{ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/a.git", Base: "main", Head: "HEAD"}}, Section: section},
-		Root: makeSectionView(section, map[string][]gitdiff.Atom{fragment.Target: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}, landmarkTarget: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}}, map[string][]*threadView{fragment.Target: {makeThreadView(thread)}}, nil), Chapter: true,
+		Root: makeSectionView(section, map[string][]gitdiff.Atom{fragment.Target: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}, landmarkTarget: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}}, map[string][]*threadView{fragment.Target: {makeThreadView(thread)}}, nil),
 		Code: &CodeReviewView{}, Manifest: manifestFixture, ReviewDecided: 2, ReviewTotal: 3,
 		ReviewItems: []*reviewProgressItem{
 			makeReviewProgressItem(section.Target, section.Title, "/#"+domID(section.Target), "", ""),
@@ -532,7 +532,7 @@ func TestSVGAspectRatioKeepsHotspotsAligned(t *testing.T) {
 	}
 }
 
-func TestPageHandlerIsolatesOverviewAndChapterRoutes(t *testing.T) {
+func TestPageHandlerPreloadsCollapsedChaptersAndRedirectsLegacyRoutes(t *testing.T) {
 	root := validServerSaga(t)
 	writeServerFile(t, filepath.Join(root, "overview.fragment", "content.md"), "Root-only introduction\n")
 	writeServerFile(t, filepath.Join(root, "alpha.chapter", "chapter.json"), `{"version":2,"id":"alpha","title":"Alpha"}`)
@@ -549,26 +549,20 @@ func TestPageHandlerIsolatesOverviewAndChapterRoutes(t *testing.T) {
 		t.Fatalf("overview status = %d: %s", overview.Code, overview.Body.String())
 	}
 	overviewBody := overview.Body.String()
-	if !strings.Contains(overviewBody, "Root-only introduction") || !strings.Contains(overviewBody, `href="/chapters/alpha"`) || strings.Contains(overviewBody, "Alpha-exclusive narrative") || strings.Contains(overviewBody, "Beta-exclusive narrative") {
-		t.Fatal("overview did not remain isolated from chapter content")
+	alphaTarget := saga.ChapterTarget("test", "alpha")
+	if !strings.Contains(overviewBody, "Root-only introduction") || !strings.Contains(overviewBody, "Alpha-exclusive narrative") || !strings.Contains(overviewBody, "Beta-exclusive narrative") || !strings.Contains(overviewBody, `href="#`+domID(alphaTarget)+`"`) {
+		t.Fatal("one-page saga did not preload its overview and chapters")
 	}
-	if strings.Contains(overviewBody, `<details class="chapter-row`) || !strings.Contains(overviewBody, `<a class="chapter-row`) {
-		t.Fatal("chapter entries must navigate directly without an intermediate open action")
+	if strings.Count(overviewBody, `data-chapter-body hidden`) != 2 || strings.Count(overviewBody, `data-chapter-toggle aria-expanded="false"`) != 2 {
+		t.Fatal("preloaded chapters did not start collapsed")
 	}
 
 	chapterRequest := httptest.NewRequest(http.MethodGet, "/chapters/alpha", nil)
 	chapterRequest.SetPathValue("chapter", "alpha")
 	chapter := httptest.NewRecorder()
 	application.page(chapter, chapterRequest)
-	chapterBody := chapter.Body.String()
-	if chapter.Code != http.StatusOK || !strings.Contains(chapterBody, "Alpha-exclusive narrative") || strings.Contains(chapterBody, "Beta-exclusive narrative") || strings.Contains(chapterBody, "Root-only introduction") {
-		t.Fatal("chapter route did not render only the selected chapter")
-	}
-	if strings.Contains(chapterBody, `<h3>Alpha story</h3>`) || strings.Contains(chapterBody, `class="nav-child" href="#`+domID("urn:review-saga:test:fragment:alpha-story")+`"`) {
-		t.Fatal("chapter route rendered redundant fragment labels around the narrative")
-	}
-	if !strings.Contains(chapterBody, `id="`+domID("urn:review-saga:test:fragment:alpha-story")+`"`) {
-		t.Fatal("chapter route omitted its fragment deep-link target")
+	if chapter.Code != http.StatusFound || chapter.Header().Get("Location") != "/#"+domID(alphaTarget) {
+		t.Fatalf("legacy chapter route did not redirect to its in-page target: status=%d location=%q", chapter.Code, chapter.Header().Get("Location"))
 	}
 
 	missingRequest := httptest.NewRequest(http.MethodGet, "/chapters/missing", nil)
@@ -636,15 +630,19 @@ func TestPageHandlerRendersRealGitComparison(t *testing.T) {
 	}
 }
 
-func TestChapterIndexReportsResumeState(t *testing.T) {
+func TestChapterResumeState(t *testing.T) {
 	root := &sectionView{ChildViews: []*sectionView{
 		{Section: &saga.Section{Kind: "chapter", ID: "done", Title: "Done"}, ReviewState: "approved"},
 		{Section: &saga.Section{Kind: "chapter", ID: "started", Title: "Started"}, FragmentViews: []*fragmentView{{ReviewState: "rejected"}}},
 		{Section: &saga.Section{Kind: "chapter", ID: "new", Title: "New"}},
 	}}
-	chapters := makeChapterIndex(root, "started")
-	if len(chapters) != 3 || chapters[0].Status != "Approved" || chapters[1].Status != "In progress" || !chapters[1].Active || chapters[2].Status != "Unreviewed" {
-		t.Fatalf("unexpected chapter resume states: %#v", chapters)
+	statuses := make([]string, 0, len(root.ChildViews))
+	for _, chapter := range root.ChildViews {
+		status, _, _ := reviewProgress(chapter)
+		statuses = append(statuses, status)
+	}
+	if strings.Join(statuses, ",") != "Approved,In progress,Unreviewed" {
+		t.Fatalf("unexpected chapter resume states: %#v", statuses)
 	}
 }
 
@@ -670,7 +668,7 @@ func TestReviewDecisionProgressCountsTheWholeSaga(t *testing.T) {
 	if decided != 3 || total != 5 {
 		t.Fatalf("review decision progress = %d/%d, want 3/5", decided, total)
 	}
-	if items[0].Href != "/#root-target" || items[3].Href != "/chapters/chapter#chapter-target" || items[4].Href != "/chapters/chapter#three-target" {
+	if items[0].Href != "#root-target" || items[3].Href != "#chapter-target" || items[4].Href != "#three-target" {
 		t.Fatalf("review progress links do not navigate to their targets: %#v", items)
 	}
 	if items[0].StateClass != "approved" || items[1].StateClass != "rejected" || items[2].StateClass != "pending" {
@@ -698,19 +696,17 @@ func TestStylesheetSelectorsMatchTheMarkupTheyTarget(t *testing.T) {
 }
 
 // The sidebar is documentation navigation, not a view of storage: it lists the
-// overview and the chapters, expands only the open page into its own headings,
-// and never repeats a label it is already nested under.
+// overview and every preloaded chapter while keeping chapter outlines collapsed.
 func TestNavigationTreeReadsAsCollapsedDocumentationOutline(t *testing.T) {
 	overviewFragment := &fragmentView{Fragment: &saga.Fragment{ID: "overview", Title: "Overview"}}
 	systemMap := &fragmentView{Fragment: &saga.Fragment{ID: "system-map", Title: "System map"}}
 	untitled := &fragmentView{Fragment: &saga.Fragment{ID: "untitled"}}
-	selected := &sectionView{Section: &saga.Section{ID: "root", Title: "Scaffold"}, FragmentViews: []*fragmentView{overviewFragment, systemMap, untitled}}
-	root := &sectionView{Section: &saga.Section{ID: "root", Title: "Scaffold"}, ChildViews: []*sectionView{
-		{Section: &saga.Section{Kind: "chapter", ID: "format", Title: "Format"}},
-		{Section: &saga.Section{Kind: "chapter", ID: "ui", Title: "Reviewer"}},
+	root := &sectionView{Section: &saga.Section{ID: "root", Title: "Scaffold", Target: saga.SagaTarget("test")}, FragmentViews: []*fragmentView{overviewFragment, systemMap, untitled}, ChildViews: []*sectionView{
+		{Section: &saga.Section{Kind: "chapter", ID: "format", Title: "Format", Target: saga.ChapterTarget("test", "format")}},
+		{Section: &saga.Section{Kind: "chapter", ID: "ui", Title: "Reviewer", Target: saga.ChapterTarget("test", "ui")}, FragmentViews: []*fragmentView{{Fragment: &saga.Fragment{ID: "shell", Title: "Reviewer"}}, systemMap}},
 	}}
 
-	nodes := makeNavTree("Scaffold", root, selected, false, "")
+	nodes := makeNavTree("Scaffold", root)
 	if len(nodes) != 3 || nodes[0].Title != "Overview" || nodes[1].Title != "Format" || nodes[2].Title != "Reviewer" {
 		t.Fatalf("unexpected navigation nodes: %#v", nodes)
 	}
@@ -722,18 +718,11 @@ func TestNavigationTreeReadsAsCollapsedDocumentationOutline(t *testing.T) {
 	if !nodes[0].Expanded || nodes[1].Expanded || nodes[2].Expanded {
 		t.Fatal("only the open page may be expanded")
 	}
-	if nodes[1].StateLabel != "Unreviewed" || nodes[1].Href != "/chapters/format" {
+	if nodes[1].StateLabel != "Unreviewed" || nodes[1].Href != sagaHref(saga.ChapterTarget("test", "format")) {
 		t.Fatalf("chapter node is not navigation: %#v", nodes[1])
 	}
-
-	// On a chapter route the chapter expands instead, and the overview collapses.
-	chapterBody := &sectionView{Section: &saga.Section{ID: "ui", Title: "Reviewer"}, FragmentViews: []*fragmentView{{Fragment: &saga.Fragment{ID: "shell", Title: "Reviewer"}}, systemMap}}
-	nodes = makeNavTree("Scaffold", root, chapterBody, true, "ui")
-	if nodes[0].Expanded || len(nodes[0].Children) != 0 {
-		t.Fatal("overview stayed expanded on a chapter route")
-	}
-	if !nodes[2].Expanded || len(nodes[2].Children) != 1 || nodes[2].Children[0].Title != "System map" {
-		t.Fatalf("open chapter did not expand into its own headings: %#v", nodes[2])
+	if nodes[2].Expanded || len(nodes[2].Children) != 1 || nodes[2].Children[0].Title != "System map" {
+		t.Fatalf("collapsed chapter did not retain its navigable outline: %#v", nodes[2])
 	}
 }
 
