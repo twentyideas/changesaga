@@ -22,7 +22,8 @@ npm run check   # format:check, build, test, synth
 `npm test` and `npm run synth` make no AWS calls and need no credentials.
 
 Keep the core deterministic and dependency-light. UI work should preserve the
-property that every reviewer action becomes a small file suitable for Git.
+property that every reviewer action becomes a small file suitable for Git, and
+should follow the conventions in [docs/renderer-ui.md](docs/renderer-ui.md).
 
 ## Release tooling
 

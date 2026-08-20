@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -300,10 +299,15 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	thread := &saga.Thread{ID: "thread", Target: fragment.Target, Anchor: saga.Anchor{Type: "region", Coordinate: "normalized", Shapes: []saga.Shape{{Type: "rect", X: .1, Y: .2, Width: .3, Height: .4, Color: "#336699"}}}, State: "open", Messages: []*saga.Message{{ID: "message", CreatedAt: time.Date(2026, 8, 19, 12, 0, 0, 0, time.UTC)}}}
 	lineURI := "saga-diff://v1/line?base=aaa&end=1&head=product-bbb&path=app.go&repository=https%3A%2F%2Fexample.test%2Fa.git&side=new&start=1"
 	fragment.Diffs = []saga.DiffFile{{Version: 2, Diffs: []saga.DiffReference{{URI: lineURI, Note: "Adds the package entrypoint so the example compiles."}}}}
+	manifestFiles := []*ManifestFileView{{Path: "internal/app.go", AtomCount: 1, Added: 1, Covered: 1, Chunks: []*ManifestChunkView{{Label: "+1", Path: "internal/app.go", Excerpt: "package app", Href: CodeDiffURL("internal/app.go", lineURI), Covered: true, Owners: []*ManifestOwnerView{{Title: "Overview", Kind: "Fragment", Chapter: "Test", Href: "#overview"}}}}}}
+	manifestFixture := &CoverageManifestView{
+		Complete: true, Total: 1, Covered: 1, MappingCount: 1, Files: manifestFiles, Tree: makeManifestTree(manifestFiles),
+		Targets: []*ManifestTargetView{{ManifestOwnerView: ManifestOwnerView{Title: "Overview", Kind: "Fragment", Chapter: "Test", Href: "#overview"}, AtomCount: 1, Chunks: []*ManifestChunkView{{Label: "+1", Path: "internal/app.go", Excerpt: "package app", Href: CodeDiffURL("internal/app.go", lineURI)}}}},
+	}
 	data := pageData{
 		Saga: &saga.Saga{Manifest: saga.Manifest{ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/a.git", Base: "main", Head: "HEAD"}}, Section: section},
 		Root: makeSectionView(section, map[string][]gitdiff.Atom{fragment.Target: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}, landmarkTarget: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}}, map[string][]*threadView{fragment.Target: {makeThreadView(thread)}}, nil), Chapter: true,
-		Code: &CodeReviewView{}, Manifest: &CoverageManifestView{Complete: true, Total: 1, Covered: 1, MappingCount: 1, Files: []*ManifestFileView{{Path: "app.go", AtomCount: 1, Added: 1, Covered: 1, Chunks: []*ManifestChunkView{{Label: "+1", Path: "app.go", Excerpt: "package app", Href: CodeDiffURL("app.go", lineURI), Covered: true, Owners: []*ManifestOwnerView{{Title: "Overview", Kind: "Fragment", Chapter: "Test", Href: "#overview"}}}}}}, Targets: []*ManifestTargetView{{ManifestOwnerView: ManifestOwnerView{Title: "Overview", Kind: "Fragment", Chapter: "Test", Href: "#overview"}, AtomCount: 1, Chunks: []*ManifestChunkView{{Label: "+1", Path: "app.go", Excerpt: "package app", Href: CodeDiffURL("app.go", lineURI)}}}}},
+		Code: &CodeReviewView{}, Manifest: manifestFixture,
 	}
 	var output bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&output, "page", data); err != nil {
@@ -322,10 +326,20 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	if !strings.Contains(renderedPage, `data-annotation-selection`) || !strings.Contains(renderedPage, `data-annotation-entity`) || !strings.Contains(renderedPage, `data-thread-id="thread"`) || !strings.Contains(renderedPage, `data-shape-index="0"`) {
 		t.Fatal("shape annotations were not rendered as selectable entities")
 	}
-	if !strings.Contains(renderedPage, `data-view-tab="manifest"`) || !strings.Contains(renderedPage, `data-manifest-panel="code"`) || !strings.Contains(renderedPage, "Everything is accounted for") || !strings.Contains(renderedPage, "Code → Saga") || !strings.Contains(renderedPage, "Saga → Code") {
+	if !strings.Contains(renderedPage, `data-view-tab="manifest"`) || !strings.Contains(renderedPage, `data-manifest-panel="code"`) || !strings.Contains(renderedPage, "Code → Saga") || !strings.Contains(renderedPage, "Saga → Code") {
 		t.Fatal("bidirectional coverage manifest was not rendered")
 	}
-	if strings.Contains(renderedPage, "Attached code") || strings.Contains(renderedPage, "Linked diffs</h2>") || !strings.Contains(renderedPage, `<div class="drawer-head"><strong>Linked code</strong>`) {
+	// Coverage is an invariant, so a complete report earns no praise banner —
+	// only failures and stale references are worth a reviewer's attention.
+	for _, celebration := range []string{"Everything is accounted for", "Every source change has a live", "complete\"", "manifest-verdict"} {
+		if strings.Contains(renderedPage, celebration) {
+			t.Fatalf("complete coverage still congratulates the reviewer: %q", celebration)
+		}
+	}
+	if !strings.Contains(renderedPage, `<details class="manifest-folder" data-manifest-folder open`) || !strings.Contains(renderedPage, `data-manifest-search="internal/app.go"`) || !strings.Contains(renderedPage, `<use href="#f-go">`) {
+		t.Fatal("coverage was not rendered as a fully expanded repository tree with file-type icons")
+	}
+	if strings.Contains(renderedPage, "Attached code") || strings.Contains(renderedPage, "Linked diffs</h2>") || !strings.Contains(renderedPage, `<strong>Linked code</strong>`) {
 		t.Fatal("attached-code drawer retained redundant header chrome")
 	}
 	if !strings.Contains(renderedPage, `class="attached-file"`) || !strings.Contains(renderedPage, "Adds the package entrypoint so the example compiles.") || !strings.Contains(renderedPage, "Open full file in Code Diff") || strings.Contains(renderedPage, `<details class="attached-file" open`) {
@@ -384,8 +398,8 @@ func TestPageHandlerIsolatesOverviewAndChapterRoutes(t *testing.T) {
 	if !strings.Contains(overviewBody, "Root-only introduction") || !strings.Contains(overviewBody, `href="/chapters/alpha"`) || strings.Contains(overviewBody, "Alpha-exclusive narrative") || strings.Contains(overviewBody, "Beta-exclusive narrative") {
 		t.Fatal("overview did not remain isolated from chapter content")
 	}
-	if strings.Contains(overviewBody, `<details class="chapter-card`) || !strings.Contains(overviewBody, `<a class="chapter-card`) {
-		t.Fatal("chapter cards must navigate directly without an intermediate open action")
+	if strings.Contains(overviewBody, `<details class="chapter-row`) || !strings.Contains(overviewBody, `<a class="chapter-row`) {
+		t.Fatal("chapter entries must navigate directly without an intermediate open action")
 	}
 
 	chapterRequest := httptest.NewRequest(http.MethodGet, "/chapters/alpha", nil)
@@ -480,6 +494,65 @@ func TestChapterIndexReportsResumeState(t *testing.T) {
 	}
 }
 
+// Stylesheet rules and the markup they target drift apart silently: a rule that
+// matches nothing, or one that matches more than intended, breaks the design
+// without breaking a render. These two pairs have both regressed before.
+func TestStylesheetSelectorsMatchTheMarkupTheyTarget(t *testing.T) {
+	// The disclosure chevron in the linked-code drawer is the shared glyph, so
+	// the rule that sizes and rotates it must name that class.
+	if !strings.Contains(pageStyles, ".attached-file[open]>summary .twisty{transform:rotate(90deg)}") || strings.Contains(pageStyles, ".attached-file-marker") {
+		t.Fatal("linked-code drawer chevron rule does not match the rendered glyph")
+	}
+	// The chapter eyebrow is monospace; the fragment excerpt beneath it is
+	// prose. A `.related-chapter>a` rule would silently capture both.
+	if strings.Contains(pageStyles, ".related-chapter>a") {
+		t.Fatal("chapter link rule also matches the prose excerpt beneath it")
+	}
+	if !strings.Contains(pageStyles, ".related-chapter-link{") || !strings.Contains(pageTemplate, `class="related-chapter-link"`) {
+		t.Fatal("chapter link class is not applied in both the stylesheet and the template")
+	}
+}
+
+// The sidebar is documentation navigation, not a view of storage: it lists the
+// overview and the chapters, expands only the open page into its own headings,
+// and never repeats a label it is already nested under.
+func TestNavigationTreeReadsAsCollapsedDocumentationOutline(t *testing.T) {
+	overviewFragment := &fragmentView{Fragment: &saga.Fragment{ID: "overview", Title: "Overview"}}
+	systemMap := &fragmentView{Fragment: &saga.Fragment{ID: "system-map", Title: "System map"}}
+	untitled := &fragmentView{Fragment: &saga.Fragment{ID: "untitled"}}
+	selected := &sectionView{Section: &saga.Section{ID: "root", Title: "Scaffold"}, FragmentViews: []*fragmentView{overviewFragment, systemMap, untitled}}
+	root := &sectionView{Section: &saga.Section{ID: "root", Title: "Scaffold"}, ChildViews: []*sectionView{
+		{Section: &saga.Section{Kind: "chapter", ID: "format", Title: "Format"}},
+		{Section: &saga.Section{Kind: "chapter", ID: "ui", Title: "Reviewer"}},
+	}}
+
+	nodes := makeNavTree("Scaffold", root, selected, false, "")
+	if len(nodes) != 3 || nodes[0].Title != "Overview" || nodes[1].Title != "Format" || nodes[2].Title != "Reviewer" {
+		t.Fatalf("unexpected navigation nodes: %#v", nodes)
+	}
+	// "Overview > Overview" is noise, and untitled content must not be exposed
+	// under an internal identifier.
+	if len(nodes[0].Children) != 1 || nodes[0].Children[0].Title != "System map" {
+		t.Fatalf("overview outline was not deduplicated: %#v", nodes[0].Children)
+	}
+	if !nodes[0].Expanded || nodes[1].Expanded || nodes[2].Expanded {
+		t.Fatal("only the open page may be expanded")
+	}
+	if nodes[1].StateLabel != "Unreviewed" || nodes[1].Href != "/chapters/format" {
+		t.Fatalf("chapter node is not navigation: %#v", nodes[1])
+	}
+
+	// On a chapter route the chapter expands instead, and the overview collapses.
+	chapterBody := &sectionView{Section: &saga.Section{ID: "ui", Title: "Reviewer"}, FragmentViews: []*fragmentView{{Fragment: &saga.Fragment{ID: "shell", Title: "Reviewer"}}, systemMap}}
+	nodes = makeNavTree("Scaffold", root, chapterBody, true, "ui")
+	if nodes[0].Expanded || len(nodes[0].Children) != 0 {
+		t.Fatal("overview stayed expanded on a chapter route")
+	}
+	if !nodes[2].Expanded || len(nodes[2].Children) != 1 || nodes[2].Children[0].Title != "System map" {
+		t.Fatalf("open chapter did not expand into its own headings: %#v", nodes[2])
+	}
+}
+
 func TestDOMIDIsStableAndCollisionResistantAfterReadablePrefix(t *testing.T) {
 	prefix := "urn:review-saga:test:fragment:" + strings.Repeat("shared-prefix", 10)
 	first := domID(prefix + "-one")
@@ -541,18 +614,7 @@ func multipartRequest(t *testing.T, path string, fields map[string]string) *http
 
 func serverTemplate(t *testing.T) *template.Template {
 	t.Helper()
-	tmpl, err := template.New("page").Funcs(template.FuncMap{
-		"markdown": markdown,
-		"domID":    domID,
-		"annotationColor": func(value string) string {
-			if validAnnotationColor(value) {
-				return value
-			}
-			return "#d04832"
-		},
-		"coord":  func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
-		"points": func([]saga.Point) string { return "" },
-	}).Parse(pageTemplate)
+	tmpl, err := newPageTemplate()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -79,6 +79,7 @@ type ChangedFileTreeNode struct {
 	Name          string
 	Path          string
 	Kind          string
+	Depth         int
 	Children      []*ChangedFileTreeNode
 	File          *FileDiffView
 	FileCount     int
@@ -224,7 +225,7 @@ func makeCodeReviewView(document *saga.Saga, changes gitdiff.ChangeSet, report c
 		}
 		view.RelatedSaga = makeRelatedSagaViews(locations, scope, report.Ownership)
 		if len(view.RelatedSaga) == 0 {
-			view.RelatedEmpty = "No saga narrative is linked to this selection."
+			view.RelatedEmpty = "Nothing in the story explains this selection yet."
 		}
 	}
 	return view, nil
@@ -315,11 +316,12 @@ func makeChangedFileTree(files []*FileDiffView) ChangedFileTreeView {
 			current = folder
 		}
 	}
-	finalizeTreeNode(root)
+	finalizeTreeNode(root, -1)
 	return ChangedFileTreeView{Nodes: root.Children, FileCount: root.FileCount, ReviewedCount: root.ReviewedCount, Added: root.Added, Deleted: root.Deleted}
 }
 
-func finalizeTreeNode(node *ChangedFileTreeNode) {
+func finalizeTreeNode(node *ChangedFileTreeNode, depth int) {
+	node.Depth = depth
 	if node.File != nil {
 		node.FileCount, node.Added, node.Deleted = 1, node.File.Added, node.File.Deleted
 		node.Selected = node.File.Selected
@@ -335,14 +337,16 @@ func finalizeTreeNode(node *ChangedFileTreeNode) {
 		return node.Children[i].Name < node.Children[j].Name
 	})
 	for _, child := range node.Children {
-		finalizeTreeNode(child)
+		finalizeTreeNode(child, depth+1)
 		node.FileCount += child.FileCount
 		node.ReviewedCount += child.ReviewedCount
 		node.Added += child.Added
 		node.Deleted += child.Deleted
 		node.Selected = node.Selected || child.Selected
 	}
-	node.Expanded = node.Selected
+	// Folders open by default, matching the changed-file trees reviewers use
+	// elsewhere; collapsing is an explicit choice, not the starting state.
+	node.Expanded = true
 }
 
 type narrativeLocation struct {
@@ -500,6 +504,15 @@ var (
 	nonContentHTML = regexp.MustCompile(`(?is)<script\b[^>]*>.*?</script\s*>|<style\b[^>]*>.*?</style\s*>`)
 	htmlTag        = regexp.MustCompile(`(?s)<[^>]*>`)
 	markdownMark   = regexp.MustCompile(`(?m)(^|\s)[#>*_~` + "`" + `]+`)
+	headingAnchor  = regexp.MustCompile(`\{#[A-Za-z0-9_-]+\}`)
+	// A heading is a label, not the sentence a reviewer wants to skim, and the
+	// title is already shown beside the excerpt. Dropping headings stops them
+	// running into the following paragraph.
+	markdownHeading = regexp.MustCompile(`(?m)^[ \t]*#{1,6}[ \t]+.*$`)
+	// Unwrap inline spans so the excerpt keeps the words and loses the syntax.
+	// Stripping only leading markers used to leave the closing delimiter behind.
+	markdownCode     = regexp.MustCompile("`+([^`]*)`+")
+	markdownEmphasis = regexp.MustCompile(`\*{1,3}([^*\n]+)\*{1,3}`)
 )
 
 func fragmentExcerpt(fragment *saga.Fragment) string {
@@ -527,6 +540,13 @@ func fragmentExcerpt(fragment *saga.Fragment) string {
 	} else if fragment.MediaType == "text/markdown" {
 		text = nonContentHTML.ReplaceAllString(text, " ")
 		text = htmlTag.ReplaceAllString(text, " ")
+		// Stable heading anchors are addressing syntax, not prose.
+		text = headingAnchor.ReplaceAllString(text, " ")
+		if prose := strings.TrimSpace(markdownHeading.ReplaceAllString(text, " ")); prose != "" {
+			text = prose
+		}
+		text = markdownCode.ReplaceAllString(text, "$1")
+		text = markdownEmphasis.ReplaceAllString(text, "$1")
 		text = markdownMark.ReplaceAllString(text, "$1")
 	}
 	text = strings.Join(strings.Fields(text), " ")

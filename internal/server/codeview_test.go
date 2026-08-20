@@ -208,6 +208,26 @@ func TestFragmentExcerptIsConciseAndCannotFollowEscapingSymlink(t *testing.T) {
 	}
 }
 
+// The excerpt sits beside the fragment title in the explanations panel, so it
+// should read as prose: no heading label running into the first sentence and no
+// leftover Markdown delimiters.
+func TestFragmentExcerptReadsAsProseNotMarkdownSource(t *testing.T) {
+	directory := t.TempDir()
+	writeServerFile(t, filepath.Join(directory, "content.md"), "## CLI surface {#cli-surface}\n\nThe CLI runs `validate` and **checks** the tree.\n")
+	fragment := &saga.Fragment{ID: "cli", Title: "CLI and AI workflow", Directory: directory, MediaType: "text/markdown", Entrypoint: "content.md"}
+	excerpt := fragmentExcerpt(fragment)
+	if want := "The CLI runs validate and checks the tree."; excerpt != want {
+		t.Fatalf("excerpt = %q, want %q", excerpt, want)
+	}
+
+	// Headings are only dropped when prose survives them. A fragment made of
+	// nothing but headings keeps them rather than showing an empty excerpt.
+	writeServerFile(t, filepath.Join(directory, "content.md"), "# Only a heading\n")
+	if excerpt := fragmentExcerpt(fragment); excerpt != "Only a heading" {
+		t.Fatalf("heading-only fragment lost its last readable text: %q", excerpt)
+	}
+}
+
 func codeViewFixture(t *testing.T) (*saga.Saga, gitdiff.ChangeSet, coverage.Report, string, string) {
 	t.Helper()
 	root := t.TempDir()
