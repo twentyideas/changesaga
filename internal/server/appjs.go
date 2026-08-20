@@ -163,16 +163,30 @@ const appJavaScript = `(() => {
   function setReviewControlState(control, state, animate = true, note = '') {
     const previous = control.dataset.reviewState || '';
     const title = control.dataset.reviewTitle || 'item';
+    const author = control.dataset.reviewAuthor || '';
+    const attribution = control.dataset.reviewDetail || '';
     control.dataset.reviewState = state;
     qa('[data-review-decision]', control).forEach(button => {
       const selected = button.dataset.reviewDecision === state;
       button.setAttribute('aria-pressed', String(selected));
       if (button.dataset.reviewDecision === 'approved') {
-        button.setAttribute('aria-label', (selected ? 'Undo approval for ' : 'Approve ') + title);
-        button.title = selected ? 'Approved · click to undo' : 'Approve';
+        button.setAttribute('aria-label', (selected ? 'Undo approval for ' : 'Approve ') + title + (selected && author ? ' by ' + author : '') + (selected && note ? '. Comment: ' + note : ''));
+        if (selected) button.removeAttribute('title'); else button.title = 'Approve';
       } else {
-        button.setAttribute('aria-label', (selected ? 'Undo request for changes on ' : 'Request changes on ') + title);
-        button.title = selected ? 'Changes requested · click to undo' : 'Request changes';
+        button.setAttribute('aria-label', (selected ? 'Undo request for changes on ' : 'Request changes on ') + title + (selected && author ? ' by ' + author : '') + (selected && note ? '. Comment: ' + note : ''));
+        if (selected) button.removeAttribute('title'); else button.title = 'Request changes';
+      }
+      const tooltip = q('[data-review-decision-tooltip]', button);
+      const tooltipAuthor = q('[data-review-decision-author]', tooltip);
+      const tooltipNote = q('[data-review-decision-tooltip-note]', tooltip);
+      if (tooltipAuthor) {
+        tooltipAuthor.textContent = author;
+        tooltipAuthor.title = attribution;
+        tooltipAuthor.hidden = !author;
+      }
+      if (tooltipNote) {
+        tooltipNote.textContent = note;
+        tooltipNote.hidden = !note;
       }
     });
     updateReviewProgress(previous, state, animate, control.dataset.reviewTarget, note);
@@ -211,6 +225,8 @@ const appJavaScript = `(() => {
       const values = new URLSearchParams({target:control.dataset.reviewTarget, state, body, return_to:location.pathname + location.search + location.hash});
       const response = await fetch('/api/review', {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-Review-Saga-Async':'true'},body:values,credentials:'same-origin'});
       if (!response.ok) throw new Error((await response.text()).trim() || 'review could not be saved');
+      control.dataset.reviewAuthor = 'Local / uncommitted';
+      control.dataset.reviewDetail = 'This review event has not been committed yet.';
       setReviewControlState(control, state, true, body.trim());
       const note = q('[data-review-note]', control);
       const noteBody = body.trim();

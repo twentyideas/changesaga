@@ -154,7 +154,7 @@ section:hover>.section-actions .review-controls,.section:hover>.section-head>.se
 .review-decision-note{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:4px;color:var(--muted);font:11px var(--ui)}
 .review-decision-note[hidden]{display:none}
 .review-decision-group{display:inline-flex;align-items:center;gap:1px;padding:2px;border:1px solid var(--line-soft);border-radius:7px;background:var(--bg-subtle)}
-.review-decision{display:grid;place-items:center;width:25px;height:23px;padding:0;border:0;border-radius:5px}
+.review-decision{position:relative;display:grid;place-items:center;width:25px;height:23px;padding:0;border:0;border-radius:5px}
 .review-decision .i{width:15px;height:15px}
 .review-decision.approve{background:#e6ffec80;color:#2da44e}
 .review-decision.reject{background:#ffebe980;color:#cf222e}
@@ -165,6 +165,14 @@ section:hover>.section-actions .review-controls,.section:hover>.section-head>.se
 .review-icon-filled{display:none}
 .review-decision[aria-pressed=true] .review-icon-outline{display:none}
 .review-decision[aria-pressed=true] .review-icon-filled{display:block}
+.review-decision-tooltip{position:absolute;z-index:29;top:calc(100% + 8px);right:0;display:none;width:max-content;max-width:min(360px,80vw);padding:8px 10px;border:1px solid #ffffff20;border-radius:6px;background:#24292f;color:#fff;box-shadow:var(--shadow);text-align:left;font:12px/1.4 var(--ui);pointer-events:none}
+.review-decision[aria-pressed=true]:hover .review-decision-tooltip,.review-decision[aria-pressed=true]:focus-visible .review-decision-tooltip{display:block}
+.review-decision-tooltip-head{display:flex;align-items:baseline;justify-content:space-between;gap:18px}
+.review-decision-tooltip-head strong{font-weight:600;white-space:nowrap}
+.review-decision-tooltip-head span{color:#ffffffb8;font-size:11px}
+.review-decision-tooltip-head span[hidden],.review-decision-tooltip-note[hidden]{display:none}
+.review-decision-tooltip-note{display:block;margin-top:5px;padding-top:5px;border-top:1px solid #ffffff24;white-space:pre-wrap;overflow-wrap:anywhere;color:#ffffffeb}
+.review-decision-tooltip-action{display:block;margin-top:5px;color:#ffffff8f;font-size:10.5px}
 .review-comment{color:var(--faint)}
 .review-controls.decision-changed .review-decision[aria-pressed=true]{animation:review-pop .5s cubic-bezier(.2,.85,.25,1.35)}
 .review-decision-compose{position:absolute;z-index:28;top:calc(100% + 6px);right:0;width:min(340px,80vw);padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);box-shadow:var(--shadow);opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity .14s ease,transform .14s ease}
