@@ -1,7 +1,0 @@
-{
-  "version": 2,
-  "id": "review-history",
-  "title": "Conflict-resistant review records",
-  "media_type": "text/markdown",
-  "entrypoint": "content.md"
-}

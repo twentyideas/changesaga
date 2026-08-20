@@ -1,7 +1,0 @@
-{
-  "version": 2,
-  "id": "review-saga-v2-overview",
-  "title": "Overview",
-  "media_type": "text/markdown",
-  "entrypoint": "content.md"
-}

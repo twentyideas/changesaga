@@ -1,7 +1,0 @@
-{
-  "version": 2,
-  "id": "reviewer-experience-overview",
-  "title": "Chapter overview",
-  "media_type": "text/markdown",
-  "entrypoint": "content.md"
-}

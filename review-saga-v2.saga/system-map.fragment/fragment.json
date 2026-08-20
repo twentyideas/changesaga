@@ -1,8 +1,0 @@
-{
-  "version": 2,
-  "id": "review-saga-v2-system-map",
-  "title": "System map",
-  "media_type": "image/svg+xml",
-  "entrypoint": "image.svg",
-  "order": 10
-}

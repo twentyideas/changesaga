@@ -1,7 +1,0 @@
-{
-  "version": 2,
-  "id": "format-map",
-  "title": "Fractal on-disk format",
-  "media_type": "image/svg+xml",
-  "entrypoint": "image.svg"
-}
