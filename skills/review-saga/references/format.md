@@ -74,7 +74,8 @@ progress; it is not coverage evidence.
 
 Threads live under `___review/threads/<id>.thread/`. Anchors use `target`,
 `region`, `drawing`, `text`, or `diff`. Region/drawing coordinates are normalized to
-`[0,1]`; text anchors retain an exact quote. Messages contain `.fragment`
+`[0,1]`; shapes may carry color and stroke hints. Text anchors retain an exact
+quote and may carry a highlight color. Messages contain `.fragment`
 packages, enabling Markdown, image, SVG, or sandboxed HTML replies. Treat thread
 roots, messages, reviewed-file records, approvals, and state events as
 append-only history. Diff threads may be comments or suggestions; suggestions

@@ -247,7 +247,8 @@ and targets a saga, chapter, section, or fragment URN. Its anchor is one of:
 
 Normalized coordinates are in `[0,1]` relative to the rendered fragment stage,
 so drawings survive responsive resizing. Shapes support presentation hints such
-as color and stroke width, but engines may apply accessible defaults.
+as color and stroke width, and text selectors may carry a highlight color.
+Engines may apply accessible defaults.
 
 Text selectors follow the resilient idea from Web Annotation selectors: `exact`
 is authoritative, while positions and surrounding text help engines re-anchor

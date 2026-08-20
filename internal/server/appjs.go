@@ -6,6 +6,7 @@ const appJavaScript = `(() => {
   let drawing = null;
   let activeFragment = null;
   let selectedTool = 'select';
+  let annotationColor = '#d04832';
   let diffLayout = 'inline';
   let selectionAnchor = null;
 
@@ -17,6 +18,39 @@ const appJavaScript = `(() => {
     shell: new Set('case do done elif else esac fi for function if in select then time until while'.split(' ')),
     generic: new Set('class const enum false function interface let new null private public return static struct true type var void'.split(' '))
   };
+
+  function normalizedAnnotationColor(value) {
+    return /^#[0-9a-f]{6}$/i.test(value || '') ? value.toLowerCase() : '#d04832';
+  }
+
+  function colorWithAlpha(value, alpha = '55') {
+    return normalizedAnnotationColor(value) + alpha;
+  }
+
+  async function copyPermalink(button) {
+    const url = new URL(location.href);
+    url.hash = (button.dataset.copyLink || '').replace(/^#/, '');
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('clipboard unavailable');
+      await navigator.clipboard.writeText(url.toString());
+    } catch (_) {
+      const input = document.createElement('textarea');
+      input.value = url.toString();
+      input.setAttribute('readonly', '');
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      document.body.append(input);
+      input.select();
+      document.execCommand('copy');
+      input.remove();
+    }
+    button.classList.add('copied');
+    button.setAttribute('aria-label', 'Link copied');
+    setTimeout(() => {
+      button.classList.remove('copied');
+      button.setAttribute('aria-label', 'Copy link');
+    }, 1400);
+  }
 
   function languageForPath(path) {
     const name = (path || '').toLowerCase();
@@ -323,7 +357,7 @@ const appJavaScript = `(() => {
       before.setEnd(selectedRange.startContainer, selectedRange.startOffset);
       const start = before.toString().length;
       const allText = selectable.textContent;
-      openAnnotation({type:'text',text:{exact,start,end:start+exact.length,prefix:allText.slice(Math.max(0,start-32),start),suffix:allText.slice(start+exact.length,start+exact.length+32)}});
+      openAnnotation({type:'text',text:{exact,start,end:start+exact.length,prefix:allText.slice(Math.max(0,start-32),start),suffix:allText.slice(start+exact.length,start+exact.length+32),color:annotationColor}});
       return;
     }
     const overlay = q('.review-overlay', activeFragment);
@@ -332,7 +366,7 @@ const appJavaScript = `(() => {
       return;
     }
     overlay.classList.add('drawing');
-    drawing = {fragment: activeFragment, overlay, mode, points: []};
+    drawing = {fragment: activeFragment, overlay, mode, color:annotationColor, points: []};
   }
 
   document.addEventListener('mousedown', event => {
@@ -350,6 +384,8 @@ const appJavaScript = `(() => {
   });
 
   document.addEventListener('click', event => {
+    const permalink = event.target.closest('[data-copy-link]');
+    if (permalink) { copyPermalink(permalink); return; }
     const viewTab = event.target.closest('[data-view-tab]');
     if (viewTab) { setView(viewTab.dataset.viewTab); return; }
     const treeToggle = event.target.closest('[data-toggle-tree]');
@@ -435,6 +471,7 @@ const appJavaScript = `(() => {
     drawing.start = drawing.points[0];
     drawing.preview = document.createElementNS('http://www.w3.org/2000/svg', drawing.mode === 'rect' ? 'rect' : 'polyline');
     drawing.preview.setAttribute('class', 'annotation pending ' + (drawing.mode === 'draw' ? 'path' : ''));
+    drawing.preview.style.setProperty('--active-annotation-color', drawing.color);
     drawing.overlay.append(drawing.preview);
     event.preventDefault();
   });
@@ -460,9 +497,9 @@ const appJavaScript = `(() => {
     let shape;
     if (drawing.mode === 'rect') {
       const point = drawing.end || drawing.start;
-      shape = {type:'rect',x:Math.min(drawing.start.x,point.x),y:Math.min(drawing.start.y,point.y),width:Math.abs(point.x-drawing.start.x),height:Math.abs(point.y-drawing.start.y)};
+      shape = {type:'rect',x:Math.min(drawing.start.x,point.x),y:Math.min(drawing.start.y,point.y),width:Math.abs(point.x-drawing.start.x),height:Math.abs(point.y-drawing.start.y),color:drawing.color};
     } else {
-      shape = {type:'path',points:drawing.points};
+      shape = {type:'path',points:drawing.points,color:drawing.color};
     }
     const anchor = {type:drawing.mode === 'rect' ? 'region' : 'drawing',coordinate_space:'normalized',shapes:[shape]};
     drawing.overlay.classList.remove('drawing');
@@ -474,6 +511,7 @@ const appJavaScript = `(() => {
     const target = document.querySelector('[data-target="'+CSS.escape(label.dataset.textTarget)+'"] [data-selectable]');
     if (!target) return;
     const exact = label.dataset.exact;
+    const color = normalizedAnnotationColor(label.dataset.textColor);
     const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
     let node;
     while (node = walker.nextNode()) {
@@ -482,6 +520,7 @@ const appJavaScript = `(() => {
         const range = document.createRange();
         range.setStart(node,index); range.setEnd(node,index+exact.length);
         const mark = document.createElement('mark');
+        mark.style.backgroundColor = colorWithAlpha(color);
         range.surroundContents(mark);
         break;
       }
@@ -492,6 +531,7 @@ const appJavaScript = `(() => {
   if (firstFragment) setActiveFragment(firstFragment);
   q('[data-file-filter]')?.addEventListener('input', filterTree);
   q('[data-hide-reviewed]')?.addEventListener('change', filterTree);
+  q('[data-annotation-color]')?.addEventListener('input', event => { annotationColor = normalizedAnnotationColor(event.target.value); });
   prepareContext();
   highlightCode();
   applyDiffLayout('inline');

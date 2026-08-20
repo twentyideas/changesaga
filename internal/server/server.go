@@ -55,7 +55,6 @@ type chapterIndexView struct {
 	URL     string
 	Summary string
 	Status  string
-	Action  string
 	Active  bool
 }
 
@@ -118,7 +117,14 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 	}
 	tmpl, err := template.New("page").Funcs(template.FuncMap{
 		"markdown": markdown,
-		"coord":    func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
+		"domID":    domID,
+		"annotationColor": func(value string) string {
+			if validAnnotationColor(value) {
+				return value
+			}
+			return "#d04832"
+		},
+		"coord": func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
 		"points": func(values []saga.Point) string {
 			parts := make([]string, 0, len(values))
 			for _, point := range values {
@@ -284,12 +290,10 @@ func makeChapterIndex(root *sectionView, activeID string) []*chapterIndexView {
 		}
 		sections, fragments := sectionSize(child)
 		status := "Unreviewed"
-		action := "Open"
 		if child.ReviewState == "approved" {
 			status = "Approved"
 		} else if sectionHasActivity(child) {
 			status = "In progress"
-			action = "Resume"
 		}
 		parts := make([]string, 0, 2)
 		if sections > 0 {
@@ -298,7 +302,7 @@ func makeChapterIndex(root *sectionView, activeID string) []*chapterIndexView {
 		parts = append(parts, fmt.Sprintf("%d %s", fragments, plural(fragments, "fragment", "fragments")))
 		chapters = append(chapters, &chapterIndexView{
 			ID: child.ID, Title: child.Title, URL: "/chapters/" + url.PathEscape(child.ID),
-			Summary: strings.Join(parts, " · "), Status: status, Action: action, Active: child.ID == activeID,
+			Summary: strings.Join(parts, " · "), Status: status, Active: child.ID == activeID,
 		})
 	}
 	return chapters
@@ -862,6 +866,21 @@ func hasReservedPart(path string) bool {
 }
 
 func domID(value string) string { return "target-" + store.Slug(value) }
+
+func validAnnotationColor(value string) bool {
+	if len(value) != 7 || value[0] != '#' {
+		return false
+	}
+	for _, character := range value[1:] {
+		if character < '0' || character > '9' {
+			lower := character | 0x20
+			if lower < 'a' || lower > 'f' {
+				return false
+			}
+		}
+	}
+	return true
+}
 
 func markdown(source string) template.HTML {
 	lines := strings.Split(strings.ReplaceAll(source, "\r\n", "\n"), "\n")

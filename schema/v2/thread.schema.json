@@ -61,7 +61,8 @@
         "prefix": { "type": "string" },
         "suffix": { "type": "string" },
         "start": { "type": "integer", "minimum": 0 },
-        "end": { "type": "integer", "minimum": 0 }
+        "end": { "type": "integer", "minimum": 0 },
+        "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }
       }
     },
     "anchor": {

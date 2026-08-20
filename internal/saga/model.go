@@ -163,6 +163,7 @@ type TextSelector struct {
 	Suffix string `json:"suffix,omitempty"`
 	Start  int    `json:"start,omitempty"`
 	End    int    `json:"end,omitempty"`
+	Color  string `json:"color,omitempty"`
 }
 
 type MessageManifest struct {

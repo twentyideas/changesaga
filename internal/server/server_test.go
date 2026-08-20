@@ -27,7 +27,7 @@ func TestCreateAnchoredThreadWritesOverlayRecords(t *testing.T) {
 	fields := map[string]string{
 		"target":    "urn:review-saga:test:fragment:overview",
 		"body":      "Check this edge case.",
-		"anchor":    `{"type":"region","coordinate_space":"normalized","shapes":[{"type":"rect","x":0.1,"y":0.2,"width":0.3,"height":0.4}]}`,
+		"anchor":    `{"type":"region","coordinate_space":"normalized","shapes":[{"type":"rect","x":0.1,"y":0.2,"width":0.3,"height":0.4,"color":"#336699"}]}`,
 		"return_to": "/chapters/backend#target-overview",
 	}
 	request := multipartRequest(t, "/api/thread", fields)
@@ -43,8 +43,30 @@ func TestCreateAnchoredThreadWritesOverlayRecords(t *testing.T) {
 	if err != nil || !validation.Valid {
 		t.Fatalf("written overlay should validate: validation=%#v err=%v", validation, err)
 	}
-	if len(document.Threads) != 1 || document.Threads[0].Anchor.Type != "region" || len(document.Threads[0].Messages) != 1 {
+	if len(document.Threads) != 1 || document.Threads[0].Anchor.Type != "region" || document.Threads[0].Anchor.Shapes[0].Color != "#336699" || len(document.Threads[0].Messages) != 1 {
 		t.Fatalf("unexpected thread: %#v", document.Threads)
+	}
+}
+
+func TestCreateTextHighlightPersistsChosenColor(t *testing.T) {
+	root := validServerSaga(t)
+	application := &app{root: root}
+	request := multipartRequest(t, "/api/thread", map[string]string{
+		"target": "urn:review-saga:test:fragment:overview",
+		"body":   "This phrase matters.",
+		"anchor": `{"type":"text","text":{"exact":"Story","start":0,"end":5,"color":"#aa22cc"}}`,
+	})
+	recorder := httptest.NewRecorder()
+	application.createThread(recorder, request)
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("highlight status = %d: %s", recorder.Code, recorder.Body.String())
+	}
+	document, validation, err := saga.Load(root)
+	if err != nil || !validation.Valid || len(document.Threads) != 1 {
+		t.Fatalf("written highlight should validate: document=%#v validation=%#v err=%v", document, validation, err)
+	}
+	if color := document.Threads[0].Anchor.Text.Color; color != "#aa22cc" {
+		t.Fatalf("highlight color = %q, want #aa22cc", color)
 	}
 }
 
@@ -216,7 +238,7 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	fragment := &saga.Fragment{ID: "overview", Title: "Overview", Target: "urn:review-saga:test:fragment:overview", Directory: fragmentDir, MediaType: "text/markdown", Entrypoint: "content.md"}
 	emptyFragment := &saga.Fragment{ID: "empty", Title: "No changes", Target: "urn:review-saga:test:fragment:empty", Directory: fragmentDir, MediaType: "text/plain", Entrypoint: "missing.txt"}
 	section := &saga.Section{Kind: "chapter", ID: "root", Title: "Test", Target: "urn:review-saga:test:saga", Path: "private/root.chapter", Fragments: []*saga.Fragment{fragment, emptyFragment}}
-	thread := &saga.Thread{ID: "thread", Target: fragment.Target, Anchor: saga.Anchor{Type: "region", Coordinate: "normalized", Shapes: []saga.Shape{{Type: "rect", X: .1, Y: .2, Width: .3, Height: .4}}}, State: "open"}
+	thread := &saga.Thread{ID: "thread", Target: fragment.Target, Anchor: saga.Anchor{Type: "region", Coordinate: "normalized", Shapes: []saga.Shape{{Type: "rect", X: .1, Y: .2, Width: .3, Height: .4, Color: "#336699"}}}, State: "open", Messages: []*saga.Message{{ID: "message", CreatedAt: time.Date(2026, 8, 19, 12, 0, 0, 0, time.UTC)}}}
 	lineURI := "saga-diff://v1/line?base=aaa&end=1&head=product-bbb&path=app.go&repository=https%3A%2F%2Fexample.test%2Fa.git&side=new&start=1"
 	data := pageData{
 		Saga: &saga.Saga{Manifest: saga.Manifest{ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/a.git", Base: "main", Head: "HEAD"}}, Section: section},
@@ -233,6 +255,9 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	}
 	if strings.Count(renderedPage, `class="annotation-toolbox"`) != 1 || strings.Contains(renderedPage, `class="review-form"`) {
 		t.Fatal("review controls were not consolidated")
+	}
+	if !strings.Contains(renderedPage, `data-annotation-color`) || !strings.Contains(renderedPage, `stroke="#336699"`) || !strings.Contains(renderedPage, `data-copy-link="#`+domID("thread:thread")+`"`) || !strings.Contains(renderedPage, `data-copy-link="#`+domID("message:message")+`"`) {
+		t.Fatal("annotation colors or committed-item permalinks were not rendered")
 	}
 	if strings.Contains(renderedPage, `name="author"`) || strings.Contains(renderedPage, "Your name") || strings.Contains(renderedPage, "reviewer-name") {
 		t.Fatal("review UI asked for editable author identity")
@@ -268,6 +293,9 @@ func TestPageHandlerIsolatesOverviewAndChapterRoutes(t *testing.T) {
 	overviewBody := overview.Body.String()
 	if !strings.Contains(overviewBody, "Root-only introduction") || !strings.Contains(overviewBody, `href="/chapters/alpha"`) || strings.Contains(overviewBody, "Alpha-exclusive narrative") || strings.Contains(overviewBody, "Beta-exclusive narrative") {
 		t.Fatal("overview did not remain isolated from chapter content")
+	}
+	if strings.Contains(overviewBody, `<details class="chapter-card`) || !strings.Contains(overviewBody, `<a class="chapter-card`) {
+		t.Fatal("chapter cards must navigate directly without an intermediate open action")
 	}
 
 	chapterRequest := httptest.NewRequest(http.MethodGet, "/chapters/alpha", nil)
@@ -357,7 +385,7 @@ func TestChapterIndexReportsResumeState(t *testing.T) {
 		{Section: &saga.Section{Kind: "chapter", ID: "new", Title: "New"}},
 	}}
 	chapters := makeChapterIndex(root, "started")
-	if len(chapters) != 3 || chapters[0].Status != "Approved" || chapters[1].Status != "In progress" || chapters[1].Action != "Resume" || !chapters[1].Active || chapters[2].Status != "Unreviewed" {
+	if len(chapters) != 3 || chapters[0].Status != "Approved" || chapters[1].Status != "In progress" || !chapters[1].Active || chapters[2].Status != "Unreviewed" {
 		t.Fatalf("unexpected chapter resume states: %#v", chapters)
 	}
 }
@@ -416,8 +444,15 @@ func serverTemplate(t *testing.T) *template.Template {
 	t.Helper()
 	tmpl, err := template.New("page").Funcs(template.FuncMap{
 		"markdown": markdown,
-		"coord":    func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
-		"points":   func([]saga.Point) string { return "" },
+		"domID":    domID,
+		"annotationColor": func(value string) string {
+			if validAnnotationColor(value) {
+				return value
+			}
+			return "#d04832"
+		},
+		"coord":  func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
+		"points": func([]saga.Point) string { return "" },
 	}).Parse(pageTemplate)
 	if err != nil {
 		t.Fatal(err)
