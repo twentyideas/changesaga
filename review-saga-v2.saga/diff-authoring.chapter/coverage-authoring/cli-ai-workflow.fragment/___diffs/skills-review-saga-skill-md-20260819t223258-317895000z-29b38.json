@@ -2,7 +2,8 @@
   "version": 2,
   "diffs": [
     {
-      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=100\u0026head=product-f9e4f6b34159ff8191ea2aab231e6f0f7bf39caf7ae4db4fc4c4ec2589dddd73\u0026path=skills%2Freview-saga%2FSKILL.md\u0026repository=https%3A%2F%2Fgithub.com%2Freview-saga%2Freview-saga.git\u0026side=new\u0026start=1"
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=100\u0026head=product-f9e4f6b34159ff8191ea2aab231e6f0f7bf39caf7ae4db4fc4c4ec2589dddd73\u0026path=skills%2Freview-saga%2FSKILL.md\u0026repository=https%3A%2F%2Fgithub.com%2Freview-saga%2Freview-saga.git\u0026side=new\u0026start=1",
+      "note": "Defines the end-to-end AI authoring and review workflow, including the coverage loop that prevents omissions."
     }
   ]
 }

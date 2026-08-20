@@ -115,6 +115,16 @@ is always addressable even when it has no inner landmarks.
 ## Evidence discipline
 
 - Attach a changed atom to the most focused fragment that actually explains it.
+- Give every evidence record a concise `--note` that answers both “what changed
+  in this file?” and “why does this target own it?” Write for the collapsed file
+  row a reviewer sees before opening code. Prefer one concrete sentence, such as
+  “Parses and validates absolute diff URIs so evidence remains unambiguous across
+  repositories.” Do not use path-only labels or generic notes such as
+  “implementation,” “supporting changes,” or “tests.”
+- Keep one file and one coherent reason per evidence record. When separate
+  ranges in the same file serve different reviewer ideas, attach them to their
+  most focused targets with distinct notes; the renderer will preserve both
+  explanations under that file.
 - Use chapter-level evidence only for truly cross-cutting code discussed by the
   chapter overview.
 - Read generated, vendored, lockfile, migration, and snapshot changes; group
@@ -136,6 +146,8 @@ Before handing off:
   image regions have valid landmarks that still resolve to their content.
 - Confirm every product atom is covered, no URI is stale, and every overlap is
   defensible.
+- Open linked code from representative fragments and confirm every collapsed
+  file has a useful what-and-why summary before its ranges are expanded.
 - Confirm tests, migrations, generated artifacts, and removed behavior are not
   silently omitted.
 - Report genuine uncertainty inside the saga instead of inventing intent.

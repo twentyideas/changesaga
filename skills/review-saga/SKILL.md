@@ -59,10 +59,13 @@ mismatch.
    that package when code realizes the landmark. Keep one review idea per
    fragment and avoid decorative media.
 8. Attach only the atoms actually explained or demonstrated by a fragment (or a
-   deliberately higher target) with `saga cover --target`. Use `old` for
-   deletions and `new` for additions. Cover rename, mode, and binary events
-   explicitly. Prefer the absolute URIs emitted by `status --json` when source
-   and saga live in different repositories.
+   deliberately higher target) with `saga cover --target`. Always pass `--note`
+   with a concise, reviewer-facing explanation of what changed in that source
+   file and why it belongs to this narrative target. Make the note useful before
+   code is expanded; do not restate the path or say only “implementation” or
+   “tests.” Use `old` for deletions and `new` for additions. Cover rename, mode,
+   and binary events explicitly. Prefer the absolute URIs emitted by `status
+   --json` when source and saga live in different repositories.
 9. Repeat `saga status --json` until every product atom is covered and no stale
    selector remains. Inspect overlaps and keep them only when multiple reviewer
    journeys genuinely need the same change.
@@ -93,8 +96,9 @@ Run status against the new head, then handle both sides of drift:
 Run `saga open <name>.saga` when asked to present the review. The local UI can
 anchor threads to whole fragments, selected text, rectangles, or freehand paths.
 Thread messages are fragments and may include images, SVG, or HTML attachments.
-Use Saga view to follow the narrative and open attached diffs in the side
-drawer. Use Code Diff view for the complete file tree. Diff comments,
+Use Saga view to follow the narrative and open attached code in the side
+drawer. Read the collapsed file summaries first, then expand a file to inspect
+its linked ranges. Use Code Diff view for the complete file tree. Diff comments,
 suggestions, reviewed-file state, and fragment approvals are committed overlay
 data and remain visible across both views.
 Do not resolve, reopen, approve, or reject on a person's behalf without explicit

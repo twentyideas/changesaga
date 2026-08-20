@@ -401,7 +401,12 @@ const appJavaScript = `(() => {
   function openDrawer(templateID) {
     const source = document.getElementById(templateID);
     if (!source) return;
-    q('.drawer-body').innerHTML = source.innerHTML;
+    const body = q('.drawer-body');
+    body.innerHTML = source.innerHTML;
+    const attached = q('[data-attached-title]', body);
+    const heading = q('.drawer-head strong');
+    if (heading) heading.textContent = attached?.dataset.attachedTitle ? 'Linked code · ' + attached.dataset.attachedTitle : 'Linked code';
+    highlightCode(body);
     q('.diff-drawer').classList.add('open');
     q('.diff-drawer').setAttribute('aria-hidden', 'false');
     q('.drawer-backdrop').classList.add('open');

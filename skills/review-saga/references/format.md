@@ -72,9 +72,9 @@ saga add-chapter --title "Title" <name>.saga backend
 saga add-section --title "Title" <name>.saga backend.chapter/path/to/section
 saga add-fragment --section path/to/section --type markdown --title "Context" <name>.saga
 saga add-fragment --section path/to/section --type html --source ./demo-package --entrypoint index.html <name>.saga
-saga cover --repo <source-checkout> --target path/to/demo.fragment --path file.go --side new --lines 4-9,12 <name>.saga
-saga cover --target path/to/demo.fragment --uri 'saga-diff://v1/line?...' <name>.saga
-saga cover --target path/to/demo.fragment/___landmarks/submit-action.landmark --uri 'saga-diff://v1/line?...' <name>.saga
+saga cover --repo <source-checkout> --target path/to/demo.fragment --path file.go --side new --lines 4-9,12 --note "Adds request validation so malformed input fails before persistence." <name>.saga
+saga cover --target path/to/demo.fragment --uri 'saga-diff://v1/line?...' --note "Implements the behavior explained by this fragment." <name>.saga
+saga cover --target path/to/demo.fragment/___landmarks/submit-action.landmark --uri 'saga-diff://v1/line?...' --note "Connects the diagram action to its exact submit handler." <name>.saga
 saga validate --json <name>.saga
 saga status --json --repo <source-checkout> <name>.saga
 saga open --repo <source-checkout> <name>.saga
@@ -104,6 +104,11 @@ commits preserve the product identity; product changes do not. Do not hand-edit 
 to make stale evidence pass; regenerate it against the intended source state.
 `saga-diff://v1/file?...` identifies a whole changed file only for review
 progress; it is not coverage evidence.
+
+Each evidence reference should include a concise `note` explaining what changed
+and why the narrative target owns that code. The Saga drawer groups references
+by source file and displays these notes before the reviewer expands the linked
+ranges.
 
 ## Review overlay
 

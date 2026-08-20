@@ -160,7 +160,9 @@ and code controls on hover.
 
 The local reviewer has three complementary surfaces. **Saga** keeps the authored
 narrative in the foreground and opens attached code in a scrollable right-hand
-drawer. **Code Diff** presents the entire comparison with a changed-file tree.
+drawer. The drawer starts with collapsed source files and their authored
+what-and-why summaries; expanding a file reveals only the ranges linked to that
+narrative target. **Code Diff** presents the entire comparison with a changed-file tree.
 **Manifest**
 audits the relationship in both directions: every changed range shows the Saga
 elements that explain it, and every mapped Saga element shows its exact code

@@ -64,6 +64,7 @@ type sectionView struct {
 	*saga.Section
 	DOMID         string
 	Changes       []*diffAtomView
+	Attached      *attachedCodeView
 	Threads       []*threadView
 	FragmentViews []*fragmentView
 	ChildViews    []*sectionView
@@ -83,6 +84,7 @@ type fragmentView struct {
 	AspectRatio   string
 	LandmarkViews []*landmarkView
 	Changes       []*diffAtomView
+	Attached      *attachedCodeView
 	Threads       []*threadView
 	ReviewState   string
 	ReviewAuthor  string
@@ -91,11 +93,12 @@ type fragmentView struct {
 
 type landmarkView struct {
 	saga.Landmark
-	DOMID   string
-	Title   string
-	Changes []*diffAtomView
-	Threads []*threadView
-	Region  *saga.LandmarkRegion
+	DOMID    string
+	Title    string
+	Changes  []*diffAtomView
+	Attached *attachedCodeView
+	Threads  []*threadView
+	Region   *saga.LandmarkRegion
 }
 
 type diffAtomView struct {
@@ -360,7 +363,10 @@ func plural(count int, singular, plural string) string {
 }
 
 func makeSectionView(section *saga.Section, changes map[string][]gitdiff.Atom, threads map[string][]*threadView, diffThreads map[string][]*threadView) *sectionView {
-	view := &sectionView{Section: section, DOMID: domID(section.Target), Changes: makeAtomViews(changes[section.Target], section.Target, diffThreads), Threads: threads[section.Target]}
+	view := &sectionView{
+		Section: section, DOMID: domID(section.Target), Changes: makeAtomViews(changes[section.Target], section.Target, diffThreads),
+		Attached: makeAttachedCodeView(section.Title, section.Target, changes[section.Target], section.Diffs, diffThreads), Threads: threads[section.Target],
+	}
 	if len(section.Reviews) > 0 {
 		reviews := append([]saga.Review(nil), section.Reviews...)
 		sort.Slice(reviews, func(i, j int) bool { return reviews[i].CreatedAt.Before(reviews[j].CreatedAt) })
@@ -377,15 +383,25 @@ func makeSectionView(section *saga.Section, changes map[string][]gitdiff.Atom, t
 }
 
 func makeFragmentView(fragment *saga.Fragment, changes []gitdiff.Atom, threads []*threadView, diffThreads map[string][]*threadView, changesByTarget map[string][]gitdiff.Atom, threadsByTarget map[string][]*threadView) *fragmentView {
-	view := &fragmentView{Fragment: fragment, DOMID: domID(fragment.Target), Changes: makeAtomViews(changes, fragment.Target, diffThreads), Threads: threads}
+	title := fragment.Title
+	if title == "" {
+		title = fragment.ID
+	}
+	view := &fragmentView{
+		Fragment: fragment, DOMID: domID(fragment.Target), Changes: makeAtomViews(changes, fragment.Target, diffThreads),
+		Attached: makeAttachedCodeView(title, fragment.Target, changes, fragment.Diffs, diffThreads), Threads: threads,
+	}
 	for _, landmark := range fragment.Landmarks {
 		region := landmark.Hotspot
 		if region == nil && landmark.Selector.Type == "region" {
 			region = &saga.LandmarkRegion{X: landmark.Selector.X, Y: landmark.Selector.Y, Width: landmark.Selector.Width, Height: landmark.Selector.Height}
 		}
+		landmarkChanges := changesByTarget[landmark.Target]
 		view.LandmarkViews = append(view.LandmarkViews, &landmarkView{
 			Landmark: landmark, DOMID: view.DOMID + "--" + landmark.ID, Title: landmark.Label,
-			Changes: makeAtomViews(changesByTarget[landmark.Target], landmark.Target, diffThreads), Threads: threadsByTarget[landmark.Target], Region: region,
+			Changes:  makeAtomViews(landmarkChanges, landmark.Target, diffThreads),
+			Attached: makeAttachedCodeView(landmark.Label, landmark.Target, landmarkChanges, landmark.Diffs, diffThreads),
+			Threads:  threadsByTarget[landmark.Target], Region: region,
 		})
 	}
 	view.ReviewState, view.ReviewAuthor, view.ReviewDetail = latestReview(fragment.Reviews)

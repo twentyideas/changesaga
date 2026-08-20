@@ -241,6 +241,7 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	section := &saga.Section{Kind: "chapter", ID: "root", Title: "Test", Target: "urn:review-saga:test:saga", Path: "private/root.chapter", Fragments: []*saga.Fragment{fragment, emptyFragment}}
 	thread := &saga.Thread{ID: "thread", Target: fragment.Target, Anchor: saga.Anchor{Type: "region", Coordinate: "normalized", Shapes: []saga.Shape{{Type: "rect", X: .1, Y: .2, Width: .3, Height: .4, Color: "#336699"}}}, State: "open", Messages: []*saga.Message{{ID: "message", CreatedAt: time.Date(2026, 8, 19, 12, 0, 0, 0, time.UTC)}}}
 	lineURI := "saga-diff://v1/line?base=aaa&end=1&head=product-bbb&path=app.go&repository=https%3A%2F%2Fexample.test%2Fa.git&side=new&start=1"
+	fragment.Diffs = []saga.DiffFile{{Version: 2, Diffs: []saga.DiffReference{{URI: lineURI, Note: "Adds the package entrypoint so the example compiles."}}}}
 	data := pageData{
 		Saga: &saga.Saga{Manifest: saga.Manifest{ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/a.git", Base: "main", Head: "HEAD"}}, Section: section},
 		Root: makeSectionView(section, map[string][]gitdiff.Atom{fragment.Target: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}, landmarkTarget: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}}, map[string][]*threadView{fragment.Target: {makeThreadView(thread)}}, nil), Chapter: true,
@@ -262,6 +263,9 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	}
 	if strings.Contains(renderedPage, "Attached code") || strings.Contains(renderedPage, "Linked diffs</h2>") || !strings.Contains(renderedPage, `<div class="drawer-head"><strong>Linked code</strong>`) {
 		t.Fatal("attached-code drawer retained redundant header chrome")
+	}
+	if !strings.Contains(renderedPage, `class="attached-file"`) || !strings.Contains(renderedPage, "Adds the package entrypoint so the example compiles.") || !strings.Contains(renderedPage, "Open full file in Code Diff") || strings.Contains(renderedPage, `<details class="attached-file" open`) {
+		t.Fatal("attached code was not presented as a collapsed, explained file list")
 	}
 	if !strings.Contains(renderedPage, `data-annotation-color`) || !strings.Contains(renderedPage, `stroke="#336699"`) || !strings.Contains(renderedPage, `data-copy-link="#`+domID("thread:thread")+`"`) || !strings.Contains(renderedPage, `data-copy-link="#`+domID("message:message")+`"`) {
 		t.Fatal("annotation colors or committed-item permalinks were not rendered")
