@@ -75,6 +75,11 @@ const appJavaScript = `(() => {
     return '';
   }
 
+  function annotationDeleteShortcut(event) {
+    if (event.ctrlKey || event.metaKey || event.altKey || event.key !== 'Delete' && event.key !== 'Backspace') return false;
+    return !event.target.matches?.('input,textarea,[contenteditable="true"]');
+  }
+
   async function copyPermalink(button) {
     const url = new URL(location.href);
     url.hash = (button.dataset.copyLink || '').replace(/^#/, '');
@@ -608,6 +613,8 @@ const appJavaScript = `(() => {
     if (picker) picker.value = color;
     setSelectedTool('select');
     updateAnnotationResizeHandle();
+    element.setAttribute('tabindex', '-1');
+    element.focus?.({preventScroll:true});
   }
 
   function discardAnnotationDraft() {
@@ -959,6 +966,11 @@ const appJavaScript = `(() => {
   });
 
   document.addEventListener('keydown', event => {
+    if (selectedAnnotation && annotationDeleteShortcut(event)) {
+      event.preventDefault();
+      removeSelectedAnnotation();
+      return;
+    }
     const direction = shortcutDirection(event);
     if (direction) {
       const editable = event.target.matches?.('input,textarea,[contenteditable="true"]');
