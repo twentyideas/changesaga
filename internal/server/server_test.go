@@ -312,6 +312,32 @@ func TestReviewDecisionPersistsAndReturnsToChapter(t *testing.T) {
 	}
 }
 
+func TestAsyncReviewDecisionPersistsWithoutRedirect(t *testing.T) {
+	root := validServerSaga(t)
+	application := &app{root: root}
+	values := url.Values{
+		"target": {"urn:review-saga:test:fragment:overview"},
+		"state":  {"rejected"},
+		"body":   {"Please cover the failure path."},
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/review", strings.NewReader(values.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Set("X-Review-Saga-Async", "true")
+	recorder := httptest.NewRecorder()
+	application.review(recorder, request)
+	if recorder.Code != http.StatusNoContent || recorder.Header().Get("Location") != "" {
+		t.Fatalf("async review response = %d location %q", recorder.Code, recorder.Header().Get("Location"))
+	}
+	document, validation, err := saga.Load(root)
+	if err != nil || !validation.Valid {
+		t.Fatalf("written async review should validate: validation=%#v err=%v", validation, err)
+	}
+	reviews := document.Section.Fragments[0].Reviews
+	if len(reviews) != 1 || reviews[0].State != "rejected" || reviews[0].Body != "Please cover the failure path." {
+		t.Fatalf("unexpected async review: %#v", reviews)
+	}
+}
+
 func TestPageAttributesSagaFromItsOwnRepository(t *testing.T) {
 	repo := t.TempDir()
 	serverGit(t, repo, "init", "-b", "main")
@@ -410,6 +436,7 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	writeServerFile(t, filepath.Join(fragmentDir, "content.md"), "# Story {#story}\n")
 	landmarkTarget := saga.LandmarkTarget("test", "overview", "story-text")
 	fragment := &saga.Fragment{ID: "overview", Title: "Overview", Target: "urn:review-saga:test:fragment:overview", Directory: fragmentDir, MediaType: "text/markdown", Entrypoint: "content.md", Landmarks: []saga.Landmark{{Version: 2, ID: "story-text", Label: "Story text", Target: landmarkTarget, Selector: saga.LandmarkSelector{Type: "text", Exact: "Story"}}}}
+	fragment.Reviews = []saga.Review{{State: "approved", Body: "Ready to merge.", CreatedAt: time.Date(2026, 8, 19, 12, 0, 0, 0, time.UTC)}}
 	emptyFragment := &saga.Fragment{ID: "empty", Title: "No changes", Target: "urn:review-saga:test:fragment:empty", Directory: fragmentDir, MediaType: "text/plain", Entrypoint: "missing.txt"}
 	section := &saga.Section{Kind: "chapter", ID: "root", Title: "Test", Target: "urn:review-saga:test:saga", Path: "private/root.chapter", Fragments: []*saga.Fragment{fragment, emptyFragment}}
 	thread := &saga.Thread{ID: "thread", Target: fragment.Target, Anchor: saga.Anchor{Type: "region", Coordinate: "normalized", Shapes: []saga.Shape{{Type: "rect", X: .1, Y: .2, Width: .3, Height: .4, Color: "#336699"}}}, State: "open", Messages: []*saga.Message{{ID: "message", CreatedAt: time.Date(2026, 8, 19, 12, 0, 0, 0, time.UTC)}}}
@@ -423,18 +450,18 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	data := pageData{
 		Saga: &saga.Saga{Manifest: saga.Manifest{ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/a.git", Base: "main", Head: "HEAD"}}, Section: section},
 		Root: makeSectionView(section, map[string][]gitdiff.Atom{fragment.Target: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}, landmarkTarget: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}}, map[string][]*threadView{fragment.Target: {makeThreadView(thread)}}, nil), Chapter: true,
-		Code: &CodeReviewView{}, Manifest: manifestFixture,
+		Code: &CodeReviewView{}, Manifest: manifestFixture, ReviewDecided: 1, ReviewTotal: 3,
 	}
 	var output bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&output, "page", data); err != nil {
 		t.Fatal(err)
 	}
 	renderedPage := output.String()
-	if strings.Contains(renderedPage, "ZgotmplZ") || !strings.Contains(renderedPage, "/app.js") || !strings.Contains(renderedPage, `x="100.00"`) || !strings.Contains(renderedPage, "decision-dialog") || !strings.Contains(renderedPage, `data-diff-ref="saga-diff://v1/line?`) || !strings.Contains(renderedPage, `id="`+domID(fragment.Target)+`--story"`) {
+	if strings.Contains(renderedPage, "ZgotmplZ") || !strings.Contains(renderedPage, "/app.js") || !strings.Contains(renderedPage, `x="100.00"`) || !strings.Contains(renderedPage, `data-diff-ref="saga-diff://v1/line?`) || !strings.Contains(renderedPage, `id="`+domID(fragment.Target)+`--story"`) {
 		t.Fatalf("template produced unsafe or incomplete output")
 	}
-	if strings.Count(renderedPage, `class="annotation-toolbox"`) != 1 || strings.Contains(renderedPage, `class="review-form"`) {
-		t.Fatal("review controls were not consolidated")
+	if strings.Count(renderedPage, `class="annotation-toolbox"`) != 1 || !strings.Contains(renderedPage, `data-review-progress`) || !strings.Contains(renderedPage, `data-review-decided="1" data-review-total="3"`) || !strings.Contains(renderedPage, `data-review-controls`) || !strings.Contains(renderedPage, `data-review-decision="approved" aria-pressed="true"`) || !strings.Contains(renderedPage, `data-review-comment`) || !strings.Contains(renderedPage, `data-review-note title="Ready to merge."`) || !strings.Contains(renderedPage, `i-approve-filled`) || !strings.Contains(renderedPage, `i-reject-filled`) || strings.Contains(renderedPage, `decision-dialog`) || strings.Contains(renderedPage, `class="review-form"`) {
+		t.Fatal("fast inline review controls and progress were not rendered")
 	}
 	if !strings.Contains(renderedPage, `body data-saga-id="test"`) || !strings.Contains(renderedPage, `data-undo disabled`) || !strings.Contains(renderedPage, `data-redo disabled`) || strings.Contains(renderedPage, `name="record_history"`) {
 		t.Fatal("annotation command history controls were not rendered")
@@ -613,6 +640,27 @@ func TestChapterIndexReportsResumeState(t *testing.T) {
 	chapters := makeChapterIndex(root, "started")
 	if len(chapters) != 3 || chapters[0].Status != "Approved" || chapters[1].Status != "In progress" || !chapters[1].Active || chapters[2].Status != "Unreviewed" {
 		t.Fatalf("unexpected chapter resume states: %#v", chapters)
+	}
+}
+
+func TestReviewDecisionProgressCountsTheWholeSaga(t *testing.T) {
+	root := &sectionView{
+		Section:     &saga.Section{ID: "root"},
+		ReviewState: "approved",
+		FragmentViews: []*fragmentView{
+			{ReviewState: "rejected"},
+			{ReviewState: "open"},
+		},
+		ChildViews: []*sectionView{{
+			Section: &saga.Section{ID: "chapter"},
+			FragmentViews: []*fragmentView{
+				{ReviewState: "approved"},
+			},
+		}},
+	}
+	decided, total := reviewDecisionProgress(root)
+	if decided != 3 || total != 5 {
+		t.Fatalf("review decision progress = %d/%d, want 3/5", decided, total)
 	}
 }
 

@@ -50,6 +50,8 @@ type pageData struct {
 	Error         string
 	Files         []*fileDiffView
 	ReviewedFiles int
+	ReviewDecided int
+	ReviewTotal   int
 }
 
 type chapterIndexView struct {
@@ -87,6 +89,7 @@ type sectionView struct {
 	ReviewState   string
 	ReviewAuthor  string
 	ReviewDetail  string
+	ReviewBody    string
 }
 
 type fragmentView struct {
@@ -105,6 +108,7 @@ type fragmentView struct {
 	ReviewState   string
 	ReviewAuthor  string
 	ReviewDetail  string
+	ReviewBody    string
 }
 
 type landmarkView struct {
@@ -221,7 +225,13 @@ func templateFuncs() template.FuncMap {
 			return defaultNoteColor
 		},
 		"percent": func(value float64) string { return strconv.FormatFloat(value*100, 'f', 4, 64) },
-		"coord":   func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
+		"reviewProgress": func(decided, total int) string {
+			if total <= 0 {
+				return "0"
+			}
+			return strconv.FormatFloat(float64(decided)/float64(total), 'f', 4, 64)
+		},
+		"coord": func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
 		"points": func(values []saga.Point) string {
 			parts := make([]string, 0, len(values))
 			for _, point := range values {
@@ -307,6 +317,7 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 		Chapters: makeChapterIndex(rootView, chapterID),
 		Code:     code,
 	}
+	data.ReviewDecided, data.ReviewTotal = reviewDecisionProgress(rootView)
 	data.Nav = makeNavTree(document.Manifest.Title, rootView, selected, chapterRoute, chapterID)
 	if diffErr == nil {
 		data.Manifest = makeCoverageManifestView(document, changes, report)
@@ -450,6 +461,28 @@ func sectionHasActivity(view *sectionView) bool {
 	return false
 }
 
+func reviewDecisionProgress(view *sectionView) (decided, total int) {
+	if view == nil {
+		return 0, 0
+	}
+	total++
+	if view.ReviewState == "approved" || view.ReviewState == "rejected" {
+		decided++
+	}
+	for _, fragment := range view.FragmentViews {
+		total++
+		if fragment.ReviewState == "approved" || fragment.ReviewState == "rejected" {
+			decided++
+		}
+	}
+	for _, child := range view.ChildViews {
+		childDecided, childTotal := reviewDecisionProgress(child)
+		decided += childDecided
+		total += childTotal
+	}
+	return decided, total
+}
+
 // anchorLabel keeps thread metadata in the reviewer's vocabulary instead of
 // exposing the stored anchor discriminator.
 func anchorLabel(kind string) string {
@@ -473,12 +506,7 @@ func makeSectionView(section *saga.Section, changes map[string][]gitdiff.Atom, t
 		Section: section, DOMID: domID(section.Target), Changes: makeAtomViews(changes[section.Target], section.Target, diffThreads),
 		Attached: makeAttachedCodeView(section.Title, section.Target, changes[section.Target], section.Diffs, diffThreads), Threads: threads[section.Target],
 	}
-	if len(section.Reviews) > 0 {
-		reviews := append([]saga.Review(nil), section.Reviews...)
-		sort.Slice(reviews, func(i, j int) bool { return reviews[i].CreatedAt.Before(reviews[j].CreatedAt) })
-		last := reviews[len(reviews)-1]
-		view.ReviewState, view.ReviewAuthor, view.ReviewDetail = last.State, last.Author, last.AttributionDetail
-	}
+	view.ReviewState, view.ReviewAuthor, view.ReviewDetail, view.ReviewBody = latestReview(section.Reviews)
 	for _, fragment := range section.Fragments {
 		view.FragmentViews = append(view.FragmentViews, makeFragmentView(fragment, changes[fragment.Target], threads[fragment.Target], diffThreads, changes, threads))
 	}
@@ -510,7 +538,7 @@ func makeFragmentView(fragment *saga.Fragment, changes []gitdiff.Atom, threads [
 			Threads:  threadsByTarget[landmark.Target], Region: region,
 		})
 	}
-	view.ReviewState, view.ReviewAuthor, view.ReviewDetail = latestReview(fragment.Reviews)
+	view.ReviewState, view.ReviewAuthor, view.ReviewDetail, view.ReviewBody = latestReview(fragment.Reviews)
 	view.URL = "/f/" + url.PathEscape(fragment.ID) + "/" + strings.Join(pathEscapeParts(filepath.ToSlash(fragment.Entrypoint)), "/")
 	switch fragment.MediaType {
 	case "text/markdown":
@@ -674,14 +702,14 @@ func makeFileViews(changes gitdiff.ChangeSet, target string, reviews []saga.Diff
 	return result
 }
 
-func latestReview(reviews []saga.Review) (string, string, string) {
+func latestReview(reviews []saga.Review) (string, string, string, string) {
 	if len(reviews) == 0 {
-		return "", "", ""
+		return "", "", "", ""
 	}
 	values := append([]saga.Review(nil), reviews...)
 	sort.Slice(values, func(i, j int) bool { return values[i].CreatedAt.Before(values[j].CreatedAt) })
 	last := values[len(values)-1]
-	return last.State, last.Author, last.AttributionDetail
+	return last.State, last.Author, last.AttributionDetail, last.Body
 }
 
 func applyGitAttribution(ctx context.Context, resolver *gitattribution.Resolver, document *saga.Saga) {
@@ -883,6 +911,10 @@ func (a *app) review(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := reviewstore.AddReview(a.root, dir, r.FormValue("state"), r.FormValue("body")); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if r.Header.Get("X-Review-Saga-Async") == "true" {
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 	redirectAfterReview(w, r, "/#"+domID(r.FormValue("target")))

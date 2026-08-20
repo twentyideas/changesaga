@@ -92,6 +92,136 @@ const appJavaScript = `(() => {
     submitReviewForm('/api/thread-state', {thread:command.thread, target:command.target, state});
   }
 
+  function isReviewDecision(state) {
+    return state === 'approved' || state === 'rejected';
+  }
+
+  let reviewProgressTimer = null;
+  let reviewScrollTimer = null;
+
+  function updateReviewProgress(previous = '', next = '', emphasize = false) {
+    const progress = q('[data-review-progress]');
+    if (!progress) return;
+    const total = Math.max(0, Number(document.body.dataset.reviewTotal) || 0);
+    let decided = Math.max(0, Number(document.body.dataset.reviewDecided) || 0);
+    if (previous || next) {
+      if (!isReviewDecision(previous) && isReviewDecision(next)) decided++;
+      if (isReviewDecision(previous) && !isReviewDecision(next)) decided--;
+      decided = Math.max(0, Math.min(total, decided));
+      document.body.dataset.reviewDecided = String(decided);
+    }
+    progress.style.setProperty('--review-progress', total ? String(decided / total) : '0');
+    progress.setAttribute('aria-valuemax', String(total));
+    progress.setAttribute('aria-valuenow', String(decided));
+    if (!emphasize) return;
+    progress.classList.add('changed');
+    clearTimeout(reviewProgressTimer);
+    reviewProgressTimer = setTimeout(() => progress.classList.remove('changed'), 1500);
+  }
+
+  function setReviewControlState(control, state, animate = true) {
+    const previous = control.dataset.reviewState || '';
+    const title = control.dataset.reviewTitle || 'item';
+    control.dataset.reviewState = state;
+    qa('[data-review-decision]', control).forEach(button => {
+      const selected = button.dataset.reviewDecision === state;
+      button.setAttribute('aria-pressed', String(selected));
+      if (button.dataset.reviewDecision === 'approved') {
+        button.setAttribute('aria-label', (selected ? 'Undo approval for ' : 'Approve ') + title);
+        button.title = selected ? 'Approved · click to undo' : 'Approve';
+      } else {
+        button.setAttribute('aria-label', (selected ? 'Undo request for changes on ' : 'Request changes on ') + title);
+        button.title = selected ? 'Changes requested · click to undo' : 'Request changes';
+      }
+    });
+    updateReviewProgress(previous, state, animate);
+    if (!animate) return;
+    control.classList.remove('decision-changed');
+    requestAnimationFrame(() => control.classList.add('decision-changed'));
+    setTimeout(() => control.classList.remove('decision-changed'), 650);
+  }
+
+  function closeReviewComposer(form, immediate = false) {
+    if (!form) return;
+    clearTimeout(form.reviewCloseTimer);
+    form.classList.remove('open');
+    const finish = () => { form.hidden = true; form.reset(); };
+    if (immediate) finish(); else form.reviewCloseTimer = setTimeout(finish, 150);
+  }
+
+  function openReviewComposer(control, state) {
+    qa('[data-review-decision-form].open').forEach(form => closeReviewComposer(form, true));
+    const form = q('[data-review-decision-form]', control);
+    clearTimeout(form.reviewCloseTimer);
+    form.reset();
+    q('[name=target]', form).value = control.dataset.reviewTarget;
+    q('[name=state]', form).value = state;
+    const field = q('[name=body]', form);
+    field.placeholder = state === 'rejected' ? 'What needs to change? (optional)' : 'Why are you undoing this decision? (optional)';
+    form.hidden = false;
+    requestAnimationFrame(() => form.classList.add('open'));
+    field.focus();
+  }
+
+  async function persistReviewDecision(control, state, body = '') {
+    const buttons = qa('button', control);
+    buttons.forEach(button => button.disabled = true);
+    try {
+      const values = new URLSearchParams({target:control.dataset.reviewTarget, state, body, return_to:location.pathname + location.search + location.hash});
+      const response = await fetch('/api/review', {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-Review-Saga-Async':'true'},body:values,credentials:'same-origin'});
+      if (!response.ok) throw new Error((await response.text()).trim() || 'review could not be saved');
+      setReviewControlState(control, state);
+      const note = q('[data-review-note]', control);
+      const noteBody = body.trim();
+      note.textContent = noteBody;
+      note.title = noteBody;
+      note.hidden = !noteBody;
+    } catch (error) {
+      alert('Could not save this review decision: ' + error.message);
+      throw error;
+    } finally {
+      buttons.forEach(button => button.disabled = false);
+    }
+  }
+
+  function activateReviewDecision(button) {
+    const control = button.closest('[data-review-controls]');
+    const requested = button.dataset.reviewDecision;
+    const current = control.dataset.reviewState || '';
+    if (current === requested) {
+      openReviewComposer(control, 'open');
+      return;
+    }
+    if (requested === 'rejected') {
+      openReviewComposer(control, 'rejected');
+      return;
+    }
+    persistReviewDecision(control, 'approved').catch(() => {});
+  }
+
+  async function submitReviewComposer(form) {
+    const control = form.closest('[data-review-controls]');
+    const state = q('[name=state]', form).value;
+    const body = q('[name=body]', form).value;
+    try {
+      await persistReviewDecision(control, state, body);
+      closeReviewComposer(form);
+    } catch (_) {}
+  }
+
+  function openReviewComment(control) {
+    discardAnnotationDraft();
+    const form = q('.annotation-compose');
+    form.reset();
+    q('[name=target]', form).value = control.dataset.reviewTarget;
+    q('[name=anchor]', form).value = JSON.stringify({type:'target'});
+    q('.dialog-head h2', form).textContent = 'Comment on ' + (control.dataset.reviewTitle || 'this item');
+    form.classList.add('open');
+    q('[name=body]', form).focus();
+    resetTool();
+    updateHistoryControls();
+  }
+
   function shortcutDirection(event) {
     if (event.altKey || (!event.ctrlKey && !event.metaKey)) return '';
     const key = String(event.key || '').toLowerCase();
@@ -868,6 +998,7 @@ const appJavaScript = `(() => {
     const form = q('.annotation-compose');
     discardAnnotationDraft();
     form.reset();
+    q('.dialog-head h2', form).textContent = 'Add a comment';
     annotationDraft = {
       kind:'draft', shapeDraft:true, target:fragment.dataset.target, fragment, body:'',
       anchor:{type:'region',coordinate_space:'normalized',shapes:[]},
@@ -896,6 +1027,7 @@ const appJavaScript = `(() => {
     setActiveFragment(fragment);
     const form = q('.annotation-compose');
     form.reset();
+    q('.dialog-head h2', form).textContent = 'Add a comment';
     q('[name=target]', form).value = fragment.dataset.target;
     q('[name=anchor]', form).value = JSON.stringify(anchor);
     q('[name=body]', form).value = options.body || '';
@@ -1112,15 +1244,6 @@ const appJavaScript = `(() => {
     }
   }
 
-  function openDecision(button) {
-    const dialog = q('.decision-dialog');
-    q('form', dialog).reset();
-    q('[name=target]', dialog).value = button.dataset.reviewTarget;
-    q('#decision-title', dialog).textContent = 'Review ' + button.dataset.reviewTitle;
-    if (!dialog.open) dialog.showModal();
-    q('[name=body]', dialog).focus();
-  }
-
   function useTool(mode) {
     cancelDrawing();
     clearAnnotationSelection();
@@ -1242,9 +1365,12 @@ const appJavaScript = `(() => {
     const drawerButton = event.target.closest('[data-open-diffs]');
     if (drawerButton) { openDrawer(drawerButton.dataset.openDiffs); return; }
     if (event.target.closest('[data-close-drawer]')) { closeDrawer(); return; }
-    const decisionButton = event.target.closest('[data-review-target]');
-    if (decisionButton) { openDecision(decisionButton); return; }
-    if (event.target.closest('[data-close-decision]')) { q('.decision-dialog').close(); return; }
+    const reviewDecision = event.target.closest('[data-review-decision]');
+    if (reviewDecision) { activateReviewDecision(reviewDecision); return; }
+    const reviewComment = event.target.closest('[data-review-comment]');
+    if (reviewComment) { openReviewComment(reviewComment.closest('[data-review-controls]')); return; }
+    const reviewCancel = event.target.closest('[data-review-cancel]');
+    if (reviewCancel) { closeReviewComposer(reviewCancel.closest('[data-review-decision-form]')); return; }
     if (event.target.closest('[data-close-annotation]')) { closeAnnotation(); return; }
     const diffAction = event.target.closest('[data-diff-action]');
     if (diffAction) { openDiffComposer(diffAction); return; }
@@ -1264,6 +1390,11 @@ const appJavaScript = `(() => {
 
   document.addEventListener('submit', event => {
     const form = event.target;
+    if (form.matches('[data-review-decision-form]')) {
+      event.preventDefault();
+      submitReviewComposer(form);
+      return;
+    }
     if (form.matches('form[action^="/api/"]')) {
       let returnTo = q('[name=return_to]', form);
       if (!returnTo) {
@@ -1344,8 +1475,7 @@ const appJavaScript = `(() => {
     updateLineSelection([]);
     const diffForm = q('.diff-compose');
     if (diffForm) diffForm.classList.remove('open');
-    const dialog = q('.decision-dialog');
-    if (dialog && dialog.open) dialog.close();
+    qa('[data-review-decision-form].open').forEach(form => closeReviewComposer(form));
   });
 
   document.addEventListener('keyup', event => {
@@ -1500,6 +1630,7 @@ const appJavaScript = `(() => {
   });
 
   updateHistoryControls();
+  updateReviewProgress();
   prepareLandmarks();
   qa('[data-text-target]').forEach(label => {
     const target = document.querySelector('[data-target="'+CSS.escape(label.dataset.textTarget)+'"] [data-selectable]');
@@ -1521,6 +1652,13 @@ const appJavaScript = `(() => {
   highlightCode();
   applyDiffLayout('inline');
   addEventListener('resize', () => { applyDiffLayout(diffLayout); positionLandmarkHotspots(); });
+  addEventListener('scroll', () => {
+    const progress = q('[data-review-progress]');
+    if (!progress) return;
+    progress.classList.add('scrolling');
+    clearTimeout(reviewScrollTimer);
+    reviewScrollTimer = setTimeout(() => progress.classList.remove('scrolling'), 650);
+  }, {passive:true});
   const requestedView = new URL(location.href).searchParams.get('view');
   const initialView = requestedView === 'code' || requestedView === 'manifest' ? requestedView : 'saga';
   setView(initialView, false);
