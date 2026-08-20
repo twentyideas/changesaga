@@ -278,8 +278,11 @@ func TestPageHandlerIsolatesOverviewAndChapterRoutes(t *testing.T) {
 	if chapter.Code != http.StatusOK || !strings.Contains(chapterBody, "Alpha-exclusive narrative") || strings.Contains(chapterBody, "Beta-exclusive narrative") || strings.Contains(chapterBody, "Root-only introduction") {
 		t.Fatal("chapter route did not render only the selected chapter")
 	}
-	if !strings.Contains(chapterBody, `href="#`+domID("urn:review-saga:test:fragment:alpha-story")+`"`) {
-		t.Fatal("chapter route omitted its fragment deep link")
+	if strings.Contains(chapterBody, `<h3>Alpha story</h3>`) || strings.Contains(chapterBody, `class="nav-child" href="#`+domID("urn:review-saga:test:fragment:alpha-story")+`"`) {
+		t.Fatal("chapter route rendered redundant fragment labels around the narrative")
+	}
+	if !strings.Contains(chapterBody, `id="`+domID("urn:review-saga:test:fragment:alpha-story")+`"`) {
+		t.Fatal("chapter route omitted its fragment deep-link target")
 	}
 
 	missingRequest := httptest.NewRequest(http.MethodGet, "/chapters/missing", nil)
