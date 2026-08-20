@@ -9,6 +9,7 @@ tag push and nothing else.
 | `.github/workflows/ci.yml` | Unsigned tests, lint, and cross-platform build. Runs on every pull request, including forks. |
 | `.github/workflows/release.yml` | Tag-only build, macOS signing and notarization, checksums, GitHub Release. |
 | `scripts/build-release.sh` | Builds and archives one `GOOS/GOARCH` target. Used by both workflows. |
+| `scripts/build-macos-standalone-installer.sh` | Wraps an Apple Silicon archive in one self-contained `.command` file for direct handoff. |
 | `scripts/install.sh` | The `curl \| sh` installer for macOS and Linux. |
 | `scripts/macos-*.sh` | Developer ID keychain setup, signing, notarization. Only ever called from the trusted release job. |
 | `scripts/install_test.sh` | End-to-end test of the installer against a locally staged release. |
@@ -52,6 +53,19 @@ Each archive contains the binary, `LICENSE`, and `README.md`. Builds are
 `CGO_ENABLED=0 -trimpath`, so the binary has no libc or toolchain dependency and
 build paths do not leak into it. `internal/cli.Version`, `.Commit`, and
 `.BuildDate` are injected with `-ldflags -X`; `saga version` prints all three.
+
+For a direct Apple Silicon handoff, wrap the archive in a single installer:
+
+```sh
+./scripts/build-macos-standalone-installer.sh \
+  dist/saga_0.3.0_darwin_arm64.tar.gz \
+  dist/Review-Saga-Apple-Silicon.command
+```
+
+The resulting `.command` file contains the archive and its expected checksum.
+It verifies the payload, refuses non-macOS and non-arm64 machines, and installs
+without `sudo`. Zip the one file when sending it through a service that does not
+preserve executable permissions.
 
 `SHA256SUMS` is generated in the publish job from the artifacts as downloaded,
 after each one is re-checked against the checksum its build job recorded. That
@@ -231,6 +245,7 @@ Linux artifacts rely on `SHA256SUMS` plus the provenance attestation.
 
 ```sh
 ./scripts/build-release.sh 0.3.0 darwin arm64 dist   # one target
+./scripts/build-macos-standalone-installer.sh dist/saga_0.3.0_darwin_arm64.tar.gz
 ./scripts/install_test.sh                            # installer, end to end
 shellcheck scripts/*.sh
 actionlint                                           # workflow syntax
