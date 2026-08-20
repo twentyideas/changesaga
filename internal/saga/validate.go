@@ -93,7 +93,57 @@ func validateFragmentManifest(value FragmentManifest, path, dir string, result *
 	rel, relErr := filepath.Rel(realDir, realEntry)
 	if relErr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		addIssue(result, "error", path, "entrypoint cannot escape its fragment package")
+		return
 	}
+	if value.MediaType == "text/markdown" {
+		validateMarkdownHeadingAnchors(realEntry, path, result)
+	}
+}
+
+func validateMarkdownHeadingAnchors(entrypoint, path string, result *Validation) {
+	content, err := os.ReadFile(entrypoint)
+	if err != nil {
+		return
+	}
+	seen := map[string]bool{}
+	for _, heading := range MarkdownHeadings(string(content)) {
+		if !heading.Explicit {
+			addIssue(result, "warning", path, fmt.Sprintf("Markdown heading %q should declare a stable anchor such as {#%s}", heading.Text, markdownAnchorSuggestion(heading.Text)))
+			continue
+		}
+		if !ValidMarkdownAnchor(heading.Anchor) {
+			addIssue(result, "error", path, fmt.Sprintf("Markdown heading %q has invalid anchor %q; use lowercase letters, digits, and hyphens", heading.Text, heading.Anchor))
+			continue
+		}
+		if seen[heading.Anchor] {
+			addIssue(result, "error", path, fmt.Sprintf("Markdown anchor %q is duplicated within the fragment", heading.Anchor))
+		}
+		seen[heading.Anchor] = true
+	}
+}
+
+func markdownAnchorSuggestion(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	var result strings.Builder
+	lastHyphen := false
+	for _, character := range value {
+		valid := character >= 'a' && character <= 'z' || character >= '0' && character <= '9'
+		if valid {
+			result.WriteRune(character)
+			lastHyphen = false
+		} else if result.Len() > 0 && !lastHyphen {
+			result.WriteByte('-')
+			lastHyphen = true
+		}
+		if result.Len() >= 64 {
+			break
+		}
+	}
+	suggestion := strings.Trim(result.String(), "-")
+	if suggestion == "" || suggestion[0] < 'a' || suggestion[0] > 'z' {
+		return "section"
+	}
+	return suggestion
 }
 
 func validMediaType(value string) bool {

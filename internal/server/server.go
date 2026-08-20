@@ -367,7 +367,7 @@ func makeFragmentView(fragment *saga.Fragment, changes []gitdiff.Atom, threads [
 	switch fragment.MediaType {
 	case "text/markdown":
 		if data, err := os.ReadFile(filepath.Join(fragment.Directory, fragment.Entrypoint)); err == nil {
-			view.Markdown = markdown(string(data))
+			view.Markdown = markdownWithAnchors(string(data), view.DOMID)
 		}
 	case "text/plain":
 		if data, err := os.ReadFile(filepath.Join(fragment.Directory, fragment.Entrypoint)); err == nil {
@@ -865,7 +865,10 @@ func hasReservedPart(path string) bool {
 	return false
 }
 
-func domID(value string) string { return "target-" + store.Slug(value) }
+func domID(value string) string {
+	digest := sha256.Sum256([]byte(value))
+	return fmt.Sprintf("target-%s-%x", store.Slug(value), digest[:6])
+}
 
 func validAnnotationColor(value string) bool {
 	if len(value) != 7 || value[0] != '#' {
@@ -883,9 +886,14 @@ func validAnnotationColor(value string) bool {
 }
 
 func markdown(source string) template.HTML {
+	return markdownWithAnchors(source, "heading")
+}
+
+func markdownWithAnchors(source, namespace string) template.HTML {
 	lines := strings.Split(strings.ReplaceAll(source, "\r\n", "\n"), "\n")
 	var out strings.Builder
 	inCode, inList := false, false
+	anchors := map[string]int{}
 	closeList := func() {
 		if inList {
 			out.WriteString("</ul>")
@@ -924,12 +932,18 @@ func markdown(source string) template.HTML {
 			continue
 		}
 		closeList()
-		level := 0
-		for level < len(trimmed) && level < 4 && trimmed[level] == '#' {
-			level++
-		}
-		if level > 0 && len(trimmed) > level && trimmed[level] == ' ' {
-			fmt.Fprintf(&out, "<h%d>%s</h%d>", level+2, html.EscapeString(strings.TrimSpace(trimmed[level:])), level+2)
+		if heading, ok := saga.ParseMarkdownHeading(trimmed); ok {
+			anchor := heading.Anchor
+			if !heading.Explicit || !saga.ValidMarkdownAnchor(anchor) {
+				anchor = store.Slug(heading.Text)
+			}
+			anchors[anchor]++
+			if anchors[anchor] > 1 {
+				anchor += "-" + strconv.Itoa(anchors[anchor])
+			}
+			id := namespace + "--" + anchor
+			htmlLevel := min(heading.Level+2, 6)
+			fmt.Fprintf(&out, `<h%d id="%s" class="fragment-heading"><span>%s</span><a class="permalink heading-permalink" href="#%s" data-copy-link="#%s" aria-label="Copy link to %s">#</a></h%d>`, htmlLevel, html.EscapeString(id), html.EscapeString(heading.Text), html.EscapeString(id), html.EscapeString(id), html.EscapeString(heading.Text), htmlLevel)
 			continue
 		}
 		out.WriteString("<p>")

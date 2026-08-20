@@ -234,7 +234,7 @@ func TestInteractiveFragmentIsServedWithSandboxCSP(t *testing.T) {
 func TestPageTemplateAndMarkdown(t *testing.T) {
 	tmpl := serverTemplate(t)
 	fragmentDir := t.TempDir()
-	writeServerFile(t, filepath.Join(fragmentDir, "content.md"), "# Story\n")
+	writeServerFile(t, filepath.Join(fragmentDir, "content.md"), "# Story {#story}\n")
 	fragment := &saga.Fragment{ID: "overview", Title: "Overview", Target: "urn:review-saga:test:fragment:overview", Directory: fragmentDir, MediaType: "text/markdown", Entrypoint: "content.md"}
 	emptyFragment := &saga.Fragment{ID: "empty", Title: "No changes", Target: "urn:review-saga:test:fragment:empty", Directory: fragmentDir, MediaType: "text/plain", Entrypoint: "missing.txt"}
 	section := &saga.Section{Kind: "chapter", ID: "root", Title: "Test", Target: "urn:review-saga:test:saga", Path: "private/root.chapter", Fragments: []*saga.Fragment{fragment, emptyFragment}}
@@ -250,7 +250,7 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 		t.Fatal(err)
 	}
 	renderedPage := output.String()
-	if strings.Contains(renderedPage, "ZgotmplZ") || !strings.Contains(renderedPage, "/app.js") || !strings.Contains(renderedPage, `x="100.00"`) || !strings.Contains(renderedPage, "decision-dialog") || !strings.Contains(renderedPage, `data-diff-ref="saga-diff://v1/line?`) {
+	if strings.Contains(renderedPage, "ZgotmplZ") || !strings.Contains(renderedPage, "/app.js") || !strings.Contains(renderedPage, `x="100.00"`) || !strings.Contains(renderedPage, "decision-dialog") || !strings.Contains(renderedPage, `data-diff-ref="saga-diff://v1/line?`) || !strings.Contains(renderedPage, `id="`+domID(fragment.Target)+`--story"`) {
 		t.Fatalf("template produced unsafe or incomplete output")
 	}
 	if strings.Count(renderedPage, `class="annotation-toolbox"`) != 1 || strings.Contains(renderedPage, `class="review-form"`) {
@@ -268,8 +268,8 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	if strings.Contains(renderedPage, `data-open-diffs="diffs-`+domID(emptyFragment.Target)+`"`) || strings.Contains(renderedPage, `id="diffs-`+domID(emptyFragment.Target)+`"`) {
 		t.Fatal("fragment without linked changes rendered a diff action")
 	}
-	rendered := string(markdown("# Heading\n\n- one\n- <script>bad</script>"))
-	if strings.Contains(rendered, "<script>") || !strings.Contains(rendered, "&lt;script&gt;") {
+	rendered := string(markdown("# Heading {#stable-heading}\n\n- one\n- <script>bad</script>"))
+	if strings.Contains(rendered, "<script>") || strings.Contains(rendered, "{#stable-heading}") || !strings.Contains(rendered, "&lt;script&gt;") || !strings.Contains(rendered, `id="heading--stable-heading"`) || !strings.Contains(rendered, `data-copy-link="#heading--stable-heading"`) {
 		t.Fatalf("unexpected Markdown rendering: %s", rendered)
 	}
 }
@@ -387,6 +387,15 @@ func TestChapterIndexReportsResumeState(t *testing.T) {
 	chapters := makeChapterIndex(root, "started")
 	if len(chapters) != 3 || chapters[0].Status != "Approved" || chapters[1].Status != "In progress" || !chapters[1].Active || chapters[2].Status != "Unreviewed" {
 		t.Fatalf("unexpected chapter resume states: %#v", chapters)
+	}
+}
+
+func TestDOMIDIsStableAndCollisionResistantAfterReadablePrefix(t *testing.T) {
+	prefix := "urn:review-saga:test:fragment:" + strings.Repeat("shared-prefix", 10)
+	first := domID(prefix + "-one")
+	second := domID(prefix + "-two")
+	if first == second || first != domID(prefix+"-one") {
+		t.Fatalf("DOM IDs must be stable and collision resistant: %q %q", first, second)
 	}
 }
 

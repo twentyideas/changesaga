@@ -52,7 +52,9 @@ mismatch.
    in `references/authoring.md`. Build focused fragments with `saga add-fragment`. Use
    Markdown for explanation, SVG or images for visual models, and sandboxed HTML
    with bundled JavaScript for interactions that materially improve
-   understanding. Keep one review idea per fragment and avoid decorative media.
+   understanding. Give every Markdown heading an explicit durable anchor using
+   `## Heading {#stable-anchor}`. Keep one review idea per fragment and avoid
+   decorative media.
 8. Attach only the atoms actually explained or demonstrated by a fragment (or a
    deliberately higher target) with `saga cover --target`. Use `old` for
    deletions and `new` for additions. Cover rename, mode, and binary events

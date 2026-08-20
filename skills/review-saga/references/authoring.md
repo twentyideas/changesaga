@@ -54,6 +54,20 @@ Split a chapter when it contains independently understandable behavior with a
 different risk profile or reviewer specialty. Do not create a chapter merely
 for each directory or language.
 
+## Hyperlink contract
+
+End every Markdown heading with a stable, fragment-local anchor:
+
+```markdown
+## Request validation {#request-validation}
+```
+
+Use lowercase letters, digits, and hyphens; begin with a letter; keep the value
+unique within the fragment. Treat the anchor as an identifier: preserve it when
+rewriting or renaming the visible heading. The renderer namespaces it with the
+fragment target, so the same anchor may be reused in another fragment. Do not
+rely on an automatically generated heading slug for authored saga content.
+
 ## Evidence discipline
 
 - Attach a changed atom to the most focused fragment that actually explains it.

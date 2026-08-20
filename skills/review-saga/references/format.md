@@ -31,6 +31,17 @@ packages. A fragment manifest declares `version`, stable `id`, `media_type`,
 plain text, HTML, SVG, and raster images. Bundle HTML dependencies inside its
 fragment directory; do not rely on network access in the sandboxed viewer.
 
+Give every Markdown heading an explicit stable anchor:
+
+```markdown
+## Request validation {#request-validation}
+```
+
+Anchors begin with a lowercase letter and contain only lowercase letters,
+digits, and hyphens. They are unique within a fragment and remain unchanged when
+the visible heading is edited. The renderer combines the fragment target with
+the authored anchor to create a collision-free permalink.
+
 ## Commands
 
 ```sh

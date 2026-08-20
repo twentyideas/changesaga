@@ -104,6 +104,20 @@ The reference engine supports `text/markdown`, `text/plain`, `text/html`,
 so HTML and SVG can use JavaScript, CSS, images, data, and other relative assets.
 Entrypoints cannot escape their package.
 
+Markdown headings should declare a durable fragment-local anchor after the
+visible heading text:
+
+```markdown
+## Request validation {#request-validation}
+```
+
+The anchor begins with a lowercase letter, contains only lowercase letters,
+digits, and hyphens, is at most 64 characters, and is unique within its
+fragment. Engines namespace it with the fragment target when producing a page
+anchor. The reference validator warns about headings without explicit anchors
+and rejects invalid or duplicate explicit anchors. Engines may derive fallback
+anchors for older content, but authored anchors are the stable sharing contract.
+
 HTML and SVG fragments execute in an iframe with `sandbox="allow-scripts"` and a
 network-denying Content Security Policy. They can execute bundled JavaScript but
 cannot access the review application, navigate its parent, submit forms, open
