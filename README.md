@@ -193,10 +193,16 @@ elements that explain it, and every mapped Saga element shows its exact code
 ranges. The review surfaces use the same diff rows and thread records, so a
 comment or suggestion made in one is visible in the others. Reviewed-file
 markers and fragment approvals are append-only metadata committed with the saga.
+Sticky notes are first-class annotations: choose **Sticky** in the annotation
+toolbox, click where the note belongs on a fragment, type it, and commit. A
+committed note is a placed, hyperlinkable review entity that can be selected,
+dragged, reworded, recolored, and removed with `Delete`.
+
 Undo and redo apply to the transient annotation canvas before submission. Once
-committed, shapes are edited directly; moving or recoloring appends an anchor
-event, and removing appends a `withdrawn` state event. Git therefore retains the
-original comment and every committed transition.
+committed, shapes and notes are edited directly; moving, rewording, or
+recoloring appends an anchor event, and removing appends a `withdrawn` state
+event. Git therefore retains the original comment and every committed
+transition.
 
 Review data is intentionally conflict-resistant: separate comments create
 separate `.thread` directories, every reply creates a separate `.message`

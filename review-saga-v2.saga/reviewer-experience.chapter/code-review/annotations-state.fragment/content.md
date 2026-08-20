@@ -1,8 +1,10 @@
 # Beyond line-number comments {#beyond-line-number-comments}
 
-Fragment review supports whole-target comments, resilient text quotes with context and positions, normalized rectangles/lines/ellipses, and freehand paths. Normalized geometry survives responsive resizing. Thread messages reuse the fragment model, so a discussion can carry diagrams, screenshots, or interactive demonstrations.
+Fragment review supports whole-target comments, resilient text quotes with context and positions, normalized rectangles/lines/ellipses, freehand paths, and placed sticky notes. Normalized geometry survives responsive resizing. Thread messages reuse the fragment model, so a discussion can carry diagrams, screenshots, or interactive demonstrations.
 
-Ctrl/Cmd+Z reverses in-progress canvas changes, while Ctrl/Cmd+Shift+Z and Ctrl+Y restore them. Rectangle and freehand gestures accumulate in one pending annotation and each add, move, recolor, or removal is an in-memory history step. After submission, committed shapes are selectable: dragging moves them, the color picker recolors them, and Remove hides them. Those durable edits append anchor or `withdrawn` state events instead of rewriting the original thread.
+A sticky is a `note` anchor rather than a new thread kind: an ordinary comment thread whose anchor carries the visible note text, a normalized centre point, and an optional color. That is the smallest coherent extension that keeps replies, state, permalinks, and Git attribution while making rewording, moving, and recoloring append-only anchor events. Notes render as compact HTML overlays on the fragment stage instead of inside the non-uniformly scaled SVG canvas, so their text stays legible and selectable at any viewport width.
+
+Ctrl/Cmd+Z reverses in-progress canvas changes, while Ctrl/Cmd+Shift+Z and Ctrl+Y restore them. Rectangle and freehand gestures accumulate in one pending annotation and each add, move, recolor, or removal is an in-memory history step. A pending sticky behaves the same way: placing it starts a draft, moving or recoloring it before commit is a history step, and undoing past the first step discards the draft so redo can restore it. After submission, committed shapes and notes are selectable: dragging moves them, arrow keys nudge a selected note, Enter or F2 rewords one, the color picker recolors them, and Remove or Delete hides them. Those durable edits append anchor or `withdrawn` state events instead of rewriting the original thread.
 
 # Code review actions {#code-review-actions}
 

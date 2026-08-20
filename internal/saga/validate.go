@@ -281,14 +281,34 @@ func validateThread(thread Thread, sagaID, path string, result *Validation) {
 	}
 }
 
+// MaxNoteRunes bounds sticky note text so a single annotation stays a compact
+// canvas note rather than an unbounded document; schema/v2 enforces the same
+// limit as maxLength.
+const MaxNoteRunes = 2000
+
+func ValidAnnotationColor(value string) bool {
+	if len(value) != 7 || value[0] != '#' {
+		return false
+	}
+	for _, character := range value[1:] {
+		if character < '0' || character > '9' {
+			lower := character | 0x20
+			if lower < 'a' || lower > 'f' {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 func ValidateAnchor(anchor Anchor) error {
 	switch anchor.Type {
 	case "target":
-		if len(anchor.Shapes) != 0 || anchor.Text != nil || anchor.Diff != nil {
-			return fmt.Errorf("target anchor cannot contain shapes, text, or diff data")
+		if len(anchor.Shapes) != 0 || anchor.Text != nil || anchor.Note != nil || anchor.Diff != nil {
+			return fmt.Errorf("target anchor cannot contain shapes, text, note, or diff data")
 		}
 	case "region", "drawing":
-		if anchor.Coordinate != "normalized" || len(anchor.Shapes) == 0 || anchor.Text != nil || anchor.Diff != nil {
+		if anchor.Coordinate != "normalized" || len(anchor.Shapes) == 0 || anchor.Text != nil || anchor.Note != nil || anchor.Diff != nil {
 			return fmt.Errorf("region/drawing anchor requires normalized shapes")
 		}
 		for _, shape := range anchor.Shapes {
@@ -305,11 +325,27 @@ func ValidateAnchor(anchor Anchor) error {
 			}
 		}
 	case "text":
-		if anchor.Text == nil || anchor.Text.Exact == "" || len(anchor.Shapes) != 0 || anchor.Diff != nil || anchor.Text.End < anchor.Text.Start {
+		if anchor.Text == nil || anchor.Text.Exact == "" || len(anchor.Shapes) != 0 || anchor.Note != nil || anchor.Diff != nil || anchor.Text.End < anchor.Text.Start {
 			return fmt.Errorf("text anchor requires an exact quote and valid positions")
 		}
+	case "note":
+		if anchor.Note == nil || len(anchor.Shapes) != 0 || anchor.Text != nil || anchor.Diff != nil {
+			return fmt.Errorf("note anchor requires exactly one sticky note")
+		}
+		if anchor.Coordinate != "normalized" {
+			return fmt.Errorf("note anchor requires normalized placement")
+		}
+		if strings.TrimSpace(anchor.Note.Text) == "" || len([]rune(anchor.Note.Text)) > MaxNoteRunes {
+			return fmt.Errorf("note text must contain 1 to %d characters", MaxNoteRunes)
+		}
+		if anchor.Note.X < 0 || anchor.Note.X > 1 || anchor.Note.Y < 0 || anchor.Note.Y > 1 {
+			return fmt.Errorf("note placement must be normalized between 0 and 1")
+		}
+		if anchor.Note.Color != "" && !ValidAnnotationColor(anchor.Note.Color) {
+			return fmt.Errorf("note color must be a #rrggbb value")
+		}
 	case "diff":
-		if anchor.Diff == nil || len(anchor.Shapes) != 0 || anchor.Text != nil {
+		if anchor.Diff == nil || len(anchor.Shapes) != 0 || anchor.Text != nil || anchor.Note != nil {
 			return fmt.Errorf("diff anchor requires exactly one diff URI")
 		}
 		reference, err := diffuri.Parse(anchor.Diff.URI)
@@ -317,7 +353,7 @@ func ValidateAnchor(anchor Anchor) error {
 			return fmt.Errorf("diff anchor requires a valid line or event diff URI")
 		}
 	default:
-		return fmt.Errorf("anchor type must be target, region, drawing, text, or diff")
+		return fmt.Errorf("anchor type must be target, region, drawing, text, note, or diff")
 	}
 	return nil
 }

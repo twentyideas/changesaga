@@ -197,7 +197,13 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 // newPageTemplate is the single definition of the renderer's template funcs so
 // tests exercise exactly the helpers the served page uses.
 func newPageTemplate() (*template.Template, error) {
-	return template.New("page").Funcs(template.FuncMap{
+	return template.New("page").Funcs(templateFuncs()).Parse(pageTemplate)
+}
+
+// templateFuncs is shared by the server and its rendering tests so a new
+// presentation helper cannot be wired into one and forgotten in the other.
+func templateFuncs() template.FuncMap {
+	return template.FuncMap{
 		"markdown":    markdown,
 		"domID":       domID,
 		"fileIcon":    fileIcon,
@@ -206,9 +212,16 @@ func newPageTemplate() (*template.Template, error) {
 			if validAnnotationColor(value) {
 				return value
 			}
-			return "#d04832"
+			return defaultAnnotationColor
 		},
-		"coord": func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
+		"noteColor": func(value string) string {
+			if validAnnotationColor(value) {
+				return value
+			}
+			return defaultNoteColor
+		},
+		"percent": func(value float64) string { return strconv.FormatFloat(value*100, 'f', 4, 64) },
+		"coord":   func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
 		"points": func(values []saga.Point) string {
 			parts := make([]string, 0, len(values))
 			for _, point := range values {
@@ -216,7 +229,7 @@ func newPageTemplate() (*template.Template, error) {
 			}
 			return strings.Join(parts, " ")
 		},
-	}).Parse(pageTemplate)
+	}
 }
 
 func (a *app) page(w http.ResponseWriter, r *http.Request) {
@@ -1066,20 +1079,13 @@ func domID(value string) string {
 	return fmt.Sprintf("target-%s-%x", store.Slug(value), digest[:6])
 }
 
-func validAnnotationColor(value string) bool {
-	if len(value) != 7 || value[0] != '#' {
-		return false
-	}
-	for _, character := range value[1:] {
-		if character < '0' || character > '9' {
-			lower := character | 0x20
-			if lower < 'a' || lower > 'f' {
-				return false
-			}
-		}
-	}
-	return true
-}
+const defaultAnnotationColor = "#d04832"
+
+// Sticky notes default to the warm amber already used for landmark highlights so
+// a placed note reads as paper rather than as a drawing stroke.
+const defaultNoteColor = "#f2bd4b"
+
+func validAnnotationColor(value string) bool { return saga.ValidAnnotationColor(value) }
 
 func markdown(source string) template.HTML {
 	return markdownWithAnchors(source, "heading")

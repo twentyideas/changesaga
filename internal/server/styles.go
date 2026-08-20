@@ -439,6 +439,21 @@ a{color:var(--accent)}
 .manifest-orphan small{color:var(--muted);font-size:11.5px}
 .manifest-orphan a{margin-left:auto;color:var(--accent);text-decoration:none;white-space:nowrap}
 
+/* Sticky notes ----------------------------------------------------------- */
+.review-overlay.placing{cursor:copy}
+.sticky-note{position:absolute;z-index:12;transform:translate(-50%,-50%);width:min(174px,58%);min-height:96px;display:flex;flex-direction:column;gap:4px;padding:10px 11px 8px;border:1px solid #1f232826;border-radius:2px;background:var(--note-color,#f2bd4b);color:#1b1a12;box-shadow:0 8px 18px #1f232833,0 1px 0 #ffffff5c inset;font:13px/1.45 var(--ui);cursor:grab;scroll-margin-top:90px;outline:0}
+.sticky-note:active{cursor:grabbing}
+.sticky-note:focus-visible,.sticky-note.selected,.sticky-note:target{box-shadow:0 0 0 3px var(--ink),0 8px 18px #1f232833}
+.sticky-note.pending{box-shadow:0 0 0 2px var(--ink),0 8px 18px #1f232833}
+.sticky-note-body{margin:0;overflow-wrap:anywhere;white-space:pre-wrap;max-height:184px;overflow:auto}
+.sticky-note-text{width:100%;flex:1;min-height:72px;padding:0;border:0;background:transparent;color:inherit;font:inherit;resize:none;outline:0}
+.sticky-note-actions{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:auto;opacity:0}
+.sticky-note:hover .sticky-note-actions,.sticky-note:focus-within .sticky-note-actions{opacity:1}
+.sticky-note-actions .permalink{width:26px;height:22px;color:#1b1a12b0}
+.sticky-note-actions .permalink:hover,.sticky-note-actions .permalink:focus-visible{background:#ffffff70;color:#1b1a12}
+.sticky-note-actions button{padding:4px 7px;font:600 10px var(--ui);background:#ffffff85;color:#1b1a12}
+.note-anchor{margin:7px 0;padding:8px 10px;border-left:4px solid var(--note-color,#f2bd4b);background:#00000008;white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.5 var(--ui)}
+
 /* Responsive ------------------------------------------------------------- */
 @media(max-width:1050px){
 .code-workspace{grid-template-columns:1fr}
@@ -451,6 +466,7 @@ a{color:var(--accent)}
 .diff-surface[data-layout=split] .diff-column-head{display:none}
 }
 @media(max-width:780px){
+.sticky-note{width:min(150px,64%);min-height:84px;font-size:12px}
 .topbar{padding:0 8px;gap:6px}
 .brand span{display:none}
 .view-tab{padding:0 8px}

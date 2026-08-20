@@ -162,6 +162,7 @@ type Anchor struct {
 	Type       string        `json:"type"`
 	Shapes     []Shape       `json:"shapes,omitempty"`
 	Text       *TextSelector `json:"text,omitempty"`
+	Note       *NoteSelector `json:"note,omitempty"`
 	Diff       *DiffSelector `json:"diff,omitempty"`
 	Coordinate string        `json:"coordinate_space,omitempty"`
 }
@@ -197,6 +198,13 @@ type TextSelector struct {
 	Start  int    `json:"start,omitempty"`
 	End    int    `json:"end,omitempty"`
 	Color  string `json:"color,omitempty"`
+}
+
+type NoteSelector struct {
+	Text  string  `json:"text"`
+	X     float64 `json:"x"`
+	Y     float64 `json:"y"`
+	Color string  `json:"color,omitempty"`
 }
 
 type MessageManifest struct {

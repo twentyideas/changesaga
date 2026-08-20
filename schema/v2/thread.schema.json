@@ -65,6 +65,17 @@
         "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }
       }
     },
+    "note": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "x", "y"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 },
+        "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }
+      }
+    },
     "anchor": {
       "oneOf": [
         {
@@ -90,6 +101,16 @@
           "properties": {
             "type": { "const": "text" },
             "text": { "$ref": "#/$defs/text" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "coordinate_space", "note"],
+          "properties": {
+            "type": { "const": "note" },
+            "coordinate_space": { "const": "normalized" },
+            "note": { "$ref": "#/$defs/note" }
           }
         },
         {

@@ -94,16 +94,19 @@ Run status against the new head, then handle both sides of drift:
 ## Open or conduct a review
 
 Run `saga open <name>.saga` when asked to present the review. The local UI can
-anchor threads to whole fragments, selected text, rectangles, or freehand paths.
+anchor threads to whole fragments, selected text, rectangles, freehand paths, or
+placed sticky notes.
 Thread messages are fragments and may include images, SVG, or HTML attachments.
 Use Saga view to follow the narrative and open attached code in the side
 drawer. Read the collapsed file summaries first, then expand a file to inspect
 its linked ranges. Use Code Diff view for the complete file tree. Diff comments,
 suggestions, reviewed-file state, and fragment approvals are committed overlay
 data and remain visible across both views.
-Before submitting an annotation, use Ctrl/Cmd+Z to undo the latest canvas edit
-and Ctrl/Cmd+Shift+Z (or Ctrl+Y) to redo it. After submission, select a committed
-shape to move, recolor, or remove it. Committed edits append anchor or state
+Choose Sticky and click a fragment to place a note, type its text, then Add note
+to commit it. Before submitting an annotation, use Ctrl/Cmd+Z to undo the latest
+canvas edit and Ctrl/Cmd+Shift+Z (or Ctrl+Y) to redo it. After submission, select
+a committed shape or note to move, recolor, reword, or remove it; Delete or
+Backspace removes the current selection. Committed edits append anchor or state
 events; never rewrite or delete the original thread or message.
 Do not resolve, reopen, approve, or reject on a person's behalf without explicit
 instruction.

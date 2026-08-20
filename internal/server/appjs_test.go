@@ -13,7 +13,7 @@ func TestAppJavaScriptSyntaxAndRangeSelectionContract(t *testing.T) {
 	if err != nil {
 		t.Skip("node is not installed")
 	}
-	source := strings.Replace(appJavaScript, "})();", "globalThis.reviewSagaTest = {languageForPath, selectedRangeURI, normalizedAnnotationColor, colorWithAlpha, shortcutDirection, annotationDeleteShortcut, translateShape, stepShapeDraftHistory};})();", 1)
+	source := strings.Replace(appJavaScript, "})();", "globalThis.reviewSagaTest = {languageForPath, selectedRangeURI, normalizedAnnotationColor, colorWithAlpha, shortcutDirection, annotationDeleteShortcut, translateShape, stepShapeDraftHistory, clampNormalized, stickyNoteAnchor, translateNote, annotationLabel};})();", 1)
 	prelude := `globalThis.document={querySelector:()=>null,querySelectorAll:()=>[],addEventListener:()=>{}};
 globalThis.location={href:'http://127.0.0.1/?view=code',pathname:'/',search:'?view=code',hash:''};
 globalThis.history={pushState:()=>{}};globalThis.addEventListener=()=>{};globalThis.innerWidth=1400;
@@ -47,6 +47,18 @@ const freehand={type:'drawing',coordinate_space:'normalized',shapes:[...rectangl
 const draft={anchor:freehand,undo:[empty,rectangle],redo:[]};
 if(!reviewSagaTest.stepShapeDraftHistory(draft,'undo')||draft.anchor.shapes.length!==1||draft.redo.length!==1)throw new Error('gesture undo failed');
 if(!reviewSagaTest.stepShapeDraftHistory(draft,'redo')||draft.anchor.shapes.length!==2||draft.undo.length!==2)throw new Error('gesture redo failed');
+if(reviewSagaTest.clampNormalized(1.4)!==1||reviewSagaTest.clampNormalized(-.3)!==0||reviewSagaTest.clampNormalized('x')!==0)throw new Error('normalized placement clamp failed');
+if(reviewSagaTest.annotationLabel({type:'note'})!=='sticky note')throw new Error('sticky note history label failed');
+if(reviewSagaTest.normalizedAnnotationColor('not-a-color','#f2bd4b')!=='#f2bd4b')throw new Error('sticky note color fallback failed');
+const sticky=reviewSagaTest.stickyNoteAnchor('Ship it',1.4,-.2,'oops');
+if(sticky.type!=='note'||sticky.coordinate_space!=='normalized')throw new Error('sticky anchor shape failed');
+if(sticky.note.text!=='Ship it'||sticky.note.x!==1||sticky.note.y!==0||sticky.note.color!=='#f2bd4b')throw new Error('sticky anchor normalization failed');
+const moved=reviewSagaTest.translateNote(sticky.note,-.25,.5);
+if(Math.abs(moved.x-.75)>.0001||moved.y!==.5||moved.text!=='Ship it')throw new Error('sticky note movement failed');
+if(reviewSagaTest.translateNote(moved,.5,-.9).x!==1||reviewSagaTest.translateNote(moved,.5,-.9).y!==0)throw new Error('sticky note movement must stay normalized');
+const noteDraft={noteDraft:true,anchor:reviewSagaTest.stickyNoteAnchor('Ship it',.4,.4),undo:[reviewSagaTest.stickyNoteAnchor('Ship it',.1,.1)],redo:[]};
+if(!reviewSagaTest.stepShapeDraftHistory(noteDraft,'undo')||noteDraft.anchor.note.x!==.1||noteDraft.redo.length!==1)throw new Error('sticky note undo failed');
+if(!reviewSagaTest.stepShapeDraftHistory(noteDraft,'redo')||noteDraft.anchor.note.x!==.4)throw new Error('sticky note redo failed');
 `
 	path := filepath.Join(t.TempDir(), "appjs-check.js")
 	if err := os.WriteFile(path, []byte(prelude+source+checks), 0o600); err != nil {
