@@ -59,13 +59,14 @@ For a direct Apple Silicon handoff, wrap the archive in a single installer:
 ```sh
 ./scripts/build-macos-standalone-installer.sh \
   dist/saga_0.3.0_darwin_arm64.tar.gz \
-  dist/Review-Saga-Apple-Silicon.command
+  dist/Review-Saga.command
 ```
 
 The resulting `.command` file contains the archive and its expected checksum.
 It verifies the payload, refuses non-macOS and non-arm64 machines, and installs
-without `sudo`. Zip the one file when sending it through a service that does not
-preserve executable permissions.
+without `sudo`. It installs `saga` plus the `review-saga` convenience command.
+Zip the one file when sending it through a service that does not preserve
+executable permissions.
 
 `SHA256SUMS` is generated in the publish job from the artifacts as downloaded,
 after each one is re-checked against the checksum its build job recorded. That

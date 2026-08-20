@@ -14,7 +14,7 @@ if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
 fi
 
 archive="$1"
-output="${2:-dist/Review-Saga-Apple-Silicon.command}"
+output="${2:-dist/Review-Saga.command}"
 
 case "$(basename "$archive")" in
 *_darwin_arm64.tar.gz) ;;
@@ -87,10 +87,13 @@ fi
 mkdir -p "\$saga_install_dir" || saga_fail "could not create \$saga_install_dir"
 install -m 0755 "\$saga_work_dir/saga" "\$saga_install_dir/saga" ||
 	saga_fail "could not install to \$saga_install_dir/saga"
+ln -sfn saga "\$saga_install_dir/review-saga" ||
+	saga_fail "could not create \$saga_install_dir/review-saga"
 
 printf '\nReview Saga installed successfully.\n'
 "\$saga_install_dir/saga" version
 printf 'Binary: %s\n' "\$saga_install_dir/saga"
+printf 'Commands: saga or review-saga\n'
 
 case ":\$PATH:" in
 *":\$saga_install_dir:"*) ;;
