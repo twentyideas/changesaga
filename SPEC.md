@@ -296,12 +296,23 @@ and targets a saga, chapter, section, or fragment URN. Its anchor is one of:
 - `region`: rectangles, ellipses, or lines in normalized coordinates.
 - `drawing`: arbitrary paths represented by normalized points.
 - `text`: an exact quote with optional prefix, suffix, and character positions.
+- `note`: a sticky note carrying its own visible text and normalized placement.
 - `diff`: one fully realized line or file-event diff URI.
 
 Normalized coordinates are in `[0,1]` relative to the rendered fragment stage,
 so drawings survive responsive resizing. Shapes support presentation hints such
 as color and stroke width, and text selectors may carry a highlight color.
 Engines may apply accessible defaults.
+
+A `note` anchor is a first-class review entity rather than a new thread kind: it
+is an ordinary `comment` thread whose anchor holds `text`, the normalized `x`/`y`
+centre of the note on the fragment stage, and an optional `color`. Note text is
+limited to 2000 characters and carries no markup; engines must render it as
+plain text. Because the note lives in the anchor, moving, rewording, and
+recoloring a committed note are `anchor` events rather than message rewrites,
+and the note keeps the thread's replies, state, and permalink. Engines should
+give each committed note its own document anchor so a sticky is directly
+linkable.
 
 Text selectors follow the resilient idea from Web Annotation selectors: `exact`
 is authoritative, while positions and surrounding text help engines re-anchor
@@ -318,9 +329,9 @@ Thread lifecycle changes are append-only files in `events/` with state `open`,
 `resolved`, or `withdrawn`. The latest event by `created_at` is current. A
 withdrawn thread is omitted from the active review surface but remains fully
 auditable; a later `open` event restores it. An event may instead carry an
-`anchor` replacement to move, recolor, or otherwise edit committed annotation
-geometry. Transient undo and redo are engine-local composition behavior and do
-not create files. Messages, thread roots, and thread events are history and
+`anchor` replacement to move, recolor, reword, or otherwise edit committed
+annotation geometry and note content. Transient undo and redo are engine-local
+composition behavior and do not create files. Messages, thread roots, and thread events are history and
 should not be rewritten or deleted during ordinary review.
 
 ### Append-only file granularity

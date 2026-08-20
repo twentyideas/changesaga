@@ -114,9 +114,14 @@ ranges.
 ## Review overlay
 
 Threads live under `___review/threads/<id>.thread/`. Anchors use `target`,
-`region`, `drawing`, `text`, or `diff`. Region/drawing coordinates are normalized to
-`[0,1]`; shapes may carry color and stroke hints. Text anchors retain an exact
-quote and may carry a highlight color. Messages contain `.fragment`
+`region`, `drawing`, `text`, `note`, or `diff`. Region/drawing coordinates are
+normalized to `[0,1]`; shapes may carry color and stroke hints. Text anchors
+retain an exact quote and may carry a highlight color. A `note` anchor is a
+sticky note: it holds up to 2000 characters of plain `text`, a normalized `x`/`y`
+centre on the fragment stage, and an optional `color`. A sticky is an ordinary
+`comment` thread rather than a new thread kind, so it keeps replies, state, and
+a permalink; because its text lives in the anchor, rewording it appends an anchor
+event instead of rewriting a message. Messages contain `.fragment`
 packages, enabling Markdown, image, SVG, or sandboxed HTML replies. Treat thread
 roots, messages, reviewed-file records, approvals, and state events as
 append-only history. Diff threads may be comments or suggestions; suggestions
@@ -125,8 +130,8 @@ include explicit replacement text.
 Thread state events are `open`, `resolved`, or `withdrawn`. A withdrawn thread
 is hidden from the active review while its files remain in history; a later
 `open` event restores it. A thread event may instead carry an `anchor` to record
-new geometry or color for a committed annotation. Undo/redo before submission
-is transient UI state; committed removal and editing append events. Never
+new geometry, note text, or color for a committed annotation. Undo/redo before
+submission is transient UI state; committed removal and editing append events. Never
 delete or rewrite the original thread or message.
 
 Every top-level comment has its own `.thread` directory; every initial comment

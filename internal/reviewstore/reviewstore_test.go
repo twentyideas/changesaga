@@ -132,6 +132,48 @@ func TestThreadUndoAndRedoAppendStateEvents(t *testing.T) {
 	}
 }
 
+func TestConcurrentStickyNotesStayFileGranular(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "test.saga")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	target := "urn:review-saga:test:fragment:overview"
+	note := func(text string, x, y float64) saga.Anchor {
+		return saga.Anchor{Type: "note", Coordinate: "normalized", Note: &saga.NoteSelector{Text: text, X: x, Y: y, Color: "#f2bd4b"}}
+	}
+	first, err := AddThread(root, target, "Rename this helper", note("Rename this helper", .25, .5), "comment", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	threadDir := filepath.Join(root, "___review", "threads", first+".thread")
+	threadBefore := readReviewFile(t, filepath.Join(threadDir, "thread.json"))
+
+	runConcurrently(t,
+		func() error { return SetAnchor(root, first, note("Rename this helper", .4, .6)) },
+		func() error { return SetAnchor(root, first, note("Renamed already", .25, .5)) },
+		func() error {
+			_, err := AddThread(root, target, "Second note", note("Second note", .8, .1), "comment", "", nil)
+			return err
+		},
+		func() error {
+			_, err := AddThread(root, target, "Third note", note("Third note", .1, .9), "comment", "", nil)
+			return err
+		},
+	)
+
+	assertEntryCount(t, filepath.Join(root, "___review", "threads"), 3)
+	assertEntryCount(t, filepath.Join(threadDir, "events"), 2)
+	if !bytes.Equal(threadBefore, readReviewFile(t, filepath.Join(threadDir, "thread.json"))) {
+		t.Fatal("moving or rewording a sticky note rewrote its original record")
+	}
+	if _, err := AddThread(root, target, "Blank", note("   ", .5, .5), "comment", "", nil); err == nil {
+		t.Fatal("a sticky note without visible text was accepted")
+	}
+	if err := SetAnchor(root, first, note("Off canvas", 1.5, .5)); err == nil {
+		t.Fatal("an off-canvas sticky note placement was accepted")
+	}
+}
+
 func runConcurrently(t *testing.T, operations ...func() error) {
 	t.Helper()
 	var group sync.WaitGroup

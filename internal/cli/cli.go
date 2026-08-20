@@ -613,7 +613,7 @@ func Spec(args []string, out io.Writer) error {
 			"hierarchy":     []string{"overview", "chapter", "section", "fragment"},
 			"media_types":   []string{"text/markdown", "text/html", "text/plain", "image/svg+xml", "image/*"},
 			"target_scheme": "urn:review-saga", "diff_scheme": "saga-diff://v1",
-			"anchors":              []string{"target", "region", "drawing", "text", "diff"},
+			"anchors":              []string{"target", "region", "drawing", "text", "note", "diff"},
 			"thread_kinds":         []string{"comment", "suggestion"},
 			"reserved_directories": []string{"___diffs", "___approvals", "___review"},
 			"review_storage":       "append-only; one thread, message, or event record per path",
@@ -931,7 +931,9 @@ base/head identities, and a line range or file event.
 
 Review threads live under ___review/threads. They target stable
 urn:review-saga:* identifiers and anchor to a whole fragment, normalized shapes,
-freehand drawings, quoted text, or an absolute diff URI. Thread messages contain
+freehand drawings, quoted text, a placed sticky note, or an absolute diff URI.
+A sticky note carries its visible text, a normalized centre point, and an
+optional color; moving, rewording, or recoloring it appends an anchor event. Thread messages contain
 fragments, so replies may include Markdown, HTML, SVG, and images. Suggestion
 threads include replacement code. Append-only file URI events track reviewed
 state, and approvals may target the saga, a chapter, a section, or a fragment.

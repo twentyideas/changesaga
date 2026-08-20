@@ -13,6 +13,9 @@ const appJavaScript = `(() => {
   let annotationDraftRedo = null;
   let selectedAnnotation = null;
   let annotationDrag = null;
+  let noteNudge = null;
+  let annotationColorTouched = false;
+  const noteDefaultColor = '#f2bd4b';
 
   const languageKeywords = {
     go: new Set('break case chan const continue default defer else fallthrough for func go goto if import interface map package range return select struct switch type var'.split(' ')),
@@ -23,8 +26,20 @@ const appJavaScript = `(() => {
     generic: new Set('class const enum false function interface let new null private public return static struct true type var void'.split(' '))
   };
 
-  function normalizedAnnotationColor(value) {
-    return /^#[0-9a-f]{6}$/i.test(value || '') ? value.toLowerCase() : '#d04832';
+  function normalizedAnnotationColor(value, fallback = '#d04832') {
+    return /^#[0-9a-f]{6}$/i.test(value || '') ? value.toLowerCase() : fallback;
+  }
+
+  function clampNormalized(value) {
+    return Math.max(0, Math.min(1, Number(value) || 0));
+  }
+
+  function stickyNoteAnchor(text, x, y, color) {
+    return {type:'note', coordinate_space:'normalized', note:{text, x:clampNormalized(x), y:clampNormalized(y), color:normalizedAnnotationColor(color, noteDefaultColor)}};
+  }
+
+  function translateNote(note, dx, dy) {
+    return {...note, x:clampNormalized(note.x + dx), y:clampNormalized(note.y + dy)};
   }
 
   function colorWithAlpha(value, alpha = '55') {
@@ -38,7 +53,8 @@ const appJavaScript = `(() => {
   function updateHistoryControls() {
     const shapeDraft = annotationDraft?.shapeDraft;
     const undo = shapeDraft ? annotationDraft.undo.length && annotationDraft : annotationDraft;
-    const redo = shapeDraft ? annotationDraft.redo.length && annotationDraft : annotationDraftRedo;
+    const stepwise = shapeDraft || annotationDraft?.noteDraft;
+    const redo = stepwise ? annotationDraft.redo.length && annotationDraft : annotationDraftRedo;
     qa('[data-undo]').forEach(button => {
       button.disabled = !undo;
       button.textContent = undo ? 'Undo ' + commandLabel(undo) : 'Undo';
@@ -51,12 +67,13 @@ const appJavaScript = `(() => {
     });
   }
 
-  function submitThreadState(command, state) {
+  function submitReviewForm(action, fields, multipart = false) {
     const form = document.createElement('form');
     form.method = 'post';
-    form.action = '/api/thread-state';
-    const fields = {thread:command.thread, target:command.target, state, return_to:location.pathname + location.search + location.hash};
-    Object.entries(fields).forEach(([name,value]) => {
+    form.action = action;
+    if (multipart) form.enctype = 'multipart/form-data';
+    // form.submit() bypasses the submit listener, so the return path is explicit here.
+    Object.entries({...fields, return_to:location.pathname + location.search + location.hash}).forEach(([name,value]) => {
       const input = document.createElement('input');
       input.type = 'hidden';
       input.name = name;
@@ -65,6 +82,10 @@ const appJavaScript = `(() => {
     });
     document.body.append(form);
     form.submit();
+  }
+
+  function submitThreadState(command, state) {
+    submitReviewForm('/api/thread-state', {thread:command.thread, target:command.target, state});
   }
 
   function shortcutDirection(event) {
@@ -436,7 +457,7 @@ const appJavaScript = `(() => {
 
   function cancelDrawing() {
     if (!drawing) return;
-    drawing.overlay.classList.remove('drawing');
+    drawing.overlay.classList.remove('drawing', 'placing');
     if (drawing.preview) drawing.preview.remove();
     drawing = null;
   }
@@ -492,6 +513,7 @@ const appJavaScript = `(() => {
   }
 
   function annotationLabel(anchor) {
+    if (anchor?.type === 'note') return 'sticky note';
     if (anchor?.type === 'text') return 'highlight';
     if (anchor?.type === 'region') return 'rectangle';
     if (anchor?.type === 'drawing') return 'freehand';
@@ -565,12 +587,70 @@ const appJavaScript = `(() => {
     return shape;
   }
 
+  function noteButton(label, attribute) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = label;
+    button.setAttribute(attribute, 'true');
+    return button;
+  }
+
+  function noteTextField(value) {
+    const field = document.createElement('textarea');
+    field.className = 'sticky-note-text';
+    field.rows = 4;
+    field.maxLength = 2000;
+    field.placeholder = 'Write a note';
+    field.setAttribute('aria-label', 'Sticky note text');
+    field.value = value;
+    return field;
+  }
+
+  function renderNoteElement(element, note) {
+    const color = normalizedAnnotationColor(note.color, noteDefaultColor);
+    element.dataset.x = String(note.x);
+    element.dataset.y = String(note.y);
+    element.dataset.color = color;
+    element.style.setProperty('--note-color', color);
+    element.style.left = note.x * 100 + '%';
+    element.style.top = note.y * 100 + '%';
+  }
+
+  function createNoteElement(note, pending) {
+    const element = document.createElement('div');
+    element.className = 'sticky-note' + (pending ? ' pending' : '');
+    element.dataset.stickyNote = 'true';
+    element.tabIndex = 0;
+    element.setAttribute('role', 'note');
+    element.setAttribute('aria-label', pending ? 'New sticky note' : 'Sticky note');
+    const body = document.createElement('p');
+    body.className = 'sticky-note-body';
+    body.dataset.stickyText = 'true';
+    // Note text is only ever written as a text node, never as markup.
+    body.textContent = note.text || '';
+    const actions = document.createElement('span');
+    actions.className = 'sticky-note-actions';
+    element.append(body, actions);
+    if (pending) {
+      body.hidden = true;
+      element.prepend(noteTextField(note.text || ''));
+      actions.append(noteButton('Add note', 'data-commit-note'), noteButton('Cancel', 'data-cancel-note'));
+    }
+    renderNoteElement(element, note);
+    return element;
+  }
+
+  function noteAnchorFromElement(element) {
+    return stickyNoteAnchor(q('[data-sticky-text]', element)?.textContent || '', Number(element.dataset.x), Number(element.dataset.y), element.dataset.color);
+  }
+
   function persistedAnchor(group) {
     return {type:group.dataset.anchorType,coordinate_space:'normalized',shapes:qa('[data-shape-index]', group).map(shapeFromElement)};
   }
 
   function clearAnnotationSelection() {
     q('.annotation.selected')?.classList.remove('selected');
+    q('.sticky-note.selected')?.classList.remove('selected');
     qa('[data-annotation-resize]').forEach(element => element.remove());
     selectedAnnotation = null;
     const tools = q('[data-annotation-selection]');
@@ -617,8 +697,126 @@ const appJavaScript = `(() => {
     element.focus?.({preventScroll:true});
   }
 
+  function selectStickyNote(element) {
+    clearAnnotationSelection();
+    selectedAnnotation = {
+      kind:element.classList.contains('pending') ? 'draft' : 'persisted',
+      note:true,
+      element,
+      thread:element.dataset.threadId || '',
+      target:element.dataset.target || '',
+      state:element.dataset.threadState || 'open'
+    };
+    element.classList.add('selected');
+    const tools = q('[data-annotation-selection]');
+    if (tools) tools.hidden = false;
+    const color = normalizedAnnotationColor(element.dataset.color, noteDefaultColor);
+    annotationColor = color;
+    const picker = q('[data-annotation-color]');
+    if (picker) picker.value = color;
+    setSelectedTool('select');
+    element.focus?.({preventScroll:true});
+  }
+
+  function mountNoteDraft(fragment, anchor) {
+    const stage = q('.fragment-stage', fragment);
+    if (!stage) return null;
+    const element = createNoteElement(anchor.note, true);
+    stage.append(element);
+    const field = q('.sticky-note-text', element);
+    field.addEventListener('input', () => {
+      if (annotationDraft?.noteDraft) annotationDraft.anchor.note.text = field.value;
+    });
+    field.focus();
+    return element;
+  }
+
+  function beginNoteDraft(fragment, point) {
+    discardAnnotationDraft();
+    setActiveFragment(fragment);
+    const anchor = stickyNoteAnchor('', point.x, point.y, annotationColor);
+    annotationDraft = {kind:'draft', noteDraft:true, target:fragment.dataset.target, fragment, anchor, undo:[], redo:[], label:'sticky note'};
+    annotationDraft.element = mountNoteDraft(fragment, anchor);
+    updateHistoryControls();
+  }
+
+  function restoreNoteDraft(draft) {
+    discardAnnotationDraft();
+    setActiveFragment(draft.fragment);
+    annotationDraft = {...draft};
+    annotationDraft.element = mountNoteDraft(draft.fragment, annotationDraft.anchor);
+    updateHistoryControls();
+  }
+
+  function syncNoteDraft() {
+    if (!annotationDraft?.noteDraft || !annotationDraft.element) return;
+    renderNoteElement(annotationDraft.element, annotationDraft.anchor.note);
+    const field = q('.sticky-note-text', annotationDraft.element);
+    if (field) field.value = annotationDraft.anchor.note.text || '';
+    clearAnnotationSelection();
+    updateHistoryControls();
+  }
+
+  function discardNoteDraft() {
+    if (!annotationDraft?.noteDraft) return;
+    qa('.sticky-note.pending').forEach(element => element.remove());
+    annotationDraftRedo = annotationDraft;
+    annotationDraft = null;
+    clearAnnotationSelection();
+    resetTool();
+    updateHistoryControls();
+  }
+
+  function commitNoteDraft() {
+    const draft = annotationDraft;
+    if (!draft?.noteDraft) return;
+    const field = q('.sticky-note-text', draft.element);
+    const text = (field?.value || '').trim();
+    if (!text) {
+      field?.focus();
+      return;
+    }
+    const anchor = cloneAnchor(draft.anchor);
+    anchor.note.text = text;
+    submitReviewForm('/api/thread', {target:draft.target, kind:'comment', anchor:JSON.stringify(anchor), body:text}, true);
+  }
+
+  function beginNoteEdit(element) {
+    if (q('.sticky-note-text', element)) return;
+    const body = q('[data-sticky-text]', element);
+    const field = noteTextField(body.textContent);
+    body.hidden = true;
+    element.prepend(field);
+    q('.sticky-note-actions', element).prepend(noteButton('Save', 'data-save-note'), noteButton('Cancel', 'data-cancel-note'));
+    field.focus();
+    field.setSelectionRange(field.value.length, field.value.length);
+  }
+
+  async function endNoteEdit(element, commit) {
+    const field = q('.sticky-note-text', element);
+    if (!field) return;
+    const body = q('[data-sticky-text]', element);
+    const before = noteAnchorFromElement(element);
+    const text = field.value.trim();
+    field.remove();
+    qa('[data-save-note],[data-cancel-note]', element).forEach(button => button.remove());
+    body.hidden = false;
+    element.focus?.({preventScroll:true});
+    if (!commit || !text || text === before.note.text) return;
+    const anchor = cloneAnchor(before);
+    anchor.note.text = text;
+    body.textContent = text;
+    try {
+      await persistAnnotationAnchor(element.dataset.threadId, anchor);
+    } catch (error) {
+      body.textContent = before.note.text;
+      alert('Could not update the note: ' + error.message);
+    }
+  }
+
   function discardAnnotationDraft() {
     qa('.annotation.pending').forEach(element => element.remove());
+    qa('.sticky-note.pending').forEach(element => element.remove());
     annotationDraft = null;
     annotationDraftRedo = null;
     clearAnnotationSelection();
@@ -701,6 +899,14 @@ const appJavaScript = `(() => {
 
   function undoDraft() {
     if (!annotationDraft) return false;
+    if (annotationDraft.noteDraft) {
+      if (stepShapeDraftHistory(annotationDraft, 'undo')) {
+        syncNoteDraft();
+        return true;
+      }
+      discardNoteDraft();
+      return true;
+    }
     const form = q('.annotation-compose');
     annotationDraft.body = q('[name=body]', form)?.value || '';
     if (annotationDraft.shapeDraft) {
@@ -724,9 +930,18 @@ const appJavaScript = `(() => {
       q('[name=body]', q('.annotation-compose')).value = annotationDraft.body || '';
       return true;
     }
+    if (annotationDraft?.noteDraft) {
+      if (!stepShapeDraftHistory(annotationDraft, 'redo')) return false;
+      syncNoteDraft();
+      return true;
+    }
     if (!annotationDraftRedo) return false;
     const draft = annotationDraftRedo;
     annotationDraftRedo = null;
+    if (draft.noteDraft) {
+      restoreNoteDraft(draft);
+      return true;
+    }
     openAnnotation(draft.anchor, {...draft, fromRedo:true});
     return true;
   }
@@ -779,27 +994,61 @@ const appJavaScript = `(() => {
 
   function selectedAnchor() {
     if (!selectedAnnotation) return null;
-    return selectedAnnotation.kind === 'draft' ? cloneAnchor(annotationDraft.anchor) : persistedAnchor(selectedAnnotation.group);
+    if (selectedAnnotation.kind === 'draft') return cloneAnchor(annotationDraft.anchor);
+    return selectedAnnotation.note ? noteAnchorFromElement(selectedAnnotation.element) : persistedAnchor(selectedAnnotation.group);
+  }
+
+  function nudgeSelectedNote(dx, dy) {
+    if (!selectedAnnotation?.note) return;
+    const anchor = selectedAnchor();
+    if (!noteNudge) noteNudge = {selection:selectedAnnotation, before:cloneAnchor(anchor)};
+    anchor.note = translateNote(anchor.note, dx, dy);
+    renderNoteElement(selectedAnnotation.element, anchor.note);
+    if (selectedAnnotation.kind === 'draft') annotationDraft.anchor = anchor;
+    noteNudge.after = anchor;
+  }
+
+  function commitNoteNudge() {
+    if (!noteNudge) return;
+    const nudge = noteNudge;
+    noteNudge = null;
+    if (!nudge.after) return;
+    if (nudge.selection.kind === 'draft') {
+      annotationDraft.undo.push(nudge.before);
+      annotationDraft.redo = [];
+      updateHistoryControls();
+      return;
+    }
+    persistAnnotationAnchor(nudge.selection.thread, nudge.after).catch(error => {
+      renderNoteElement(nudge.selection.element, nudge.before.note);
+      alert('Could not move the note: ' + error.message);
+    });
   }
 
   async function recolorSelectedAnnotation(color) {
     if (!selectedAnnotation) return;
     const before = selectedAnchor();
     const anchor = cloneAnchor(before);
-    anchor.shapes[selectedAnnotation.index].color = normalizedAnnotationColor(color);
-    renderShapeElement(selectedAnnotation.element, anchor.shapes[selectedAnnotation.index]);
+    if (selectedAnnotation.note) {
+      anchor.note.color = normalizedAnnotationColor(color, noteDefaultColor);
+      renderNoteElement(selectedAnnotation.element, anchor.note);
+    } else {
+      anchor.shapes[selectedAnnotation.index].color = normalizedAnnotationColor(color);
+      renderShapeElement(selectedAnnotation.element, anchor.shapes[selectedAnnotation.index]);
+    }
     if (selectedAnnotation.kind === 'draft') {
       annotationDraft.undo.push(before);
       annotationDraft.redo = [];
       annotationDraft.anchor = anchor;
-      q('[name=anchor]', q('.annotation-compose')).value = JSON.stringify(anchor);
+      if (!annotationDraft.noteDraft) q('[name=anchor]', q('.annotation-compose')).value = JSON.stringify(anchor);
       updateHistoryControls();
       return;
     }
     try {
       await persistAnnotationAnchor(selectedAnnotation.thread, anchor);
     } catch (error) {
-      renderShapeElement(selectedAnnotation.element, before.shapes[selectedAnnotation.index]);
+      if (selectedAnnotation.note) renderNoteElement(selectedAnnotation.element, before.note);
+      else renderShapeElement(selectedAnnotation.element, before.shapes[selectedAnnotation.index]);
       alert('Could not update annotation: ' + error.message);
     }
   }
@@ -807,6 +1056,11 @@ const appJavaScript = `(() => {
   async function removeSelectedAnnotation() {
     if (!selectedAnnotation) return;
     const selection = selectedAnnotation;
+    if (selection.note) {
+      if (selection.kind === 'draft') discardNoteDraft();
+      else submitThreadState({thread:selection.thread, target:selection.target}, 'withdrawn');
+      return;
+    }
     const before = selectedAnchor();
     if (selection.kind === 'draft') {
       annotationDraft.undo.push(before);
@@ -879,6 +1133,16 @@ const appJavaScript = `(() => {
       resetTool();
       return;
     }
+    if (mode === 'sticky') {
+      // A sticky is paper, not ink, so it opens on the note palette until the
+      // reviewer picks a colour of their own.
+      if (!annotationColorTouched) {
+        annotationColor = noteDefaultColor;
+        const picker = q('[data-annotation-color]');
+        if (picker) picker.value = noteDefaultColor;
+      }
+      overlay.classList.add('placing');
+    }
     overlay.classList.add('drawing');
     drawing = {fragment: activeFragment, overlay, mode, color:annotationColor, points: []};
   }
@@ -903,6 +1167,17 @@ const appJavaScript = `(() => {
     if (event.target.closest('[data-undo]')) { performHistoryAction('undo'); return; }
     if (event.target.closest('[data-redo]')) { performHistoryAction('redo'); return; }
     if (event.target.closest('[data-remove-annotation]')) { removeSelectedAnnotation(); return; }
+    if (event.target.closest('[data-commit-note]')) { commitNoteDraft(); return; }
+    const saveNote = event.target.closest('[data-save-note]');
+    if (saveNote) { endNoteEdit(saveNote.closest('.sticky-note'), true); return; }
+    const cancelNote = event.target.closest('[data-cancel-note]');
+    if (cancelNote) {
+      const note = cancelNote.closest('.sticky-note');
+      if (note.classList.contains('pending')) discardNoteDraft(); else endNoteEdit(note, false);
+      return;
+    }
+    const stickyNote = event.target.closest('[data-sticky-note]');
+    if (stickyNote) { selectStickyNote(stickyNote); return; }
     const annotation = event.target.closest('.annotation.selectable');
     if (annotation) { selectAnnotation(annotation); return; }
     const viewTab = event.target.closest('[data-view-tab]');
@@ -951,6 +1226,13 @@ const appJavaScript = `(() => {
     if (fragment) setActiveFragment(fragment);
   });
 
+  document.addEventListener('dblclick', event => {
+    const note = event.target.closest?.('[data-sticky-note]');
+    if (!note || note.classList.contains('pending')) return;
+    selectStickyNote(note);
+    beginNoteEdit(note);
+  });
+
   document.addEventListener('submit', event => {
     const form = event.target;
     if (form.matches('form[action^="/api/"]')) {
@@ -966,10 +1248,39 @@ const appJavaScript = `(() => {
   });
 
   document.addEventListener('keydown', event => {
+    const editingField = event.target.closest?.('.sticky-note-text');
+    if (editingField) {
+      const note = editingField.closest('.sticky-note');
+      const pending = note.classList.contains('pending');
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        if (pending) discardNoteDraft(); else endNoteEdit(note, false);
+      } else if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        if (pending) commitNoteDraft(); else endNoteEdit(note, true);
+      }
+      return;
+    }
     if (selectedAnnotation && annotationDeleteShortcut(event)) {
       event.preventDefault();
       removeSelectedAnnotation();
       return;
+    }
+    if (selectedAnnotation?.note) {
+      if (event.key === 'Enter' || event.key === 'F2') {
+        event.preventDefault();
+        const element = selectedAnnotation.element;
+        if (element.classList.contains('pending')) q('.sticky-note-text', element)?.focus();
+        else beginNoteEdit(element);
+        return;
+      }
+      const step = event.shiftKey ? .05 : .01;
+      const nudge = {ArrowLeft:[-step,0], ArrowRight:[step,0], ArrowUp:[0,-step], ArrowDown:[0,step]}[event.key];
+      if (nudge) {
+        event.preventDefault();
+        nudgeSelectedNote(nudge[0], nudge[1]);
+        return;
+      }
     }
     const direction = shortcutDirection(event);
     if (direction) {
@@ -995,6 +1306,10 @@ const appJavaScript = `(() => {
       clearAnnotationSelection();
       return;
     }
+    if (annotationDraft?.noteDraft) {
+      discardNoteDraft();
+      return;
+    }
     closeDrawer();
     closeAnnotation();
     updateLineSelection([]);
@@ -1002,6 +1317,10 @@ const appJavaScript = `(() => {
     if (diffForm) diffForm.classList.remove('open');
     const dialog = q('.decision-dialog');
     if (dialog && dialog.open) dialog.close();
+  });
+
+  document.addEventListener('keyup', event => {
+    if (noteNudge && String(event.key).startsWith('Arrow')) commitNoteNudge();
   });
 
   document.addEventListener('pointerdown', event => {
@@ -1018,6 +1337,22 @@ const appJavaScript = `(() => {
         moved:false
       };
       resizeHandle.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+      return;
+    }
+    const note = event.target.closest?.('[data-sticky-note]');
+    if (note && selectedTool === 'select' && !event.target.closest('.sticky-note-text,button')) {
+      selectStickyNote(note);
+      const box = note.closest('.fragment-stage').getBoundingClientRect();
+      annotationDrag = {
+        selection:selectedAnnotation,
+        before:selectedAnchor(),
+        start:{x:(event.clientX-box.left)/box.width,y:(event.clientY-box.top)/box.height},
+        box,
+        mode:'note',
+        moved:false
+      };
+      note.setPointerCapture?.(event.pointerId);
       event.preventDefault();
       return;
     }
@@ -1040,6 +1375,15 @@ const appJavaScript = `(() => {
     }
     if (!drawing || event.target !== drawing.overlay) return;
     const box = drawing.overlay.getBoundingClientRect();
+    if (drawing.mode === 'sticky') {
+      const fragment = drawing.fragment;
+      const point = {x:clampNormalized((event.clientX-box.left)/box.width), y:clampNormalized((event.clientY-box.top)/box.height)};
+      cancelDrawing();
+      setSelectedTool('select');
+      beginNoteDraft(fragment, point);
+      event.preventDefault();
+      return;
+    }
     drawing.points = [{x:(event.clientX-box.left)/box.width,y:(event.clientY-box.top)/box.height}];
     drawing.start = drawing.points[0];
     drawing.preview = document.createElementNS('http://www.w3.org/2000/svg', drawing.mode === 'rect' ? 'rect' : 'polyline');
@@ -1054,15 +1398,20 @@ const appJavaScript = `(() => {
       const point = {x:(event.clientX-annotationDrag.box.left)/annotationDrag.box.width,y:(event.clientY-annotationDrag.box.top)/annotationDrag.box.height};
       const dx = point.x-annotationDrag.start.x, dy = point.y-annotationDrag.start.y;
       const anchor = cloneAnchor(annotationDrag.before);
-      if (annotationDrag.mode === 'resize') {
-        const shape = anchor.shapes[annotationDrag.selection.index];
-        shape.width = Math.max(.01, Math.min(1-shape.x, point.x-shape.x));
-        shape.height = Math.max(.01, Math.min(1-shape.y, point.y-shape.y));
+      if (annotationDrag.mode === 'note') {
+        anchor.note = translateNote(anchor.note, dx, dy);
+        renderNoteElement(annotationDrag.selection.element, anchor.note);
       } else {
-        anchor.shapes[annotationDrag.selection.index] = translateShape(anchor.shapes[annotationDrag.selection.index], dx, dy);
+        if (annotationDrag.mode === 'resize') {
+          const shape = anchor.shapes[annotationDrag.selection.index];
+          shape.width = Math.max(.01, Math.min(1-shape.x, point.x-shape.x));
+          shape.height = Math.max(.01, Math.min(1-shape.y, point.y-shape.y));
+        } else {
+          anchor.shapes[annotationDrag.selection.index] = translateShape(anchor.shapes[annotationDrag.selection.index], dx, dy);
+        }
+        renderShapeElement(annotationDrag.selection.element, anchor.shapes[annotationDrag.selection.index]);
+        updateAnnotationResizeHandle();
       }
-      renderShapeElement(annotationDrag.selection.element, anchor.shapes[annotationDrag.selection.index]);
-      updateAnnotationResizeHandle();
       if (annotationDrag.selection.kind === 'draft') annotationDraft.anchor = anchor;
       annotationDrag.after = anchor;
       annotationDrag.moved = Math.abs(dx) + Math.abs(dy) > .001;
@@ -1092,13 +1441,14 @@ const appJavaScript = `(() => {
       if (drag.selection.kind === 'draft') {
         annotationDraft.undo.push(drag.before);
         annotationDraft.redo = [];
-        q('[name=anchor]', q('.annotation-compose')).value = JSON.stringify(annotationDraft.anchor);
+        if (!annotationDraft.noteDraft) q('[name=anchor]', q('.annotation-compose')).value = JSON.stringify(annotationDraft.anchor);
         updateHistoryControls();
       } else {
         try {
           await persistAnnotationAnchor(drag.selection.thread, drag.after);
         } catch (error) {
-          renderShapeElement(drag.selection.element, drag.before.shapes[drag.selection.index]);
+          if (drag.selection.note) renderNoteElement(drag.selection.element, drag.before.note);
+          else renderShapeElement(drag.selection.element, drag.before.shapes[drag.selection.index]);
           alert('Could not move annotation: ' + error.message);
         }
       }
@@ -1136,7 +1486,7 @@ const appJavaScript = `(() => {
   q('[data-file-filter]')?.addEventListener('input', filterTree);
   q('[data-hide-reviewed]')?.addEventListener('change', filterTree);
   q('[data-manifest-filter]')?.addEventListener('input', filterManifest);
-  q('[data-annotation-color]')?.addEventListener('input', event => { annotationColor = normalizedAnnotationColor(event.target.value); });
+  q('[data-annotation-color]')?.addEventListener('input', event => { annotationColorTouched = true; annotationColor = normalizedAnnotationColor(event.target.value); });
   q('[data-annotation-color]')?.addEventListener('change', event => { if (selectedAnnotation) recolorSelectedAnnotation(event.target.value); });
   prepareContext();
   highlightCode();

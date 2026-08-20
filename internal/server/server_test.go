@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -125,6 +124,122 @@ func TestThreadAnchorEditPersistsWithoutChangingState(t *testing.T) {
 	thread := document.Threads[0]
 	if thread.State != "open" || thread.Anchor.Type != "drawing" || thread.Anchor.Shapes[0].Points[0].X != .2 || len(thread.Events) != 1 {
 		t.Fatalf("unexpected edited annotation: %#v", thread)
+	}
+}
+
+func TestStickyNoteThreadCommitsPlacementAndAppendsEdits(t *testing.T) {
+	root := validServerSaga(t)
+	application := &app{root: root}
+	const noteText = "Rename <this> helper"
+	request := multipartRequest(t, "/api/thread", map[string]string{
+		"target": "urn:review-saga:test:fragment:overview",
+		"body":   noteText,
+		"anchor": `{"type":"note","coordinate_space":"normalized","note":{"text":"Rename <this> helper","x":0.25,"y":0.5,"color":"#f2bd4b"}}`,
+	})
+	recorder := httptest.NewRecorder()
+	application.createThread(recorder, request)
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("sticky note status = %d: %s", recorder.Code, recorder.Body.String())
+	}
+	document, validation, err := saga.Load(root)
+	if err != nil || !validation.Valid || len(document.Threads) != 1 {
+		t.Fatalf("committed sticky note should validate: validation=%#v err=%v", validation, err)
+	}
+	thread := document.Threads[0]
+	if thread.Anchor.Type != "note" || thread.Anchor.Note == nil || thread.Anchor.Note.Text != noteText || thread.Anchor.Note.X != .25 || thread.Anchor.Note.Y != .5 || thread.Anchor.Note.Color != "#f2bd4b" {
+		t.Fatalf("unexpected sticky note anchor: %#v", thread.Anchor)
+	}
+	if thread.Kind != "comment" || len(thread.Messages) != 1 {
+		t.Fatalf("a sticky note should commit as a comment thread with one message: %#v", thread)
+	}
+	manifestPath := filepath.Join(thread.Directory, "thread.json")
+	manifestBefore, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	values := url.Values{
+		"thread": {thread.ID},
+		"anchor": {`{"type":"note","coordinate_space":"normalized","note":{"text":"Renamed already","x":0.8,"y":0.1,"color":"#3366cc"}}`},
+	}
+	edit := httptest.NewRequest(http.MethodPost, "/api/thread-anchor", strings.NewReader(values.Encode()))
+	edit.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	editRecorder := httptest.NewRecorder()
+	application.threadAnchor(editRecorder, edit)
+	if editRecorder.Code != http.StatusNoContent {
+		t.Fatalf("sticky note edit status = %d: %s", editRecorder.Code, editRecorder.Body.String())
+	}
+	document, validation, err = saga.Load(root)
+	if err != nil || !validation.Valid || len(document.Threads) != 1 {
+		t.Fatalf("edited sticky note should validate: validation=%#v err=%v", validation, err)
+	}
+	edited := document.Threads[0]
+	if edited.State != "open" || len(edited.Events) != 1 || edited.Anchor.Note.Text != "Renamed already" || edited.Anchor.Note.X != .8 || edited.Anchor.Note.Color != "#3366cc" {
+		t.Fatalf("unexpected edited sticky note: %#v", edited)
+	}
+	if manifestAfter, err := os.ReadFile(manifestPath); err != nil || !bytes.Equal(manifestBefore, manifestAfter) {
+		t.Fatal("editing a sticky note rewrote its original thread record")
+	}
+	if len(edited.Messages) != 1 {
+		t.Fatalf("editing note text should not add a message: %#v", edited.Messages)
+	}
+}
+
+func TestStickyNoteThreadRejectsUnplaceableNote(t *testing.T) {
+	root := validServerSaga(t)
+	request := multipartRequest(t, "/api/thread", map[string]string{
+		"target": "urn:review-saga:test:fragment:overview",
+		"body":   "Off canvas",
+		"anchor": `{"type":"note","coordinate_space":"normalized","note":{"text":"Off canvas","x":1.4,"y":0.5}}`,
+	})
+	recorder := httptest.NewRecorder()
+	(&app{root: root}).createThread(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("off-canvas sticky note status = %d, want %d", recorder.Code, http.StatusBadRequest)
+	}
+}
+
+func TestStickyNoteOverlayRendersSafelyAndDeepLinks(t *testing.T) {
+	tmpl := serverTemplate(t)
+	fragmentDir := t.TempDir()
+	writeServerFile(t, filepath.Join(fragmentDir, "content.md"), "# Story {#story}\n")
+	fragment := &saga.Fragment{ID: "overview", Title: "Overview", Target: "urn:review-saga:test:fragment:overview", Directory: fragmentDir, MediaType: "text/markdown", Entrypoint: "content.md"}
+	section := &saga.Section{Kind: "chapter", ID: "root", Title: "Test", Target: "urn:review-saga:test:saga", Path: "private/root.chapter", Fragments: []*saga.Fragment{fragment}}
+	created := time.Date(2026, 8, 19, 12, 0, 0, 0, time.UTC)
+	sticky := &saga.Thread{ID: "sticky", Target: fragment.Target, CreatedBy: "Ada Lovelace", State: "open", CreatedAt: created,
+		Anchor:   saga.Anchor{Type: "note", Coordinate: "normalized", Note: &saga.NoteSelector{Text: "Rename <this> helper", X: .25, Y: .5, Color: "#f2bd4b"}},
+		Messages: []*saga.Message{{ID: "message", CreatedAt: created}}}
+	hostile := &saga.Thread{ID: "hostile", Target: fragment.Target, State: "open", CreatedAt: created,
+		Anchor:   saga.Anchor{Type: "note", Coordinate: "normalized", Note: &saga.NoteSelector{Text: "Unstyled", X: 0, Y: 0, Color: "expression(alert(1))"}},
+		Messages: []*saga.Message{{ID: "hostile-message", CreatedAt: created}}}
+	threads := map[string][]*threadView{fragment.Target: {makeThreadView(sticky), makeThreadView(hostile)}}
+	data := pageData{
+		Saga: &saga.Saga{Manifest: saga.Manifest{ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/a.git", Base: "main", Head: "HEAD"}}, Section: section},
+		Root: makeSectionView(section, nil, threads, nil), Chapter: true, Code: &CodeReviewView{},
+	}
+	var output bytes.Buffer
+	if err := tmpl.ExecuteTemplate(&output, "page", data); err != nil {
+		t.Fatal(err)
+	}
+	page := output.String()
+	noteID := domID("thread:sticky") + "--note"
+	if strings.Contains(page, "ZgotmplZ") || !strings.Contains(page, `class="sticky-note"`) || !strings.Contains(page, `data-sticky-note`) {
+		t.Fatal("sticky note overlay was not rendered")
+	}
+	if !strings.Contains(page, "--note-color:#f2bd4b;left:25.0000%;top:50.0000%") || !strings.Contains(page, `data-x="0.25"`) {
+		t.Fatal("sticky note placement was not rendered from normalized coordinates")
+	}
+	if strings.Contains(page, "Rename <this> helper") || !strings.Contains(page, "Rename &lt;this&gt; helper") {
+		t.Fatal("sticky note text was not rendered safely")
+	}
+	if strings.Contains(page, "expression(alert(1))") || strings.Count(page, "--note-color:#f2bd4b") < 2 {
+		t.Fatal("an unsafe note color was not replaced with the accessible default")
+	}
+	if !strings.Contains(page, `id="`+noteID+`"`) || !strings.Contains(page, `data-copy-link="#`+noteID+`"`) {
+		t.Fatal("sticky note was not independently hyperlinkable")
+	}
+	if !strings.Contains(page, `data-tool="sticky"`) || !strings.Contains(page, `class="note-anchor"`) || !strings.Contains(page, `tabindex="0" role="note"`) {
+		t.Fatal("sticky tool, thread echo, or keyboard affordance was missing")
 	}
 }
 
@@ -541,18 +656,7 @@ func multipartRequest(t *testing.T, path string, fields map[string]string) *http
 
 func serverTemplate(t *testing.T) *template.Template {
 	t.Helper()
-	tmpl, err := template.New("page").Funcs(template.FuncMap{
-		"markdown": markdown,
-		"domID":    domID,
-		"annotationColor": func(value string) string {
-			if validAnnotationColor(value) {
-				return value
-			}
-			return "#d04832"
-		},
-		"coord":  func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
-		"points": func([]saga.Point) string { return "" },
-	}).Parse(pageTemplate)
+	tmpl, err := template.New("page").Funcs(templateFuncs()).Parse(pageTemplate)
 	if err != nil {
 		t.Fatal(err)
 	}
