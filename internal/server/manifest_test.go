@@ -38,6 +38,9 @@ func TestCoverageManifestProvesBothMappingDirections(t *testing.T) {
 	if flow.AtomCount != 2 || len(flow.Chunks) != 1 || flow.Chunks[0].Label != "+10–11" || flow.Chunks[0].Path != "src/api/handler.go" {
 		t.Fatalf("reverse mapping did not preserve its exact range: %#v", flow)
 	}
+	if len(flow.Files) != 1 || flow.Files[0].Path != "src/api/handler.go" || flow.Files[0].AtomCount != 2 || flow.Files[0].Diff == nil || len(flow.Files[0].Diff.Lines) != 2 {
+		t.Fatalf("reverse mapping did not retain an expandable file diff: %#v", flow.Files)
+	}
 	parsed, err := url.Parse(flow.Chunks[0].Href)
 	if err != nil || parsed.Query().Get("view") != "code" || !strings.Contains(parsed.Query().Get("diff"), "end=11") {
 		t.Fatalf("reverse mapping did not deep-link to the full code range: %q (%v)", flow.Chunks[0].Href, err)

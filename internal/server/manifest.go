@@ -85,6 +85,18 @@ type ManifestTargetView struct {
 	ManifestOwnerView
 	AtomCount int
 	Chunks    []*ManifestChunkView
+	Files     []*ManifestTargetFileView
+}
+
+type ManifestTargetFileView struct {
+	Path      string
+	AtomCount int
+	Added     int
+	Deleted   int
+	Events    int
+	Href      string
+	Chunks    []*ManifestChunkView
+	Diff      *FileDiffView
 }
 
 type ManifestOrphanView struct {
@@ -163,9 +175,10 @@ func makeCoverageManifestView(document *saga.Saga, changes gitdiff.ChangeSet, re
 	for _, target := range targets {
 		owner := manifestOwner(target, locations)
 		atoms := targetAtoms[target]
+		chunks := makeManifestChunks(atoms, nil, locations, false)
 		view.Targets = append(view.Targets, &ManifestTargetView{
 			ManifestOwnerView: *owner, AtomCount: len(atoms),
-			Chunks: makeManifestChunks(atoms, nil, locations, false),
+			Chunks: chunks, Files: makeManifestTargetFiles(atoms, locations, diffsByPath),
 		})
 	}
 	for _, orphan := range report.Orphans {
@@ -174,6 +187,41 @@ func makeCoverageManifestView(document *saga.Saga, changes gitdiff.ChangeSet, re
 		})
 	}
 	return view
+}
+
+func makeManifestTargetFiles(atoms []gitdiff.Atom, locations map[string]manifestTargetLocation, diffsByPath map[string]*FileDiffView) []*ManifestTargetFileView {
+	byPath := map[string]*ManifestTargetFileView{}
+	fileAtoms := map[string][]gitdiff.Atom{}
+	for _, atom := range atoms {
+		path := effectiveAtomPath(atom)
+		file := byPath[path]
+		if file == nil {
+			file = &ManifestTargetFileView{Path: path, Href: CodeDiffURL(path, ""), Diff: diffsByPath[path]}
+			byPath[path] = file
+		}
+		fileAtoms[path] = append(fileAtoms[path], atom)
+		file.AtomCount++
+		switch {
+		case atom.Kind == "event":
+			file.Events++
+		case atom.Side == "old":
+			file.Deleted++
+		default:
+			file.Added++
+		}
+	}
+	paths := make([]string, 0, len(byPath))
+	for path := range byPath {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	result := make([]*ManifestTargetFileView, 0, len(paths))
+	for _, path := range paths {
+		file := byPath[path]
+		file.Chunks = makeManifestChunks(fileAtoms[path], nil, locations, false)
+		result = append(result, file)
+	}
+	return result
 }
 
 // makeManifestTree folds the flat per-file coverage rows into the repository

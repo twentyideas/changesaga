@@ -418,7 +418,7 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	manifestFiles := []*ManifestFileView{{Path: "internal/app.go", AtomCount: 1, Added: 1, Covered: 1, Diff: &FileDiffView{Path: "internal/app.go", Lines: []*DiffLineView{{Kind: "new", NewLine: 1, Content: "package app"}}}, Chunks: []*ManifestChunkView{{Label: "+1", Path: "internal/app.go", AtomCount: 1, Excerpt: "package app", Href: CodeDiffURL("internal/app.go", lineURI), Covered: true, Owners: []*ManifestOwnerView{{Title: "Overview", Kind: "Fragment", Chapter: "Test", Href: "#overview"}}}}}}
 	manifestFixture := &CoverageManifestView{
 		Complete: true, Total: 1, Covered: 1, MappingCount: 1, Files: manifestFiles, Tree: makeManifestTree(manifestFiles),
-		Targets: []*ManifestTargetView{{ManifestOwnerView: ManifestOwnerView{Title: "Overview", Kind: "Fragment", Chapter: "Test", Href: "#overview"}, AtomCount: 1, Chunks: []*ManifestChunkView{{Label: "+1", Path: "internal/app.go", Excerpt: "package app", Href: CodeDiffURL("internal/app.go", lineURI)}}}},
+		Targets: []*ManifestTargetView{{ManifestOwnerView: ManifestOwnerView{Title: "Overview", Kind: "Fragment", Chapter: "Test", Href: "#overview"}, AtomCount: 1, Chunks: []*ManifestChunkView{{Label: "+1", Path: "internal/app.go", Excerpt: "package app", Href: CodeDiffURL("internal/app.go", lineURI)}}, Files: []*ManifestTargetFileView{{Path: "internal/app.go", AtomCount: 1, Added: 1, Href: CodeDiffURL("internal/app.go", ""), Diff: manifestFiles[0].Diff, Chunks: []*ManifestChunkView{{Label: "+1", Path: "internal/app.go", AtomCount: 1, Href: CodeDiffURL("internal/app.go", lineURI)}}}}}},
 	}
 	data := pageData{
 		Saga: &saga.Saga{Manifest: saga.Manifest{ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/a.git", Base: "main", Head: "HEAD"}}, Section: section},
@@ -457,6 +457,9 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	}
 	if !strings.Contains(renderedPage, `class="manifest-file-diff diff-surface"`) || !strings.Contains(renderedPage, `data-file-path="internal/app.go"`) || !strings.Contains(renderedPage, `class="diff-row new"`) || !strings.Contains(renderedPage, `data-code>package app</code>`) || !strings.Contains(renderedPage, `1 changed line`) {
 		t.Fatal("expandable coverage file did not render its actual diff and compact mapping metadata")
+	}
+	if !strings.Contains(renderedPage, `class="manifest-target-file"`) || !strings.Contains(renderedPage, `class="manifest-target-file-detail"`) || !strings.Contains(renderedPage, `Open in Code Diff`) || strings.Contains(renderedPage, `class="manifest-target-row"`) {
+		t.Fatal("saga-to-code coverage did not keep linked diffs expandable in place")
 	}
 	if strings.Contains(renderedPage, "Attached code") || strings.Contains(renderedPage, "Linked diffs</h2>") || !strings.Contains(renderedPage, `<strong>Linked code</strong>`) {
 		t.Fatal("attached-code drawer retained redundant header chrome")
