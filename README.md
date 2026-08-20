@@ -36,7 +36,30 @@ attributable through Git.
 
 ## Install
 
-Go 1.26 or newer is currently used by the scaffold:
+macOS and Linux, from the latest release:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/review-saga/review-saga/main/scripts/install.sh | sh
+```
+
+The installer detects your OS and architecture, verifies the download against
+the release `SHA256SUMS`, and installs to `~/.local/bin`. It never calls `sudo`
+and never disables or works around Gatekeeper. Pass options after `-s --`:
+
+```sh
+curl -fsSL .../install.sh | sh -s -- --version v0.3.0 --dir ~/bin
+```
+
+Prefer to do it by hand, or on Windows? Download the archive for your platform
+from the [releases page](https://github.com/review-saga/review-saga/releases),
+then verify it before unpacking:
+
+```sh
+sha256sum -c SHA256SUMS --ignore-missing
+gh attestation verify saga_0.3.0_linux_amd64.tar.gz --repo review-saga/review-saga
+```
+
+From source, with Go 1.26 or newer:
 
 ```sh
 go build -o ./bin/saga ./cmd/saga
@@ -180,8 +203,9 @@ separate `.thread` directories, every reply creates a separate `.message`
 directory, and every state or approval transition is a new event file. Review
 actions never update a shared comments array.
 
-See [SPEC.md](SPEC.md) for the format contract and [CONTRIBUTING.md](CONTRIBUTING.md)
-for development commands.
+See [SPEC.md](SPEC.md) for the format contract, [CONTRIBUTING.md](CONTRIBUTING.md)
+for development commands, and [docs/releasing.md](docs/releasing.md) for how
+releases are built, signed, and verified.
 
 ## Design boundaries
 

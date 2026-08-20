@@ -33,7 +33,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		cli.PrintHelp(stdout)
 		return 0
 	case "version", "--version":
-		fmt.Fprintln(stdout, cli.Version)
+		fmt.Fprintln(stdout, cli.VersionString())
 		return 0
 	case "init":
 		err = cli.Init(ctx, args[1:], stdout)

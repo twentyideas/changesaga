@@ -1,0 +1,135 @@
+# Unsigned continuous integration.
+#
+# This workflow runs on every pull request, including pull requests from forks.
+# It therefore never touches a secret and never signs anything: `permissions`
+# is read-only, no `environment:` is referenced, and there is no
+# `pull_request_target` trigger that would run fork code with write access to
+# this repository's secrets. All signing lives in release.yml, which only runs
+# for tags pushed to this repository.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Fail rather than silently downloading a toolchain that go.mod did not ask for.
+  GOTOOLCHAIN: local
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            # The race detector needs a C toolchain, which is present on the
+            # Linux and macOS images but not reliably on the Windows image.
+            race: "-race"
+          - os: macos-latest
+            race: "-race"
+          - os: windows-latest
+            race: ""
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: go vet
+        run: go vet ./...
+      - name: go test
+        run: go test ${{ matrix.race }} ./...
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l cmd internal)"
+          if [ -n "$unformatted" ]; then
+            echo "these files need gofmt -w:" >&2
+            echo "$unformatted" >&2
+            exit 1
+          fi
+      - name: shellcheck release and installer scripts
+        run: shellcheck scripts/*.sh
+
+  installer:
+    name: installer (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: install.sh end-to-end
+        run: ./scripts/install_test.sh
+
+  build:
+    name: build ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: darwin, goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: windows, goarch: amd64 }
+          - { goos: windows, goarch: arm64 }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      # Same script the release uses, so a packaging break shows up on the pull
+      # request rather than on the tag. These artifacts are unsigned by
+      # construction: no secret is available to this workflow.
+      - name: build artifact
+        run: ./scripts/build-release.sh 0.0.0-ci.${{ github.run_number }} ${{ matrix.goos }} ${{ matrix.goarch }} dist
+      - name: smoke test the built binary
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: |
+          tar -xzf dist/saga_0.0.0-ci.${{ github.run_number }}_linux_amd64.tar.gz -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP/saga" version
+          "$RUNNER_TEMP/saga" help > /dev/null
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-saga-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+          retention-days: 7
+          if-no-files-found: error

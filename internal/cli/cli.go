@@ -24,7 +24,25 @@ import (
 	"github.com/review-saga/review-saga/internal/store"
 )
 
-const Version = "0.2.0-dev"
+// Version, Commit, and BuildDate describe the running binary. Release builds
+// overwrite them with -ldflags -X; local builds keep the -dev default.
+var (
+	Version   = "0.2.0-dev"
+	Commit    = ""
+	BuildDate = ""
+)
+
+// VersionString renders the version plus whatever build metadata was injected.
+func VersionString() string {
+	out := Version
+	if Commit != "" {
+		out += " (" + Commit + ")"
+	}
+	if BuildDate != "" {
+		out += " built " + BuildDate
+	}
+	return out
+}
 
 type StatusError struct{ Code int }
 
