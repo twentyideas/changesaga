@@ -63,7 +63,7 @@ gh attestation verify saga_0.3.0_linux_amd64.tar.gz --repo review-saga/review-sa
 From source, with Go 1.26 or newer:
 
 ```sh
-go build -o ./bin/saga ./cmd/saga
+go build -o ./bin/review-saga ./cmd/saga
 ```
 
 After the project is published at its provisional module path, installation can
@@ -80,19 +80,19 @@ go run ./cmd/saga help
 Create a saga for a branch compared with the merge base of `main` and `HEAD`:
 
 ```sh
-saga init --base main --head HEAD --title "Checkout rewrite" pr-1234.saga
-saga add-chapter --title "Backend behavior" pr-1234.saga backend
-saga add-section --title "Request flow" pr-1234.saga backend.chapter/request-flow
-saga add-fragment --section backend.chapter/request-flow --type html \
+review-saga init --base main --head HEAD --title "Checkout rewrite" pr-1234.saga
+review-saga add-chapter --title "Backend behavior" pr-1234.saga backend
+review-saga add-section --title "Request flow" pr-1234.saga backend.chapter/request-flow
+review-saga add-fragment --section backend.chapter/request-flow --type html \
   --title "Try the request flow" pr-1234.saga
-saga status --json pr-1234.saga
+review-saga status --json pr-1234.saga
 ```
 
 To import a complete interactive package, pass its directory; `index.html` is
 the default HTML entrypoint and can be overridden with `--entrypoint`:
 
 ```sh
-saga add-fragment --section backend.chapter/request-flow --type html \
+review-saga add-fragment --section backend.chapter/request-flow --type html \
   --source ./review-demos/request-flow --entrypoint index.html pr-1234.saga
 ```
 
@@ -100,7 +100,7 @@ The JSON status lists every uncovered diff atom. An author or AI agent can group
 those atoms into coherent sections and attach evidence:
 
 ```sh
-saga cover \
+review-saga cover \
   --target backend.chapter/request-flow/try-the-request-flow.fragment \
   --path internal/checkout/handler.go \
   --side new \
@@ -121,8 +121,8 @@ a separate repository, add `--repo /path/to/source-checkout` to `cover`,
 Continue until the check succeeds, then open the local review:
 
 ```sh
-saga status pr-1234.saga
-saga open pr-1234.saga
+review-saga status pr-1234.saga
+review-saga open pr-1234.saga
 ```
 
 `status` exits with code 3 while coverage is incomplete, which makes it suitable
@@ -135,7 +135,7 @@ Print a portable prompt that asks the active coding agent to install the
 project-local authoring skill using its own native mechanism:
 
 ```sh
-saga install-skill
+review-saga install-skill
 ```
 
 The command does not write files or assume Codex, Claude Code, OpenCode, or any

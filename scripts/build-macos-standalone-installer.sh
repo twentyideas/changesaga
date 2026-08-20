@@ -85,15 +85,12 @@ else
 fi
 
 mkdir -p "\$saga_install_dir" || saga_fail "could not create \$saga_install_dir"
-install -m 0755 "\$saga_work_dir/saga" "\$saga_install_dir/saga" ||
-	saga_fail "could not install to \$saga_install_dir/saga"
-ln -sfn saga "\$saga_install_dir/review-saga" ||
-	saga_fail "could not create \$saga_install_dir/review-saga"
+install -m 0755 "\$saga_work_dir/saga" "\$saga_install_dir/review-saga" ||
+	saga_fail "could not install to \$saga_install_dir/review-saga"
 
 printf '\nReview Saga installed successfully.\n'
-"\$saga_install_dir/saga" version
-printf 'Binary: %s\n' "\$saga_install_dir/saga"
-printf 'Commands: saga or review-saga\n'
+"\$saga_install_dir/review-saga" version
+printf 'Command: %s\n' "\$saga_install_dir/review-saga"
 
 case ":\$PATH:" in
 *":\$saga_install_dir:"*) ;;

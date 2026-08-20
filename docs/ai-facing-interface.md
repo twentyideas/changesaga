@@ -66,7 +66,7 @@ The interfaces above describe capabilities, not a requirement that callers
 hold a process open. The first adapter will be structured JSON CLI commands.
 Each invocation opens a session, executes one request, writes one JSON result,
 and exits. The installed UI will use an HTTP adapter over the same session
-methods while `saga open` is running. A thin stdio MCP adapter may be added as a
+methods while `review-saga open` is running. A thin stdio MCP adapter may be added as a
 separate binary after the CLI contract and attribution migration prove stable.
 The core package must not import HTTP, CLI flag, JSON-RPC, or MCP packages.
 
@@ -80,7 +80,7 @@ it when its snapshot changes without changing the domain API.
 | Shape | Strengths | Costs and risks | Decision |
 | --- | --- | --- | --- |
 | Structured JSON CLI | Already installable with the product; inherits local filesystem permissions; easy to invoke from any agent; one request has an obvious lifetime; no listening socket | Process and Git-diff cost per call; shell arguments are awkward for nested writes; capability discovery is weaker than MCP | Implement first. Complex bodies are JSON on stdin, never shell-expanded flags. |
-| Local Go HTTP API | Natural for the installed browser UI; supports lazy page loading and retained indexes; familiar streaming and status semantics | Introduces listener authentication, CSRF/origin, lifecycle, and port concerns; a CLI-to-HTTP requirement would make the daemon mandatory | Use only inside `saga open` initially. The CLI calls the Go application layer directly. Documented endpoints mirror, rather than define, the contract. |
+| Local Go HTTP API | Natural for the installed browser UI; supports lazy page loading and retained indexes; familiar streaming and status semantics | Introduces listener authentication, CSRF/origin, lifecycle, and port concerns; a CLI-to-HTTP requirement would make the daemon mandatory | Use only inside `review-saga open` initially. The CLI calls the Go application layer directly. Documented endpoints mirror, rather than define, the contract. |
 | Thin stdio MCP adapter | Tool discovery, typed schemas, resource pagination, and no network listener; a good fit for MCP-capable agents | Adds protocol/dependency surface before names and payloads stabilize; not every agent host supports MCP; easy to let tool handlers accumulate business logic | Defer the dependency. Later ship a separate `saga-mcp` stdio binary that performs a mechanical mapping to the application layer. |
 
 ## Resource and identifier model
@@ -164,26 +164,26 @@ error content; transport error numbers are not domain API.
 
 ## Structured CLI contract
 
-The proposed command group is `saga query` for reads and `saga mutate` for
+The proposed command group is `review-saga query` for reads and `review-saga mutate` for
 writes. These commands always emit the envelope above; they do not need a
 separate `--json` switch.
 
 Common read form:
 
 ```text
-saga query <operation> --saga PATH [--repo PATH] [operation flags]
+review-saga query <operation> --saga PATH [--repo PATH] [operation flags]
 ```
 
 The operations are:
 
 ```text
-saga query overview       --saga PATH [--repo PATH]
-saga query children       --saga PATH --parent TARGET [--cursor TOKEN] [--limit N]
-saga query fragment       --saga PATH --target FRAGMENT [--offset N] [--limit N]
-saga query fragment-diffs --saga PATH --target FRAGMENT [--cursor TOKEN] [--limit N]
-saga query diff-owners    --saga PATH --diff URI [--cursor TOKEN] [--limit N]
-saga query reviews        --saga PATH [--target TARGET] [--thread ID] [--state STATE]
-saga query gaps           --saga PATH [--kind uncovered|stale|overlap] [--cursor TOKEN] [--limit N]
+review-saga query overview       --saga PATH [--repo PATH]
+review-saga query children       --saga PATH --parent TARGET [--cursor TOKEN] [--limit N]
+review-saga query fragment       --saga PATH --target FRAGMENT [--offset N] [--limit N]
+review-saga query fragment-diffs --saga PATH --target FRAGMENT [--cursor TOKEN] [--limit N]
+review-saga query diff-owners    --saga PATH --diff URI [--cursor TOKEN] [--limit N]
+review-saga query reviews        --saga PATH [--target TARGET] [--thread ID] [--state STATE]
+review-saga query gaps           --saga PATH [--kind uncovered|stale|overlap] [--cursor TOKEN] [--limit N]
 ```
 
 `overview` returns saga identity, source snapshot, the root overview fragment
@@ -270,7 +270,7 @@ without requiring metadata searches.
 Common write form:
 
 ```text
-saga mutate <operation> --saga PATH [--repo PATH] --input -
+review-saga mutate <operation> --saga PATH [--repo PATH] --input -
 ```
 
 `--input -` reads one bounded JSON object from stdin. A named file may be
@@ -346,7 +346,7 @@ the read side derives identity from that introducing commit.
 
 ## HTTP mapping
 
-When `saga open` is active, the installed UI uses the following JSON endpoints:
+When `review-saga open` is active, the installed UI uses the following JSON endpoints:
 
 ```text
 GET  /api/v1/overview
@@ -410,7 +410,7 @@ resource links may represent large fragment assets, but the adapter must still
 call the application's bounded read method.
 
 The MCP binary owns protocol negotiation and schema descriptions only. It does
-not load metadata directly, shell out to the `saga` CLI, or implement alternate
+not load metadata directly, shell out to the `review-saga` CLI, or implement alternate
 validation. Initially it is a separate module or build target so the core CLI
 does not take a mandatory MCP dependency. Add it only when at least one target
 host gains material value from tool discovery or retained sessions beyond what
@@ -532,7 +532,7 @@ avoid shell quoting and accidental command-history exposure.
    ownership, reviews, and gaps. Add table-driven service tests using a real
    temporary Git comparison. No transport changes are required to validate the
    result types.
-2. **Structured read CLI.** Add `saga query` operations and the common envelope,
+2. **Structured read CLI.** Add `review-saga query` operations and the common envelope,
    pagination, exit codes, and golden JSON integration tests. Update the AI
    skill to use these commands instead of filesystem discovery.
 3. **Git attribution and compatibility.** Retain event-file provenance in the

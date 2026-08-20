@@ -113,7 +113,7 @@ func TestInstallSkillPrintsPortableAuthoringContract(t *testing.T) {
 	text := output.String()
 	for _, expected := range []string{
 		"project-local agent skill", "existing PR-authoring", "thing to be reviewed, not the review itself",
-		"Do not create review", "saga --help", "saga status --json", "SVG diagram",
+		"Do not create review", "review-saga --help", "review-saga status --json", "SVG diagram",
 		"interactive HTML", "data flows", "data models", "exact diff atoms",
 	} {
 		if !strings.Contains(text, expected) {

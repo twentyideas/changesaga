@@ -67,20 +67,20 @@ that places hover controls over the illustrated item.
 ## Commands
 
 ```sh
-saga install-skill
-saga init --repo <source-checkout> --base <rev> --head <rev-or-WORKTREE> --title "Title" <name>.saga
-saga add-chapter --title "Title" <name>.saga backend
-saga add-section --title "Title" <name>.saga backend.chapter/path/to/section
-saga add-fragment --section path/to/section --type markdown --title "Context" <name>.saga
-saga add-fragment --section path/to/section --type html --source ./demo-package --entrypoint index.html <name>.saga
-saga cover --repo <source-checkout> --target path/to/demo.fragment --path file.go --side new --lines 4-9,12 --note "Adds request validation so malformed input fails before persistence." <name>.saga
-saga cover --target path/to/demo.fragment --uri 'saga-diff://v1/line?...' --note "Implements the behavior explained by this fragment." <name>.saga
-saga cover --target path/to/demo.fragment/___landmarks/submit-action.landmark --uri 'saga-diff://v1/line?...' --note "Connects the diagram action to its exact submit handler." <name>.saga
-saga validate --json <name>.saga
-saga status --json --repo <source-checkout> <name>.saga
-saga open --repo <source-checkout> <name>.saga
-saga review --target path/to/demo.fragment --state approved <name>.saga
-saga reply --thread <id> --state withdrawn <name>.saga
+review-saga install-skill
+review-saga init --repo <source-checkout> --base <rev> --head <rev-or-WORKTREE> --title "Title" <name>.saga
+review-saga add-chapter --title "Title" <name>.saga backend
+review-saga add-section --title "Title" <name>.saga backend.chapter/path/to/section
+review-saga add-fragment --section path/to/section --type markdown --title "Context" <name>.saga
+review-saga add-fragment --section path/to/section --type html --source ./demo-package --entrypoint index.html <name>.saga
+review-saga cover --repo <source-checkout> --target path/to/demo.fragment --path file.go --side new --lines 4-9,12 --note "Adds request validation so malformed input fails before persistence." <name>.saga
+review-saga cover --target path/to/demo.fragment --uri 'saga-diff://v1/line?...' --note "Implements the behavior explained by this fragment." <name>.saga
+review-saga cover --target path/to/demo.fragment/___landmarks/submit-action.landmark --uri 'saga-diff://v1/line?...' --note "Connects the diagram action to its exact submit handler." <name>.saga
+review-saga validate --json <name>.saga
+review-saga status --json --repo <source-checkout> <name>.saga
+review-saga open --repo <source-checkout> <name>.saga
+review-saga review --target path/to/demo.fragment --state approved <name>.saga
+review-saga reply --thread <id> --state withdrawn <name>.saga
 ```
 
 `--repo` may be omitted when the saga is inside the source checkout. Flags

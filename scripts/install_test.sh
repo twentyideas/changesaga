@@ -126,8 +126,8 @@ if [ "$os" = darwin ]; then
 	# treating Go's default ad-hoc signature as a Developer ID signature.
 	expect_log "flags the ad-hoc signature" "ad-hoc signature"
 fi
-assert_exec "installed binary is executable" "$bindir/saga"
-if "$bindir/saga" version | grep -q "^$version"; then
+assert_exec "installed binary is executable" "$bindir/review-saga"
+if "$bindir/review-saga" version | grep -q "^$version"; then
 	record "installed binary reports the injected version" 0
 else
 	record "installed binary reports the injected version" 1
@@ -136,7 +136,7 @@ fi
 echo "== latest resolution"
 rm -rf "$bindir"
 check "resolves latest tag" 0 sh "$install_sh" --dir "$bindir"
-assert_exec "latest install landed" "$bindir/saga"
+assert_exec "latest install landed" "$bindir/review-saga"
 
 echo "== reinstall over a running-in-place binary"
 check "reinstall succeeds" 0 sh "$install_sh" --version "$tag" --dir "$bindir"
@@ -145,7 +145,7 @@ echo "== dry run installs nothing"
 drydir="$work/dry"
 mkdir -p "$drydir"
 check "dry run succeeds" 0 sh "$install_sh" --version "$tag" --dir "$drydir" --dry-run
-assert_absent "dry run left no binary" "$drydir/saga"
+assert_absent "dry run left no binary" "$drydir/review-saga"
 
 echo "== tampered archive is rejected"
 tampered="$work/tampered"
@@ -156,7 +156,7 @@ mkdir -p "$baddir"
 check "tampered archive fails" 1 \
 	env SAGA_TEST_RELEASE="$tampered" sh "$install_sh" --version "$tag" --dir "$baddir"
 expect_log "explains the mismatch" "checksum mismatch"
-assert_absent "nothing installed after mismatch" "$baddir/saga"
+assert_absent "nothing installed after mismatch" "$baddir/review-saga"
 
 echo "== missing SHA256SUMS is fatal"
 nosums="$work/nosums"

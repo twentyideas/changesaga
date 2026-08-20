@@ -144,7 +144,7 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 	if _, validation, err := saga.Load(abs); err != nil {
 		return err
 	} else if !validation.Valid {
-		return fmt.Errorf("saga is structurally invalid; run saga validate")
+		return fmt.Errorf("saga is structurally invalid; run review-saga validate")
 	}
 	if sourceDir == "" {
 		sourceDir = abs
@@ -310,9 +310,9 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 		data.Files, data.ReviewedFiles = code.Files, code.ReviewedFiles
 	}
 	if diffErr != nil {
-		data.Error = "The source comparison could not be loaded. Run saga validate for diagnostic details."
+		data.Error = "The source comparison could not be loaded. Run review-saga validate for diagnostic details."
 	} else if !report.Complete {
-		data.Diagnostic = "Review is blocked because this saga does not account for every source change. Run saga validate for diagnostic details."
+		data.Diagnostic = "Review is blocked because this saga does not account for every source change. Run review-saga validate for diagnostic details."
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := a.template.ExecuteTemplate(w, "page", data); err != nil {

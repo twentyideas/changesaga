@@ -24,6 +24,7 @@ set -eu
 
 REPO="${SAGA_REPO:-review-saga/review-saga}"
 BIN_NAME="saga"
+COMMAND_NAME="review-saga"
 VERSION="${SAGA_VERSION:-latest}"
 INSTALL_DIR="${SAGA_INSTALL_DIR:-}"
 DRY_RUN=0
@@ -270,12 +271,12 @@ for you."
 fi
 
 # Install through a temporary name in the destination directory so the swap is
-# atomic and a running `saga` process is never overwritten in place.
-staged="$INSTALL_DIR/.$BIN_NAME.install.$$"
+# atomic and a running `review-saga` process is never overwritten in place.
+staged="$INSTALL_DIR/.$COMMAND_NAME.install.$$"
 cp "$TMPDIR_SAGA/$BIN_NAME" "$staged"
 chmod 0755 "$staged"
-mv -f "$staged" "$INSTALL_DIR/$BIN_NAME"
-log "installed $INSTALL_DIR/$BIN_NAME"
+mv -f "$staged" "$INSTALL_DIR/$COMMAND_NAME"
+log "installed $INSTALL_DIR/$COMMAND_NAME"
 
 case ":$PATH:" in
 *":$INSTALL_DIR:"*) ;;
@@ -286,4 +287,4 @@ case ":$PATH:" in
 	;;
 esac
 
-log "run '$BIN_NAME help' to get started"
+log "run '$COMMAND_NAME help' to get started"

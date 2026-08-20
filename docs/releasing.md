@@ -52,7 +52,7 @@ SHA256SUMS
 Each archive contains the binary, `LICENSE`, and `README.md`. Builds are
 `CGO_ENABLED=0 -trimpath`, so the binary has no libc or toolchain dependency and
 build paths do not leak into it. `internal/cli.Version`, `.Commit`, and
-`.BuildDate` are injected with `-ldflags -X`; `saga version` prints all three.
+`.BuildDate` are injected with `-ldflags -X`; `review-saga version` prints all three.
 
 For a direct Apple Silicon handoff, wrap the archive in a single installer:
 
@@ -64,9 +64,8 @@ For a direct Apple Silicon handoff, wrap the archive in a single installer:
 
 The resulting `.command` file contains the archive and its expected checksum.
 It verifies the payload, refuses non-macOS and non-arm64 machines, and installs
-without `sudo`. It installs `saga` plus the `review-saga` convenience command.
-Zip the one file when sending it through a service that does not preserve
-executable permissions.
+without `sudo`. It installs the `review-saga` command. Zip the one file when
+sending it through a service that does not preserve executable permissions.
 
 `SHA256SUMS` is generated in the publish job from the artifacts as downloaded,
 after each one is re-checked against the checksum its build job recorded. That
@@ -109,7 +108,7 @@ What it does, and what it refuses to do:
   that is already writable by the current user) and tells you what to do if the
   target is not writable.
 - Installs atomically: the binary is copied into the destination directory under
-  a temporary name and moved into place, so an in-flight `saga` process is never
+  a temporary name and moved into place, so an in-flight `review-saga` process is never
   overwritten.
 
 `scripts/install_test.sh` exercises all of this locally by staging a real
