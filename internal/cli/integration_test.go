@@ -105,6 +105,31 @@ func TestAuthoringLoopAgainstGitDiff(t *testing.T) {
 	}
 }
 
+func TestInstallSkillPrintsPortableAuthoringContract(t *testing.T) {
+	var output bytes.Buffer
+	if err := InstallSkill(nil, &output); err != nil {
+		t.Fatal(err)
+	}
+	text := output.String()
+	for _, expected := range []string{
+		"project-local agent skill", "existing PR-authoring", "thing to be reviewed, not the review itself",
+		"Do not create review", "saga --help", "saga status --json", "SVG diagram",
+		"interactive HTML", "data flows", "data models", "exact diff atoms",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Errorf("install-skill output omitted %q", expected)
+		}
+	}
+	for _, platformPath := range []string{".claude/", ".opencode/", ".codex/"} {
+		if strings.Contains(text, platformPath) {
+			t.Errorf("install-skill hard-coded agent path %q", platformPath)
+		}
+	}
+	if err := InstallSkill([]string{"unexpected"}, &output); err == nil {
+		t.Fatal("install-skill accepted positional arguments")
+	}
+}
+
 func git(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command("git", args...)

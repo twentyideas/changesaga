@@ -1,4 +1,9 @@
-# Authoring a reviewer-ready saga
+# Authoring a change for review
+
+The saga is the authored proposal that accompanies the code—the successor to a
+flat PR title and description. Build it from the change author's point of view
+so another person can review it. Do not populate the review overlay, invent
+review feedback, or make approval judgments while authoring.
 
 ## Resolve the comparison
 
@@ -31,9 +36,43 @@ The root overview should let a reviewer answer these before opening code:
    signals?
 6. What chapters follow, in what order, and which can be reviewed independently?
 
-Lead with a useful diagram when three or more components, states, or steps
-interact. Prefer an interactive fragment only when interaction reveals behavior
-that prose or a static diagram cannot.
+Lead with a system/change map before the detailed prose. For a large change, the
+overview must visually establish the affected components, primary workflows,
+boundaries, and chapter structure. Add a before/after view when the behavioral
+shift is otherwise easy to miss.
+
+## Visual-first contract
+
+Treat visuals and examples as the primary explanation, not decoration added
+after the prose:
+
+- Start every substantial chapter with at least one diagram, interactive
+  walkthrough, or worked example. A short mechanical chapter may use a compact
+  before/after example instead of a diagram.
+- Use SVG for architecture, ownership boundaries, data models, stable request
+  flows, and migration topology.
+- Use self-contained HTML and JavaScript when a reviewer benefits from switching
+  between paths, stepping through states, changing an input, inspecting a
+  payload, or comparing old and new behavior. Make the useful default state
+  understandable without interaction and do not load network dependencies.
+- Show by example: include concrete inputs, important intermediate state, output
+  or side effects, and at least one consequential failure or edge path. Prefer a
+  realistic payload, schema row, event, command, or UI action over an abstract
+  paragraph.
+- For data flows, show producers, transformations, persistence, consumers,
+  trust/process boundaries, and failure or retry paths.
+- For data models, show entities, important fields, relationships, ownership,
+  lifecycle changes, migration/compatibility behavior, and old-to-new shape.
+- For workflows, show the entry point, happy path, permissions or validation,
+  side effects, failure/recovery path, and observable result.
+- Give meaningful SVG/HTML nodes stable IDs and landmark packages. Attach the
+  exact realizing diff to the node, state, arrow, example step, or control—not
+  only to the enclosing fragment.
+
+Keep prose around a visual short: state what question it answers, call out the
+non-obvious invariant or tradeoff, and tell the reviewer where to look next.
+Split or replace long prose fragments that repeat relationships already visible
+in the artifact.
 
 ## Chapter contract
 
@@ -49,6 +88,11 @@ should state:
 - tests and concrete reviewer checks;
 - which code is intentionally covered at chapter scope rather than by a more
   focused fragment.
+
+Organize the chapter around the key workflow it changes. If it changes stored
+or exchanged data, include the relevant data model and how information moves
+through it. If it changes behavior, demonstrate the old and new outcomes with a
+concrete example. Prose-only chapters require a clear reason.
 
 Split a chapter when it contains independently understandable behavior with a
 different risk profile or reviewer specialty. Do not create a chapter merely
@@ -140,7 +184,15 @@ Before handing off:
 
 - Read the saga in rendered order without relying on prior author knowledge.
 - Confirm the root overview explains goals and supplies a useful chapter map.
+- Confirm the overview leads with a system/change map rather than a wall of
+  introductory text.
 - Confirm every chapter can be reviewed and approved independently.
+- Confirm every substantial chapter leads with a useful visual or worked
+  example and makes its affected workflow explicit.
+- Confirm relevant data flows identify boundaries and failure paths, and
+  relevant data models show relationships plus migration/compatibility impact.
+- Confirm interactive fragments teach something through their default state and
+  controls, remain self-contained, and are not static prose placed in HTML.
 - Confirm diagrams and examples agree with current code.
 - Confirm meaningful diagram nodes, interactive controls, text regions, and
   image regions have valid landmarks that still resolve to their content.

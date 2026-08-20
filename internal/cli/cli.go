@@ -64,6 +64,7 @@ Usage:
   saga status [--json] [--repo PATH] <saga>
   saga serve [--addr ADDR] [--repo PATH] [--open] <saga>
   saga open [--addr ADDR] [--repo PATH] <saga>
+  saga install-skill
   saga spec [--json]
 
 Run "saga <command> -h" for command-specific options.
@@ -641,6 +642,22 @@ func Spec(args []string, out io.Writer) error {
 	return nil
 }
 
+// InstallSkill prints an agent-agnostic bootstrap prompt. The active coding
+// agent owns the platform-specific skill location and format; the saga binary
+// supplies the behavior contract without mutating the user's repository.
+func InstallSkill(args []string, out io.Writer) error {
+	flags := flag.NewFlagSet("install-skill", flag.ContinueOnError)
+	flags.SetOutput(out)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 {
+		return fmt.Errorf("usage: saga install-skill")
+	}
+	_, err := io.WriteString(out, installSkillPrompt)
+	return err
+}
+
 type lineRange struct{ Start, End int }
 
 func parseRanges(value string) ([]lineRange, error) {
@@ -927,6 +944,66 @@ func writeJSON(out io.Writer, value any) error {
 const defaultHTMLFragment = `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><style>body{font:16px system-ui;margin:0;padding:24px}button{font:inherit}</style></head>
 <body><h1>Interactive fragment</h1><p>Bundle JavaScript, CSS, images, and data beside this file.</p><button id="demo">Clicks: 0</button><script>let n=0;document.querySelector('#demo').onclick=e=>e.target.textContent='Clicks: '+(++n)</script></body></html>
+`
+
+const installSkillPrompt = `Install or update a project-local agent skill named "review-saga" using this coding agent's native skill mechanism. Do not create a Review Saga as part of installation. Preserve the following behavior in the installed skill:
+
+# Review Saga authoring
+
+A Review Saga is the authored change proposal submitted for review: a visual,
+executable successor to a flat pull-request title and description. It is the
+thing to be reviewed, not the review itself.
+
+When a user asks to draft, prepare, or create a pull request or otherwise make a
+large change ready for review, use the repository's existing PR-authoring
+processes, templates, issue context, conventions, and checks, but express the
+result as a Review Saga. Do not replace useful existing authoring discipline;
+extend it into this format.
+
+During authoring, speak as the change author and guide. Do not create review
+comments, findings, approvals, rejections, or other review-overlay records.
+Only perform those actions when the user explicitly asks to conduct a review of
+an already-authored saga.
+
+Use the installed "saga" CLI as the source of truth. Begin with "saga --help"
+and "saga spec" when necessary. Resolve the exact PR, branch, commit range, or
+working-tree comparison; inspect the full change and its existing PR context;
+then initialize and author the .saga directory.
+
+Use this authoring loop, consulting each command's "-h" output for exact flags:
+
+1. "saga init" records the exact repository, base, head, title, and PR identity.
+2. "saga status --json" lists the uncovered product changes.
+3. "saga add-chapter", "saga add-section", and "saga add-fragment" build the
+   reviewer-oriented narrative and its Markdown, SVG, image, or HTML packages.
+4. "saga cover" connects a focused fragment or landmark to the exact diff atoms
+   it explains and includes a concise what-and-why note.
+5. Repeat status, then run "saga validate --json" before "saga open" presents
+   the authored proposal for review.
+
+Lead with pictures and show by example. The root should establish the goal,
+system/change map, affected workflows, and chapter path before dense prose.
+Every substantial chapter should begin with an SVG diagram, self-contained
+interactive HTML walkthrough, or concrete before/after example. Highlight
+end-to-end workflows, data flows, data models, state transitions, boundaries,
+failure paths, compatibility, and observable outcomes. Give meaningful diagram
+nodes and interactive elements stable landmarks so they can link to the exact
+code that realizes them.
+
+Organize the change into independently reviewable chapters based on behavior,
+risk, architecture, or reviewer intent rather than file type. Use Markdown to
+orient and connect visual artifacts, not as the default container for the whole
+explanation.
+
+Run "saga status --json <name>.saga" as the coverage work queue. Attach only
+the exact diff atoms a fragment or landmark explains, with concise notes saying
+what changed and why that content owns it. Never widen mappings only to reach
+100 percent. Iterate until every product change is accounted for and no mapping
+is stale, then run "saga validate --json" and "saga status --json" before
+handoff.
+
+Opening the saga presents the authored proposal for a human to review. It does
+not authorize the agent to conduct that review.
 `
 
 const defaultSVGFragment = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300" role="img" aria-label="Diagram placeholder">

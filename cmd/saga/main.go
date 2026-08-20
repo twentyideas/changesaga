@@ -57,6 +57,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		err = cli.Status(ctx, args[1:], stdout)
 	case "serve", "open":
 		err = cli.Serve(ctx, args[1:], stdout, args[0] == "open")
+	case "install-skill":
+		err = cli.InstallSkill(args[1:], stdout)
 	case "spec":
 		err = cli.Spec(args[1:], stdout)
 	default:

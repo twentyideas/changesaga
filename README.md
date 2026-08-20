@@ -1,11 +1,12 @@
 # Review Saga
 
-Review Saga is an experimental, Git-native way to review changes that are too
-large to understand as one flat pull-request diff. A saga reorganizes a PR into
-a big-picture overview and independently reviewable chapters—roughly the PRs
-that might have existed if the change were split. Sections and fragments recurse
-inside each chapter, and the tool proves that every changed line appears
-somewhere in that story.
+Review Saga is an experimental, Git-native way to author changes that are too
+large to explain in one flat pull-request description and diff. A saga is the
+change proposal submitted for review: it organizes the work into a big-picture
+overview and independently reviewable chapters—roughly the PRs that might have
+existed if the change were split. Sections and fragments recurse inside each
+chapter, and the tool proves that every changed line appears somewhere in that
+story.
 
 The saga is a `*.saga/` directory made from fragments: Markdown, SVG, images,
 plain text, or fully interactive HTML packages with JavaScript. It may live
@@ -130,11 +131,23 @@ exits with code 1 for schema errors.
 
 ## AI-guided authoring
 
-The repository includes a distributable
-[`review-saga` skill](skills/review-saga/SKILL.md). It directs an AI coding agent
-to use uncovered atoms as a work queue, understand the diff before grouping it,
-prefer reviewer-oriented flows over file-type buckets, reconcile stale evidence,
-and resist reaching 100% with unjustifiably broad selectors.
+Print a portable prompt that asks the active coding agent to install the
+project-local authoring skill using its own native mechanism:
+
+```sh
+saga install-skill
+```
+
+The command does not write files or assume Codex, Claude Code, OpenCode, or any
+other agent layout. Copy its output into the agent working in the target
+repository. The installed skill preserves that repository's normal PR-drafting
+process while expressing the result as a visual, coverage-complete Review Saga.
+It explicitly authors the thing submitted for review; it does not conduct the
+review or create review feedback.
+
+This repository also keeps the full reference
+[`review-saga` skill](skills/review-saga/SKILL.md) used to develop that portable
+contract.
 
 ## Directory shape
 
@@ -231,8 +244,9 @@ security boundaries, and next steps.
 ## Design boundaries
 
 Review Saga intentionally does not replace Git hosting, enforce review policy,
-or decide whether an explanation is good. Its core job is narrower: provide a
-durable review narrative and make omissions mechanically visible. The local
+or decide whether an explanation is good. Its core job is narrower: let authors
+draft a durable, visual change proposal and make omissions mechanically
+visible. The local
 server binds to loopback by default and has no authentication; do not expose it
 to an untrusted network. Interactive fragments execute with scripts enabled but
 network access and access to the parent review application are denied.

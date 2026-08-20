@@ -371,6 +371,9 @@ real directories, not symlinks. Other names beginning with `___` are invalid.
 
 ## 10. CLI behavior
 
+- `saga install-skill` prints an agent-agnostic prompt for installing the
+  project-local Review Saga authoring skill. It MUST NOT mutate the repository
+  or assume an agent-specific skill path.
 - `saga add-fragment` creates Markdown, HTML, SVG, text, or image fragments.
 - `saga add-chapter` creates a top-level independently reviewable chapter and
   its overview fragment.

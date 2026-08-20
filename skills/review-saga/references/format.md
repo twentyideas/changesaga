@@ -67,6 +67,7 @@ that places hover controls over the illustrated item.
 ## Commands
 
 ```sh
+saga install-skill
 saga init --repo <source-checkout> --base <rev> --head <rev-or-WORKTREE> --title "Title" <name>.saga
 saga add-chapter --title "Title" <name>.saga backend
 saga add-section --title "Title" <name>.saga backend.chapter/path/to/section

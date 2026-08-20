@@ -1,12 +1,32 @@
 ---
 name: review-saga
-description: Create, update, validate, open, or review a Git-native Review Saga for a large pull request number, URL, branch, commit range, or working-tree change. Use for requests like "make a review saga for PR 123," for authoring overview/chapter/section/fragment hierarchies, explaining complex changes with Markdown/diagrams/interactive HTML, attaching and accounting for absolute diff URIs, reconciling evolving changes, or conducting an incremental chapter-by-chapter review.
+description: 'Author, update, validate, and open a Git-native, visual successor to the pull-request description for a large PR number, URL, branch, commit range, or working-tree change. Use for requests like "make a review saga for PR 123" or "draft this change for review": explain the complete changeset through chapters, workflows, data-flow and data-model diagrams, interactive HTML, worked examples, and fully accounted diff URIs. The primary purpose is to create the artifact submitted for human review, not to perform the review; only conduct review actions when explicitly requested.'
 ---
 
 # Review Saga
 
+## Purpose and role boundary
+
+A saga is the authored change proposal: the next-generation PR body submitted
+alongside the code. It explains and demonstrates what changed, why, how it
+behaves, and where every part is implemented. It is the thing to be reviewed,
+not the review itself.
+
+During authoring:
+
+- speak as the change author and guide, not as an independent reviewer;
+- create no review comments, approvals, rejections, or findings;
+- document known risks, limitations, and tradeoffs as part of the proposal
+  without turning them into review verdicts;
+- optimize for a human reviewer to understand and inspect the change over time.
+
+Only enter reviewer mode when the user explicitly asks to review, approve,
+reject, annotate, or comment on an already-authored saga.
+
 Use the `saga` CLI as the source of truth for format validity and diff coverage.
-Treat completeness as an omission check, not proof that the narrative is good.
+Treat completeness as an omission check, not proof that the authored proposal
+is good. Prefer showing behavior and relationships over describing them in
+dense prose.
 
 ## Locate the CLI
 
@@ -39,8 +59,10 @@ mismatch.
    current engine does not account for untracked files.
 4. Run `saga status --json <name>.saga`. Treat its uncovered atoms as the work
    queue and its stale diff URIs as reconciliation work.
-5. Read the relevant code and diff context. Draft the overview and chapter map
-   before attaching evidence. Group changes by reviewer intent,
+5. Read the relevant code and diff context. Identify the affected end-to-end
+   workflows, data flows, data models, state transitions, and concrete
+   before/after examples. Use those to draft the overview and chapter map before
+   attaching evidence. Group changes by reviewer intent,
    such as architecture, request flow, data migration, frontend behavior,
    operational risk, or tests. Do not group solely by file extension or assign a
    broad range before understanding it.
@@ -48,11 +70,15 @@ mismatch.
    `saga add-chapter`. Treat each chapter like a PR that could be assigned and
    approved on its own. Use recursive sections inside a chapter only when they
    improve a reviewer's path through that unit.
-7. Replace the root and chapter overview placeholders with the content contract
-   in `references/authoring.md`. Build focused fragments with `saga add-fragment`. Use
-   Markdown for explanation, SVG or images for visual models, and sandboxed HTML
-   with bundled JavaScript for interactions that materially improve
-   understanding. Make every meaningful subpart addressable using the landmark
+7. Replace the root and chapter overview placeholders with the visual-first
+   content contract in `references/authoring.md`. Lead the saga with a system or
+   change map, and lead every substantial chapter with a diagram, interactive
+   walkthrough, or worked example. Use SVG for architecture, data models, and
+   stable flows. Use sandboxed HTML with bundled JavaScript for alternate paths,
+   state transitions, before/after comparisons, and explorable examples. Use
+   Markdown to orient and connect those artifacts, not as the default container
+   for everything. Build focused fragments with `saga add-fragment`. Make every
+   meaningful subpart addressable using the landmark
    contract in `references/authoring.md`: annotate Markdown headings directly
    and add one `___landmarks/<id>.landmark/` package per addressable heading,
    HTML/SVG element, exact text, or image region. Attach exact diff atoms inside
@@ -70,7 +96,8 @@ mismatch.
    selector remains. Inspect overlaps and keep them only when multiple reviewer
    journeys genuinely need the same change.
 10. Run both `saga validate --json` and `saga status --json`, then perform the
-    reviewer-readiness checks in `references/authoring.md`. Summarize the
+    visual and reviewer-readiness checks in `references/authoring.md`. Replace
+    walls of text with diagrams or concrete examples before handoff. Summarize the
     chapter structure, coverage result, saga-only changes, and limitations.
 
 Never make a selector wider merely to reach 100%. If an atom does not fit the
@@ -91,9 +118,10 @@ Run status against the new head, then handle both sides of drift:
 - Saga-only commits intentionally preserve the product diff identity. Product
   changes make old evidence stale and require reconciliation.
 
-## Open or conduct a review
+## Open the authored saga for review
 
-Run `saga open <name>.saga` when asked to present the review. The local UI can
+Run `saga open <name>.saga` when asked to present the authored change for
+review. Opening the UI does not authorize the AI to review it. The local UI can
 anchor threads to whole fragments, selected text, rectangles, freehand paths, or
 placed sticky notes.
 Thread messages are fragments and may include images, SVG, or HTML attachments.
@@ -108,8 +136,8 @@ canvas edit and Ctrl/Cmd+Shift+Z (or Ctrl+Y) to redo it. After submission, selec
 a committed shape or note to move, recolor, reword, or remove it; Delete or
 Backspace removes the current selection. Committed edits append anchor or state
 events; never rewrite or delete the original thread or message.
-Do not resolve, reopen, approve, or reject on a person's behalf without explicit
-instruction.
+Do not create comments or findings, or resolve, reopen, approve, or reject on a
+person's behalf without an explicit request to conduct those review actions.
 
 When reviewing without the UI, inspect assets and prose first, then use coverage
 evidence to dive into the relevant code. Use uncovered status as a hard warning:

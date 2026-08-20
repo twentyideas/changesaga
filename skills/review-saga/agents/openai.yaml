@@ -1,4 +1,4 @@
 interface:
   display_name: "Review Saga"
-  short_description: "Create chaptered reviews for large pull requests"
-  default_prompt: "Use $review-saga to create a reviewer-ready, chaptered saga for this pull request."
+  short_description: "Author visual PRs for large code changes"
+  default_prompt: "Use $review-saga to author the visual, coverage-complete change proposal that will be submitted for review."
