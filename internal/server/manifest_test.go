@@ -24,6 +24,9 @@ func TestCoverageManifestProvesBothMappingDirections(t *testing.T) {
 	if handler.Path != "src/api/handler.go" || len(handler.Chunks) != 2 || len(handler.Chunks[0].Owners) != 2 || len(handler.Chunks[1].Owners) != 1 {
 		t.Fatalf("code-to-saga ownership was not grouped exactly: %#v", handler)
 	}
+	if handler.Diff == nil || handler.Diff.Path != handler.Path || len(handler.Diff.Lines) != 2 || handler.Diff.Lines[0].Content != "first" || handler.Diff.Lines[1].Content != "second" {
+		t.Fatalf("coverage file did not retain its inspectable diff: %#v", handler.Diff)
+	}
 	if handler.Chunks[0].Label != "+10" || handler.Chunks[1].Label != "+11" {
 		t.Fatalf("ranges with different owners must stay separate: %#v", handler.Chunks)
 	}

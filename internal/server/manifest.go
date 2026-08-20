@@ -56,6 +56,7 @@ type ManifestFileView struct {
 	Covered   int
 	Uncovered int
 	Chunks    []*ManifestChunkView
+	Diff      *FileDiffView
 }
 
 type ManifestChunkView struct {
@@ -103,6 +104,10 @@ func makeCoverageManifestView(document *saga.Saga, changes gitdiff.ChangeSet, re
 		Uncovered: report.Summary.Uncovered, Overlapping: report.Summary.Overlapping, Orphaned: report.Summary.Orphaned,
 	}
 	locations := indexManifestTargets(document)
+	diffsByPath := map[string]*FileDiffView{}
+	for _, diff := range makeFileViews(changes, saga.SagaTarget(document.Manifest.ID), nil, nil) {
+		diffsByPath[diff.Path] = diff
+	}
 	files := map[string]*ManifestFileView{}
 	fileAtoms := map[string][]gitdiff.Atom{}
 	targetAtoms := map[string][]gitdiff.Atom{}
@@ -137,6 +142,7 @@ func makeCoverageManifestView(document *saga.Saga, changes gitdiff.ChangeSet, re
 	for path, atoms := range fileAtoms {
 		file := files[path]
 		file.Chunks = makeManifestChunks(atoms, report.Ownership, locations, true)
+		file.Diff = diffsByPath[path]
 		view.Files = append(view.Files, file)
 	}
 	sort.SliceStable(view.Files, func(i, j int) bool { return view.Files[i].Path < view.Files[j].Path })
