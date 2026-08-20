@@ -62,6 +62,7 @@ type reviewProgressItem struct {
 	State      string
 	StateClass string
 	Status     string
+	Note       string
 }
 
 type chapterIndexView struct {
@@ -480,13 +481,13 @@ func makeReviewProgressItems(root *sectionView) []*reviewProgressItem {
 		if title == "" {
 			title = view.ID
 		}
-		result = append(result, makeReviewProgressItem(view.Target, title, base+"#"+view.DOMID, view.ReviewState))
+		result = append(result, makeReviewProgressItem(view.Target, title, base+"#"+view.DOMID, view.ReviewState, view.ReviewBody))
 		for _, fragment := range view.FragmentViews {
 			fragmentTitle := fragment.Title
 			if fragmentTitle == "" {
 				fragmentTitle = fragment.ID
 			}
-			result = append(result, makeReviewProgressItem(fragment.Target, fragmentTitle, base+"#"+fragment.DOMID, fragment.ReviewState))
+			result = append(result, makeReviewProgressItem(fragment.Target, fragmentTitle, base+"#"+fragment.DOMID, fragment.ReviewState, fragment.ReviewBody))
 		}
 		for _, child := range view.ChildViews {
 			childBase := base
@@ -500,8 +501,8 @@ func makeReviewProgressItems(root *sectionView) []*reviewProgressItem {
 	return result
 }
 
-func makeReviewProgressItem(target, title, href, state string) *reviewProgressItem {
-	item := &reviewProgressItem{Target: target, Title: title, Href: href, State: state, StateClass: "pending", Status: "Not reviewed"}
+func makeReviewProgressItem(target, title, href, state, note string) *reviewProgressItem {
+	item := &reviewProgressItem{Target: target, Title: title, Href: href, State: state, StateClass: "pending", Status: "Not reviewed", Note: note}
 	switch state {
 	case "approved":
 		item.StateClass, item.Status = "approved", "Approved"

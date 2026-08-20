@@ -36,13 +36,20 @@ a{color:var(--accent)}
 .view-tab.active{color:var(--ink);border-color:var(--accent);font-weight:600}
 .top-meta{margin-left:auto;color:var(--faint);font:11px var(--mono)}
 .top-meta[hidden]{display:none}
-.review-progress{display:flex;align-items:stretch;gap:2px;flex:0 1 280px;height:12px;margin-left:auto;padding:3px;border:1px solid var(--line-soft);border-radius:99px;background:var(--bg-subtle);opacity:.42;transition:height .18s ease,opacity .28s ease,box-shadow .2s ease}
+.review-progress{position:relative;display:flex;align-items:stretch;gap:2px;flex:0 1 280px;height:12px;margin-left:auto;padding:3px;border:1px solid var(--line-soft);border-radius:99px;background:var(--bg-subtle);opacity:.42;transition:height .18s ease,opacity .28s ease,box-shadow .2s ease}
 .top-meta:not([hidden])+.review-progress{margin-left:0}
 .review-progress:hover,.review-progress:focus-within{height:16px;opacity:1;box-shadow:0 2px 8px #1f23281f}
 .review-progress-segment{min-width:2px;flex:1 1 0;border-radius:2px;background:var(--line);transition:flex-grow .16s ease,background .2s ease,transform .16s ease;outline-offset:1px}
 .review-progress-segment.approved{background:var(--green)}
 .review-progress-segment.rejected{background:var(--red)}
 .review-progress-segment:hover,.review-progress-segment:focus-visible{flex-grow:3;transform:scaleY(1.35)}
+.review-progress-tooltip{position:absolute;z-index:2;top:calc(100% + 8px);right:0;width:max-content;max-width:min(380px,calc(100vw - 24px));padding:8px 10px;border:1px solid #ffffff20;border-radius:6px;background:#24292f;color:#fff;box-shadow:var(--shadow);font:12px/1.4 var(--ui);pointer-events:none}
+.review-progress-tooltip[hidden]{display:none}
+.review-progress-tooltip-head{display:flex;align-items:baseline;justify-content:space-between;gap:18px}
+.review-progress-tooltip-head strong{font-weight:600}
+.review-progress-tooltip-head span{color:#ffffffb8;white-space:nowrap;font-size:11px}
+.review-progress-tooltip-note{display:block;margin-top:5px;padding-top:5px;border-top:1px solid #ffffff24;white-space:pre-wrap;overflow-wrap:anywhere;color:#ffffffeb}
+.review-progress-tooltip-note[hidden]{display:none}
 .review-progress.scrolling{opacity:.72}
 .review-progress.changed{height:16px;opacity:1;box-shadow:0 0 0 2px var(--accent-soft),0 2px 10px #0969da44}
 

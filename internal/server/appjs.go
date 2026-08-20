@@ -105,7 +105,31 @@ const appJavaScript = `(() => {
   let reviewProgressTimer = null;
   let reviewScrollTimer = null;
 
-  function updateReviewProgress(previous = '', next = '', emphasize = false, target = '') {
+  function reviewProgressLabel(title, status, note = '') {
+    return title + ': ' + status + (note ? '. Comment: ' + note : '');
+  }
+
+  function showReviewProgressTooltip(segment) {
+    const progress = segment?.closest('[data-review-progress]');
+    const tooltip = q('[data-review-progress-tooltip]', progress);
+    if (!progress || !tooltip || !segment) return;
+    const title = segment.dataset.reviewProgressTitle || 'Review item';
+    const status = reviewDecisionStatus(segment.dataset.reviewState || '');
+    const note = segment.dataset.reviewProgressNote || '';
+    q('[data-review-progress-tooltip-title]', tooltip).textContent = title;
+    q('[data-review-progress-tooltip-status]', tooltip).textContent = status;
+    const noteElement = q('[data-review-progress-tooltip-note]', tooltip);
+    noteElement.textContent = note;
+    noteElement.hidden = !note;
+    tooltip.hidden = false;
+  }
+
+  function hideReviewProgressTooltip(progress) {
+    const tooltip = q('[data-review-progress-tooltip]', progress);
+    if (tooltip) tooltip.hidden = true;
+  }
+
+  function updateReviewProgress(previous = '', next = '', emphasize = false, target = '', note = '') {
     const progress = q('[data-review-progress]');
     if (!progress) return;
     const total = Math.max(0, Number(document.body.dataset.reviewTotal) || 0);
@@ -122,10 +146,12 @@ const appJavaScript = `(() => {
         const status = reviewDecisionStatus(next);
         const title = segment.dataset.reviewProgressTitle || 'Review item';
         segment.dataset.reviewState = next;
+        segment.dataset.reviewProgressNote = note;
         segment.classList.remove('approved', 'rejected', 'pending');
         segment.classList.add(next === 'approved' || next === 'rejected' ? next : 'pending');
-        segment.setAttribute('aria-label', title + ': ' + status);
-        segment.title = title + ' · ' + status;
+        segment.setAttribute('aria-label', reviewProgressLabel(title, status, note));
+        segment.title = title + ' · ' + status + (note ? '\n' + note : '');
+        if (segment.matches(':hover,:focus')) showReviewProgressTooltip(segment);
       });
     }
     if (!emphasize) return;
@@ -134,7 +160,7 @@ const appJavaScript = `(() => {
     reviewProgressTimer = setTimeout(() => progress.classList.remove('changed'), 1500);
   }
 
-  function setReviewControlState(control, state, animate = true) {
+  function setReviewControlState(control, state, animate = true, note = '') {
     const previous = control.dataset.reviewState || '';
     const title = control.dataset.reviewTitle || 'item';
     control.dataset.reviewState = state;
@@ -149,7 +175,7 @@ const appJavaScript = `(() => {
         button.title = selected ? 'Changes requested · click to undo' : 'Request changes';
       }
     });
-    updateReviewProgress(previous, state, animate, control.dataset.reviewTarget);
+    updateReviewProgress(previous, state, animate, control.dataset.reviewTarget, note);
     if (!animate) return;
     control.classList.remove('decision-changed');
     requestAnimationFrame(() => control.classList.add('decision-changed'));
@@ -185,7 +211,7 @@ const appJavaScript = `(() => {
       const values = new URLSearchParams({target:control.dataset.reviewTarget, state, body, return_to:location.pathname + location.search + location.hash});
       const response = await fetch('/api/review', {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-Review-Saga-Async':'true'},body:values,credentials:'same-origin'});
       if (!response.ok) throw new Error((await response.text()).trim() || 'review could not be saved');
-      setReviewControlState(control, state);
+      setReviewControlState(control, state, true, body.trim());
       const note = q('[data-review-note]', control);
       const noteBody = body.trim();
       note.textContent = noteBody;
@@ -1658,6 +1684,19 @@ const appJavaScript = `(() => {
 
   const firstFragment = q('.fragment');
   if (firstFragment) setActiveFragment(firstFragment);
+  const reviewProgressMap = q('[data-review-progress]');
+  reviewProgressMap?.addEventListener('pointerover', event => {
+    const segment = event.target.closest?.('[data-review-progress-target]');
+    if (segment) showReviewProgressTooltip(segment);
+  });
+  reviewProgressMap?.addEventListener('pointerleave', () => hideReviewProgressTooltip(reviewProgressMap));
+  reviewProgressMap?.addEventListener('focusin', event => {
+    const segment = event.target.closest?.('[data-review-progress-target]');
+    if (segment) showReviewProgressTooltip(segment);
+  });
+  reviewProgressMap?.addEventListener('focusout', event => {
+    if (!reviewProgressMap.contains(event.relatedTarget)) hideReviewProgressTooltip(reviewProgressMap);
+  });
   q('[data-file-filter]')?.addEventListener('input', filterTree);
   q('[data-hide-reviewed]')?.addEventListener('change', filterTree);
   q('[data-manifest-filter]')?.addEventListener('input', filterManifest);
