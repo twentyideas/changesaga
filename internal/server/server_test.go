@@ -450,7 +450,12 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	data := pageData{
 		Saga: &saga.Saga{Manifest: saga.Manifest{ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/a.git", Base: "main", Head: "HEAD"}}, Section: section},
 		Root: makeSectionView(section, map[string][]gitdiff.Atom{fragment.Target: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}, landmarkTarget: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}}, map[string][]*threadView{fragment.Target: {makeThreadView(thread)}}, nil), Chapter: true,
-		Code: &CodeReviewView{}, Manifest: manifestFixture, ReviewDecided: 1, ReviewTotal: 3,
+		Code: &CodeReviewView{}, Manifest: manifestFixture, ReviewDecided: 2, ReviewTotal: 3,
+		ReviewItems: []*reviewProgressItem{
+			makeReviewProgressItem(section.Target, section.Title, "/#"+domID(section.Target), ""),
+			makeReviewProgressItem(fragment.Target, fragment.Title, "/#"+domID(fragment.Target), "approved"),
+			makeReviewProgressItem(emptyFragment.Target, emptyFragment.Title, "/#"+domID(emptyFragment.Target), "rejected"),
+		},
 	}
 	var output bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&output, "page", data); err != nil {
@@ -460,7 +465,7 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	if strings.Contains(renderedPage, "ZgotmplZ") || !strings.Contains(renderedPage, "/app.js") || !strings.Contains(renderedPage, `x="100.00"`) || !strings.Contains(renderedPage, `data-diff-ref="saga-diff://v1/line?`) || !strings.Contains(renderedPage, `id="`+domID(fragment.Target)+`--story"`) {
 		t.Fatalf("template produced unsafe or incomplete output")
 	}
-	if strings.Count(renderedPage, `class="annotation-toolbox"`) != 1 || !strings.Contains(renderedPage, `data-review-progress`) || !strings.Contains(renderedPage, `data-review-decided="1" data-review-total="3"`) || !strings.Contains(renderedPage, `data-review-controls`) || !strings.Contains(renderedPage, `data-review-decision="approved" aria-pressed="true"`) || !strings.Contains(renderedPage, `data-review-comment`) || !strings.Contains(renderedPage, `data-review-note title="Ready to merge."`) || !strings.Contains(renderedPage, `i-approve-filled`) || !strings.Contains(renderedPage, `i-reject-filled`) || strings.Contains(renderedPage, `decision-dialog`) || strings.Contains(renderedPage, `class="review-form"`) {
+	if strings.Count(renderedPage, `class="annotation-toolbox"`) != 1 || !strings.Contains(renderedPage, `data-review-progress`) || !strings.Contains(renderedPage, `data-review-decided="2" data-review-total="3"`) || !strings.Contains(renderedPage, `aria-label="Review progress: 2 of 3 decisions"`) || !strings.Contains(renderedPage, `class="review-progress-segment approved"`) || !strings.Contains(renderedPage, `class="review-progress-segment rejected"`) || !strings.Contains(renderedPage, `class="review-progress-segment pending"`) || !strings.Contains(renderedPage, `href="/#`+domID(fragment.Target)+`"`) || !strings.Contains(renderedPage, `data-review-controls`) || !strings.Contains(renderedPage, `data-review-decision="approved" aria-pressed="true"`) || !strings.Contains(renderedPage, `data-review-comment`) || !strings.Contains(renderedPage, `data-review-note title="Ready to merge."`) || !strings.Contains(renderedPage, `i-approve-filled`) || !strings.Contains(renderedPage, `i-reject-filled`) || strings.Contains(renderedPage, `decision-dialog`) || strings.Contains(renderedPage, `class="review-form"`) {
 		t.Fatal("fast inline review controls and progress were not rendered")
 	}
 	if !strings.Contains(renderedPage, `body data-saga-id="test"`) || !strings.Contains(renderedPage, `data-undo disabled`) || !strings.Contains(renderedPage, `data-redo disabled`) || strings.Contains(renderedPage, `name="record_history"`) {
@@ -645,22 +650,31 @@ func TestChapterIndexReportsResumeState(t *testing.T) {
 
 func TestReviewDecisionProgressCountsTheWholeSaga(t *testing.T) {
 	root := &sectionView{
-		Section:     &saga.Section{ID: "root"},
+		Section:     &saga.Section{Kind: "saga", ID: "root", Title: "Root", Target: "urn:review-saga:test:saga"},
+		DOMID:       "root-target",
 		ReviewState: "approved",
 		FragmentViews: []*fragmentView{
-			{ReviewState: "rejected"},
-			{ReviewState: "open"},
+			{Fragment: &saga.Fragment{ID: "one", Title: "One", Target: "urn:review-saga:test:fragment:one"}, DOMID: "one-target", ReviewState: "rejected"},
+			{Fragment: &saga.Fragment{ID: "two", Title: "Two", Target: "urn:review-saga:test:fragment:two"}, DOMID: "two-target", ReviewState: "open"},
 		},
 		ChildViews: []*sectionView{{
-			Section: &saga.Section{ID: "chapter"},
+			Section: &saga.Section{Kind: "chapter", ID: "chapter", Title: "Chapter", Target: "urn:review-saga:test:chapter:chapter"},
+			DOMID:   "chapter-target",
 			FragmentViews: []*fragmentView{
-				{ReviewState: "approved"},
+				{Fragment: &saga.Fragment{ID: "three", Title: "Three", Target: "urn:review-saga:test:fragment:three"}, DOMID: "three-target", ReviewState: "approved"},
 			},
 		}},
 	}
-	decided, total := reviewDecisionProgress(root)
+	items := makeReviewProgressItems(root)
+	decided, total := reviewProgressSummary(items)
 	if decided != 3 || total != 5 {
 		t.Fatalf("review decision progress = %d/%d, want 3/5", decided, total)
+	}
+	if items[0].Href != "/#root-target" || items[3].Href != "/chapters/chapter#chapter-target" || items[4].Href != "/chapters/chapter#three-target" {
+		t.Fatalf("review progress links do not navigate to their targets: %#v", items)
+	}
+	if items[0].StateClass != "approved" || items[1].StateClass != "rejected" || items[2].StateClass != "pending" {
+		t.Fatalf("review progress colors do not match decision state: %#v", items)
 	}
 }
 

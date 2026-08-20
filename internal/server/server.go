@@ -52,6 +52,16 @@ type pageData struct {
 	ReviewedFiles int
 	ReviewDecided int
 	ReviewTotal   int
+	ReviewItems   []*reviewProgressItem
+}
+
+type reviewProgressItem struct {
+	Target     string
+	Title      string
+	Href       string
+	State      string
+	StateClass string
+	Status     string
 }
 
 type chapterIndexView struct {
@@ -225,13 +235,7 @@ func templateFuncs() template.FuncMap {
 			return defaultNoteColor
 		},
 		"percent": func(value float64) string { return strconv.FormatFloat(value*100, 'f', 4, 64) },
-		"reviewProgress": func(decided, total int) string {
-			if total <= 0 {
-				return "0"
-			}
-			return strconv.FormatFloat(float64(decided)/float64(total), 'f', 4, 64)
-		},
-		"coord": func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
+		"coord":   func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
 		"points": func(values []saga.Point) string {
 			parts := make([]string, 0, len(values))
 			for _, point := range values {
@@ -317,7 +321,8 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 		Chapters: makeChapterIndex(rootView, chapterID),
 		Code:     code,
 	}
-	data.ReviewDecided, data.ReviewTotal = reviewDecisionProgress(rootView)
+	data.ReviewItems = makeReviewProgressItems(rootView)
+	data.ReviewDecided, data.ReviewTotal = reviewProgressSummary(data.ReviewItems)
 	data.Nav = makeNavTree(document.Manifest.Title, rootView, selected, chapterRoute, chapterID)
 	if diffErr == nil {
 		data.Manifest = makeCoverageManifestView(document, changes, report)
@@ -461,24 +466,57 @@ func sectionHasActivity(view *sectionView) bool {
 	return false
 }
 
-func reviewDecisionProgress(view *sectionView) (decided, total int) {
-	if view == nil {
-		return 0, 0
+func makeReviewProgressItems(root *sectionView) []*reviewProgressItem {
+	if root == nil {
+		return nil
 	}
-	total++
-	if view.ReviewState == "approved" || view.ReviewState == "rejected" {
-		decided++
-	}
-	for _, fragment := range view.FragmentViews {
-		total++
-		if fragment.ReviewState == "approved" || fragment.ReviewState == "rejected" {
-			decided++
+	var result []*reviewProgressItem
+	var walk func(*sectionView, string)
+	walk = func(view *sectionView, base string) {
+		if view == nil {
+			return
+		}
+		title := view.Title
+		if title == "" {
+			title = view.ID
+		}
+		result = append(result, makeReviewProgressItem(view.Target, title, base+"#"+view.DOMID, view.ReviewState))
+		for _, fragment := range view.FragmentViews {
+			fragmentTitle := fragment.Title
+			if fragmentTitle == "" {
+				fragmentTitle = fragment.ID
+			}
+			result = append(result, makeReviewProgressItem(fragment.Target, fragmentTitle, base+"#"+fragment.DOMID, fragment.ReviewState))
+		}
+		for _, child := range view.ChildViews {
+			childBase := base
+			if child.Kind == "chapter" {
+				childBase = "/chapters/" + url.PathEscape(child.ID)
+			}
+			walk(child, childBase)
 		}
 	}
-	for _, child := range view.ChildViews {
-		childDecided, childTotal := reviewDecisionProgress(child)
-		decided += childDecided
-		total += childTotal
+	walk(root, "/")
+	return result
+}
+
+func makeReviewProgressItem(target, title, href, state string) *reviewProgressItem {
+	item := &reviewProgressItem{Target: target, Title: title, Href: href, State: state, StateClass: "pending", Status: "Not reviewed"}
+	switch state {
+	case "approved":
+		item.StateClass, item.Status = "approved", "Approved"
+	case "rejected":
+		item.StateClass, item.Status = "rejected", "Changes requested"
+	}
+	return item
+}
+
+func reviewProgressSummary(items []*reviewProgressItem) (decided, total int) {
+	for _, item := range items {
+		total++
+		if item.State == "approved" || item.State == "rejected" {
+			decided++
+		}
 	}
 	return decided, total
 }

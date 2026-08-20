@@ -96,10 +96,16 @@ const appJavaScript = `(() => {
     return state === 'approved' || state === 'rejected';
   }
 
+  function reviewDecisionStatus(state) {
+    if (state === 'approved') return 'Approved';
+    if (state === 'rejected') return 'Changes requested';
+    return 'Not reviewed';
+  }
+
   let reviewProgressTimer = null;
   let reviewScrollTimer = null;
 
-  function updateReviewProgress(previous = '', next = '', emphasize = false) {
+  function updateReviewProgress(previous = '', next = '', emphasize = false, target = '') {
     const progress = q('[data-review-progress]');
     if (!progress) return;
     const total = Math.max(0, Number(document.body.dataset.reviewTotal) || 0);
@@ -110,9 +116,18 @@ const appJavaScript = `(() => {
       decided = Math.max(0, Math.min(total, decided));
       document.body.dataset.reviewDecided = String(decided);
     }
-    progress.style.setProperty('--review-progress', total ? String(decided / total) : '0');
-    progress.setAttribute('aria-valuemax', String(total));
-    progress.setAttribute('aria-valuenow', String(decided));
+    progress.setAttribute('aria-label', 'Review progress: ' + decided + ' of ' + total + ' decisions');
+    if (target) {
+      qa('[data-review-progress-target]', progress).filter(segment => segment.dataset.reviewProgressTarget === target).forEach(segment => {
+        const status = reviewDecisionStatus(next);
+        const title = segment.dataset.reviewProgressTitle || 'Review item';
+        segment.dataset.reviewState = next;
+        segment.classList.remove('approved', 'rejected', 'pending');
+        segment.classList.add(next === 'approved' || next === 'rejected' ? next : 'pending');
+        segment.setAttribute('aria-label', title + ': ' + status);
+        segment.title = title + ' · ' + status;
+      });
+    }
     if (!emphasize) return;
     progress.classList.add('changed');
     clearTimeout(reviewProgressTimer);
@@ -134,7 +149,7 @@ const appJavaScript = `(() => {
         button.title = selected ? 'Changes requested · click to undo' : 'Request changes';
       }
     });
-    updateReviewProgress(previous, state, animate);
+    updateReviewProgress(previous, state, animate, control.dataset.reviewTarget);
     if (!animate) return;
     control.classList.remove('decision-changed');
     requestAnimationFrame(() => control.classList.add('decision-changed'));

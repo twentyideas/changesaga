@@ -36,10 +36,15 @@ a{color:var(--accent)}
 .view-tab.active{color:var(--ink);border-color:var(--accent);font-weight:600}
 .top-meta{margin-left:auto;color:var(--faint);font:11px var(--mono)}
 .top-meta[hidden]{display:none}
-.review-progress{position:fixed;z-index:31;top:calc(var(--top) - 2px);left:0;right:0;height:2px;overflow:hidden;background:#0969da10;opacity:.16;pointer-events:none;transition:opacity .35s ease,height .2s ease,box-shadow .25s ease}
-.review-progress>span{display:block;width:100%;height:100%;background:var(--accent);transform:scaleX(var(--review-progress,0));transform-origin:left;transition:transform .45s cubic-bezier(.2,.8,.2,1)}
-.review-progress.scrolling{opacity:.48}
-.review-progress.changed{height:4px;opacity:1;box-shadow:0 1px 8px #0969da55}
+.review-progress{display:flex;align-items:stretch;gap:2px;flex:0 1 280px;height:12px;margin-left:auto;padding:3px;border:1px solid var(--line-soft);border-radius:99px;background:var(--bg-subtle);opacity:.42;transition:height .18s ease,opacity .28s ease,box-shadow .2s ease}
+.top-meta:not([hidden])+.review-progress{margin-left:0}
+.review-progress:hover,.review-progress:focus-within{height:16px;opacity:1;box-shadow:0 2px 8px #1f23281f}
+.review-progress-segment{min-width:2px;flex:1 1 0;border-radius:2px;background:var(--line);transition:flex-grow .16s ease,background .2s ease,transform .16s ease;outline-offset:1px}
+.review-progress-segment.approved{background:var(--green)}
+.review-progress-segment.rejected{background:var(--red)}
+.review-progress-segment:hover,.review-progress-segment:focus-visible{flex-grow:3;transform:scaleY(1.35)}
+.review-progress.scrolling{opacity:.72}
+.review-progress.changed{height:16px;opacity:1;box-shadow:0 0 0 2px var(--accent-soft),0 2px 10px #0969da44}
 
 /* Shell ------------------------------------------------------------------ */
 .shell{display:grid;grid-template-columns:264px minmax(0,1fr);min-height:calc(100vh - var(--top))}
@@ -505,6 +510,7 @@ section:hover>.section-actions .review-controls,.section:hover>.section-head>.se
 .topbar{padding:0 8px;gap:6px}
 .brand span{display:none}
 .view-tab{padding:0 8px}
+.review-progress{flex-basis:110px;gap:1px;padding-inline:2px}
 .shell,.shell.code-mode{display:block}
 .sidebar{position:static;height:auto;max-height:42vh;padding:8px}
 .shell.code-mode .sidebar{position:fixed;z-index:25;top:var(--top);bottom:0;left:0;width:min(300px,86vw);max-height:none;height:auto;box-shadow:12px 0 30px #1f232826;transform:none;transition:transform .18s}
