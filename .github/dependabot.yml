@@ -1,0 +1,15 @@
+# The workflows pin actions to commit SHAs, which is the safe way to depend on
+# them but freezes security fixes. Dependabot opens the update pull requests
+# that keep those pins current.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci"
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: monthly
