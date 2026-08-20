@@ -1,0 +1,16 @@
+node_modules/
+cdk.out/
+cdk.context.json
+*.tsbuildinfo
+bin/*.js
+bin/*.d.ts
+lib/*.js
+lib/*.d.ts
+test/*.js
+test/*.d.ts
+# The handler is bundled by esbuild, but tsc also emits it because the tests
+# import it directly.
+lambda/**/*.js
+lambda/**/*.d.ts
+.env
+.env.*
