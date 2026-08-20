@@ -244,7 +244,7 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	data := pageData{
 		Saga: &saga.Saga{Manifest: saga.Manifest{ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/a.git", Base: "main", Head: "HEAD"}}, Section: section},
 		Root: makeSectionView(section, map[string][]gitdiff.Atom{fragment.Target: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}, landmarkTarget: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}}, map[string][]*threadView{fragment.Target: {makeThreadView(thread)}}, nil), Chapter: true,
-		Code: &CodeReviewView{},
+		Code: &CodeReviewView{}, Manifest: &CoverageManifestView{Complete: true, Total: 1, Covered: 1, MappingCount: 1, Files: []*ManifestFileView{{Path: "app.go", AtomCount: 1, Added: 1, Covered: 1, Chunks: []*ManifestChunkView{{Label: "+1", Path: "app.go", Excerpt: "package app", Href: CodeDiffURL("app.go", lineURI), Covered: true, Owners: []*ManifestOwnerView{{Title: "Overview", Kind: "Fragment", Chapter: "Test", Href: "#overview"}}}}}}, Targets: []*ManifestTargetView{{ManifestOwnerView: ManifestOwnerView{Title: "Overview", Kind: "Fragment", Chapter: "Test", Href: "#overview"}, AtomCount: 1, Chunks: []*ManifestChunkView{{Label: "+1", Path: "app.go", Excerpt: "package app", Href: CodeDiffURL("app.go", lineURI)}}}}},
 	}
 	var output bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&output, "page", data); err != nil {
@@ -256,6 +256,12 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	}
 	if strings.Count(renderedPage, `class="annotation-toolbox"`) != 1 || strings.Contains(renderedPage, `class="review-form"`) {
 		t.Fatal("review controls were not consolidated")
+	}
+	if !strings.Contains(renderedPage, `data-view-tab="manifest"`) || !strings.Contains(renderedPage, `data-manifest-panel="code"`) || !strings.Contains(renderedPage, "Everything is accounted for") || !strings.Contains(renderedPage, "Code → Saga") || !strings.Contains(renderedPage, "Saga → Code") {
+		t.Fatal("bidirectional coverage manifest was not rendered")
+	}
+	if strings.Contains(renderedPage, "Attached code") || strings.Contains(renderedPage, "Linked diffs</h2>") || !strings.Contains(renderedPage, `<div class="drawer-head"><strong>Linked code</strong>`) {
+		t.Fatal("attached-code drawer retained redundant header chrome")
 	}
 	if !strings.Contains(renderedPage, `data-annotation-color`) || !strings.Contains(renderedPage, `stroke="#336699"`) || !strings.Contains(renderedPage, `data-copy-link="#`+domID("thread:thread")+`"`) || !strings.Contains(renderedPage, `data-copy-link="#`+domID("message:message")+`"`) {
 		t.Fatal("annotation colors or committed-item permalinks were not rendered")

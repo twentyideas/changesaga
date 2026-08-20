@@ -331,6 +331,7 @@ const appJavaScript = `(() => {
   }
 
   function setView(name, updateURL = true) {
+    if (!q('[data-view="'+name+'"]')) name = 'saga';
     qa('[data-view]').forEach(view => view.classList.toggle('active', view.dataset.view === name));
     qa('[data-view-tab]').forEach(tab => tab.classList.toggle('active', tab.dataset.viewTab === name));
     const sagaSide = q('.saga-side');
@@ -345,9 +346,30 @@ const appJavaScript = `(() => {
     if (shell) shell.classList.toggle('code-mode', name === 'code');
     if (updateURL) {
       const url = new URL(location.href);
-      if (name === 'code') url.searchParams.set('view', 'code'); else url.searchParams.delete('view');
+      if (name === 'saga') url.searchParams.delete('view'); else url.searchParams.set('view', name);
       history.pushState({view: name}, '', url);
     }
+  }
+
+  function filterManifest() {
+    const input = q('[data-manifest-filter]');
+    const query = (input?.value || '').trim().toLowerCase();
+    qa('[data-manifest-panel]').forEach(panel => {
+      let visible = 0;
+      qa('[data-manifest-search]', panel).forEach(group => {
+        const match = !query || group.dataset.manifestSearch.toLowerCase().includes(query);
+        group.hidden = !match;
+        if (match) visible++;
+      });
+      const empty = q('[data-manifest-empty]', panel);
+      if (empty) empty.hidden = visible !== 0 || !query;
+    });
+  }
+
+  function setManifestMode(mode) {
+    qa('[data-manifest-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.manifestMode === mode)));
+    qa('[data-manifest-panel]').forEach(panel => panel.hidden = panel.dataset.manifestPanel !== mode);
+    filterManifest();
   }
 
   function setActiveFragment(fragment) {
@@ -498,6 +520,8 @@ const appJavaScript = `(() => {
     if (permalink) { copyPermalink(permalink); return; }
     const viewTab = event.target.closest('[data-view-tab]');
     if (viewTab) { setView(viewTab.dataset.viewTab); return; }
+    const manifestMode = event.target.closest('[data-manifest-mode]');
+    if (manifestMode) { setManifestMode(manifestMode.dataset.manifestMode); return; }
     const treeToggle = event.target.closest('[data-toggle-tree]');
     if (treeToggle) {
       const hidden = q('[data-shell]')?.classList.contains('tree-hidden');
@@ -631,14 +655,20 @@ const appJavaScript = `(() => {
   if (firstFragment) setActiveFragment(firstFragment);
   q('[data-file-filter]')?.addEventListener('input', filterTree);
   q('[data-hide-reviewed]')?.addEventListener('change', filterTree);
+  q('[data-manifest-filter]')?.addEventListener('input', filterManifest);
   q('[data-annotation-color]')?.addEventListener('input', event => { annotationColor = normalizedAnnotationColor(event.target.value); });
   prepareContext();
   highlightCode();
   applyDiffLayout('inline');
   addEventListener('resize', () => { applyDiffLayout(diffLayout); positionLandmarkHotspots(); });
-  const initialView = new URL(location.href).searchParams.get('view') === 'code' ? 'code' : 'saga';
+  const requestedView = new URL(location.href).searchParams.get('view');
+  const initialView = requestedView === 'code' || requestedView === 'manifest' ? requestedView : 'saga';
   setView(initialView, false);
+  setManifestMode('code');
   activateLandmark();
   addEventListener('hashchange', activateLandmark);
-  addEventListener('popstate', () => setView(new URL(location.href).searchParams.get('view') === 'code' ? 'code' : 'saga', false));
+  addEventListener('popstate', () => {
+    const view = new URL(location.href).searchParams.get('view');
+    setView(view === 'code' || view === 'manifest' ? view : 'saga', false);
+  });
 })();`

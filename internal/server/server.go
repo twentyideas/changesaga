@@ -45,6 +45,7 @@ type pageData struct {
 	Chapter       bool
 	Diagnostic    string
 	Code          *CodeReviewView
+	Manifest      *CoverageManifestView
 	Error         string
 	Files         []*fileDiffView
 	ReviewedFiles int
@@ -261,6 +262,9 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 		Root: selected, Overview: !chapterRoute, Chapter: chapterRoute,
 		Chapters: makeChapterIndex(rootView, chapterID),
 		Code:     code,
+	}
+	if diffErr == nil {
+		data.Manifest = makeCoverageManifestView(document, changes, report)
 	}
 	if code != nil {
 		data.Files, data.ReviewedFiles = code.Files, code.ReviewedFiles

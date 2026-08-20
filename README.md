@@ -29,8 +29,8 @@ attributable through Git.
 - Separation of product changes from changes inside any `*.saga/` directory.
 - A local reviewer with rectangle/freehand overlays, text highlights, threaded
   replies, fragment attachments, and append-only resolve/reopen events.
-- A Saga view with per-fragment diff drawers and a full Code Diff view with a
-  changed-file tree, line comments, suggestions, and reviewed-file tracking.
+- A Saga view with per-fragment diff drawers, a full Code Diff view, and a
+  bidirectional Coverage Manifest proving every code-to-narrative mapping.
 - Consistent saga-, section-, and fragment-level approvals.
 
 ## Install
@@ -158,12 +158,15 @@ HTML/SVG elements, exact text, and image regions use independent
 exact narrative element to exact code, and static-media hotspots reveal link
 and code controls on hover.
 
-The local reviewer has two modes. **Saga** keeps the authored narrative in the
-foreground and opens attached code in a scrollable right-hand drawer. **Code
-Diff** presents the entire comparison with a changed-file tree. Both modes use
-the same diff rows and thread records, so a comment or suggestion made in one is
-visible in the other. Reviewed-file markers and fragment approvals are
-append-only metadata committed with the saga.
+The local reviewer has three complementary surfaces. **Saga** keeps the authored
+narrative in the foreground and opens attached code in a scrollable right-hand
+drawer. **Code Diff** presents the entire comparison with a changed-file tree.
+**Manifest**
+audits the relationship in both directions: every changed range shows the Saga
+elements that explain it, and every mapped Saga element shows its exact code
+ranges. The review surfaces use the same diff rows and thread records, so a
+comment or suggestion made in one is visible in the others. Reviewed-file
+markers and fragment approvals are append-only metadata committed with the saga.
 
 Review data is intentionally conflict-resistant: separate comments create
 separate `.thread` directories, every reply creates a separate `.message`

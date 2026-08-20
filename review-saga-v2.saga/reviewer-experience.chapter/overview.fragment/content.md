@@ -8,7 +8,7 @@ The UI consumes the loaded saga, coverage report, source atoms, and append-only 
 
 # Reviewer journey {#reviewer-journey}
 
-Saga view starts with coverage health, then presents the root overview and chapters in authored order. Every section or fragment can open its attached code in a scrollable right-hand drawer without losing narrative context. Code Diff view reuses the same diff rows but exposes the complete comparison with a changed-file tree.
+Saga view presents the root overview and chapters in authored order. Every section, fragment, or landmark with evidence can open its attached code in a wide scrollable drawer without losing narrative context. Code Diff view reuses the same diff rows but exposes the complete comparison with a changed-file tree. Coverage Manifest projects the same atom ownership in both directions, so a reviewer can audit every changed range against its narrative destinations and every mapped narrative element against its exact code ranges.
 
 Reviewers can comment on targets, select text, draw rectangles or freehand paths, attach rich fragments, comment on diff lines, propose replacement code, resolve threads, approve narrative targets, and mark files reviewed. Because both views use the same stored threads, a comment made in either context appears everywhere that diff is shown.
 
@@ -18,4 +18,4 @@ Interactive HTML and SVG run in sandboxed iframes with scripts enabled but netwo
 
 # Reviewer checks {#reviewer-checks}
 
-Verify the same line thread appears in attached drawers and the full diff view; review state survives reload because it is file-backed; text and shape anchors remain attached to the correct fragment; unsafe fragment paths are rejected; and responsive layouts preserve access to primary controls.
+Verify the same line thread appears in attached drawers and the full diff view; the Manifest has no unmapped or stale entries and both directions deep-link to the exact Saga element or code range; review state survives reload because it is file-backed; text and shape anchors remain attached to the correct fragment; unsafe fragment paths are rejected; and responsive layouts preserve access to primary controls.

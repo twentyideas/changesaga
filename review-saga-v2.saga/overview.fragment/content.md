@@ -10,7 +10,7 @@ Review Saga introduces a Git-native review document for treating a large change 
 - Markdown, text, raster image, SVG, and sandboxed interactive HTML fragments.
 - Mechanical accounting for every added/deleted line plus rename, mode, and binary events.
 - A Go CLI for authoring, validation, coverage, comments, replies, decisions, and local serving.
-- A two-mode reviewer: Saga view for narrative-first review and Code Diff view for the complete comparison.
+- A three-surface reviewer: Saga view for narrative-first review, Code Diff view for the complete comparison, and a bidirectional Coverage Manifest proving how every change maps into the story and back again.
 - Append-only, file-granular review records so parallel comments and replies normally merge without touching the same file.
 - A bundled AI skill that turns a request such as “make a review saga for PR 123” into a disciplined authoring loop.
 

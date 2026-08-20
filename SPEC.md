@@ -364,9 +364,11 @@ real directories, not symlinks. Other names beginning with `___` are invalid.
 - `saga thread` and `saga reply` edit the review overlay without modifying
   authored fragment content.
 - `saga review` appends a saga-, chapter-, section-, or fragment-level decision.
-- `saga open` serves a Saga view with attached-diff drawers and a Code Diff view
-  with a changed-file tree. Both surfaces support diff comments and suggestions;
-  the full view also records reviewed/unreviewed file events.
+- `saga open` serves a Saga view with attached-diff drawers, a Code Diff view
+  with a changed-file tree, and a bidirectional Coverage Manifest. The Manifest
+  must derive both code-to-narrative and narrative-to-code projections from the
+  same atom assignments. Review surfaces support diff comments and suggestions;
+  the full diff view also records reviewed/unreviewed file events.
 - `saga validate` checks structure, identifiers, URIs, anchors, entrypoints, and
   review history independently from coverage completeness.
 
