@@ -161,6 +161,7 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 	mux.HandleFunc("POST /api/thread", application.createThread)
 	mux.HandleFunc("POST /api/reply", application.reply)
 	mux.HandleFunc("POST /api/thread-state", application.threadState)
+	mux.HandleFunc("POST /api/thread-anchor", application.threadAnchor)
 	mux.HandleFunc("POST /api/review", application.review)
 	mux.HandleFunc("POST /api/diff-review", application.diffReview)
 
@@ -455,9 +456,11 @@ func svgAspectRatio(source string) string {
 
 func makeThreadView(thread *saga.Thread) *threadView {
 	view := &threadView{Thread: thread}
-	if len(thread.Events) > 0 {
-		last := thread.Events[len(thread.Events)-1]
-		view.StateAuthor, view.StateDetail = last.Author, last.AttributionDetail
+	for index := len(thread.Events) - 1; index >= 0; index-- {
+		if thread.Events[index].State != "" {
+			view.StateAuthor, view.StateDetail = thread.Events[index].Author, thread.Events[index].AttributionDetail
+			break
+		}
 	}
 	for _, message := range thread.Messages {
 		var fragments []*fragmentView
@@ -708,13 +711,8 @@ func (a *app) createThread(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid annotation anchor", http.StatusBadRequest)
 		return
 	}
-	threadID, err := reviewstore.AddThread(a.root, target, r.FormValue("body"), anchor, r.FormValue("kind"), r.FormValue("replacement"), attachments)
-	if err != nil {
+	if _, err := reviewstore.AddThread(a.root, target, r.FormValue("body"), anchor, r.FormValue("kind"), r.FormValue("replacement"), attachments); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if r.FormValue("record_history") == "1" {
-		redirectAfterReviewAction(w, r, "/#"+domID(target), threadID, target, annotationHistoryLabel(anchor, r.FormValue("kind")))
 		return
 	}
 	redirectAfterReview(w, r, "/#"+domID(target))
@@ -745,6 +743,24 @@ func (a *app) threadState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirectAfterReview(w, r, "/#"+domID(r.FormValue("target")))
+}
+
+func (a *app) threadAnchor(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 2<<20)
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	var anchor saga.Anchor
+	if err := json.Unmarshal([]byte(r.FormValue("anchor")), &anchor); err != nil {
+		http.Error(w, "invalid annotation anchor", http.StatusBadRequest)
+		return
+	}
+	if err := reviewstore.SetAnchor(a.root, r.FormValue("thread"), anchor); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *app) review(w http.ResponseWriter, r *http.Request) {
@@ -791,44 +807,12 @@ func redirectAfterReview(w http.ResponseWriter, r *http.Request, fallback string
 	http.Redirect(w, r, reviewRedirectDestination(r.FormValue("return_to"), fallback), http.StatusSeeOther)
 }
 
-func redirectAfterReviewAction(w http.ResponseWriter, r *http.Request, fallback, threadID, target, label string) {
-	destination := reviewRedirectDestination(r.FormValue("return_to"), fallback)
-	parsed, err := url.Parse(destination)
-	if err != nil {
-		http.Redirect(w, r, destination, http.StatusSeeOther)
-		return
-	}
-	query := parsed.Query()
-	query.Set("saga_action", "thread-created")
-	query.Set("saga_thread", threadID)
-	query.Set("saga_target", target)
-	query.Set("saga_label", label)
-	parsed.RawQuery = query.Encode()
-	http.Redirect(w, r, parsed.String(), http.StatusSeeOther)
-}
-
 func reviewRedirectDestination(destination, fallback string) string {
 	parsed, err := url.Parse(destination)
 	if err != nil || destination == "" || !strings.HasPrefix(destination, "/") || strings.HasPrefix(destination, "//") || parsed.IsAbs() || parsed.Host != "" {
 		return fallback
 	}
 	return destination
-}
-
-func annotationHistoryLabel(anchor saga.Anchor, kind string) string {
-	if kind == "suggestion" {
-		return "suggestion"
-	}
-	switch anchor.Type {
-	case "text":
-		return "highlight"
-	case "region":
-		return "rectangle"
-	case "drawing":
-		return "freehand"
-	default:
-		return "comment"
-	}
 }
 
 func parseMultipart(r *http.Request, w http.ResponseWriter) ([]string, error) {

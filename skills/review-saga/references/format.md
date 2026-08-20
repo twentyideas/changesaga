@@ -124,8 +124,10 @@ include explicit replacement text.
 
 Thread state events are `open`, `resolved`, or `withdrawn`. A withdrawn thread
 is hidden from the active review while its files remain in history; a later
-`open` event restores it. This is the durable undo/redo model. Never delete or
-rewrite the original thread or message when reversing an annotation.
+`open` event restores it. A thread event may instead carry an `anchor` to record
+new geometry or color for a committed annotation. Undo/redo before submission
+is transient UI state; committed removal and editing append events. Never
+delete or rewrite the original thread or message.
 
 Every top-level comment has its own `.thread` directory; every initial comment
 or reply has its own `.message` directory; and each state or approval transition

@@ -2,7 +2,7 @@
 
 Fragment review supports whole-target comments, resilient text quotes with context and positions, normalized rectangles/lines/ellipses, and freehand paths. Normalized geometry survives responsive resizing. Thread messages reuse the fragment model, so a discussion can carry diagrams, screenshots, or interactive demonstrations.
 
-Ctrl/Cmd+Z reverses an in-progress or saved comment, highlight, rectangle, or freehand annotation; Ctrl/Cmd+Shift+Z and Ctrl+Y restore it. Draft geometry disappears immediately. Saved annotations are never deleted: undo appends a `withdrawn` state event and redo appends `open`, preserving the complete review trail in Git.
+Ctrl/Cmd+Z reverses in-progress canvas changes, while Ctrl/Cmd+Shift+Z and Ctrl+Y restore them. Rectangle and freehand gestures accumulate in one pending annotation and each add, move, recolor, or removal is an in-memory history step. After submission, committed shapes are selectable: dragging moves them, the color picker recolors them, and Remove hides them. Those durable edits append anchor or `withdrawn` state events instead of rewriting the original thread.
 
 # Code review actions {#code-review-actions}
 

@@ -1,15 +1,20 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://reviewsaga.dev/schema/v2/thread-event.schema.json",
-  "title": "Review Saga thread state event",
+  "title": "Review Saga thread mutation event",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "id", "state", "created_at"],
+  "required": ["version", "id", "created_at"],
   "properties": {
     "version": { "const": 2 },
     "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
     "author": { "type": "string", "minLength": 1 },
     "state": { "enum": ["open", "resolved", "withdrawn"] },
+    "anchor": { "$ref": "thread.schema.json#/$defs/anchor" },
     "created_at": { "type": "string", "format": "date-time" }
-  }
+  },
+  "anyOf": [
+    { "required": ["state"] },
+    { "required": ["anchor"] }
+  ]
 }

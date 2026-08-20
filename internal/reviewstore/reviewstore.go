@@ -114,6 +114,24 @@ func SetState(root, threadID, state string) error {
 	return store.WriteJSON(filepath.Join(eventsDir, id+"-"+state+".json"), event, true)
 }
 
+func SetAnchor(root, threadID string, anchor saga.Anchor) error {
+	if err := saga.ValidateAnchor(anchor); err != nil {
+		return err
+	}
+	threadDir := filepath.Join(root, "___review", "threads", filepath.Base(threadID)+".thread")
+	if info, err := os.Stat(filepath.Join(threadDir, "thread.json")); err != nil || info.IsDir() {
+		return fmt.Errorf("thread %q does not exist", threadID)
+	}
+	eventsDir, err := store.EnsureDirWithin(root, filepath.Join(threadDir, "events"))
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	id := store.EventID(now)
+	event := saga.ThreadEvent{Version: saga.CurrentVersion, ID: id, Anchor: &anchor, CreatedAt: now}
+	return store.WriteJSON(filepath.Join(eventsDir, id+"-anchor.json"), event, true)
+}
+
 func AddReview(root, targetDir, state, body string) error {
 	if state != "approved" && state != "rejected" && state != "closed" && state != "open" {
 		return fmt.Errorf("review requires approved, rejected, closed, or open state")

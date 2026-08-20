@@ -71,33 +71,6 @@ func TestCreateTextHighlightPersistsChosenColor(t *testing.T) {
 	}
 }
 
-func TestCreateThreadReturnsUndoHistoryMarker(t *testing.T) {
-	root := validServerSaga(t)
-	application := &app{root: root}
-	request := multipartRequest(t, "/api/thread", map[string]string{
-		"target":         "urn:review-saga:test:fragment:overview",
-		"body":           "Undoable comment.",
-		"anchor":         `{"type":"text","text":{"exact":"Story","start":0,"end":5}}`,
-		"return_to":      "/chapters/backend?view=saga#target-overview",
-		"record_history": "1",
-	})
-	recorder := httptest.NewRecorder()
-	application.createThread(recorder, request)
-	if recorder.Code != http.StatusSeeOther {
-		t.Fatalf("thread status = %d: %s", recorder.Code, recorder.Body.String())
-	}
-	location, err := url.Parse(recorder.Header().Get("Location"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if location.Path != "/chapters/backend" || location.Fragment != "target-overview" || location.Query().Get("view") != "saga" {
-		t.Fatalf("history redirect lost review location: %s", location)
-	}
-	if location.Query().Get("saga_action") != "thread-created" || location.Query().Get("saga_thread") == "" || location.Query().Get("saga_target") != "urn:review-saga:test:fragment:overview" || location.Query().Get("saga_label") != "highlight" {
-		t.Fatalf("history redirect omitted undo metadata: %s", location)
-	}
-}
-
 func TestWithdrawnThreadIsHiddenUntilReopened(t *testing.T) {
 	root := validServerSaga(t)
 	threadID, err := reviewstore.AddThread(root, "urn:review-saga:test:fragment:overview", "Temporarily hidden", saga.Anchor{Type: "target"}, "comment", "", nil)
@@ -125,6 +98,33 @@ func TestWithdrawnThreadIsHiddenUntilReopened(t *testing.T) {
 	}
 	if got := render(); got != "1" {
 		t.Fatalf("reopened thread count = %q, want 1", got)
+	}
+}
+
+func TestThreadAnchorEditPersistsWithoutChangingState(t *testing.T) {
+	root := validServerSaga(t)
+	threadID, err := reviewstore.AddThread(root, "urn:review-saga:test:fragment:overview", "Move this", saga.Anchor{Type: "region", Coordinate: "normalized", Shapes: []saga.Shape{{Type: "rect", X: .1, Y: .1, Width: .2, Height: .2}}}, "comment", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := url.Values{
+		"thread": {threadID},
+		"anchor": {`{"type":"drawing","coordinate_space":"normalized","shapes":[{"type":"path","points":[{"x":0.2,"y":0.3},{"x":0.4,"y":0.5}],"color":"#123456"}]}`},
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/thread-anchor", strings.NewReader(values.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recorder := httptest.NewRecorder()
+	(&app{root: root}).threadAnchor(recorder, request)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("anchor edit status = %d: %s", recorder.Code, recorder.Body.String())
+	}
+	document, validation, err := saga.Load(root)
+	if err != nil || !validation.Valid || len(document.Threads) != 1 {
+		t.Fatalf("edited annotation should load: validation=%#v err=%v", validation, err)
+	}
+	thread := document.Threads[0]
+	if thread.State != "open" || thread.Anchor.Type != "drawing" || thread.Anchor.Shapes[0].Points[0].X != .2 || len(thread.Events) != 1 {
+		t.Fatalf("unexpected edited annotation: %#v", thread)
 	}
 }
 
@@ -316,8 +316,11 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	if strings.Count(renderedPage, `class="annotation-toolbox"`) != 1 || strings.Contains(renderedPage, `class="review-form"`) {
 		t.Fatal("review controls were not consolidated")
 	}
-	if !strings.Contains(renderedPage, `body data-saga-id="test"`) || !strings.Contains(renderedPage, `data-undo disabled`) || !strings.Contains(renderedPage, `data-redo disabled`) || strings.Count(renderedPage, `name="record_history" value="1"`) != 2 {
+	if !strings.Contains(renderedPage, `body data-saga-id="test"`) || !strings.Contains(renderedPage, `data-undo disabled`) || !strings.Contains(renderedPage, `data-redo disabled`) || strings.Contains(renderedPage, `name="record_history"`) {
 		t.Fatal("annotation command history controls were not rendered")
+	}
+	if !strings.Contains(renderedPage, `data-annotation-selection`) || !strings.Contains(renderedPage, `data-annotation-entity`) || !strings.Contains(renderedPage, `data-thread-id="thread"`) || !strings.Contains(renderedPage, `data-shape-index="0"`) {
+		t.Fatal("shape annotations were not rendered as selectable entities")
 	}
 	if !strings.Contains(renderedPage, `data-view-tab="manifest"`) || !strings.Contains(renderedPage, `data-manifest-panel="code"`) || !strings.Contains(renderedPage, "Everything is accounted for") || !strings.Contains(renderedPage, "Code → Saga") || !strings.Contains(renderedPage, "Saga → Code") {
 		t.Fatal("bidirectional coverage manifest was not rendered")

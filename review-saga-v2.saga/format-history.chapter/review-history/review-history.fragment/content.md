@@ -2,7 +2,7 @@
 
 A comment creates a unique `.thread` directory with immutable thread metadata and an initial `.message` directory. Every reply creates another message directory. Each message contains one or more fragments, so discussion can include Markdown, images, SVG, or sandboxed HTML without expanding a shared thread file.
 
-Resolve/reopen and undo/restore events, approvals/rejections, and reviewed/unreviewed file markers are independent JSON files ordered by their timestamps. Undo marks a thread `withdrawn`; redo restores it with `open`. IDs combine nanosecond UTC time with randomness, and writes use exclusive creation. A collision fails instead of overwriting history.
+Resolve/reopen, remove/restore, anchor-edit, approval/rejection, and reviewed/unreviewed file events are independent JSON files ordered by their timestamps. Selecting and editing a committed shape appends replacement geometry; removing it marks its thread `withdrawn`. IDs combine nanosecond UTC time with randomness, and writes use exclusive creation. A collision fails instead of overwriting history.
 
 # Why this matters {#why-this-matters}
 

@@ -31,6 +31,7 @@ func TestLoadRecursiveFragmentsAndReviewOverlay(t *testing.T) {
 	writeTestFile(t, filepath.Join(root, "___review", "threads", "thread-1.thread", "messages", "message-1.message", "body.fragment", "fragment.json"), `{"version":2,"id":"message-body","media_type":"text/markdown","entrypoint":"content.md"}`)
 	writeTestFile(t, filepath.Join(root, "___review", "threads", "thread-1.thread", "messages", "message-1.message", "body.fragment", "content.md"), "Please explain this transition.\n")
 	writeTestFile(t, filepath.Join(root, "___review", "threads", "thread-1.thread", "events", "withdrawn.json"), `{"version":2,"id":"withdrawn","state":"withdrawn","created_at":"2026-08-19T12:01:00Z"}`)
+	writeTestFile(t, filepath.Join(root, "___review", "threads", "thread-1.thread", "events", "moved.json"), `{"version":2,"id":"moved","anchor":{"type":"region","coordinate_space":"normalized","shapes":[{"type":"rect","x":0.2,"y":0.3,"width":0.3,"height":0.4}]},"created_at":"2026-08-19T12:02:00Z"}`)
 
 	document, validation, err := Load(root)
 	if err != nil {
@@ -50,7 +51,7 @@ func TestLoadRecursiveFragmentsAndReviewOverlay(t *testing.T) {
 	if flow.MediaType != "text/html" || len(flow.Diffs) != 1 || len(flow.Landmarks) != 1 || flow.Landmarks[0].Selector.ElementID != "try-flow" || flow.Landmarks[0].Target != LandmarkTarget("test", "flow", "try-flow") || len(flow.Landmarks[0].Diffs) != 1 {
 		t.Fatalf("interactive fragment was not loaded: %#v", flow)
 	}
-	if len(document.Threads) != 1 || len(document.Threads[0].Messages) != 1 || document.Threads[0].Target != flow.Target || document.Threads[0].State != "withdrawn" {
+	if len(document.Threads) != 1 || len(document.Threads[0].Messages) != 1 || document.Threads[0].Target != flow.Target || document.Threads[0].State != "withdrawn" || document.Threads[0].Anchor.Shapes[0].X != .2 {
 		t.Fatalf("review overlay was not loaded: %#v", document.Threads)
 	}
 }

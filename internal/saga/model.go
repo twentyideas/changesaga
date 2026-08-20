@@ -221,7 +221,8 @@ type ThreadEvent struct {
 	Version           int       `json:"version"`
 	ID                string    `json:"id"`
 	Author            string    `json:"author,omitempty"`
-	State             string    `json:"state"`
+	State             string    `json:"state,omitempty"`
+	Anchor            *Anchor   `json:"anchor,omitempty"`
 	CreatedAt         time.Time `json:"created_at"`
 }
 

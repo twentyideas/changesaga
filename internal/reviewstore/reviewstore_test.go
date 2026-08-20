@@ -117,12 +117,18 @@ func TestThreadUndoAndRedoAppendStateEvents(t *testing.T) {
 	if err := SetState(root, threadID, "open"); err != nil {
 		t.Fatal(err)
 	}
-	assertEntryCount(t, filepath.Join(threadDir, "events"), 2)
+	if err := SetAnchor(root, threadID, saga.Anchor{Type: "region", Coordinate: "normalized", Shapes: []saga.Shape{{Type: "rect", X: .2, Y: .3, Width: .4, Height: .2}}}); err != nil {
+		t.Fatal(err)
+	}
+	assertEntryCount(t, filepath.Join(threadDir, "events"), 3)
 	if !bytes.Equal(threadBefore, readReviewFile(t, threadPath)) || !bytes.Equal(messageBefore, readReviewFile(t, messagePath)) {
 		t.Fatal("undo or redo rewrote the original thread")
 	}
 	if err := SetState(root, threadID, "deleted"); err == nil {
 		t.Fatal("unsupported thread state was accepted")
+	}
+	if err := SetAnchor(root, threadID, saga.Anchor{Type: "region"}); err == nil {
+		t.Fatal("invalid anchor edit was accepted")
 	}
 }
 

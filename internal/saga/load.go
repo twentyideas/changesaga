@@ -365,7 +365,14 @@ func loadThreads(root, sagaID string, validation *Validation) ([]*Thread, error)
 		thread.State = "open"
 		if len(thread.Events) > 0 {
 			sort.Slice(thread.Events, func(i, j int) bool { return thread.Events[i].CreatedAt.Before(thread.Events[j].CreatedAt) })
-			thread.State = thread.Events[len(thread.Events)-1].State
+			for _, event := range thread.Events {
+				if event.State != "" {
+					thread.State = event.State
+				}
+				if event.Anchor != nil {
+					thread.Anchor = *event.Anchor
+				}
+			}
 		}
 		threads = append(threads, &thread)
 	}
@@ -449,8 +456,14 @@ func loadThreadEvents(root, threadDir string, validation *Validation) ([]ThreadE
 			return
 		}
 		value.Path = path
-		if value.Version != CurrentVersion || value.ID == "" || value.CreatedAt.IsZero() || value.State != "open" && value.State != "resolved" && value.State != "withdrawn" {
-			addIssue(validation, "error", relativePath(root, path), "thread event requires version 2, id, created_at, and open/resolved/withdrawn state")
+		validState := value.State == "" || value.State == "open" || value.State == "resolved" || value.State == "withdrawn"
+		if value.Version != CurrentVersion || value.ID == "" || value.CreatedAt.IsZero() || !validState || value.State == "" && value.Anchor == nil {
+			addIssue(validation, "error", relativePath(root, path), "thread event requires version 2, id, created_at, and a valid state or anchor")
+		}
+		if value.Anchor != nil {
+			if err := ValidateAnchor(*value.Anchor); err != nil {
+				addIssue(validation, "error", relativePath(root, path), err.Error())
+			}
 		}
 		events = append(events, value)
 	})

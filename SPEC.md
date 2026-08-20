@@ -317,10 +317,11 @@ or sandboxed interactive HTML using the same fragment model as the saga.
 Thread lifecycle changes are append-only files in `events/` with state `open`,
 `resolved`, or `withdrawn`. The latest event by `created_at` is current. A
 withdrawn thread is omitted from the active review surface but remains fully
-auditable; a later `open` event restores it. Engines use that pair as the
-durable effect of undo and redo rather than deleting the annotation. Messages,
-thread roots, and state events are history and should not be rewritten or
-deleted during ordinary review.
+auditable; a later `open` event restores it. An event may instead carry an
+`anchor` replacement to move, recolor, or otherwise edit committed annotation
+geometry. Transient undo and redo are engine-local composition behavior and do
+not create files. Messages, thread roots, and thread events are history and
+should not be rewritten or deleted during ordinary review.
 
 ### Append-only file granularity
 
@@ -330,7 +331,7 @@ reviewer's record:
 - Each top-level comment creates its own `<id>.thread/` directory.
 - The initial comment and every reply create separate `<id>.message/`
   directories, with independent `message.json` metadata and fragment files.
-- Every resolve/reopen/withdraw/restore, approval/rejection, and
+- Every resolve/reopen/remove/restore, anchor edit, approval/rejection, and
   reviewed/unreviewed change is a new event file with a unique time-plus-random
   identifier.
 - Writers use exclusive creation and must fail rather than overwrite an
