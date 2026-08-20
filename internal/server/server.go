@@ -40,6 +40,7 @@ type app struct {
 type pageData struct {
 	Saga          *saga.Saga
 	Root          *sectionView
+	Nav           []*navNodeView
 	Chapters      []*chapterIndexView
 	Overview      bool
 	Chapter       bool
@@ -52,12 +53,27 @@ type pageData struct {
 }
 
 type chapterIndexView struct {
-	ID      string
-	Title   string
-	URL     string
-	Summary string
-	Status  string
-	Active  bool
+	ID         string
+	Title      string
+	URL        string
+	Status     string
+	StateClass string
+	StateIcon  string
+	Active     bool
+}
+
+// navNodeView is the sidebar documentation tree. It exposes titles, links and a
+// quiet review state only: never counts, never the storage hierarchy.
+type navNodeView struct {
+	Title      string
+	Href       string
+	NodeID     string
+	Active     bool
+	Expanded   bool
+	StateClass string
+	StateLabel string
+	StateIcon  string
+	Children   []*navNodeView
 }
 
 type sectionView struct {
@@ -131,24 +147,7 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 	if sourceDir == "" {
 		sourceDir = abs
 	}
-	tmpl, err := template.New("page").Funcs(template.FuncMap{
-		"markdown": markdown,
-		"domID":    domID,
-		"annotationColor": func(value string) string {
-			if validAnnotationColor(value) {
-				return value
-			}
-			return "#d04832"
-		},
-		"coord": func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
-		"points": func(values []saga.Point) string {
-			parts := make([]string, 0, len(values))
-			for _, point := range values {
-				parts = append(parts, fmt.Sprintf("%.2f,%.2f", point.X*1000, point.Y*1000))
-			}
-			return strings.Join(parts, " ")
-		},
-	}).Parse(pageTemplate)
+	tmpl, err := newPageTemplate()
 	if err != nil {
 		return err
 	}
@@ -193,6 +192,31 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 		}
 		return err
 	}
+}
+
+// newPageTemplate is the single definition of the renderer's template funcs so
+// tests exercise exactly the helpers the served page uses.
+func newPageTemplate() (*template.Template, error) {
+	return template.New("page").Funcs(template.FuncMap{
+		"markdown":    markdown,
+		"domID":       domID,
+		"fileIcon":    fileIcon,
+		"anchorLabel": anchorLabel,
+		"annotationColor": func(value string) string {
+			if validAnnotationColor(value) {
+				return value
+			}
+			return "#d04832"
+		},
+		"coord": func(value float64) string { return strconv.FormatFloat(value*1000, 'f', 2, 64) },
+		"points": func(values []saga.Point) string {
+			parts := make([]string, 0, len(values))
+			for _, point := range values {
+				parts = append(parts, fmt.Sprintf("%.2f,%.2f", point.X*1000, point.Y*1000))
+			}
+			return strings.Join(parts, " ")
+		},
+	}).Parse(pageTemplate)
 }
 
 func (a *app) page(w http.ResponseWriter, r *http.Request) {
@@ -270,6 +294,7 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 		Chapters: makeChapterIndex(rootView, chapterID),
 		Code:     code,
 	}
+	data.Nav = makeNavTree(document.Manifest.Title, rootView, selected, chapterRoute, chapterID)
 	if diffErr == nil {
 		data.Manifest = makeCoverageManifestView(document, changes, report)
 	}
@@ -311,35 +336,88 @@ func makeChapterIndex(root *sectionView, activeID string) []*chapterIndexView {
 		if child.Kind != "chapter" {
 			continue
 		}
-		sections, fragments := sectionSize(child)
-		status := "Unreviewed"
-		if child.ReviewState == "approved" {
-			status = "Approved"
-		} else if sectionHasActivity(child) {
-			status = "In progress"
-		}
-		parts := make([]string, 0, 2)
-		if sections > 0 {
-			parts = append(parts, fmt.Sprintf("%d %s", sections, plural(sections, "section", "sections")))
-		}
-		parts = append(parts, fmt.Sprintf("%d %s", fragments, plural(fragments, "fragment", "fragments")))
+		status, class, icon := reviewProgress(child)
 		chapters = append(chapters, &chapterIndexView{
 			ID: child.ID, Title: child.Title, URL: "/chapters/" + url.PathEscape(child.ID),
-			Summary: strings.Join(parts, " · "), Status: status, Active: child.ID == activeID,
+			Status: status, StateClass: class, StateIcon: icon, Active: child.ID == activeID,
 		})
 	}
 	return chapters
 }
 
-func sectionSize(view *sectionView) (int, int) {
-	sections := len(view.ChildViews)
-	fragments := len(view.FragmentViews)
-	for _, child := range view.ChildViews {
-		childSections, childFragments := sectionSize(child)
-		sections += childSections
-		fragments += childFragments
+// reviewProgress reports resume state for one chapter. It is deliberately
+// coarse: reviewers need to know where to continue, not a completion score.
+func reviewProgress(view *sectionView) (status, class, icon string) {
+	if view.ReviewState == "approved" {
+		return "Approved", "approved", "check"
 	}
-	return sections, fragments
+	if sectionHasActivity(view) {
+		return "In progress", "progress", "half"
+	}
+	return "Unreviewed", "", "circle"
+}
+
+// makeNavTree builds the collapsed documentation tree in the sidebar: the
+// overview, then every chapter. Only the open page expands, and it expands into
+// its own headings so a long chapter stays navigable.
+func makeNavTree(title string, root, selected *sectionView, chapterRoute bool, activeID string) []*navNodeView {
+	overview := &navNodeView{Title: "Overview", Href: "/", NodeID: "nav-overview", Active: !chapterRoute}
+	if !chapterRoute && selected != nil {
+		overview.Children = withoutRedundantLead(documentOutline(selected), overview.Title)
+		overview.Expanded = len(overview.Children) > 0
+	}
+	nodes := []*navNodeView{overview}
+	for _, child := range root.ChildViews {
+		if child.Kind != "chapter" {
+			continue
+		}
+		status, class, icon := reviewProgress(child)
+		node := &navNodeView{
+			Title: child.Title, Href: "/chapters/" + url.PathEscape(child.ID),
+			NodeID: "nav-" + domID(child.Target), Active: chapterRoute && child.ID == activeID,
+			StateLabel: status, StateClass: class, StateIcon: icon,
+		}
+		if node.Active && selected != nil {
+			node.Children = withoutRedundantLead(documentOutline(selected), node.Title)
+			node.Expanded = len(node.Children) > 0
+		}
+		nodes = append(nodes, node)
+	}
+	return nodes
+}
+
+// documentOutline turns the open page into headings a reader recognises. Titled
+// content becomes an entry; untitled content is skipped rather than exposed
+// under an internal identifier.
+func documentOutline(view *sectionView) []*navNodeView {
+	var nodes []*navNodeView
+	for _, fragment := range view.FragmentViews {
+		// A lead-in that repeats the page title is not a separate destination.
+		if fragment.Title == "" || strings.EqualFold(fragment.Title, view.Title) {
+			continue
+		}
+		nodes = append(nodes, &navNodeView{Title: fragment.Title, Href: "#" + fragment.DOMID, NodeID: "nav-" + fragment.DOMID})
+	}
+	for _, child := range view.ChildViews {
+		if child.Title == "" {
+			continue
+		}
+		node := &navNodeView{Title: child.Title, Href: "#" + child.DOMID, NodeID: "nav-" + child.DOMID}
+		node.Children = documentOutline(child)
+		node.Expanded = len(node.Children) > 0
+		nodes = append(nodes, node)
+	}
+	return nodes
+}
+
+// withoutRedundantLead drops a leading entry that only repeats the label of the
+// page it sits under. A tree that reads "Overview > Overview" tells the reader
+// nothing, and the parent row already links to that content.
+func withoutRedundantLead(nodes []*navNodeView, label string) []*navNodeView {
+	if len(nodes) == 0 || len(nodes[0].Children) > 0 || !strings.EqualFold(nodes[0].Title, label) {
+		return nodes
+	}
+	return nodes[1:]
 }
 
 func sectionHasActivity(view *sectionView) bool {
@@ -359,11 +437,22 @@ func sectionHasActivity(view *sectionView) bool {
 	return false
 }
 
-func plural(count int, singular, plural string) string {
-	if count == 1 {
-		return singular
+// anchorLabel keeps thread metadata in the reviewer's vocabulary instead of
+// exposing the stored anchor discriminator.
+func anchorLabel(kind string) string {
+	switch kind {
+	case "region":
+		return "rectangle"
+	case "drawing":
+		return "freehand"
+	case "text":
+		return "highlight"
+	case "diff":
+		return "code"
+	case "target":
+		return "comment"
 	}
-	return plural
+	return "note"
 }
 
 func makeSectionView(section *saga.Section, changes map[string][]gitdiff.Atom, threads map[string][]*threadView, diffThreads map[string][]*threadView) *sectionView {

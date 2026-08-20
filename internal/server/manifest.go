@@ -26,8 +26,25 @@ type CoverageManifestView struct {
 	Orphaned     int
 	MappingCount int
 	Files        []*ManifestFileView
+	Tree         []*ManifestTreeNode
 	Targets      []*ManifestTargetView
 	Orphans      []*ManifestOrphanView
+}
+
+// ManifestTreeNode presents coverage as the repository the reviewer already
+// knows. The tree ships fully expanded so every changed file and its coverage
+// state is visible without hunting, while folders remain collapsible.
+type ManifestTreeNode struct {
+	Name      string
+	Path      string
+	Kind      string
+	Depth     int
+	Children  []*ManifestTreeNode
+	File      *ManifestFileView
+	AtomCount int
+	Added     int
+	Deleted   int
+	Uncovered int
 }
 
 type ManifestFileView struct {
@@ -123,6 +140,7 @@ func makeCoverageManifestView(document *saga.Saga, changes gitdiff.ChangeSet, re
 		view.Files = append(view.Files, file)
 	}
 	sort.SliceStable(view.Files, func(i, j int) bool { return view.Files[i].Path < view.Files[j].Path })
+	view.Tree = makeManifestTree(view.Files)
 
 	targets := make([]string, 0, len(targetAtoms))
 	for target := range targetAtoms {
@@ -150,6 +168,59 @@ func makeCoverageManifestView(document *saga.Saga, changes gitdiff.ChangeSet, re
 		})
 	}
 	return view
+}
+
+// makeManifestTree folds the flat per-file coverage rows into the repository
+// hierarchy. Folder aggregates carry the same change and gap metadata as their
+// files so an unexplained change is visible before the folder is opened.
+func makeManifestTree(files []*ManifestFileView) []*ManifestTreeNode {
+	root := &ManifestTreeNode{Kind: "folder"}
+	for _, file := range files {
+		current := root
+		parts := strings.Split(file.Path, "/")
+		for index, name := range parts {
+			if index == len(parts)-1 {
+				current.Children = append(current.Children, &ManifestTreeNode{Name: name, Path: file.Path, Kind: "file", File: file})
+				continue
+			}
+			folderPath := strings.Join(parts[:index+1], "/")
+			var folder *ManifestTreeNode
+			for _, child := range current.Children {
+				if child.Kind == "folder" && child.Name == name {
+					folder = child
+					break
+				}
+			}
+			if folder == nil {
+				folder = &ManifestTreeNode{Name: name, Path: folderPath, Kind: "folder"}
+				current.Children = append(current.Children, folder)
+			}
+			current = folder
+		}
+	}
+	finalizeManifestNode(root, -1)
+	return root.Children
+}
+
+func finalizeManifestNode(node *ManifestTreeNode, depth int) {
+	node.Depth = depth
+	if node.File != nil {
+		node.AtomCount, node.Added, node.Deleted, node.Uncovered = node.File.AtomCount, node.File.Added, node.File.Deleted, node.File.Uncovered
+		return
+	}
+	sort.SliceStable(node.Children, func(i, j int) bool {
+		if node.Children[i].Kind != node.Children[j].Kind {
+			return node.Children[i].Kind == "folder"
+		}
+		return node.Children[i].Name < node.Children[j].Name
+	})
+	for _, child := range node.Children {
+		finalizeManifestNode(child, depth+1)
+		node.AtomCount += child.AtomCount
+		node.Added += child.Added
+		node.Deleted += child.Deleted
+		node.Uncovered += child.Uncovered
+	}
 }
 
 func distinctAssignments(assignments []coverage.Assignment) []coverage.Assignment {

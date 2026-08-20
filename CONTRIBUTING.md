@@ -12,4 +12,5 @@ go build ./cmd/saga
 ```
 
 Keep the core deterministic and dependency-light. UI work should preserve the
-property that every reviewer action becomes a small file suitable for Git.
+property that every reviewer action becomes a small file suitable for Git, and
+should follow the conventions in [docs/renderer-ui.md](docs/renderer-ui.md).

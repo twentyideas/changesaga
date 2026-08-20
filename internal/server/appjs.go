@@ -39,15 +39,19 @@ const appJavaScript = `(() => {
     const shapeDraft = annotationDraft?.shapeDraft;
     const undo = shapeDraft ? annotationDraft.undo.length && annotationDraft : annotationDraft;
     const redo = shapeDraft ? annotationDraft.redo.length && annotationDraft : annotationDraftRedo;
+    // The buttons are icon-only, so the command name lives in the accessible
+    // name and the tooltip rather than in replaceable text content.
     qa('[data-undo]').forEach(button => {
       button.disabled = !undo;
-      button.textContent = undo ? 'Undo ' + commandLabel(undo) : 'Undo';
-      button.setAttribute('aria-label', undo ? 'Undo ' + commandLabel(undo) : 'Nothing to undo');
+      const label = undo ? 'Undo ' + commandLabel(undo) : 'Nothing to undo';
+      button.setAttribute('aria-label', label);
+      button.title = (undo ? 'Undo ' + commandLabel(undo) : 'Undo') + ' (Ctrl/Cmd+Z)';
     });
     qa('[data-redo]').forEach(button => {
       button.disabled = !redo;
-      button.textContent = redo ? 'Redo ' + commandLabel(redo) : 'Redo';
-      button.setAttribute('aria-label', redo ? 'Redo ' + commandLabel(redo) : 'Nothing to redo');
+      const label = redo ? 'Redo ' + commandLabel(redo) : 'Nothing to redo';
+      button.setAttribute('aria-label', label);
+      button.title = (redo ? 'Redo ' + commandLabel(redo) : 'Redo') + ' (Ctrl+Y or Ctrl/Cmd+Shift+Z)';
     });
   }
 
@@ -215,15 +219,23 @@ const appJavaScript = `(() => {
     document.getElementById(id)?.scrollIntoView({block:'center'});
   }
 
+  // Prose and licence files are not code. Running them through the tokeniser
+  // painted every capitalised word as a type, which is exactly the decorative
+  // noise a diff should not add to a sentence.
+  const proseNames = new Set(['license','licence','notice','readme','contributing','changelog','authors','codeowners']);
+
   function languageForPath(path) {
     const name = (path || '').toLowerCase();
+    const base = name.split('/').pop() || '';
     const extension = name.includes('.') ? name.split('.').pop() : '';
+    if (['md','mdx','markdown','txt','text','rst','adoc'].includes(extension)) return 'prose';
+    if (!name.includes('.') && proseNames.has(base)) return 'prose';
     if (extension === 'go') return 'go';
     if (['js','jsx','mjs','cjs','ts','tsx'].includes(extension)) return 'javascript';
     if (extension === 'py') return 'python';
     if (extension === 'rb') return 'ruby';
     if (['sh','bash','zsh'].includes(extension)) return 'shell';
-    if (['json','yaml','yml','toml','xml','html','css','scss','md','sql','c','h','cc','cpp','java','rs','swift','kt'].includes(extension)) return extension;
+    if (['json','yaml','yml','toml','xml','html','css','scss','sql','c','h','cc','cpp','java','rs','swift','kt'].includes(extension)) return extension;
     return 'generic';
   }
 
@@ -244,6 +256,7 @@ const appJavaScript = `(() => {
       if (code.dataset.highlighted) return;
       const path = (code.closest('[data-file-path]') || {}).dataset?.filePath || '';
       const language = languageForPath(path);
+      if (language === 'prose') { code.dataset.highlighted = language; return; }
       const source = code.textContent;
       const pattern = /(\/\/.*$|\/\*[\s\S]*?\*\/|--.*$|#.*$|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\x60(?:\\.|[^\x60\\])*\x60|\b\d+(?:\.\d+)?\b|[A-Za-z_$][\w$-]*|[{}()[\].,:;]+)/gm;
       let offset = 0;
@@ -279,7 +292,7 @@ const appJavaScript = `(() => {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'context-expander';
-        button.textContent = group.length + ' unchanged lines · Expand';
+        button.textContent = 'Expand ' + group.length + ' unchanged lines';
         button.setAttribute('aria-label', 'Show ' + group.length + ' hidden unchanged lines');
         group[0].before(button);
         button.addEventListener('click', () => {
@@ -383,6 +396,14 @@ const appJavaScript = `(() => {
     updateLineSelection(rows);
   }
 
+  function toggleDocNode(button) {
+    const children = document.getElementById(button.getAttribute('aria-controls'));
+    if (!children) return;
+    const expanded = button.getAttribute('aria-expanded') === 'true';
+    button.setAttribute('aria-expanded', String(!expanded));
+    children.hidden = expanded;
+  }
+
   function setView(name, updateURL = true) {
     if (!q('[data-view="'+name+'"]')) name = 'saga';
     qa('[data-view]').forEach(view => view.classList.toggle('active', view.dataset.view === name));
@@ -414,6 +435,12 @@ const appJavaScript = `(() => {
         group.hidden = !match;
         if (match) visible++;
       });
+      // Folders are structure, not matches: hide the ones whose files all went
+      // away so the tree never leaves an empty branch behind.
+      qa('[data-manifest-folder]', panel).reverse().forEach(folder => {
+        folder.hidden = !q('[data-manifest-search]:not([hidden])', folder);
+        if (query && !folder.hidden) folder.open = true;
+      });
       const empty = q('[data-manifest-empty]', panel);
       if (empty) empty.hidden = visible !== 0 || !query;
     });
@@ -431,7 +458,7 @@ const appJavaScript = `(() => {
     activeFragment = fragment;
     activeFragment.classList.add('active-fragment');
     const label = q('[data-tool-target]');
-    if (label) label.textContent = fragment.dataset.fragmentTitle || 'Selected fragment';
+    if (label) label.textContent = fragment.dataset.fragmentTitle || 'Selected';
   }
 
   function cancelDrawing() {
@@ -833,7 +860,7 @@ const appJavaScript = `(() => {
 
   function openDecision(button) {
     const dialog = q('.decision-dialog');
-	q('form', dialog).reset();
+    q('form', dialog).reset();
     q('[name=target]', dialog).value = button.dataset.reviewTarget;
     q('#decision-title', dialog).textContent = 'Review ' + button.dataset.reviewTitle;
     if (!dialog.open) dialog.showModal();
@@ -847,7 +874,7 @@ const appJavaScript = `(() => {
     if (mode === 'select') return;
     if (!activeFragment) {
       const label = q('[data-tool-target]');
-      if (label) label.textContent = 'Select a fragment first';
+      if (label) label.textContent = 'Point at content first';
       resetTool();
       return;
     }
@@ -860,7 +887,7 @@ const appJavaScript = `(() => {
       const selectable = q('[data-selectable]', activeFragment);
       if (!selection || selection.isCollapsed || !selectable || !selectable.contains(selection.anchorNode) || !selectable.contains(selection.focusNode)) {
         const label = q('[data-tool-target]');
-        if (label) label.textContent = 'Select text in the active fragment';
+        if (label) label.textContent = 'Select some text first';
         resetTool();
         return;
       }
@@ -905,6 +932,8 @@ const appJavaScript = `(() => {
     if (event.target.closest('[data-remove-annotation]')) { removeSelectedAnnotation(); return; }
     const annotation = event.target.closest('.annotation.selectable');
     if (annotation) { selectAnnotation(annotation); return; }
+    const docTwisty = event.target.closest('[data-doc-twisty]');
+    if (docTwisty) { toggleDocNode(docTwisty); return; }
     const viewTab = event.target.closest('[data-view-tab]');
     if (viewTab) { setView(viewTab.dataset.viewTab); return; }
     const manifestMode = event.target.closest('[data-manifest-mode]');

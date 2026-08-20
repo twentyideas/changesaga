@@ -21,6 +21,9 @@ globalThis.history={pushState:()=>{}};globalThis.addEventListener=()=>{};globalT
 	checks := `
 if(reviewSagaTest.languageForPath('src/main.go')!=='go')throw new Error('Go language detection failed');
 if(reviewSagaTest.languageForPath('web/view.tsx')!=='javascript')throw new Error('TSX language detection failed');
+for(const prose of ['README.md','docs/guide.mdx','notes.txt','LICENSE','skills/x/SKILL.md'])
+  if(reviewSagaTest.languageForPath(prose)!=='prose')throw new Error('prose file was treated as code: '+prose);
+if(reviewSagaTest.languageForPath('config/app.json')!=='json')throw new Error('JSON language detection failed');
 const rows=[{dataset:{line:'11',diffRef:'saga-diff://v1/line?base=a&end=11&head=b&path=app.go&repository=https%3A%2F%2Fe.test%2Fa.git&side=new&start=11'}},{dataset:{line:'13'}}];
 const range=reviewSagaTest.selectedRangeURI(rows);if(!range.includes('start=11')||!range.includes('end=13')||!range.includes('side=new'))throw new Error('qualified range selection failed');
 if(reviewSagaTest.normalizedAnnotationColor('#A1b2C3')!=='#a1b2c3')throw new Error('annotation color normalization failed');
