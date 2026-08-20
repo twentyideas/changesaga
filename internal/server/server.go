@@ -221,6 +221,9 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 	threadsByTarget := map[string][]*threadView{}
 	threadsByDiff := map[string][]*threadView{}
 	for _, thread := range document.Threads {
+		if thread.State == "withdrawn" {
+			continue
+		}
 		view := makeThreadView(thread)
 		if thread.Anchor.Type == "diff" && thread.Anchor.Diff != nil {
 			threadsByDiff[thread.Anchor.Diff.URI] = append(threadsByDiff[thread.Anchor.Diff.URI], view)
@@ -705,8 +708,13 @@ func (a *app) createThread(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid annotation anchor", http.StatusBadRequest)
 		return
 	}
-	if _, err := reviewstore.AddThread(a.root, target, r.FormValue("body"), anchor, r.FormValue("kind"), r.FormValue("replacement"), attachments); err != nil {
+	threadID, err := reviewstore.AddThread(a.root, target, r.FormValue("body"), anchor, r.FormValue("kind"), r.FormValue("replacement"), attachments)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if r.FormValue("record_history") == "1" {
+		redirectAfterReviewAction(w, r, "/#"+domID(target), threadID, target, annotationHistoryLabel(anchor, r.FormValue("kind")))
 		return
 	}
 	redirectAfterReview(w, r, "/#"+domID(target))
@@ -780,12 +788,47 @@ func (a *app) diffReview(w http.ResponseWriter, r *http.Request) {
 }
 
 func redirectAfterReview(w http.ResponseWriter, r *http.Request, fallback string) {
-	destination := r.FormValue("return_to")
+	http.Redirect(w, r, reviewRedirectDestination(r.FormValue("return_to"), fallback), http.StatusSeeOther)
+}
+
+func redirectAfterReviewAction(w http.ResponseWriter, r *http.Request, fallback, threadID, target, label string) {
+	destination := reviewRedirectDestination(r.FormValue("return_to"), fallback)
+	parsed, err := url.Parse(destination)
+	if err != nil {
+		http.Redirect(w, r, destination, http.StatusSeeOther)
+		return
+	}
+	query := parsed.Query()
+	query.Set("saga_action", "thread-created")
+	query.Set("saga_thread", threadID)
+	query.Set("saga_target", target)
+	query.Set("saga_label", label)
+	parsed.RawQuery = query.Encode()
+	http.Redirect(w, r, parsed.String(), http.StatusSeeOther)
+}
+
+func reviewRedirectDestination(destination, fallback string) string {
 	parsed, err := url.Parse(destination)
 	if err != nil || destination == "" || !strings.HasPrefix(destination, "/") || strings.HasPrefix(destination, "//") || parsed.IsAbs() || parsed.Host != "" {
-		destination = fallback
+		return fallback
 	}
-	http.Redirect(w, r, destination, http.StatusSeeOther)
+	return destination
+}
+
+func annotationHistoryLabel(anchor saga.Anchor, kind string) string {
+	if kind == "suggestion" {
+		return "suggestion"
+	}
+	switch anchor.Type {
+	case "text":
+		return "highlight"
+	case "region":
+		return "rectangle"
+	case "drawing":
+		return "freehand"
+	default:
+		return "comment"
+	}
 }
 
 func parseMultipart(r *http.Request, w http.ResponseWriter) ([]string, error) {

@@ -9,6 +9,10 @@ const appJavaScript = `(() => {
   let annotationColor = '#d04832';
   let diffLayout = 'inline';
   let selectionAnchor = null;
+  let annotationDraft = null;
+  let annotationDraftRedo = null;
+  let commandHistory = {undo: [], redo: []};
+  const historyLimit = 50;
 
   const languageKeywords = {
     go: new Set('break case chan const continue default defer else fallthrough for func go goto if import interface map package range return select struct switch type var'.split(' ')),
@@ -25,6 +29,89 @@ const appJavaScript = `(() => {
 
   function colorWithAlpha(value, alpha = '55') {
     return normalizedAnnotationColor(value) + alpha;
+  }
+
+  function historyStorageKey() {
+    const sagaID = document.body?.dataset?.sagaId;
+    return sagaID ? 'review-saga:commands:v1:' + sagaID : '';
+  }
+
+  function loadCommandHistory() {
+    const key = historyStorageKey();
+    if (!key) return;
+    try {
+      const value = JSON.parse(globalThis.sessionStorage?.getItem(key) || 'null');
+      if (value && Array.isArray(value.undo) && Array.isArray(value.redo)) commandHistory = value;
+    } catch (_) {
+      commandHistory = {undo: [], redo: []};
+    }
+  }
+
+  function saveCommandHistory() {
+    const key = historyStorageKey();
+    if (!key) return;
+    commandHistory.undo = commandHistory.undo.slice(-historyLimit);
+    commandHistory.redo = commandHistory.redo.slice(-historyLimit);
+    try {
+      globalThis.sessionStorage?.setItem(key, JSON.stringify(commandHistory));
+    } catch (_) {}
+  }
+
+  function commandLabel(command) {
+    return command?.label || 'annotation';
+  }
+
+  function updateHistoryControls() {
+    const undo = annotationDraft || commandHistory.undo.at(-1);
+    const redo = annotationDraftRedo || commandHistory.redo.at(-1);
+    qa('[data-undo]').forEach(button => {
+      button.disabled = !undo;
+      button.textContent = undo ? 'Undo ' + commandLabel(undo) : 'Undo';
+      button.setAttribute('aria-label', undo ? 'Undo ' + commandLabel(undo) : 'Nothing to undo');
+    });
+    qa('[data-redo]').forEach(button => {
+      button.disabled = !redo;
+      button.textContent = redo ? 'Redo ' + commandLabel(redo) : 'Redo';
+      button.setAttribute('aria-label', redo ? 'Redo ' + commandLabel(redo) : 'Nothing to redo');
+    });
+  }
+
+  function consumeRecordedAction() {
+    const url = new URL(location.href);
+    if (url.searchParams.get('saga_action') !== 'thread-created') return;
+    const thread = url.searchParams.get('saga_thread');
+    const target = url.searchParams.get('saga_target');
+    const label = url.searchParams.get('saga_label') || 'annotation';
+    ['saga_action','saga_thread','saga_target','saga_label'].forEach(name => url.searchParams.delete(name));
+    history.replaceState(history.state, '', url);
+    if (!thread || !target) return;
+    commandHistory.undo.push({kind:'thread', thread, target, label});
+    commandHistory.redo = [];
+    saveCommandHistory();
+  }
+
+  function submitThreadState(command, state) {
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = '/api/thread-state';
+    const fields = {thread:command.thread, target:command.target, state, return_to:location.pathname + location.search + location.hash};
+    Object.entries(fields).forEach(([name,value]) => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = name;
+      input.value = value;
+      form.append(input);
+    });
+    document.body.append(form);
+    form.submit();
+  }
+
+  function shortcutDirection(event) {
+    if (event.altKey || (!event.ctrlKey && !event.metaKey)) return '';
+    const key = String(event.key || '').toLowerCase();
+    if (key === 'z') return event.shiftKey ? 'redo' : 'undo';
+    if (key === 'y' && event.ctrlKey && !event.shiftKey) return 'redo';
+    return '';
   }
 
   async function copyPermalink(button) {
@@ -438,21 +525,83 @@ const appJavaScript = `(() => {
     q('[name=body]', form).focus();
   }
 
-  function openAnnotation(anchor) {
-    if (!activeFragment) return;
-    const form = q('.annotation-compose');
-	form.reset();
-    q('[name=target]', form).value = activeFragment.dataset.target;
-    q('[name=anchor]', form).value = JSON.stringify(anchor);
-    form.classList.add('open');
-    q('[name=body]', form).focus();
-    resetTool();
+  function annotationLabel(anchor) {
+    if (anchor?.type === 'text') return 'highlight';
+    if (anchor?.type === 'region') return 'rectangle';
+    if (anchor?.type === 'drawing') return 'freehand';
+    return 'comment';
   }
 
-  function closeAnnotation() {
+  function openAnnotation(anchor, options = {}) {
+    const fragment = options.fragment || activeFragment;
+    if (!fragment) return;
+    setActiveFragment(fragment);
+    const form = q('.annotation-compose');
+    form.reset();
+    q('[name=target]', form).value = fragment.dataset.target;
+    q('[name=anchor]', form).value = JSON.stringify(anchor);
+    q('[name=body]', form).value = options.body || '';
+    form.classList.add('open');
+    q('[name=body]', form).focus();
+    annotationDraft = {
+      kind:'draft',
+      anchor,
+      target:fragment.dataset.target,
+      fragment,
+      preview:options.preview || null,
+      body:options.body || '',
+      label:annotationLabel(anchor)
+    };
+    if (!options.fromRedo) annotationDraftRedo = null;
+    resetTool();
+    updateHistoryControls();
+  }
+
+  function closeAnnotation(discard = true) {
     const form = q('.annotation-compose');
     if (form) form.classList.remove('open');
+    if (discard && annotationDraft?.preview) annotationDraft.preview.remove();
+    if (discard) {
+      annotationDraft = null;
+      annotationDraftRedo = null;
+    }
     resetTool();
+    updateHistoryControls();
+  }
+
+  function undoDraft() {
+    if (!annotationDraft) return false;
+    const form = q('.annotation-compose');
+    annotationDraft.body = q('[name=body]', form)?.value || '';
+    if (annotationDraft.preview) annotationDraft.preview.hidden = true;
+    form?.classList.remove('open');
+    annotationDraftRedo = annotationDraft;
+    annotationDraft = null;
+    resetTool();
+    updateHistoryControls();
+    return true;
+  }
+
+  function redoDraft() {
+    if (!annotationDraftRedo) return false;
+    const draft = annotationDraftRedo;
+    annotationDraftRedo = null;
+    if (draft.preview) draft.preview.hidden = false;
+    openAnnotation(draft.anchor, {...draft, fromRedo:true});
+    return true;
+  }
+
+  function performHistoryAction(direction) {
+    if (direction === 'undo' && undoDraft()) return;
+    if (direction === 'redo' && redoDraft()) return;
+    const from = direction === 'undo' ? commandHistory.undo : commandHistory.redo;
+    const to = direction === 'undo' ? commandHistory.redo : commandHistory.undo;
+    const command = from.pop();
+    if (!command) return;
+    to.push(command);
+    saveCommandHistory();
+    updateHistoryControls();
+    submitThreadState(command, direction === 'undo' ? 'withdrawn' : 'open');
   }
 
   function openDecision(button) {
@@ -523,6 +672,8 @@ const appJavaScript = `(() => {
   document.addEventListener('click', event => {
     const permalink = event.target.closest('[data-copy-link]');
     if (permalink) { copyPermalink(permalink); return; }
+    if (event.target.closest('[data-undo]')) { performHistoryAction('undo'); return; }
+    if (event.target.closest('[data-redo]')) { performHistoryAction('redo'); return; }
     const viewTab = event.target.closest('[data-view-tab]');
     if (viewTab) { setView(viewTab.dataset.viewTab); return; }
     const manifestMode = event.target.closest('[data-manifest-mode]');
@@ -584,6 +735,16 @@ const appJavaScript = `(() => {
   });
 
   document.addEventListener('keydown', event => {
+    const direction = shortcutDirection(event);
+    if (direction) {
+      const editable = event.target.matches?.('input,textarea,[contenteditable="true"]');
+      const emptyDraftBody = annotationDraft && event.target === q('[name=body]', q('.annotation-compose')) && !event.target.value;
+      if (!editable || emptyDraftBody) {
+        event.preventDefault();
+        performHistoryAction(direction);
+      }
+      return;
+    }
     const treeItem = event.target.closest('.file-tree [role=treeitem]');
     if (treeItem && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
       const items = qa('.file-tree [role=treeitem]').filter(item => !item.hidden && !item.closest('[hidden]'));
@@ -633,6 +794,8 @@ const appJavaScript = `(() => {
 
   document.addEventListener('pointerup', () => {
     if (!drawing || !drawing.preview) return;
+    const fragment = drawing.fragment;
+    const preview = drawing.preview;
     let shape;
     if (drawing.mode === 'rect') {
       const point = drawing.end || drawing.start;
@@ -643,9 +806,12 @@ const appJavaScript = `(() => {
     const anchor = {type:drawing.mode === 'rect' ? 'region' : 'drawing',coordinate_space:'normalized',shapes:[shape]};
     drawing.overlay.classList.remove('drawing');
     drawing = null;
-    openAnnotation(anchor);
+    openAnnotation(anchor, {fragment, preview});
   });
 
+  loadCommandHistory();
+  consumeRecordedAction();
+  updateHistoryControls();
   prepareLandmarks();
   qa('[data-text-target]').forEach(label => {
     const target = document.querySelector('[data-target="'+CSS.escape(label.dataset.textTarget)+'"] [data-selectable]');

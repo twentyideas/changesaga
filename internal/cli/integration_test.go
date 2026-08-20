@@ -75,6 +75,17 @@ func TestAuthoringLoopAgainstGitDiff(t *testing.T) {
 	if err := Thread(context.Background(), []string{"--target", "overview.fragment", "--body", "Please clarify this.", "--attachment", attachment, root}, &output); err != nil {
 		t.Fatal(err)
 	}
+	threadDocument, _, err := saga.Load(root)
+	if err != nil || len(threadDocument.Threads) != 1 {
+		t.Fatalf("created thread should load: document=%#v err=%v", threadDocument, err)
+	}
+	threadID := threadDocument.Threads[0].ID
+	if err := Reply(context.Background(), []string{"--thread", threadID, "--state", "withdrawn", root}, &output); err != nil {
+		t.Fatal(err)
+	}
+	if err := Reply(context.Background(), []string{"--thread", threadID, "--state", "open", root}, &output); err != nil {
+		t.Fatal(err)
+	}
 	if err := Review(context.Background(), []string{"--target", ".", "--state", "approved", root}, &output); err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +97,7 @@ func TestAuthoringLoopAgainstGitDiff(t *testing.T) {
 	for _, fragment := range document.Section.Fragments {
 		fragmentReviews += len(fragment.Reviews)
 	}
-	if err != nil || !validation.Valid || len(document.Threads) != 1 || len(document.Section.Reviews) != 1 || fragmentReviews != 1 || len(document.Threads[0].Messages[0].Fragments) != 2 {
+	if err != nil || !validation.Valid || len(document.Threads) != 1 || len(document.Threads[0].Events) != 2 || document.Threads[0].State != "open" || len(document.Section.Reviews) != 1 || fragmentReviews != 1 || len(document.Threads[0].Messages[0].Fragments) != 2 {
 		t.Fatalf("authored saga should load with thread: validation=%#v err=%v", validation, err)
 	}
 	if len(document.Section.Children) != 1 || document.Section.Children[0].Kind != "chapter" || len(document.Section.Children[0].Children) != 1 {

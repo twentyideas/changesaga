@@ -97,8 +97,8 @@ func AddReply(root, threadID, body string, attachments []string) (string, error)
 }
 
 func SetState(root, threadID, state string) error {
-	if state != "open" && state != "resolved" {
-		return fmt.Errorf("thread state must be open or resolved")
+	if state != "open" && state != "resolved" && state != "withdrawn" {
+		return fmt.Errorf("thread state must be open, resolved, or withdrawn")
 	}
 	threadDir := filepath.Join(root, "___review", "threads", filepath.Base(threadID)+".thread")
 	if info, err := os.Stat(filepath.Join(threadDir, "thread.json")); err != nil || info.IsDir() {

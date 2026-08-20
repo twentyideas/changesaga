@@ -101,6 +101,9 @@ drawer. Read the collapsed file summaries first, then expand a file to inspect
 its linked ranges. Use Code Diff view for the complete file tree. Diff comments,
 suggestions, reviewed-file state, and fragment approvals are committed overlay
 data and remain visible across both views.
+Use Ctrl/Cmd+Z to undo the latest annotation and Ctrl/Cmd+Shift+Z (or Ctrl+Y) to
+redo it. The engine records `withdrawn` and `open` thread-state events; never
+delete a thread, message, or event file to imitate undo.
 Do not resolve, reopen, approve, or reject on a person's behalf without explicit
 instruction.
 

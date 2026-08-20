@@ -79,6 +79,7 @@ saga validate --json <name>.saga
 saga status --json --repo <source-checkout> <name>.saga
 saga open --repo <source-checkout> <name>.saga
 saga review --target path/to/demo.fragment --state approved <name>.saga
+saga reply --thread <id> --state withdrawn <name>.saga
 ```
 
 `--repo` may be omitted when the saga is inside the source checkout. Flags
@@ -120,6 +121,11 @@ packages, enabling Markdown, image, SVG, or sandboxed HTML replies. Treat thread
 roots, messages, reviewed-file records, approvals, and state events as
 append-only history. Diff threads may be comments or suggestions; suggestions
 include explicit replacement text.
+
+Thread state events are `open`, `resolved`, or `withdrawn`. A withdrawn thread
+is hidden from the active review while its files remain in history; a later
+`open` event restores it. This is the durable undo/redo model. Never delete or
+rewrite the original thread or message when reversing an annotation.
 
 Every top-level comment has its own `.thread` directory; every initial comment
 or reply has its own `.message` directory; and each state or approval transition

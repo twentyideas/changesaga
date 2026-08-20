@@ -18,6 +18,7 @@ import (
 	"github.com/review-saga/review-saga/internal/diffuri"
 	"github.com/review-saga/review-saga/internal/gitattribution"
 	"github.com/review-saga/review-saga/internal/gitdiff"
+	"github.com/review-saga/review-saga/internal/reviewstore"
 	"github.com/review-saga/review-saga/internal/saga"
 )
 
@@ -67,6 +68,63 @@ func TestCreateTextHighlightPersistsChosenColor(t *testing.T) {
 	}
 	if color := document.Threads[0].Anchor.Text.Color; color != "#aa22cc" {
 		t.Fatalf("highlight color = %q, want #aa22cc", color)
+	}
+}
+
+func TestCreateThreadReturnsUndoHistoryMarker(t *testing.T) {
+	root := validServerSaga(t)
+	application := &app{root: root}
+	request := multipartRequest(t, "/api/thread", map[string]string{
+		"target":         "urn:review-saga:test:fragment:overview",
+		"body":           "Undoable comment.",
+		"anchor":         `{"type":"text","text":{"exact":"Story","start":0,"end":5}}`,
+		"return_to":      "/chapters/backend?view=saga#target-overview",
+		"record_history": "1",
+	})
+	recorder := httptest.NewRecorder()
+	application.createThread(recorder, request)
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("thread status = %d: %s", recorder.Code, recorder.Body.String())
+	}
+	location, err := url.Parse(recorder.Header().Get("Location"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if location.Path != "/chapters/backend" || location.Fragment != "target-overview" || location.Query().Get("view") != "saga" {
+		t.Fatalf("history redirect lost review location: %s", location)
+	}
+	if location.Query().Get("saga_action") != "thread-created" || location.Query().Get("saga_thread") == "" || location.Query().Get("saga_target") != "urn:review-saga:test:fragment:overview" || location.Query().Get("saga_label") != "highlight" {
+		t.Fatalf("history redirect omitted undo metadata: %s", location)
+	}
+}
+
+func TestWithdrawnThreadIsHiddenUntilReopened(t *testing.T) {
+	root := validServerSaga(t)
+	threadID, err := reviewstore.AddThread(root, "urn:review-saga:test:fragment:overview", "Temporarily hidden", saga.Anchor{Type: "target"}, "comment", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := reviewstore.SetState(root, threadID, "withdrawn"); err != nil {
+		t.Fatal(err)
+	}
+	tmpl := template.Must(template.New("page").Parse(`{{define "page"}}{{len (index .Root.FragmentViews 0).Threads}}{{end}}`))
+	application := &app{root: root, sourceDir: root, template: tmpl}
+	render := func() string {
+		recorder := httptest.NewRecorder()
+		application.page(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("page status = %d: %s", recorder.Code, recorder.Body.String())
+		}
+		return recorder.Body.String()
+	}
+	if got := render(); got != "0" {
+		t.Fatalf("withdrawn thread count = %q, want 0", got)
+	}
+	if err := reviewstore.SetState(root, threadID, "open"); err != nil {
+		t.Fatal(err)
+	}
+	if got := render(); got != "1" {
+		t.Fatalf("reopened thread count = %q, want 1", got)
 	}
 }
 
@@ -257,6 +315,9 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	}
 	if strings.Count(renderedPage, `class="annotation-toolbox"`) != 1 || strings.Contains(renderedPage, `class="review-form"`) {
 		t.Fatal("review controls were not consolidated")
+	}
+	if !strings.Contains(renderedPage, `body data-saga-id="test"`) || !strings.Contains(renderedPage, `data-undo disabled`) || !strings.Contains(renderedPage, `data-redo disabled`) || strings.Count(renderedPage, `name="record_history" value="1"`) != 2 {
+		t.Fatal("annotation command history controls were not rendered")
 	}
 	if !strings.Contains(renderedPage, `data-view-tab="manifest"`) || !strings.Contains(renderedPage, `data-manifest-panel="code"`) || !strings.Contains(renderedPage, "Everything is accounted for") || !strings.Contains(renderedPage, "Code → Saga") || !strings.Contains(renderedPage, "Saga → Code") {
 		t.Fatal("bidirectional coverage manifest was not rendered")

@@ -419,7 +419,7 @@ func Reply(_ context.Context, args []string, out io.Writer) error {
 	flags.SetOutput(out)
 	threadID := flags.String("thread", "", "thread identifier")
 	body := flags.String("body", "", "Markdown reply")
-	state := flags.String("state", "", "optionally set thread to open or resolved")
+	state := flags.String("state", "", "optionally set thread to open, resolved, or withdrawn")
 	var attachments stringList
 	flags.Var(&attachments, "attachment", "attachment; repeatable")
 	if err := flags.Parse(args); err != nil {

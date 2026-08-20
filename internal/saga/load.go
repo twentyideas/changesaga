@@ -449,8 +449,8 @@ func loadThreadEvents(root, threadDir string, validation *Validation) ([]ThreadE
 			return
 		}
 		value.Path = path
-		if value.Version != CurrentVersion || value.ID == "" || value.CreatedAt.IsZero() || value.State != "open" && value.State != "resolved" {
-			addIssue(validation, "error", relativePath(root, path), "thread event requires version 2, id, created_at, and open/resolved state")
+		if value.Version != CurrentVersion || value.ID == "" || value.CreatedAt.IsZero() || value.State != "open" && value.State != "resolved" && value.State != "withdrawn" {
+			addIssue(validation, "error", relativePath(root, path), "thread event requires version 2, id, created_at, and open/resolved/withdrawn state")
 		}
 		events = append(events, value)
 	})

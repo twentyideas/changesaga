@@ -2,6 +2,8 @@
 
 Fragment review supports whole-target comments, resilient text quotes with context and positions, normalized rectangles/lines/ellipses, and freehand paths. Normalized geometry survives responsive resizing. Thread messages reuse the fragment model, so a discussion can carry diagrams, screenshots, or interactive demonstrations.
 
+Ctrl/Cmd+Z reverses an in-progress or saved comment, highlight, rectangle, or freehand annotation; Ctrl/Cmd+Shift+Z and Ctrl+Y restore it. Draft geometry disappears immediately. Saved annotations are never deleted: undo appends a `withdrawn` state event and redo appends `open`, preserving the complete review trail in Git.
+
 # Code review actions {#code-review-actions}
 
 Every diff row can start a comment or a semantic suggestion containing explicit replacement code. File-level reviewed markers use absolute `/file` diff URIs, so a new product comparison starts unreviewed rather than inheriting stale confidence. Saga, chapter, section, and fragment approvals use append-only decision events.

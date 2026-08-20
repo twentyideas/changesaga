@@ -28,7 +28,8 @@ attributable through Git.
 - Strict structural validation and machine-readable status output for AI tools.
 - Separation of product changes from changes inside any `*.saga/` directory.
 - A local reviewer with rectangle/freehand overlays, text highlights, threaded
-  replies, fragment attachments, and append-only resolve/reopen events.
+  replies, fragment attachments, and Ctrl/Cmd+Z undo plus redo backed by
+  append-only withdraw/restore events.
 - A Saga view with per-fragment diff drawers, a full Code Diff view, and a
   bidirectional Coverage Manifest proving every code-to-narrative mapping.
 - Consistent saga-, section-, and fragment-level approvals.
@@ -169,6 +170,9 @@ elements that explain it, and every mapped Saga element shows its exact code
 ranges. The review surfaces use the same diff rows and thread records, so a
 comment or suggestion made in one is visible in the others. Reviewed-file
 markers and fragment approvals are append-only metadata committed with the saga.
+Undo and redo follow the same rule: the UI hides or restores an annotation by
+adding a thread-state event, so Git retains the original comment and every
+subsequent transition.
 
 Review data is intentionally conflict-resistant: separate comments create
 separate `.thread` directories, every reply creates a separate `.message`

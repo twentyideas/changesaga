@@ -13,7 +13,7 @@ func TestAppJavaScriptSyntaxAndRangeSelectionContract(t *testing.T) {
 	if err != nil {
 		t.Skip("node is not installed")
 	}
-	source := strings.Replace(appJavaScript, "})();", "globalThis.reviewSagaTest = {languageForPath, selectedRangeURI, normalizedAnnotationColor, colorWithAlpha};})();", 1)
+	source := strings.Replace(appJavaScript, "})();", "globalThis.reviewSagaTest = {languageForPath, selectedRangeURI, normalizedAnnotationColor, colorWithAlpha, shortcutDirection};})();", 1)
 	prelude := `globalThis.document={querySelector:()=>null,querySelectorAll:()=>[],addEventListener:()=>{}};
 globalThis.location={href:'http://127.0.0.1/?view=code',pathname:'/',search:'?view=code',hash:''};
 globalThis.history={pushState:()=>{}};globalThis.addEventListener=()=>{};globalThis.innerWidth=1400;
@@ -26,6 +26,10 @@ const range=reviewSagaTest.selectedRangeURI(rows);if(!range.includes('start=11')
 if(reviewSagaTest.normalizedAnnotationColor('#A1b2C3')!=='#a1b2c3')throw new Error('annotation color normalization failed');
 if(reviewSagaTest.normalizedAnnotationColor('red')!=='#d04832')throw new Error('unsafe annotation color fallback failed');
 if(reviewSagaTest.colorWithAlpha('#112233')!=='#11223355')throw new Error('highlight alpha failed');
+if(reviewSagaTest.shortcutDirection({key:'z',metaKey:true})!=='undo')throw new Error('Command+Z undo failed');
+if(reviewSagaTest.shortcutDirection({key:'Z',ctrlKey:true,shiftKey:true})!=='redo')throw new Error('Ctrl+Shift+Z redo failed');
+if(reviewSagaTest.shortcutDirection({key:'y',ctrlKey:true})!=='redo')throw new Error('Ctrl+Y redo failed');
+if(reviewSagaTest.shortcutDirection({key:'z',ctrlKey:true,altKey:true})!=='')throw new Error('modified shortcut should be ignored');
 `
 	path := filepath.Join(t.TempDir(), "appjs-check.js")
 	if err := os.WriteFile(path, []byte(prelude+source+checks), 0o600); err != nil {

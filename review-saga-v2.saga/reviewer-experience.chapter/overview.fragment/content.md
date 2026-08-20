@@ -10,7 +10,7 @@ The UI consumes the loaded saga, coverage report, source atoms, and append-only 
 
 Saga view presents the root overview and chapters in authored order. Every section, fragment, or landmark with evidence can open its attached code in a wide scrollable drawer without losing narrative context. The drawer begins with collapsed source files and an authored what-and-why summary for each one; reviewers expand only the file whose linked ranges they are ready to inspect. Code Diff view reuses the same diff rows but exposes the complete comparison with a changed-file tree. Coverage Manifest projects the same atom ownership in both directions, so a reviewer can audit every changed range against its narrative destinations and every mapped narrative element against its exact code ranges.
 
-Reviewers can comment on targets, select text, draw rectangles or freehand paths, attach rich fragments, comment on diff lines, propose replacement code, resolve threads, approve narrative targets, and mark files reviewed. Because both views use the same stored threads, a comment made in either context appears everywhere that diff is shown.
+Reviewers can comment on targets, select text, draw rectangles or freehand paths, attach rich fragments, comment on diff lines, propose replacement code, resolve threads, approve narrative targets, and mark files reviewed. Undo and redo work across saved annotations without erasing Git history. Because both views use the same stored threads, a comment made in either context appears everywhere that diff is shown.
 
 # Security and interaction risks {#security-and-interaction-risks}
 

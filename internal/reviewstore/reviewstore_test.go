@@ -92,6 +92,40 @@ func TestReviewRecordsAreAppendOnlyAndFileGranular(t *testing.T) {
 	}
 }
 
+func TestThreadUndoAndRedoAppendStateEvents(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "test.saga")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	threadID, err := AddThread(root, "urn:review-saga:test:fragment:overview", "Keep this history", saga.Anchor{Type: "target"}, "comment", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	threadDir := filepath.Join(root, "___review", "threads", threadID+".thread")
+	threadPath := filepath.Join(threadDir, "thread.json")
+	threadBefore := readReviewFile(t, threadPath)
+	messages, err := os.ReadDir(filepath.Join(threadDir, "messages"))
+	if err != nil || len(messages) != 1 {
+		t.Fatalf("initial thread messages: entries=%d err=%v", len(messages), err)
+	}
+	messagePath := filepath.Join(threadDir, "messages", messages[0].Name(), "message.json")
+	messageBefore := readReviewFile(t, messagePath)
+
+	if err := SetState(root, threadID, "withdrawn"); err != nil {
+		t.Fatal(err)
+	}
+	if err := SetState(root, threadID, "open"); err != nil {
+		t.Fatal(err)
+	}
+	assertEntryCount(t, filepath.Join(threadDir, "events"), 2)
+	if !bytes.Equal(threadBefore, readReviewFile(t, threadPath)) || !bytes.Equal(messageBefore, readReviewFile(t, messagePath)) {
+		t.Fatal("undo or redo rewrote the original thread")
+	}
+	if err := SetState(root, threadID, "deleted"); err == nil {
+		t.Fatal("unsupported thread state was accepted")
+	}
+}
+
 func runConcurrently(t *testing.T, operations ...func() error) {
 	t.Helper()
 	var group sync.WaitGroup
