@@ -17,13 +17,15 @@ func TestLoadRecursiveFragmentsAndReviewOverlay(t *testing.T) {
 	writeTestFile(t, filepath.Join(root, "backend.chapter", "chapter.json"), `{"version":2,"id":"backend","title":"Backend"}`)
 	writeTestFile(t, filepath.Join(root, "backend.chapter", "request-flow", "section.json"), `{"version":2,"id":"request-flow","title":"Request flow"}`)
 	writeTestFile(t, filepath.Join(root, "backend.chapter", "request-flow", "flow.fragment", "fragment.json"), `{"version":2,"id":"flow","title":"Flow","media_type":"text/html","entrypoint":"index.html"}`)
-	writeTestFile(t, filepath.Join(root, "backend.chapter", "request-flow", "flow.fragment", "index.html"), `<button onclick="this.textContent='ok'">Try it</button>`)
+	writeTestFile(t, filepath.Join(root, "backend.chapter", "request-flow", "flow.fragment", "index.html"), `<button id="try-flow" onclick="this.textContent='ok'">Try it</button>`)
+	writeTestFile(t, filepath.Join(root, "backend.chapter", "request-flow", "flow.fragment", "___landmarks", "try-flow.landmark", "landmark.json"), `{"version":2,"id":"try-flow","label":"Try the flow","selector":{"type":"element","element_id":"try-flow"}}`)
 
 	diff, err := diffuri.Build(diffuri.Reference{Repository: "https://example.test/acme/app.git", Base: "aaa", Head: "bbb", Kind: "line", Path: "api.go", Side: "new", Start: 2, End: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
 	writeTestFile(t, filepath.Join(root, "backend.chapter", "request-flow", "flow.fragment", "___diffs", "api.json"), fmt.Sprintf(`{"version":2,"diffs":[{"uri":%q}]}`, diff))
+	writeTestFile(t, filepath.Join(root, "backend.chapter", "request-flow", "flow.fragment", "___landmarks", "try-flow.landmark", "___diffs", "api.json"), fmt.Sprintf(`{"version":2,"diffs":[{"uri":%q}]}`, diff))
 	writeTestFile(t, filepath.Join(root, "___review", "threads", "thread-1.thread", "thread.json"), `{"version":2,"id":"thread-1","target":"urn:review-saga:test:fragment:flow","anchor":{"type":"region","coordinate_space":"normalized","shapes":[{"type":"rect","x":0.1,"y":0.2,"width":0.3,"height":0.4}]},"created_by":"Ada","created_at":"2026-08-19T12:00:00Z"}`)
 	writeTestFile(t, filepath.Join(root, "___review", "threads", "thread-1.thread", "messages", "message-1.message", "message.json"), `{"version":2,"id":"message-1","author":"Ada","created_at":"2026-08-19T12:00:00Z"}`)
 	writeTestFile(t, filepath.Join(root, "___review", "threads", "thread-1.thread", "messages", "message-1.message", "body.fragment", "fragment.json"), `{"version":2,"id":"message-body","media_type":"text/markdown","entrypoint":"content.md"}`)
@@ -44,7 +46,7 @@ func TestLoadRecursiveFragmentsAndReviewOverlay(t *testing.T) {
 		t.Fatalf("chapter was not loaded as a review boundary: %#v", chapter)
 	}
 	flow := chapter.Children[0].Fragments[0]
-	if flow.MediaType != "text/html" || len(flow.Diffs) != 1 {
+	if flow.MediaType != "text/html" || len(flow.Diffs) != 1 || len(flow.Landmarks) != 1 || flow.Landmarks[0].Selector.ElementID != "try-flow" || flow.Landmarks[0].Target != LandmarkTarget("test", "flow", "try-flow") || len(flow.Landmarks[0].Diffs) != 1 {
 		t.Fatalf("interactive fragment was not loaded: %#v", flow)
 	}
 	if len(document.Threads) != 1 || len(document.Threads[0].Messages) != 1 || document.Threads[0].Target != flow.Target {

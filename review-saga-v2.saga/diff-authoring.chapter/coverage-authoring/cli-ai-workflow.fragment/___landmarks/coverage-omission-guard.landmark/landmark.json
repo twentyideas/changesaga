@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "id": "coverage-omission-guard",
+  "label": "Coverage as an omission guard",
+  "selector": {
+    "type": "text",
+    "exact": "Coverage is an omission guard, not permission to attach unexplained broad ranges."
+  }
+}

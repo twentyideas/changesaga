@@ -148,6 +148,23 @@ func TestRelatedSagaEmptyStateIsExplicit(t *testing.T) {
 	}
 }
 
+func TestRelatedSagaLinksBackToExactLandmark(t *testing.T) {
+	fragment := &saga.Fragment{ID: "flow", Title: "Flow", Target: saga.FragmentTarget("test", "flow")}
+	landmarkTarget := saga.LandmarkTarget("test", "flow", "submit-action")
+	location := narrativeLocation{
+		fragment: fragment, target: landmarkTarget, itemID: "submit-action", title: "Submit action",
+		chapterID: "backend", chapterTitle: "Backend", chapterTarget: saga.ChapterTarget("test", "backend"),
+		chapterHref: "/chapters/backend", fragmentHref: "/chapters/backend#" + domID(fragment.Target) + "--submit-action",
+	}
+	atom := &diffAtomView{Atom: gitdiff.Atom{Key: "changed", URI: "saga-diff://example"}}
+	result := makeRelatedSagaViews([]narrativeLocation{location}, []*diffAtomView{atom}, map[string][]coverage.Assignment{
+		"changed": {{Target: landmarkTarget}},
+	})
+	if len(result) != 1 || len(result[0].Fragments) != 1 || result[0].Fragments[0].Title != "Submit action" || result[0].Fragments[0].Href != location.fragmentHref {
+		t.Fatalf("landmark reverse link = %#v", result)
+	}
+}
+
 func TestFileViewsAttachRendererContextWithoutChangingAtoms(t *testing.T) {
 	old := gitdiff.Atom{Key: "line:app.go:old:2", Kind: "line", Path: "app.go", Side: "old", Line: 2, Content: "old", URI: "old-uri"}
 	added := gitdiff.Atom{Key: "line:app.go:new:2", Kind: "line", Path: "app.go", Side: "new", Line: 2, Content: "new", URI: "new-uri"}

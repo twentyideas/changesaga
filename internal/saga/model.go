@@ -73,7 +73,40 @@ type Fragment struct {
 	Order      int        `json:"order,omitempty"`
 	Target     string     `json:"target"`
 	Diffs      []DiffFile `json:"diffs,omitempty"`
+	Landmarks  []Landmark `json:"landmarks,omitempty"`
 	Reviews    []Review   `json:"reviews,omitempty"`
+}
+
+type Landmark struct {
+	Path      string           `json:"-"`
+	Directory string           `json:"-"`
+	Version   int              `json:"version"`
+	ID        string           `json:"id"`
+	Label     string           `json:"label"`
+	Selector  LandmarkSelector `json:"selector"`
+	Hotspot   *LandmarkRegion  `json:"hotspot,omitempty"`
+	Target    string           `json:"target"`
+	Diffs     []DiffFile       `json:"diffs,omitempty"`
+}
+
+type LandmarkSelector struct {
+	Type      string  `json:"type"`
+	ElementID string  `json:"element_id,omitempty"`
+	HeadingID string  `json:"heading_id,omitempty"`
+	Exact     string  `json:"exact,omitempty"`
+	Prefix    string  `json:"prefix,omitempty"`
+	Suffix    string  `json:"suffix,omitempty"`
+	X         float64 `json:"x,omitempty"`
+	Y         float64 `json:"y,omitempty"`
+	Width     float64 `json:"width,omitempty"`
+	Height    float64 `json:"height,omitempty"`
+}
+
+type LandmarkRegion struct {
+	X      float64 `json:"x"`
+	Y      float64 `json:"y"`
+	Width  float64 `json:"width"`
+	Height float64 `json:"height"`
 }
 
 type DiffFile struct {
@@ -236,4 +269,8 @@ func ChapterTarget(sagaID, chapterID string) string {
 
 func FragmentTarget(sagaID, fragmentID string) string {
 	return "urn:review-saga:" + sagaID + ":fragment:" + fragmentID
+}
+
+func LandmarkTarget(sagaID, fragmentID, landmarkID string) string {
+	return FragmentTarget(sagaID, fragmentID) + ":landmark:" + landmarkID
 }

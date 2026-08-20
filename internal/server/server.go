@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strconv"
@@ -72,17 +73,28 @@ type sectionView struct {
 
 type fragmentView struct {
 	*saga.Fragment
-	DOMID        string
-	URL          string
-	Markdown     template.HTML
-	Plain        string
-	Interactive  bool
-	Image        bool
-	Changes      []*diffAtomView
-	Threads      []*threadView
-	ReviewState  string
-	ReviewAuthor string
-	ReviewDetail string
+	DOMID         string
+	URL           string
+	Markdown      template.HTML
+	Plain         string
+	Interactive   bool
+	Image         bool
+	AspectRatio   string
+	LandmarkViews []*landmarkView
+	Changes       []*diffAtomView
+	Threads       []*threadView
+	ReviewState   string
+	ReviewAuthor  string
+	ReviewDetail  string
+}
+
+type landmarkView struct {
+	saga.Landmark
+	DOMID   string
+	Title   string
+	Changes []*diffAtomView
+	Threads []*threadView
+	Region  *saga.LandmarkRegion
 }
 
 type diffAtomView struct {
@@ -352,7 +364,7 @@ func makeSectionView(section *saga.Section, changes map[string][]gitdiff.Atom, t
 		view.ReviewState, view.ReviewAuthor, view.ReviewDetail = last.State, last.Author, last.AttributionDetail
 	}
 	for _, fragment := range section.Fragments {
-		view.FragmentViews = append(view.FragmentViews, makeFragmentView(fragment, changes[fragment.Target], threads[fragment.Target], diffThreads))
+		view.FragmentViews = append(view.FragmentViews, makeFragmentView(fragment, changes[fragment.Target], threads[fragment.Target], diffThreads, changes, threads))
 	}
 	for _, child := range section.Children {
 		view.ChildViews = append(view.ChildViews, makeSectionView(child, changes, threads, diffThreads))
@@ -360,8 +372,18 @@ func makeSectionView(section *saga.Section, changes map[string][]gitdiff.Atom, t
 	return view
 }
 
-func makeFragmentView(fragment *saga.Fragment, changes []gitdiff.Atom, threads []*threadView, diffThreads map[string][]*threadView) *fragmentView {
+func makeFragmentView(fragment *saga.Fragment, changes []gitdiff.Atom, threads []*threadView, diffThreads map[string][]*threadView, changesByTarget map[string][]gitdiff.Atom, threadsByTarget map[string][]*threadView) *fragmentView {
 	view := &fragmentView{Fragment: fragment, DOMID: domID(fragment.Target), Changes: makeAtomViews(changes, fragment.Target, diffThreads), Threads: threads}
+	for _, landmark := range fragment.Landmarks {
+		region := landmark.Hotspot
+		if region == nil && landmark.Selector.Type == "region" {
+			region = &saga.LandmarkRegion{X: landmark.Selector.X, Y: landmark.Selector.Y, Width: landmark.Selector.Width, Height: landmark.Selector.Height}
+		}
+		view.LandmarkViews = append(view.LandmarkViews, &landmarkView{
+			Landmark: landmark, DOMID: view.DOMID + "--" + landmark.ID, Title: landmark.Label,
+			Changes: makeAtomViews(changesByTarget[landmark.Target], landmark.Target, diffThreads), Threads: threadsByTarget[landmark.Target], Region: region,
+		})
+	}
 	view.ReviewState, view.ReviewAuthor, view.ReviewDetail = latestReview(fragment.Reviews)
 	view.URL = "/f/" + url.PathEscape(fragment.ID) + "/" + strings.Join(pathEscapeParts(filepath.ToSlash(fragment.Entrypoint)), "/")
 	switch fragment.MediaType {
@@ -375,10 +397,37 @@ func makeFragmentView(fragment *saga.Fragment, changes []gitdiff.Atom, threads [
 		}
 	case "text/html", "image/svg+xml":
 		view.Interactive = true
+		if fragment.MediaType == "image/svg+xml" {
+			if data, err := os.ReadFile(filepath.Join(fragment.Directory, fragment.Entrypoint)); err == nil {
+				view.AspectRatio = svgAspectRatio(string(data))
+				if view.AspectRatio != "" {
+					view.URL += "?saga_aspect=" + url.QueryEscape(view.AspectRatio)
+				}
+			}
+		}
 	default:
 		view.Image = strings.HasPrefix(fragment.MediaType, "image/")
 	}
 	return view
+}
+
+var svgViewBoxPattern = regexp.MustCompile(`(?i)\bviewBox\s*=\s*["']([^"']+)["']`)
+
+func svgAspectRatio(source string) string {
+	match := svgViewBoxPattern.FindStringSubmatch(source)
+	if len(match) != 2 {
+		return ""
+	}
+	parts := strings.Fields(match[1])
+	if len(parts) != 4 {
+		return ""
+	}
+	width, widthErr := strconv.ParseFloat(parts[2], 64)
+	height, heightErr := strconv.ParseFloat(parts[3], 64)
+	if widthErr != nil || heightErr != nil || width <= 0 || height <= 0 {
+		return ""
+	}
+	return strconv.FormatFloat(width/height, 'f', 8, 64)
 }
 
 func makeThreadView(thread *saga.Thread) *threadView {
@@ -390,7 +439,7 @@ func makeThreadView(thread *saga.Thread) *threadView {
 	for _, message := range thread.Messages {
 		var fragments []*fragmentView
 		for _, fragment := range message.Fragments {
-			fragments = append(fragments, makeFragmentView(fragment, nil, nil, nil))
+			fragments = append(fragments, makeFragmentView(fragment, nil, nil, nil, nil, nil))
 		}
 		view.MessageViews = append(view.MessageViews, fragments)
 	}
@@ -807,6 +856,11 @@ func targetExists(document *saga.Saga, target string) bool {
 			if fragment.Target == target {
 				found = true
 			}
+			for index := range fragment.Landmarks {
+				if fragment.Landmarks[index].Target == target {
+					found = true
+				}
+			}
 		}
 		for _, child := range section.Children {
 			walk(child)
@@ -838,6 +892,12 @@ func findTargetDirectory(document *saga.Saga, target string) string {
 		for _, fragment := range section.Fragments {
 			if fragment.Target == target {
 				result = fragment.Directory
+			}
+			for index := range fragment.Landmarks {
+				landmark := &fragment.Landmarks[index]
+				if landmark.Target == target {
+					result = landmark.Directory
+				}
 			}
 		}
 		for _, child := range section.Children {

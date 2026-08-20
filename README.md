@@ -139,6 +139,10 @@ pr-1234.saga/
             ├── fragment.json
             ├── index.html
             ├── app.js
+            ├── ___landmarks/
+            │   └── submit-action.landmark/
+            │       ├── landmark.json
+            │       └── ___diffs/
             └── ___diffs/
 ```
 
@@ -147,6 +151,12 @@ ordinary nested directory is a section, and every `.fragment` directory is an
 atomic content package. Review threads live in a separate overlay and their
 messages contain fragments too, so comments can be Markdown, images, SVG, or
 interactive HTML rather than one text field.
+
+Markdown headings carry explicit `{#stable-anchor}` markers. Addressable
+HTML/SVG elements, exact text, and image regions use independent
+`___landmarks/<id>.landmark/` packages. Their own `___diffs/` files connect an
+exact narrative element to exact code, and static-media hotspots reveal link
+and code controls on hover.
 
 The local reviewer has two modes. **Saga** keeps the authored narrative in the
 foreground and opens attached code in a scrollable right-hand drawer. **Code

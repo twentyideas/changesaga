@@ -191,6 +191,13 @@ func loadFragment(root, dir, sagaID string, validation *Validation) (*Fragment, 
 			return nil, err
 		}
 	}
+	if metadataDirectorySafe(root, dir, "___landmarks", validation) {
+		var err error
+		fragment.Landmarks, err = loadLandmarks(root, filepath.Join(dir, "___landmarks"), sagaID, fragment, validation)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if metadataDirectorySafe(root, dir, "___approvals", validation) {
 		var err error
 		fragment.Reviews, err = loadReviews(root, filepath.Join(dir, "___approvals"), validation)
@@ -203,11 +210,77 @@ func loadFragment(root, dir, sagaID string, validation *Validation) (*Fragment, 
 		return nil, err
 	}
 	for _, entry := range entries {
-		if entry.IsDir() && strings.HasPrefix(entry.Name(), "___") && entry.Name() != "___diffs" && entry.Name() != "___approvals" {
+		if entry.IsDir() && strings.HasPrefix(entry.Name(), "___") && entry.Name() != "___diffs" && entry.Name() != "___landmarks" && entry.Name() != "___approvals" {
 			addIssue(validation, "error", relativePath(root, filepath.Join(dir, entry.Name())), "unknown reserved directory in fragment")
 		}
 	}
 	return fragment, nil
+}
+
+func loadLandmarks(root, dir, sagaID string, fragment *Fragment, validation *Validation) ([]Landmark, error) {
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var result []Landmark
+	seen := map[string]string{}
+	headings := map[string]string{}
+	if fragment.MediaType == "text/markdown" {
+		if content, readErr := os.ReadFile(filepath.Join(fragment.Directory, fragment.Entrypoint)); readErr == nil {
+			for _, heading := range MarkdownHeadings(string(content)) {
+				if heading.Explicit && ValidMarkdownAnchor(heading.Anchor) {
+					headings[heading.Anchor] = relativePath(root, filepath.Join(fragment.Directory, fragment.Entrypoint))
+				}
+			}
+		}
+	}
+	for _, entry := range entries {
+		entryPath := filepath.Join(dir, entry.Name())
+		if !entry.IsDir() || !strings.HasSuffix(entry.Name(), ".landmark") {
+			addIssue(validation, "error", relativePath(root, entryPath), "landmarks must be <id>.landmark directories")
+			continue
+		}
+		path := filepath.Join(entryPath, "landmark.json")
+		var value Landmark
+		if err := readJSON(path, &value); err != nil {
+			addIssue(validation, "error", relativePath(root, path), err.Error())
+			continue
+		}
+		value.Path = relativePath(root, path)
+		value.Directory = entryPath
+		value.Target = LandmarkTarget(sagaID, fragment.ID, value.ID)
+		if directoryID := strings.TrimSuffix(entry.Name(), ".landmark"); directoryID != value.ID {
+			addIssue(validation, "error", value.Path, fmt.Sprintf("landmark id %q must match directory %q", value.ID, directoryID+".landmark"))
+		}
+		validateLandmark(value, fragment, validation)
+		if previous, ok := seen[value.ID]; ok {
+			addIssue(validation, "error", value.Path, fmt.Sprintf("landmark id %q is duplicated; first used by %s", value.ID, previous))
+		} else if headingPath, ok := headings[value.ID]; ok && value.Selector.Type != "heading" {
+			addIssue(validation, "error", value.Path, fmt.Sprintf("landmark id %q conflicts with a Markdown heading in %s", value.ID, headingPath))
+		}
+		seen[value.ID] = value.Path
+		if metadataDirectorySafe(root, entryPath, "___diffs", validation) {
+			value.Diffs, err = loadDiffs(root, filepath.Join(entryPath, "___diffs"), validation)
+			if err != nil {
+				return nil, err
+			}
+		}
+		landmarkEntries, readErr := os.ReadDir(entryPath)
+		if readErr != nil {
+			return nil, readErr
+		}
+		for _, landmarkEntry := range landmarkEntries {
+			if landmarkEntry.IsDir() && strings.HasPrefix(landmarkEntry.Name(), "___") && landmarkEntry.Name() != "___diffs" {
+				addIssue(validation, "error", relativePath(root, filepath.Join(entryPath, landmarkEntry.Name())), "unknown reserved directory in landmark")
+			}
+		}
+		result = append(result, value)
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
+	return result, nil
 }
 
 func loadDiffs(root, dir string, validation *Validation) ([]DiffFile, error) {

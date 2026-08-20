@@ -60,6 +60,22 @@ func TestEvaluateComplete(t *testing.T) {
 	}
 }
 
+func TestEvaluateLandmarkDiffs(t *testing.T) {
+	atom := lineAtom(t, "app.go", "new", 12)
+	landmarkTarget := saga.LandmarkTarget("test", "flow", "submit-action")
+	document := &saga.Saga{Section: &saga.Section{
+		Target: saga.SagaTarget("test"),
+		Fragments: []*saga.Fragment{{
+			Target:    saga.FragmentTarget("test", "flow"),
+			Landmarks: []saga.Landmark{{Target: landmarkTarget, Diffs: []saga.DiffFile{{Path: "submit-action.landmark/___diffs/handler.json", Diffs: []saga.DiffReference{{URI: atom.URI}}}}}},
+		}},
+	}}
+	report := Evaluate(document, saga.Validation{Valid: true}, gitdiff.ChangeSet{Atoms: []gitdiff.Atom{atom}})
+	if !report.Complete || len(report.Ownership[atom.Key]) != 1 || report.Ownership[atom.Key][0].Target != landmarkTarget {
+		t.Fatalf("landmark did not own its code: %#v", report)
+	}
+}
+
 func lineAtom(t *testing.T, path, side string, line int) gitdiff.Atom {
 	t.Helper()
 	atom := gitdiff.Atom{Kind: "line", Path: path, Side: side, Line: line}

@@ -708,6 +708,21 @@ func resolveTarget(document *saga.Saga, value string, allowFragment bool) (strin
 		}
 		return foundDir, value, nil
 	}
+	candidate := value
+	if !filepath.IsAbs(candidate) {
+		candidate = filepath.Join(document.Root, candidate)
+	}
+	candidateAbs, _ := filepath.Abs(candidate)
+	var directTarget string
+	walkTargets(document.Root, document.Section, func(target, dir string, fragment bool) {
+		dirAbs, _ := filepath.Abs(dir)
+		if dirAbs == candidateAbs && (allowFragment || !fragment) {
+			directTarget = target
+		}
+	})
+	if directTarget != "" {
+		return candidateAbs, directTarget, nil
+	}
 	dir, err := store.ResolveSection(document.Root, value)
 	if err != nil {
 		return "", "", err
@@ -735,6 +750,10 @@ func walkTargets(root string, section *saga.Section, fn func(target, dir string,
 	// directories are already absolute because they can also live in messages.
 	for _, fragment := range section.Fragments {
 		fn(fragment.Target, fragment.Directory, true)
+		for index := range fragment.Landmarks {
+			landmark := &fragment.Landmarks[index]
+			fn(landmark.Target, landmark.Directory, true)
+		}
 	}
 	for _, child := range section.Children {
 		fn(child.Target, filepath.Join(root, filepath.FromSlash(child.Path)), false)

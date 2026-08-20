@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reviewsaga.dev/schema/v2/landmark.schema.json",
+  "title": "Review Saga fragment landmark",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "id", "label", "selector"],
+  "properties": {
+    "version": { "const": 2 },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+    "label": { "type": "string", "minLength": 1 },
+    "hotspot": { "$ref": "#/$defs/region" },
+    "selector": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "heading_id"],
+          "properties": {
+            "type": { "const": "heading" },
+            "heading_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "element_id"],
+          "properties": {
+            "type": { "const": "element" },
+            "element_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "exact"],
+          "properties": {
+            "type": { "const": "text" },
+            "exact": { "type": "string", "minLength": 1 },
+            "prefix": { "type": "string" },
+            "suffix": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "x", "y", "width", "height"],
+          "properties": {
+            "type": { "const": "region" },
+            "x": { "type": "number", "minimum": 0, "maximum": 1 },
+            "y": { "type": "number", "minimum": 0, "maximum": 1 },
+            "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+            "height": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "region": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 },
+        "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "height": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

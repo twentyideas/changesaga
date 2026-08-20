@@ -54,7 +54,7 @@ Split a chapter when it contains independently understandable behavior with a
 different risk profile or reviewer specialty. Do not create a chapter merely
 for each directory or language.
 
-## Hyperlink contract
+## Landmark and hyperlink contract
 
 End every Markdown heading with a stable, fragment-local anchor:
 
@@ -67,6 +67,50 @@ unique within the fragment. Treat the anchor as an identifier: preserve it when
 rewriting or renaming the visible heading. The renderer namespaces it with the
 fragment target, so the same anchor may be reused in another fragment. Do not
 rely on an automatically generated heading slug for authored saga content.
+
+For addressable content that needs metadata or code links, create one
+`___landmarks/<stable-id>.landmark/` package per item. Put this in
+`landmark.json`:
+
+```json
+{
+  "version": 2,
+  "id": "submit-action",
+  "label": "Submit action",
+  "selector": { "type": "element", "element_id": "submit-action" }
+}
+```
+
+- For a Markdown heading with related code, use a `heading` selector whose
+  `heading_id` matches its explicit heading anchor.
+- For HTML or SVG, put the same stable `id` on the meaningful element and use an
+  `element` selector.
+- For raster images, use a `region` selector with normalized `x`, `y`, `width`,
+  and `height` in `[0,1]`.
+- For plain text, use a `text` selector with an exact quote and optional prefix
+  and suffix. In Markdown, choose literal source text that also renders as the
+  same visible text; do not span inline markup. Prefer heading anchors when a
+  heading is the intended target.
+- For a format without a native selector, make the fragment itself the link
+  target or place the media in a small HTML wrapper whose meaningful controls
+  and regions have stable element IDs. Do not invent an unrecognized selector.
+
+Create landmarks for independently discussable concepts, states, controls, and
+diagram nodes—not decorative shapes or every sentence. Keep IDs stable when
+labels or visuals change, keep them unique within the fragment, and use a
+separate package for each landmark so parallel edits do not touch a shared
+array. For static SVGs and images, add a normalized `hotspot` rectangle when the
+renderer should reveal permalink and code controls over the item on hover.
+For SVG, divide the item's viewBox coordinates by the viewBox width and height;
+for raster media, divide pixel coordinates by the intrinsic image dimensions.
+For example: `"hotspot":{"x":0.68,"y":0.72,"width":0.2,"height":0.12}`.
+
+When a landmark is realized by code, put each focused diff association in its
+own `<landmark>/___diffs/*.json` file. Run `saga cover --target` with the
+landmark target URN; do not duplicate the same atom at fragment scope merely to
+make it visible. This is the literate-programming bridge: prose and diagrams
+explain intent, while the landmark opens the exact implementation. The fragment
+is always addressable even when it has no inner landmarks.
 
 ## Evidence discipline
 
@@ -88,6 +132,8 @@ Before handing off:
 - Confirm the root overview explains goals and supplies a useful chapter map.
 - Confirm every chapter can be reviewed and approved independently.
 - Confirm diagrams and examples agree with current code.
+- Confirm meaningful diagram nodes, interactive controls, text regions, and
+  image regions have valid landmarks that still resolve to their content.
 - Confirm every product atom is covered, no URI is stale, and every overlap is
   defensible.
 - Confirm tests, migrations, generated artifacts, and removed behavior are not

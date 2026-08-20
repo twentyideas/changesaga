@@ -85,6 +85,10 @@ interactive-flow.fragment/
 ├── app.js
 ├── styles.css
 ├── sample-data.json
+├── ___landmarks/
+│   └── submit-action.landmark/
+│       ├── landmark.json
+│       └── ___diffs/
 └── ___diffs/
 ```
 
@@ -118,6 +122,40 @@ anchor. The reference validator warns about headings without explicit anchors
 and rejects invalid or duplicate explicit anchors. Engines may derive fallback
 anchors for older content, but authored anchors are the stable sharing contract.
 
+Addressable subparts use one `<id>.landmark` package under `___landmarks/`.
+Its `landmark.json` conforms to
+[`schema/v2/landmark.schema.json`](schema/v2/landmark.schema.json) and contains a
+stable fragment-local ID, a reviewer-facing label, and one selector:
+
+- `heading` enriches an explicit Markdown heading anchor;
+- `element` identifies an `id` in an HTML or SVG entrypoint;
+- `text` identifies an exact quote, with optional prefix and suffix, in Markdown
+  or plain text;
+- `region` identifies a normalized rectangle in an image.
+
+```json
+{
+  "version": 2,
+  "id": "submit-action",
+  "label": "Submit action",
+  "selector": { "type": "element", "element_id": "submit-action" }
+}
+```
+
+Landmark IDs follow the Markdown-anchor grammar and are unique within the
+fragment. A `heading` package intentionally shares its ID with the heading it
+enriches. Engines combine the fragment target and landmark ID into a portable
+page anchor and assign the landmark its own target URN. Each `___diffs/*.json`
+inside the landmark package associates fully qualified diff atoms with that
+exact narrative element; each association remains an independent file.
+
+Static SVG and image landmarks may include a normalized `hotspot` rectangle.
+The renderer uses it to reveal permalink and related-code controls directly on
+hover without trusting or modifying the fragment document. A `region` selector
+is itself a hotspot. The fragment target remains the portable fallback for
+media without a native selector; authors may use an HTML wrapper with element
+landmarks when inner addressability is important.
+
 HTML and SVG fragments execute in an iframe with `sandbox="allow-scripts"` and a
 network-denying Content Security Policy. They can execute bundled JavaScript but
 cannot access the review application, navigate its parent, submit forms, open
@@ -133,6 +171,7 @@ urn:review-saga:<saga-id>:saga
 urn:review-saga:<saga-id>:chapter:<chapter-id>
 urn:review-saga:<saga-id>:section:<section-id>
 urn:review-saga:<saga-id>:fragment:<fragment-id>
+urn:review-saga:<saga-id>:fragment:<fragment-id>:landmark:<landmark-id>
 ```
 
 IDs are 1–128 characters from `A-Z`, `a-z`, `0-9`, `.`, `_`, and `-`, beginning
@@ -310,6 +349,7 @@ approval permits merging.
 ## 9. Reserved names
 
 `___diffs` and `___approvals` are reserved on saga/chapter/section/fragment targets.
+`___landmarks` is reserved inside fragments.
 `___review` is reserved at the saga root. Reserved metadata directories must be
 real directories, not symlinks. Other names beginning with `___` are invalid.
 

@@ -46,3 +46,45 @@ func TestValidateMarkdownHeadingAnchorsReportsAuthoringProblems(t *testing.T) {
 		t.Fatalf("issues = %#v", result.Issues)
 	}
 }
+
+func TestValidateLandmarkMediaSelectors(t *testing.T) {
+	dir := t.TempDir()
+	entrypoint := filepath.Join(dir, "image.svg")
+	if err := os.WriteFile(entrypoint, []byte(`<svg><g id="request-flow"/></svg>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fragment := &Fragment{Directory: dir, Entrypoint: "image.svg", MediaType: "image/svg+xml"}
+	valid := Landmark{Version: 2, ID: "request-flow", Label: "Request flow", Selector: LandmarkSelector{Type: "element", ElementID: "request-flow"}}
+	result := Validation{}
+	validateLandmark(valid, fragment, &result)
+	if len(result.Issues) != 0 {
+		t.Fatalf("valid landmark issues = %#v", result.Issues)
+	}
+	invalid := valid
+	invalid.ID = "missing"
+	invalid.Selector.ElementID = "missing"
+	validateLandmark(invalid, fragment, &result)
+	if len(result.Issues) != 1 || result.Issues[0].Severity != "error" {
+		t.Fatalf("missing landmark issues = %#v", result.Issues)
+	}
+
+	textPath := filepath.Join(dir, "content.txt")
+	if err := os.WriteFile(textPath, []byte("Before the stable phrase after"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	textFragment := &Fragment{Directory: dir, Entrypoint: "content.txt", MediaType: "text/plain"}
+	textLandmark := Landmark{Version: 2, ID: "stable-phrase", Label: "Stable phrase", Selector: LandmarkSelector{Type: "text", Exact: "stable phrase", Prefix: "the ", Suffix: " after"}}
+	textResult := Validation{}
+	validateLandmark(textLandmark, textFragment, &textResult)
+	if len(textResult.Issues) != 0 {
+		t.Fatalf("valid text landmark issues = %#v", textResult.Issues)
+	}
+
+	imageFragment := &Fragment{Directory: dir, Entrypoint: "image.png", MediaType: "image/png"}
+	regionLandmark := Landmark{Version: 2, ID: "submit-area", Label: "Submit area", Selector: LandmarkSelector{Type: "region", X: .1, Y: .2, Width: .3, Height: .4}}
+	regionResult := Validation{}
+	validateLandmark(regionLandmark, imageFragment, &regionResult)
+	if len(regionResult.Issues) != 0 {
+		t.Fatalf("valid region landmark issues = %#v", regionResult.Issues)
+	}
+}

@@ -84,6 +84,10 @@ func Evaluate(document *saga.Saga, validation saga.Validation, changes gitdiff.C
 		}
 		for _, fragment := range section.Fragments {
 			visitDiffs(fragment.Target, fragment.Diffs, index, assignments, &report)
+			for landmarkIndex := range fragment.Landmarks {
+				landmark := &fragment.Landmarks[landmarkIndex]
+				visitDiffs(landmark.Target, landmark.Diffs, index, assignments, &report)
+			}
 		}
 	})
 

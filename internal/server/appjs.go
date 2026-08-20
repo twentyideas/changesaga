@@ -52,6 +52,116 @@ const appJavaScript = `(() => {
     }, 1400);
   }
 
+  function markExactText(target, exact, className = '', prefix = '', suffix = '') {
+    if (!target || !exact) return null;
+    const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    let text = '';
+    let node;
+    while (node = walker.nextNode()) {
+      nodes.push({node, start: text.length, end: text.length + node.data.length});
+      text += node.data;
+    }
+    let offset = 0;
+    while ((offset = text.indexOf(exact, offset)) >= 0) {
+      const before = text.slice(0, offset);
+      const after = text.slice(offset + exact.length);
+      if ((!prefix || before.endsWith(prefix)) && (!suffix || after.startsWith(suffix))) {
+        const first = nodes.find(item => item.end > offset);
+        const last = nodes.find(item => item.end >= offset + exact.length);
+        if (!first || !last) return null;
+        const range = document.createRange();
+        range.setStart(first.node, offset - first.start);
+        range.setEnd(last.node, offset + exact.length - last.start);
+        const mark = document.createElement('mark');
+        if (className) mark.className = className;
+        mark.append(range.extractContents());
+        range.insertNode(mark);
+        return mark;
+      }
+      offset += exact.length;
+    }
+    return null;
+  }
+
+  function cloneLandmarkAffordance(target) {
+    return q('[data-landmark-affordance-template]', target)?.content.cloneNode(true) || null;
+  }
+
+  function positionLandmarkHotspots() {
+    qa('.fragment-stage').forEach(stage => {
+      const media = q('.fragment-frame,.fragment-image', stage);
+      if (!media) return;
+      const stageRect = stage.getBoundingClientRect();
+      const mediaRect = media.getBoundingClientRect();
+      qa('.landmark-hotspot', stage).forEach(visual => {
+        visual.style.left = (mediaRect.left - stageRect.left + Number(visual.dataset.x) * mediaRect.width) + 'px';
+        visual.style.top = (mediaRect.top - stageRect.top + Number(visual.dataset.y) * mediaRect.height) + 'px';
+        visual.style.width = (Number(visual.dataset.width) * mediaRect.width) + 'px';
+        visual.style.height = (Number(visual.dataset.height) * mediaRect.height) + 'px';
+      });
+    });
+  }
+
+  function prepareLandmarks() {
+    qa('.fragment-frame').forEach(frame => {
+      const aspect = Number(new URL(frame.src, location.href).searchParams.get('saga_aspect'));
+      if (aspect > 0) {
+        frame.style.minHeight = '0';
+        frame.style.aspectRatio = String(aspect);
+      }
+      frame.addEventListener('load', positionLandmarkHotspots);
+    });
+    qa('.fragment-image').forEach(image => image.addEventListener('load', positionLandmarkHotspots));
+    qa('[data-landmark-target]').forEach(target => {
+      const anchor = target.dataset.landmarkAnchor;
+      const fragment = target.closest('.fragment');
+      if (!anchor || !fragment) return;
+      if (target.dataset.landmarkType === 'heading') {
+        const heading = document.getElementById(anchor);
+        if (!heading) return;
+        heading.querySelector('.heading-permalink')?.remove();
+        const affordance = cloneLandmarkAffordance(target);
+        if (affordance) heading.append(affordance);
+      } else if (target.dataset.landmarkType === 'text') {
+        const mark = markExactText(q('[data-selectable]', fragment), target.dataset.exact, 'content-landmark-text', target.dataset.prefix, target.dataset.suffix);
+        if (!mark) return;
+        target.removeAttribute('id');
+        mark.id = anchor;
+        mark.dataset.landmarkVisual = anchor;
+        const affordance = cloneLandmarkAffordance(target);
+        if (affordance) mark.append(affordance);
+      }
+    });
+    globalThis.requestAnimationFrame?.(positionLandmarkHotspots);
+  }
+
+  function activateLandmark() {
+    qa('[data-landmark-visual].active').forEach(element => element.classList.remove('active'));
+    qa('.content-landmark-active').forEach(element => element.classList.remove('content-landmark-active'));
+    const id = decodeURIComponent(location.hash.replace(/^#/, ''));
+    const target = id ? q('[data-landmark-anchor="' + CSS.escape(id) + '"]') : null;
+    if (!target) return;
+    const fragment = target.closest('.fragment');
+    if (!fragment) return;
+    setActiveFragment(fragment);
+    const visual = q('[data-landmark-visual="' + CSS.escape(id) + '"]', fragment);
+    if (visual) {
+      visual.classList.add('active');
+      visual.classList.add('content-landmark-active');
+    }
+    if (target.dataset.landmarkType === 'element') {
+      const frame = q('[data-fragment-frame]', fragment);
+      if (!frame || !target.dataset.elementId) return;
+      const base = frame.dataset.landmarkBase || frame.getAttribute('src').split('#')[0];
+      frame.dataset.landmarkBase = base;
+      const url = new URL(base, location.href);
+      url.hash = target.dataset.elementId;
+      if (frame.src !== url.toString()) frame.src = url.toString();
+    }
+    document.getElementById(id)?.scrollIntoView({block:'center'});
+  }
+
   function languageForPath(path) {
     const name = (path || '').toLowerCase();
     const extension = name.includes('.') ? name.split('.').pop() : '';
@@ -507,24 +617,14 @@ const appJavaScript = `(() => {
     openAnnotation(anchor);
   });
 
+  prepareLandmarks();
   qa('[data-text-target]').forEach(label => {
     const target = document.querySelector('[data-target="'+CSS.escape(label.dataset.textTarget)+'"] [data-selectable]');
     if (!target) return;
     const exact = label.dataset.exact;
     const color = normalizedAnnotationColor(label.dataset.textColor);
-    const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
-    let node;
-    while (node = walker.nextNode()) {
-      const index = node.data.indexOf(exact);
-      if (index >= 0) {
-        const range = document.createRange();
-        range.setStart(node,index); range.setEnd(node,index+exact.length);
-        const mark = document.createElement('mark');
-        mark.style.backgroundColor = colorWithAlpha(color);
-        range.surroundContents(mark);
-        break;
-      }
-    }
+    const mark = markExactText(target, exact);
+    if (mark) mark.style.backgroundColor = colorWithAlpha(color);
   });
 
   const firstFragment = q('.fragment');
@@ -535,8 +635,10 @@ const appJavaScript = `(() => {
   prepareContext();
   highlightCode();
   applyDiffLayout('inline');
-  addEventListener('resize', () => applyDiffLayout(diffLayout));
+  addEventListener('resize', () => { applyDiffLayout(diffLayout); positionLandmarkHotspots(); });
   const initialView = new URL(location.href).searchParams.get('view') === 'code' ? 'code' : 'saga';
   setView(initialView, false);
+  activateLandmark();
+  addEventListener('hashchange', activateLandmark);
   addEventListener('popstate', () => setView(new URL(location.href).searchParams.get('view') === 'code' ? 'code' : 'saga', false));
 })();`

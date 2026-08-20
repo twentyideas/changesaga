@@ -347,6 +347,10 @@ func finalizeTreeNode(node *ChangedFileTreeNode) {
 
 type narrativeLocation struct {
 	fragment      *saga.Fragment
+	target        string
+	itemID        string
+	title         string
+	diffs         []saga.DiffFile
 	chapterID     string
 	chapterTitle  string
 	chapterTarget string
@@ -368,8 +372,16 @@ func indexNarrativeFragments(document *saga.Saga) []narrativeLocation {
 				location.chapterTitle, location.chapterTarget, location.chapterHref = "Overview", document.Section.Target, "/"
 			}
 			location.fragment = fragment
+			location.target, location.itemID, location.title, location.diffs = fragment.Target, fragment.ID, fragment.Title, fragment.Diffs
 			location.fragmentHref = location.chapterHref + "#" + domID(fragment.Target)
 			result = append(result, location)
+			for index := range fragment.Landmarks {
+				landmark := &fragment.Landmarks[index]
+				landmarkLocation := location
+				landmarkLocation.target, landmarkLocation.itemID, landmarkLocation.title, landmarkLocation.diffs = landmark.Target, landmark.ID, landmark.Label, landmark.Diffs
+				landmarkLocation.fragmentHref = location.chapterHref + "#" + domID(fragment.Target) + "--" + landmark.ID
+				result = append(result, landmarkLocation)
+			}
 		}
 		for _, child := range section.Children {
 			walk(child, chapter)
@@ -392,7 +404,7 @@ func makeRelatedSagaViews(locations []narrativeLocation, atoms []*diffAtomView, 
 	groups := map[string]*RelatedSagaChapterView{}
 	var result []*RelatedSagaChapterView
 	for _, location := range locations {
-		uris := ownedURIs[location.fragment.Target]
+		uris := ownedURIs[location.target]
 		if len(uris) == 0 {
 			continue
 		}
@@ -403,13 +415,13 @@ func makeRelatedSagaViews(locations []narrativeLocation, atoms []*diffAtomView, 
 			groups[groupKey] = group
 			result = append(result, group)
 		}
-		title := location.fragment.Title
+		title := location.title
 		if title == "" {
-			title = location.fragment.ID
+			title = location.itemID
 		}
 		group.Fragments = append(group.Fragments, &RelatedSagaFragmentView{
-			ID: location.fragment.ID, Title: title, Target: location.fragment.Target,
-			Excerpt: fragmentExcerpt(location.fragment), Anchor: domID(location.fragment.Target), Href: location.fragmentHref, DiffURIs: uris,
+			ID: location.itemID, Title: title, Target: location.target,
+			Excerpt: fragmentExcerpt(location.fragment), Anchor: domID(location.target), Href: location.fragmentHref, DiffURIs: uris,
 		})
 	}
 	return result
@@ -425,13 +437,13 @@ func makeFragmentOwnershipViews(locations []narrativeLocation, changes gitdiff.C
 	for _, location := range locations {
 		view := &FragmentOwnershipView{
 			ChapterID: location.chapterID, ChapterTitle: location.chapterTitle,
-			FragmentID: location.fragment.ID, Title: location.fragment.Title,
-			Target: location.fragment.Target, Anchor: domID(location.fragment.Target), Href: location.fragmentHref,
+			FragmentID: location.itemID, Title: location.title,
+			Target: location.target, Anchor: domID(location.target), Href: location.fragmentHref,
 		}
-		for _, diffFile := range location.fragment.Diffs {
+		for _, diffFile := range location.diffs {
 			for index, reference := range diffFile.Diffs {
 				link := &NarrativeDiffView{URI: reference.URI, Note: reference.Note}
-				if orphan, ok := orphans[ownershipReferenceKey(location.fragment.Target, diffFile.Path, index+1)]; ok {
+				if orphan, ok := orphans[ownershipReferenceKey(location.target, diffFile.Path, index+1)]; ok {
 					link.Reason = orphan.Reason
 					view.Diffs = append(view.Diffs, link)
 					continue

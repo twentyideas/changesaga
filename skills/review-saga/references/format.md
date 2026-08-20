@@ -22,6 +22,10 @@
         fragment.json
         index.html
         app.js
+        ___landmarks/
+          submit-action.landmark/
+            landmark.json
+            ___diffs/
 ```
 
 Direct root `.chapter` directories are independently reviewable chapters.
@@ -42,6 +46,24 @@ digits, and hyphens. They are unique within a fragment and remain unchanged when
 the visible heading is edited. The renderer combines the fragment target with
 the authored anchor to create a collision-free permalink.
 
+Addressable subparts use independent landmark packages:
+
+```json
+{
+  "version": 2,
+  "id": "submit-action",
+  "label": "Submit action",
+  "selector": { "type": "element", "element_id": "submit-action" }
+}
+```
+
+Store the record at `___landmarks/<id>.landmark/landmark.json`. Selector types
+are `heading` for an explicit Markdown anchor, `element` for an HTML/SVG element
+ID, `text` for an exact Markdown/plain-text quote, and `region` for normalized
+image coordinates. Put each code association in its own `___diffs/*.json`
+inside the package. Static SVG/image records may include a normalized `hotspot`
+that places hover controls over the illustrated item.
+
 ## Commands
 
 ```sh
@@ -52,6 +74,7 @@ saga add-fragment --section path/to/section --type markdown --title "Context" <n
 saga add-fragment --section path/to/section --type html --source ./demo-package --entrypoint index.html <name>.saga
 saga cover --repo <source-checkout> --target path/to/demo.fragment --path file.go --side new --lines 4-9,12 <name>.saga
 saga cover --target path/to/demo.fragment --uri 'saga-diff://v1/line?...' <name>.saga
+saga cover --target path/to/demo.fragment/___landmarks/submit-action.landmark --uri 'saga-diff://v1/line?...' <name>.saga
 saga validate --json <name>.saga
 saga status --json --repo <source-checkout> <name>.saga
 saga open --repo <source-checkout> <name>.saga
@@ -71,6 +94,7 @@ urn:review-saga:<saga-id>:saga
 urn:review-saga:<saga-id>:chapter:<chapter-id>
 urn:review-saga:<saga-id>:section:<section-id>
 urn:review-saga:<saga-id>:fragment:<fragment-id>
+urn:review-saga:<saga-id>:fragment:<fragment-id>:landmark:<landmark-id>
 ```
 
 Evidence contains absolute `saga-diff://v1/line?...` or

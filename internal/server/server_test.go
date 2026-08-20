@@ -235,14 +235,15 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	tmpl := serverTemplate(t)
 	fragmentDir := t.TempDir()
 	writeServerFile(t, filepath.Join(fragmentDir, "content.md"), "# Story {#story}\n")
-	fragment := &saga.Fragment{ID: "overview", Title: "Overview", Target: "urn:review-saga:test:fragment:overview", Directory: fragmentDir, MediaType: "text/markdown", Entrypoint: "content.md"}
+	landmarkTarget := saga.LandmarkTarget("test", "overview", "story-text")
+	fragment := &saga.Fragment{ID: "overview", Title: "Overview", Target: "urn:review-saga:test:fragment:overview", Directory: fragmentDir, MediaType: "text/markdown", Entrypoint: "content.md", Landmarks: []saga.Landmark{{Version: 2, ID: "story-text", Label: "Story text", Target: landmarkTarget, Selector: saga.LandmarkSelector{Type: "text", Exact: "Story"}}}}
 	emptyFragment := &saga.Fragment{ID: "empty", Title: "No changes", Target: "urn:review-saga:test:fragment:empty", Directory: fragmentDir, MediaType: "text/plain", Entrypoint: "missing.txt"}
 	section := &saga.Section{Kind: "chapter", ID: "root", Title: "Test", Target: "urn:review-saga:test:saga", Path: "private/root.chapter", Fragments: []*saga.Fragment{fragment, emptyFragment}}
 	thread := &saga.Thread{ID: "thread", Target: fragment.Target, Anchor: saga.Anchor{Type: "region", Coordinate: "normalized", Shapes: []saga.Shape{{Type: "rect", X: .1, Y: .2, Width: .3, Height: .4, Color: "#336699"}}}, State: "open", Messages: []*saga.Message{{ID: "message", CreatedAt: time.Date(2026, 8, 19, 12, 0, 0, 0, time.UTC)}}}
 	lineURI := "saga-diff://v1/line?base=aaa&end=1&head=product-bbb&path=app.go&repository=https%3A%2F%2Fexample.test%2Fa.git&side=new&start=1"
 	data := pageData{
 		Saga: &saga.Saga{Manifest: saga.Manifest{ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/a.git", Base: "main", Head: "HEAD"}}, Section: section},
-		Root: makeSectionView(section, map[string][]gitdiff.Atom{fragment.Target: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}}, map[string][]*threadView{fragment.Target: {makeThreadView(thread)}}, nil), Chapter: true,
+		Root: makeSectionView(section, map[string][]gitdiff.Atom{fragment.Target: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}, landmarkTarget: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}}, map[string][]*threadView{fragment.Target: {makeThreadView(thread)}}, nil), Chapter: true,
 		Code: &CodeReviewView{},
 	}
 	var output bytes.Buffer
@@ -259,6 +260,12 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	if !strings.Contains(renderedPage, `data-annotation-color`) || !strings.Contains(renderedPage, `stroke="#336699"`) || !strings.Contains(renderedPage, `data-copy-link="#`+domID("thread:thread")+`"`) || !strings.Contains(renderedPage, `data-copy-link="#`+domID("message:message")+`"`) {
 		t.Fatal("annotation colors or committed-item permalinks were not rendered")
 	}
+	if !strings.Contains(renderedPage, `data-landmark-type="text"`) || !strings.Contains(renderedPage, `data-exact="Story"`) || !strings.Contains(renderedPage, `data-prefix=""`) || !strings.Contains(renderedPage, `>Story text</a>`) {
+		t.Fatal("fragment landmarks were not exposed as deep links")
+	}
+	if !strings.Contains(renderedPage, `data-open-diffs="diffs-`+domID(fragment.Target)+`--story-text"`) {
+		t.Fatal("landmark-related code was not exposed in place")
+	}
 	if strings.Contains(renderedPage, `name="author"`) || strings.Contains(renderedPage, "Your name") || strings.Contains(renderedPage, "reviewer-name") {
 		t.Fatal("review UI asked for editable author identity")
 	}
@@ -271,6 +278,15 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	rendered := string(markdown("# Heading {#stable-heading}\n\n- one\n- <script>bad</script>"))
 	if strings.Contains(rendered, "<script>") || strings.Contains(rendered, "{#stable-heading}") || !strings.Contains(rendered, "&lt;script&gt;") || !strings.Contains(rendered, `id="heading--stable-heading"`) || !strings.Contains(rendered, `data-copy-link="#heading--stable-heading"`) {
 		t.Fatalf("unexpected Markdown rendering: %s", rendered)
+	}
+}
+
+func TestSVGAspectRatioKeepsHotspotsAligned(t *testing.T) {
+	if got := svgAspectRatio(`<svg viewBox="0 0 1200 640"></svg>`); got != "1.87500000" {
+		t.Fatalf("aspect ratio = %q", got)
+	}
+	if got := svgAspectRatio(`<svg></svg>`); got != "" {
+		t.Fatalf("missing viewBox ratio = %q", got)
 	}
 }
 
