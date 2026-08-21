@@ -66,6 +66,7 @@ type indexedAtom struct {
 type atomIndex struct {
 	lines  map[string][]indexedAtom
 	events []indexedAtom
+	sorted map[string]bool
 }
 
 func Evaluate(document *saga.Saga, validation saga.Validation, changes gitdiff.ChangeSet) Report {
@@ -137,7 +138,7 @@ func visitDiffs(target string, files []saga.DiffFile, index atomIndex, assignmen
 			matched := 0
 			candidates := index.events
 			if selector.Kind == "line" {
-				candidates = index.lines[lineIndexKey(selector)]
+				candidates = index.lineCandidates(selector)
 			}
 			for _, candidate := range candidates {
 				if diffuri.Matches(selector, candidate.reference) {
@@ -153,7 +154,7 @@ func visitDiffs(target string, files []saga.DiffFile, index atomIndex, assignmen
 }
 
 func buildIndex(atoms []gitdiff.Atom) atomIndex {
-	index := atomIndex{lines: map[string][]indexedAtom{}}
+	index := atomIndex{lines: map[string][]indexedAtom{}, sorted: map[string]bool{}}
 	for _, atom := range atoms {
 		reference, err := diffuri.Parse(atom.URI)
 		if err != nil {
@@ -168,6 +169,24 @@ func buildIndex(atoms []gitdiff.Atom) atomIndex {
 		}
 	}
 	return index
+}
+
+func (index atomIndex) lineCandidates(selector diffuri.Reference) []indexedAtom {
+	key := lineIndexKey(selector)
+	values := index.lines[key]
+	if !index.sorted[key] {
+		sort.SliceStable(values, func(i, j int) bool {
+			return values[i].reference.Start < values[j].reference.Start
+		})
+		index.sorted[key] = true
+	}
+	start := sort.Search(len(values), func(i int) bool {
+		return values[i].reference.Start >= selector.Start
+	})
+	end := sort.Search(len(values), func(i int) bool {
+		return values[i].reference.Start > selector.End
+	})
+	return values[start:end]
 }
 
 func lineIndexKey(reference diffuri.Reference) string {

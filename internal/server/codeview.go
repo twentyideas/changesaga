@@ -432,10 +432,21 @@ func makeRelatedSagaViews(locations []narrativeLocation, atoms []*diffAtomView, 
 }
 
 func makeFragmentOwnershipViews(locations []narrativeLocation, changes gitdiff.ChangeSet, report coverage.Report) []*FragmentOwnershipView {
-	orphans := map[string]coverage.Orphan{}
+	orphans := map[ownershipReferenceID]coverage.Orphan{}
 	for _, orphan := range report.Orphans {
 		key := ownershipReferenceKey(orphan.Assignment.Target, orphan.Assignment.DiffFile, orphan.Assignment.Diff)
 		orphans[key] = orphan
+	}
+	// Coverage has already parsed every selector and recorded its exact
+	// target/file/index assignment. Index those results once instead of
+	// reparsing and testing every changed atom for every narrative reference.
+	matchedAtoms := map[ownershipReferenceID][]*gitdiff.Atom{}
+	for atomIndex := range changes.Atoms {
+		atom := &changes.Atoms[atomIndex]
+		for _, assignment := range report.Ownership[atom.Key] {
+			key := ownershipReferenceKey(assignment.Target, assignment.DiffFile, assignment.Diff)
+			matchedAtoms[key] = append(matchedAtoms[key], atom)
+		}
 	}
 	var result []*FragmentOwnershipView
 	for _, location := range locations {
@@ -447,26 +458,23 @@ func makeFragmentOwnershipViews(locations []narrativeLocation, changes gitdiff.C
 		for _, diffFile := range location.diffs {
 			for index, reference := range diffFile.Diffs {
 				link := &NarrativeDiffView{URI: reference.URI, Note: reference.Note}
-				if orphan, ok := orphans[ownershipReferenceKey(location.target, diffFile.Path, index+1)]; ok {
+				key := ownershipReferenceKey(location.target, diffFile.Path, index+1)
+				if orphan, ok := orphans[key]; ok {
 					link.Reason = orphan.Reason
 					view.Diffs = append(view.Diffs, link)
 					continue
 				}
-				selector, err := diffuri.Parse(reference.URI)
-				if err != nil {
+				if _, err := diffuri.Parse(reference.URI); err != nil {
 					link.Reason = err.Error()
 					view.Diffs = append(view.Diffs, link)
 					continue
 				}
-				for _, atom := range changes.Atoms {
-					atomReference, err := diffuri.Parse(atom.URI)
-					if err == nil && diffuri.Matches(selector, atomReference) {
-						link.Available = true
-						link.MatchedURIs = append(link.MatchedURIs, atom.URI)
-						if link.FilePath == "" {
-							link.FilePath = effectiveAtomPath(atom)
-							link.Href = CodeDiffURL(link.FilePath, reference.URI)
-						}
+				for _, atom := range matchedAtoms[key] {
+					link.Available = true
+					link.MatchedURIs = append(link.MatchedURIs, atom.URI)
+					if link.FilePath == "" {
+						link.FilePath = effectiveAtomPath(*atom)
+						link.Href = CodeDiffURL(link.FilePath, reference.URI)
 					}
 				}
 				if !link.Available && link.Reason == "" {
@@ -480,8 +488,14 @@ func makeFragmentOwnershipViews(locations []narrativeLocation, changes gitdiff.C
 	return result
 }
 
-func ownershipReferenceKey(target, file string, index int) string {
-	return fmt.Sprintf("%s\x00%s\x00%d", target, file, index)
+type ownershipReferenceID struct {
+	target string
+	file   string
+	index  int
+}
+
+func ownershipReferenceKey(target, file string, index int) ownershipReferenceID {
+	return ownershipReferenceID{target: target, file: file, index: index}
 }
 
 func effectiveAtomPath(atom gitdiff.Atom) string {
