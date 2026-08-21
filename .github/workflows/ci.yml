@@ -60,6 +60,9 @@ jobs:
         run: go vet ./...
       - name: go test
         run: go test ${{ matrix.race }} ./...
+      - name: release reproducibility
+        if: runner.os != 'Windows'
+        run: ./scripts/build_release_test.sh
 
   lint:
     name: lint
