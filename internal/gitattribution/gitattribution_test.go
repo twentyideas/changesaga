@@ -2,12 +2,52 @@ package gitattribution
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func BenchmarkResolverLargeSaga(b *testing.B) {
+	repo := b.TempDir()
+	benchmarkGit(b, repo, "init", "-b", "main")
+	benchmarkGit(b, repo, "config", "user.name", "Benchmark")
+	benchmarkGit(b, repo, "config", "user.email", "benchmark@example.test")
+	paths := make([]string, 100)
+	for i := range paths {
+		paths[i] = filepath.Join(repo, fmt.Sprintf("reviews/%03d.json", i))
+		if err := os.MkdirAll(filepath.Dir(paths[i]), 0o755); err != nil {
+			b.Fatal(err)
+		}
+		if err := os.WriteFile(paths[i], []byte("{}\n"), 0o644); err != nil {
+			b.Fatal(err)
+		}
+	}
+	benchmarkGit(b, repo, "add", ".")
+	benchmarkGit(b, repo, "commit", "-m", "add review events")
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		resolver := New(context.Background(), repo)
+		for _, path := range paths {
+			if value := resolver.Resolve(context.Background(), path); value.State != Committed {
+				b.Fatalf("attribution for %s = %#v", path, value)
+			}
+		}
+	}
+}
+
+func benchmarkGit(tb testing.TB, dir string, args ...string) {
+	tb.Helper()
+	command := exec.Command("git", args...)
+	command.Dir = dir
+	if output, err := command.CombinedOutput(); err != nil {
+		tb.Fatalf("git %v: %v\n%s", args, err, output)
+	}
+}
 
 func TestResolverUsesIntroducingCommitCommitter(t *testing.T) {
 	repo := t.TempDir()
@@ -96,6 +136,46 @@ func TestResolverRecomputesAfterHistoryRewrite(t *testing.T) {
 	after := New(context.Background(), repo).Resolve(context.Background(), path)
 	if before.CommitID == after.CommitID || after.State != Committed || after.Name != "After Rewrite" || after.Email != "after@example.test" {
 		t.Fatalf("rewrite was not reflected: before=%#v after=%#v", before, after)
+	}
+}
+
+func TestResolverLoadsRepositoryIndexOnce(t *testing.T) {
+	repo := t.TempDir()
+	git(t, repo, "init", "-b", "main")
+	git(t, repo, "config", "user.name", "Default")
+	git(t, repo, "config", "user.email", "default@example.test")
+	paths := make([]string, 4)
+	for i := range paths {
+		paths[i] = filepath.Join(repo, fmt.Sprintf("reviews/%d.json", i))
+		if err := os.MkdirAll(filepath.Dir(paths[i]), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(paths[i], []byte("{}\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	git(t, repo, "add", ".")
+	git(t, repo, "commit", "-m", "review records")
+
+	resolver := New(context.Background(), repo)
+	commands := map[string]int{}
+	resolver.command = func(ctx context.Context, args ...string) *exec.Cmd {
+		for _, arg := range args {
+			switch arg {
+			case "status", "ls-files", "log":
+				commands[arg]++
+			}
+		}
+		return gitCommand(ctx, args...)
+	}
+	for _, path := range paths {
+		if value := resolver.Resolve(context.Background(), path); value.State != Committed {
+			t.Fatalf("attribution for %s = %#v", path, value)
+		}
+	}
+	resolver.Resolve(context.Background(), paths[0])
+	if commands["status"] != 1 || commands["ls-files"] != 1 || commands["log"] != len(paths) {
+		t.Fatalf("Git commands = %v, want one status and ls-files plus one log per unique path", commands)
 	}
 }
 
