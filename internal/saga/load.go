@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/change-saga/change-saga/internal/diffuri"
 )
@@ -124,10 +125,15 @@ func loadSection(root, dir string, manifest Manifest, isRoot bool, validation *V
 		return nil, err
 	}
 	for _, entry := range entries {
+		name := entry.Name()
 		if !entry.IsDir() {
+			for _, suffix := range []string{".chapter", ".fragment"} {
+				if matches, problem := structuralEntry(entry, suffix); matches && problem != "" {
+					addIssue(validation, "error", displayPath(rel, name), problem)
+				}
+			}
 			continue
 		}
-		name := entry.Name()
 		if strings.HasPrefix(name, "___") {
 			if !knownReservedDirectory(name, isRoot) {
 				addIssue(validation, "error", displayPath(rel, name), "unknown reserved directory")
@@ -135,6 +141,9 @@ func loadSection(root, dir string, manifest Manifest, isRoot bool, validation *V
 			continue
 		}
 		path := filepath.Join(dir, name)
+		if reason := PortabilityWarning(name); reason != "" {
+			addIssue(validation, "warning", displayPath(rel, name), fmt.Sprintf("directory name %q %s", name, reason))
+		}
 		if isRoot && !strings.HasSuffix(name, ".fragment") && !strings.HasSuffix(name, ".chapter") {
 			addIssue(validation, "error", displayPath(rel, name), "direct saga children must be .chapter or .fragment directories")
 		}
@@ -229,18 +238,18 @@ func loadLandmarks(root, dir, sagaID string, fragment *Fragment, validation *Val
 	seen := map[string]string{}
 	headings := map[string]string{}
 	if fragment.MediaType == "text/markdown" {
-		if content, readErr := os.ReadFile(filepath.Join(fragment.Directory, fragment.Entrypoint)); readErr == nil {
+		if content, readErr := os.ReadFile(filepath.Join(fragment.Directory, filepath.FromSlash(fragment.Entrypoint))); readErr == nil {
 			for _, heading := range MarkdownHeadings(string(content)) {
 				if heading.Explicit && ValidMarkdownAnchor(heading.Anchor) {
-					headings[heading.Anchor] = relativePath(root, filepath.Join(fragment.Directory, fragment.Entrypoint))
+					headings[heading.Anchor] = relativePath(root, filepath.Join(fragment.Directory, filepath.FromSlash(fragment.Entrypoint)))
 				}
 			}
 		}
 	}
 	for _, entry := range entries {
 		entryPath := filepath.Join(dir, entry.Name())
-		if !entry.IsDir() || !strings.HasSuffix(entry.Name(), ".landmark") {
-			addIssue(validation, "error", relativePath(root, entryPath), "landmarks must be <id>.landmark directories")
+		if matches, problem := structuralEntry(entry, ".landmark"); !matches || problem != "" {
+			addIssue(validation, "error", relativePath(root, entryPath), "landmarks must be real <id>.landmark directories")
 			continue
 		}
 		path := filepath.Join(entryPath, "landmark.json")
@@ -279,7 +288,12 @@ func loadLandmarks(root, dir, sagaID string, fragment *Fragment, validation *Val
 		}
 		result = append(result, value)
 	}
-	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].ID == result[j].ID {
+			return result[i].Path < result[j].Path
+		}
+		return result[i].ID < result[j].ID
+	})
 	return result, nil
 }
 
@@ -319,10 +333,13 @@ func loadReviews(root, dir string, validation *Validation) ([]Review, error) {
 			return
 		}
 		value.Path = path
-		if value.Version != CurrentVersion || value.ID == "" || value.CreatedAt.IsZero() || !validReviewState(value.State) {
-			addIssue(validation, "error", relativePath(root, path), "review requires version 2, id, created_at, and a valid state")
+		if value.Version != CurrentVersion || !stableID.MatchString(value.ID) || value.CreatedAt.IsZero() || !validReviewState(value.State) {
+			addIssue(validation, "error", relativePath(root, path), "review requires version 2, a stable id, created_at, and a valid state")
 		}
 		result = append(result, value)
+	})
+	sort.Slice(result, func(i, j int) bool {
+		return earlierRecord(result[i].CreatedAt, result[i].ID, result[j].CreatedAt, result[j].ID)
 	})
 	return result, err
 }
@@ -338,7 +355,12 @@ func loadThreads(root, sagaID string, validation *Validation) ([]*Thread, error)
 	}
 	var threads []*Thread
 	for _, entry := range entries {
-		if !entry.IsDir() || !strings.HasSuffix(entry.Name(), ".thread") {
+		matches, problem := structuralEntry(entry, ".thread")
+		if problem != "" {
+			addIssue(validation, "error", relativePath(root, filepath.Join(threadsDir, entry.Name())), problem)
+			continue
+		}
+		if !matches {
 			continue
 		}
 		dir := filepath.Join(threadsDir, entry.Name())
@@ -347,6 +369,13 @@ func loadThreads(root, sagaID string, validation *Validation) ([]*Thread, error)
 		if err := readJSON(manifestPath, &threadManifest); err != nil {
 			addIssue(validation, "error", relativePath(root, manifestPath), err.Error())
 			continue
+		}
+		// The reply, state, and anchor commands address a thread by its
+		// directory name while the overlay identity comes from thread.json. A
+		// disagreement would let one identifier resolve to a different record
+		// than the other, so it is rejected rather than silently preferred.
+		if directoryID := strings.TrimSuffix(entry.Name(), ".thread"); directoryID != threadManifest.ID {
+			addIssue(validation, "error", relativePath(root, manifestPath), fmt.Sprintf("thread id %q must match directory %q", threadManifest.ID, directoryID+".thread"))
 		}
 		thread := Thread{Version: threadManifest.Version, ID: threadManifest.ID, Target: threadManifest.Target, Anchor: threadManifest.Anchor, Kind: threadManifest.Kind, Suggestion: threadManifest.Suggestion, CreatedBy: threadManifest.CreatedBy, CreatedAt: threadManifest.CreatedAt}
 		thread.Directory = dir
@@ -364,7 +393,9 @@ func loadThreads(root, sagaID string, validation *Validation) ([]*Thread, error)
 		}
 		thread.State = "open"
 		if len(thread.Events) > 0 {
-			sort.Slice(thread.Events, func(i, j int) bool { return thread.Events[i].CreatedAt.Before(thread.Events[j].CreatedAt) })
+			sort.Slice(thread.Events, func(i, j int) bool {
+				return earlierRecord(thread.Events[i].CreatedAt, thread.Events[i].ID, thread.Events[j].CreatedAt, thread.Events[j].ID)
+			})
 			for _, event := range thread.Events {
 				if event.State != "" {
 					thread.State = event.State
@@ -376,7 +407,9 @@ func loadThreads(root, sagaID string, validation *Validation) ([]*Thread, error)
 		}
 		threads = append(threads, &thread)
 	}
-	sort.Slice(threads, func(i, j int) bool { return threads[i].CreatedAt.Before(threads[j].CreatedAt) })
+	sort.Slice(threads, func(i, j int) bool {
+		return earlierRecord(threads[i].CreatedAt, threads[i].ID, threads[j].CreatedAt, threads[j].ID)
+	})
 	return threads, nil
 }
 
@@ -395,7 +428,9 @@ func loadDiffReviews(root string, validation *Validation) ([]DiffReview, error) 
 		}
 		reviews = append(reviews, value)
 	})
-	sort.Slice(reviews, func(i, j int) bool { return reviews[i].CreatedAt.Before(reviews[j].CreatedAt) })
+	sort.Slice(reviews, func(i, j int) bool {
+		return earlierRecord(reviews[i].CreatedAt, reviews[i].ID, reviews[j].CreatedAt, reviews[j].ID)
+	})
 	return reviews, err
 }
 
@@ -410,7 +445,12 @@ func loadMessages(root, threadDir, sagaID string, validation *Validation) ([]*Me
 	}
 	var messages []*Message
 	for _, entry := range entries {
-		if !entry.IsDir() || !strings.HasSuffix(entry.Name(), ".message") {
+		matches, problem := structuralEntry(entry, ".message")
+		if problem != "" {
+			addIssue(validation, "error", relativePath(root, filepath.Join(dir, entry.Name())), problem)
+			continue
+		}
+		if !matches {
 			continue
 		}
 		messageDir := filepath.Join(dir, entry.Name())
@@ -420,8 +460,11 @@ func loadMessages(root, threadDir, sagaID string, validation *Validation) ([]*Me
 			addIssue(validation, "error", relativePath(root, manifestPath), err.Error())
 			continue
 		}
-		if manifest.Version != CurrentVersion || manifest.ID == "" || manifest.CreatedAt.IsZero() {
-			addIssue(validation, "error", relativePath(root, manifestPath), "message requires version 2, id, and created_at")
+		if manifest.Version != CurrentVersion || !stableID.MatchString(manifest.ID) || manifest.CreatedAt.IsZero() {
+			addIssue(validation, "error", relativePath(root, manifestPath), "message requires version 2, a stable id, and created_at")
+		}
+		if directoryID := strings.TrimSuffix(entry.Name(), ".message"); directoryID != manifest.ID {
+			addIssue(validation, "error", relativePath(root, manifestPath), fmt.Sprintf("message id %q must match directory %q", manifest.ID, directoryID+".message"))
 		}
 		message := &Message{Path: manifestPath, ID: manifest.ID, Author: manifest.Author, CreatedAt: manifest.CreatedAt}
 		children, err := os.ReadDir(messageDir)
@@ -429,21 +472,34 @@ func loadMessages(root, threadDir, sagaID string, validation *Validation) ([]*Me
 			return nil, err
 		}
 		for _, child := range children {
-			if child.IsDir() && strings.HasSuffix(child.Name(), ".fragment") {
-				fragment, err := loadFragment(root, filepath.Join(messageDir, child.Name()), sagaID, validation)
-				if err != nil {
-					return nil, err
-				}
-				message.Fragments = append(message.Fragments, fragment)
+			matches, problem := structuralEntry(child, ".fragment")
+			if problem != "" {
+				addIssue(validation, "error", relativePath(root, filepath.Join(messageDir, child.Name())), problem)
+				continue
 			}
+			if !matches {
+				continue
+			}
+			fragment, err := loadFragment(root, filepath.Join(messageDir, child.Name()), sagaID, validation)
+			if err != nil {
+				return nil, err
+			}
+			message.Fragments = append(message.Fragments, fragment)
 		}
 		if len(message.Fragments) == 0 {
 			addIssue(validation, "error", relativePath(root, manifestPath), "message must contain at least one fragment")
 		}
-		sort.Slice(message.Fragments, func(i, j int) bool { return message.Fragments[i].Order < message.Fragments[j].Order })
+		sort.Slice(message.Fragments, func(i, j int) bool {
+			if message.Fragments[i].Order == message.Fragments[j].Order {
+				return message.Fragments[i].Path < message.Fragments[j].Path
+			}
+			return message.Fragments[i].Order < message.Fragments[j].Order
+		})
 		messages = append(messages, message)
 	}
-	sort.Slice(messages, func(i, j int) bool { return messages[i].CreatedAt.Before(messages[j].CreatedAt) })
+	sort.Slice(messages, func(i, j int) bool {
+		return earlierRecord(messages[i].CreatedAt, messages[i].ID, messages[j].CreatedAt, messages[j].ID)
+	})
 	return messages, nil
 }
 
@@ -457,8 +513,8 @@ func loadThreadEvents(root, threadDir string, validation *Validation) ([]ThreadE
 		}
 		value.Path = path
 		validState := value.State == "" || value.State == "open" || value.State == "resolved" || value.State == "withdrawn"
-		if value.Version != CurrentVersion || value.ID == "" || value.CreatedAt.IsZero() || !validState || value.State == "" && value.Anchor == nil {
-			addIssue(validation, "error", relativePath(root, path), "thread event requires version 2, id, created_at, and a valid state or anchor")
+		if value.Version != CurrentVersion || !stableID.MatchString(value.ID) || value.CreatedAt.IsZero() || !validState || value.State == "" && value.Anchor == nil {
+			addIssue(validation, "error", relativePath(root, path), "thread event requires version 2, a stable id, created_at, and a valid state or anchor")
 		}
 		if value.Anchor != nil {
 			if err := ValidateAnchor(*value.Anchor); err != nil {
@@ -520,6 +576,24 @@ func relativePath(root, path string) string {
 	return filepath.ToSlash(rel)
 }
 
+// structuralEntry classifies a directory entry that is expected to be a real
+// entity directory. os.ReadDir reports a symlink as a non-directory, so an
+// unchecked "skip anything that is not a directory" loop would silently drop a
+// symlinked chapter, fragment, thread, or message and still report the saga as
+// valid.
+func structuralEntry(entry fs.DirEntry, suffix string) (matches bool, problem string) {
+	if !strings.HasSuffix(entry.Name(), suffix) {
+		return false, ""
+	}
+	if entry.Type()&fs.ModeSymlink != 0 {
+		return true, fmt.Sprintf("%s entries must be real directories, not symlinks", suffix)
+	}
+	if !entry.IsDir() {
+		return true, fmt.Sprintf("%s entries must be directories", suffix)
+	}
+	return true, ""
+}
+
 func knownReservedDirectory(name string, root bool) bool {
 	return name == "___diffs" || name == "___approvals" || root && name == "___review"
 }
@@ -546,7 +620,9 @@ func validateDiff(value DiffFile, validation *Validation) {
 		addIssue(validation, "error", value.Path, fmt.Sprintf("unsupported version %d; expected %d", value.Version, CurrentVersion))
 	}
 	if len(value.Diffs) == 0 {
-		addIssue(validation, "warning", value.Path, "diff file has no references")
+		// schema/v2/diff.schema.json requires diffs with minItems 1: an
+		// evidence file that selects nothing is not a valid record.
+		addIssue(validation, "error", value.Path, "diff file must contain at least one diff reference")
 	}
 	for i, reference := range value.Diffs {
 		parsed, err := diffuri.Parse(reference.URI)
@@ -556,6 +632,18 @@ func validateDiff(value DiffFile, validation *Validation) {
 			addIssue(validation, "error", value.Path, fmt.Sprintf("diff %d: coverage links must address lines or events, not files", i+1))
 		}
 	}
+}
+
+// earlierRecord defines the total order the format uses for append-only review
+// records. SPEC.md resolves state from the latest record by created_at; two
+// records can legitimately share a timestamp, so the record id breaks the tie.
+// Without it, "the latest event" would depend on directory listing order and a
+// thread could resolve differently on two machines holding the same commit.
+func earlierRecord(leftTime time.Time, leftID string, rightTime time.Time, rightID string) bool {
+	if !leftTime.Equal(rightTime) {
+		return leftTime.Before(rightTime)
+	}
+	return leftID < rightID
 }
 
 func addIssue(validation *Validation, severity, path, message string) {

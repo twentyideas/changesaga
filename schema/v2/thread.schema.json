@@ -48,7 +48,7 @@
         "width": { "type": "number", "minimum": 0, "maximum": 1 },
         "height": { "type": "number", "minimum": 0, "maximum": 1 },
         "points": { "type": "array", "items": { "$ref": "#/$defs/point" } },
-        "color": { "type": "string" },
+        "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
         "stroke_width": { "type": "number", "minimum": 0 }
       }
     },

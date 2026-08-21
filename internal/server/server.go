@@ -613,20 +613,20 @@ func makeFragmentView(fragment *saga.Fragment, changes []gitdiff.Atom, threads [
 		})
 	}
 	view.ReviewState, view.ReviewAuthor, view.ReviewDetail, view.ReviewBody = latestReview(fragment.Reviews)
-	view.URL = "/f/" + url.PathEscape(fragment.ID) + "/" + strings.Join(pathEscapeParts(filepath.ToSlash(fragment.Entrypoint)), "/")
+	view.URL = "/f/" + url.PathEscape(fragment.ID) + "/" + strings.Join(pathEscapeParts(fragment.Entrypoint), "/")
 	switch fragment.MediaType {
 	case "text/markdown":
-		if data, err := os.ReadFile(filepath.Join(fragment.Directory, fragment.Entrypoint)); err == nil {
+		if data, err := os.ReadFile(filepath.Join(fragment.Directory, filepath.FromSlash(fragment.Entrypoint))); err == nil {
 			view.Markdown = markdownWithAnchors(string(data), view.DOMID)
 		}
 	case "text/plain":
-		if data, err := os.ReadFile(filepath.Join(fragment.Directory, fragment.Entrypoint)); err == nil {
+		if data, err := os.ReadFile(filepath.Join(fragment.Directory, filepath.FromSlash(fragment.Entrypoint))); err == nil {
 			view.Plain = string(data)
 		}
 	case "text/html", "image/svg+xml":
 		view.Interactive = true
 		if fragment.MediaType == "image/svg+xml" {
-			if data, err := os.ReadFile(filepath.Join(fragment.Directory, fragment.Entrypoint)); err == nil {
+			if data, err := os.ReadFile(filepath.Join(fragment.Directory, filepath.FromSlash(fragment.Entrypoint))); err == nil {
 				view.AspectRatio = svgAspectRatio(string(data))
 				if view.AspectRatio != "" {
 					view.URL += "?saga_aspect=" + url.QueryEscape(view.AspectRatio)
@@ -694,7 +694,10 @@ func makeFileViews(changes gitdiff.ChangeSet, target string, reviews []saga.Diff
 	}
 	latest := map[string]saga.DiffReview{}
 	for _, review := range reviews {
-		if previous, ok := latest[review.URI]; !ok || previous.CreatedAt.Before(review.CreatedAt) {
+		// Ties on created_at resolve by id so the current reviewed state of a
+		// file does not depend on directory listing order.
+		if previous, ok := latest[review.URI]; !ok || previous.CreatedAt.Before(review.CreatedAt) ||
+			previous.CreatedAt.Equal(review.CreatedAt) && previous.ID < review.ID {
 			latest[review.URI] = review
 		}
 	}
@@ -781,7 +784,12 @@ func latestReview(reviews []saga.Review) (string, string, string, string) {
 		return "", "", "", ""
 	}
 	values := append([]saga.Review(nil), reviews...)
-	sort.Slice(values, func(i, j int) bool { return values[i].CreatedAt.Before(values[j].CreatedAt) })
+	sort.Slice(values, func(i, j int) bool {
+		if values[i].CreatedAt.Equal(values[j].CreatedAt) {
+			return values[i].ID < values[j].ID
+		}
+		return values[i].CreatedAt.Before(values[j].CreatedAt)
+	})
 	last := values[len(values)-1]
 	return last.State, last.Author, last.AttributionDetail, last.Body
 }

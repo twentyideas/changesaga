@@ -13,7 +13,19 @@
       "type": "string",
       "pattern": "^(text/(markdown|html|plain)|image/[A-Za-z0-9.+-]+)$"
     },
-    "entrypoint": { "type": "string", "minLength": 1 },
+    "entrypoint": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\\\]+$",
+      "not": {
+        "anyOf": [
+          { "pattern": "(^|/)(\\.\\.?|___[^/]*|fragment\\.json|)(/|$)" },
+          { "pattern": "^[A-Za-z]:" },
+          { "pattern": "[\\x00-\\x1f\\x7f]" }
+        ]
+      },
+      "description": "Package-relative slash path. Never absolute, never traversing, never a reserved package path, and never containing a backslash, which addresses different files on Windows and Unix."
+    },
     "order": { "type": "integer" }
   }
 }
