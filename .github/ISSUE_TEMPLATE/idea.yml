@@ -1,0 +1,52 @@
+name: Idea or proposal
+description: A new capability, a workflow improvement, or a change to the on-disk format.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Proposals are welcome, and discussing before writing code saves everyone
+        time. Two things are out of scope, so it is worth checking first:
+
+        - Change Saga **authors the material to be reviewed**; it does not
+          conduct review. Automated findings, quality scoring, and machine
+          approvals will be declined.
+        - The core stays **deterministic, dependency-light, and local**. No
+          hosted service, no accounts, no telemetry.
+
+        See [GOVERNANCE.md](https://github.com/change-saga/change-saga/blob/main/GOVERNANCE.md).
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >-
+        What is hard today? Describe the situation, not the solution — ideally a
+        real change you tried to make reviewable.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you propose
+      description: Sketch the commands, files, or UI as concretely as you can.
+    validations:
+      required: true
+  - type: dropdown
+    id: format-impact
+    attributes:
+      label: Does this change the on-disk format?
+      description: >-
+        Format changes need a SPEC.md update, a schema update, and a written
+        compatibility note in the same pull request.
+      options:
+        - "No"
+        - "Yes — new optional field or directory"
+        - "Yes — breaking"
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Including what happens if nothing changes.

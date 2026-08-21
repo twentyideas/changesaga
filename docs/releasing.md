@@ -39,6 +39,47 @@ To rehearse without publishing, run the workflow manually from the Actions tab
 with an existing tag and `publish` left off. Every build and verification step
 runs; only the release creation is skipped.
 
+## Versioning policy
+
+Tags are `v<major>.<minor>.<patch>`, semantic versioning as interpreted below.
+`internal/cli.Version` in the source tree is a development placeholder; the
+released version comes from the tag via `-ldflags`, so cutting a release never
+requires a source bump.
+
+**While the project is `0.y.z`** the format and the CLI are experimental and
+there is no compatibility promise. Breaking changes may land in a minor bump.
+Each one is called out in [CHANGELOG.md](../CHANGELOG.md) with the migration
+step, and anything that changes the on-disk format is marked **Format**.
+
+**From `1.0.0` onward** the contract is:
+
+| Change | Bump |
+| --- | --- |
+| A saga written by an older version stops loading | major |
+| A CLI flag or exit code is removed or changes meaning | major |
+| A `schema/` document rejects what it used to accept | major |
+| New command, flag, fragment type, or optional field | minor |
+| A saga written by the new version loads on the previous minor | minor |
+| Bug fix, renderer change, docs, dependency update | patch |
+
+Exit codes are part of the contract: `0` success, `1` error (including schema
+errors from `validate`), `2` usage error, `3` incomplete coverage from `status`.
+
+Prerelease suffixes (`v1.0.0-rc.1`) publish as GitHub prereleases and are
+excluded from "latest" by the installers.
+
+**Release checklist**
+
+1. `main` is green and the working tree is clean.
+2. [CHANGELOG.md](../CHANGELOG.md) has an entry for the version, dated, with the
+   `[Unreleased]` section reset above it.
+3. Any format change carries its [SPEC.md](../SPEC.md) and `schema/` updates in
+   the same history.
+4. Tag and push, as above.
+
+Security fixes ship in the next release from `main`. Older tags are not
+backported; see [SECURITY.md](../SECURITY.md).
+
 ## Artifacts
 
 ```text
