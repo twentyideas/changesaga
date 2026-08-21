@@ -160,8 +160,8 @@ The PowerShell installer downloads `change-saga_<version>_windows_<arch>.zip`,
 verifies it against `SHA256SUMS`, installs to the current user's local
 application directory, and adds that directory to the user `PATH`. It never
 requests elevation or changes execution policy. CI exercises the complete
-download, checksum, extraction, installation, latest-release, dry-run, and
-tamper-rejection paths on Windows.
+download, checksum, archive-layout validation, atomic installation,
+latest-release, dry-run, and tamper-rejection paths on Windows.
 
 What the macOS/Linux shell installer does, and what it refuses to do:
 
@@ -172,8 +172,13 @@ What the macOS/Linux shell installer does, and what it refuses to do:
 - Verifies the archive against the release `SHA256SUMS` and aborts on mismatch.
   If no checksum tool is available it aborts rather than installing unverified —
   it never degrades to a weaker check.
-- Verifies the macOS code signature when `codesign` is available, and reports
-  the signing authority.
+- Requires exactly one well-formed checksum entry for the selected GitHub
+  Release asset, rejects unexpected or non-regular archive members before
+  extraction, and confirms that the binary reports the requested release
+  version before installing it.
+- Inspects the macOS code signature when `codesign` is available. It reports a
+  Developer ID authority when present and warns when the release is unsigned or
+  carries only an ad-hoc signature.
 - Never removes `com.apple.quarantine`, never runs `spctl --master-disable`, and
   never touches SIP or any other platform protection. A binary that Gatekeeper
   rejects is a bug to fix in the release, not something for an installer to
