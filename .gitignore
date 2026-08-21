@@ -4,4 +4,3 @@
 .DS_Store
 .devswarm-temp/
 node_modules/
-cdk.out/

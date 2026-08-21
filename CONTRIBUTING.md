@@ -11,16 +11,6 @@ go vet ./...
 go build ./cmd/review-saga
 ```
 
-Infrastructure changes live in `infra/` and use their own toolchain:
-
-```sh
-cd infra
-npm install
-npm run check   # format:check, build, test, synth
-```
-
-`npm test` and `npm run synth` make no AWS calls and need no credentials.
-
 Keep the core deterministic and dependency-light. UI work should preserve the
 property that every reviewer action becomes a small file suitable for Git, and
 should follow the conventions in [docs/renderer-ui.md](docs/renderer-ui.md).

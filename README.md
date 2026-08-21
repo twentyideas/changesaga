@@ -243,21 +243,6 @@ See [SPEC.md](SPEC.md) for the format contract, [CONTRIBUTING.md](CONTRIBUTING.m
 for development commands, and [docs/releasing.md](docs/releasing.md) for how
 releases are built, signed, and verified.
 
-## Hosting a shareable saga
-
-The local reviewer is loopback-only. [`infra/`](infra/README.md) contains an AWS
-CDK v2 app that provisions the hosting foundation for *shareable* Review Saga
-sites: a private S3 bucket holding the generic renderer shell, CloudFront in
-front of it using Origin Access Control, and an API Gateway HTTP API boundary
-with a small health/config Lambda routed at `/api/*`.
-
-That boundary is where GitHub App authentication, comment posting, and private
-saga delivery will land; none of them exist yet. Saga narratives, review
-threads, and code diffs are private per-repository data and are never placed in
-the public bucket — synthesis fails if they are. See
-[infra/README.md](infra/README.md) for architecture, deployment, cost drivers,
-security boundaries, and next steps.
-
 ## Design boundaries
 
 Review Saga intentionally does not replace Git hosting, enforce review policy,
