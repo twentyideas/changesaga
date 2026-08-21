@@ -25,6 +25,30 @@ Until then, the honest summary of what exists:
 - Release automation for six platform targets with checksums, build provenance
   attestation, and optional macOS signing and notarization.
 
+### Changed
+
+- **Format:** v2 repository identities containing URL userinfo are rejected.
+  Rewrite values such as `ssh://git@host/path` as `ssh://host/path`; generated
+  diff identities already use the credential-free form.
+- **Format:** empty `___diffs/*.json` evidence records are invalid, matching the
+  existing schema requirement that each evidence file select at least one diff.
+- Fragment entrypoints now use one portable slash-path grammar on every OS and
+  reject traversal, reserved metadata paths, control characters, and ambiguous
+  backslashes.
+
+### Fixed
+
+- Authoring and review mutations publish complete entities atomically, refuse
+  structurally invalid sagas, and serialize concurrent writers.
+- Append-only review state has deterministic timestamp-and-ID ordering, and
+  structural entity symlinks can no longer hide authored or review content.
+- Diff and review identities are checked against the saga's declared source
+  repository before any record is written.
+- The local reviewer now enforces per-process mutation tokens, same-origin and
+  bound-host requests, bounded uploads, and strict loopback-only serving.
+- Workspace tabs, linked-code focus management, diff interactions, and color
+  contrast now pass the serious/critical real-browser accessibility gate.
+
 <!--
 Maintainers: when cutting a release, rename this section to
 
