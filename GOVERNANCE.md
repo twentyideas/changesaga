@@ -63,7 +63,7 @@ easier for a human to finish reviewing.
 
 ## Releases
 
-Any maintainer may cut a release by pushing a `v<major>.<minor>.<patch>` tag;
+Any maintainer may cut a release by pushing a validated `v<semver>` tag;
 everything after that is automated. Versioning and release policy are described
 in [docs/releasing.md](docs/releasing.md) and the history is in
 [CHANGELOG.md](CHANGELOG.md).

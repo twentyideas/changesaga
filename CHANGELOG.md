@@ -12,7 +12,8 @@ tool, and what they have to do about it.
 
 Change Saga has not been released yet. The current source is version
 `0.2.0-dev`, the v2 format is experimental, and no compatibility promise is in
-effect. The first tagged release will replace this section with its own entry.
+effect. The first tagged release will move the shipped entries into a dated
+version section and reset this section for subsequent work.
 
 Until then, the honest summary of what exists:
 
@@ -22,8 +23,9 @@ Until then, the honest summary of what exists:
 - The v2 on-disk format specified in [SPEC.md](SPEC.md) with JSON Schemas in
   [`schema/`](schema).
 - A local, loopback-only reviewer with Saga, Code Diff, and Manifest surfaces.
-- Release automation for six platform targets with checksums, build provenance
-  attestation, and optional macOS signing and notarization.
+- Release automation for six platform archives, with a checksum manifest and
+  build-provenance attestations on published releases. macOS Developer ID
+  signing and Apple notarization are optional, separately configured steps.
 
 ### Changed
 

@@ -70,10 +70,15 @@ narrative explains which lines; it only reports what is still unaccounted for.
 
 ## Install
 
-Binaries are published on the [GitHub Releases page][releases] for macOS,
-Linux, and Windows (amd64 and arm64). Both installers detect the OS and
-architecture, download the matching asset from the latest release, and verify it
-against that release's `SHA256SUMS`.
+> [!NOTE]
+> Change Saga has not published its first tagged release yet. The commands below
+> describe the supported installation path once artifacts appear on the
+> [GitHub Releases page][releases]. Until then, use the source instructions
+> below.
+
+Release automation builds macOS, Linux, and Windows binaries for amd64 and
+arm64. Both installers select the matching archive and verify its SHA-256 digest
+against the release's `SHA256SUMS` before installing it.
 
 **macOS and Linux**
 
@@ -81,7 +86,9 @@ against that release's `SHA256SUMS`.
 curl -fsSL https://raw.githubusercontent.com/change-saga/change-saga/main/scripts/install.sh | sh
 ```
 
-Installs to `~/.local/bin` and never calls `sudo`. Options go after `-s --`:
+Installs to `~/.local/bin`, or to `/usr/local/bin` when that directory is already
+writable by the current non-root user, and never calls `sudo`. Options go after
+`-s --`:
 
 ```sh
 curl -fsSL .../install.sh | sh -s -- --version <tag> --dir ~/bin
@@ -102,19 +109,24 @@ irm https://raw.githubusercontent.com/change-saga/change-saga/main/scripts/insta
 .\install.ps1 -Version <tag>
 ```
 
-**By hand.** Download the archive for your platform from the
-[releases page][releases], then verify before unpacking:
+**By hand.** Download the archive for your platform and `SHA256SUMS` from the
+[releases page][releases], then verify before unpacking. For example, on Linux:
 
 ```sh
 sha256sum -c SHA256SUMS --ignore-missing
-gh attestation verify change-saga_<version>_linux_amd64.tar.gz --repo change-saga/change-saga
+gh attestation verify change-saga_<version>_linux_amd64.tar.gz \
+  --repo change-saga/change-saga \
+  --signer-workflow change-saga/change-saga/.github/workflows/release.yml \
+  --source-ref refs/tags/<tag>
 ```
 
-Every release archive and `SHA256SUMS` are covered by GitHub build provenance.
-macOS builds are signed and notarized when the corresponding release credentials
-are configured; each release's notes distinguish unsigned, signed-only, and
-notarized artifacts. See
-[docs/releasing.md](docs/releasing.md).
+Every published release archive is listed in `SHA256SUMS` and is the subject of
+a GitHub build-provenance attestation. The checksum detects a damaged or
+substituted download relative to that manifest; the attestation additionally
+identifies the repository and release workflow that produced the archive.
+macOS Developer ID signing and Apple notarization depend on separate credential
+sets. See [docs/releasing.md](docs/releasing.md) for the exact guarantees and
+manual verification commands.
 
 **From source**, with Go 1.26 or newer:
 
@@ -333,9 +345,9 @@ Full model and reporting process: [SECURITY.md](SECURITY.md).
 | Decisions and maintainership | [GOVERNANCE.md](GOVERNANCE.md) |
 | Release history | [CHANGELOG.md](CHANGELOG.md) |
 
-The implementation is a single static Go binary with no runtime dependencies and
-no hosted service: there is nothing to sign up for, and nothing leaves your
-machine.
+The implementation is a single self-contained Go executable with no separately
+installed Go runtime and no hosted service: there is nothing to sign up for, and
+the reviewer stays on your machine.
 
 ## License
 

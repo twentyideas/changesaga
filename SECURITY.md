@@ -30,9 +30,9 @@ intended date and we will work to it.
 
 ## Supported versions
 
-Change Saga is pre-1.0 and experimental. Security fixes land on `main` and go
-out in the next release; older tags are not patched. Always run the latest
-release.
+Change Saga is pre-1.0 and experimental, and no tagged release exists yet.
+Security fixes land on `main`; once releases begin, they will go out in the next
+release and older tags will not be patched.
 
 ## Threat model
 
@@ -49,7 +49,7 @@ that is deliberately restricted to the loopback interface.
 | Cross-origin requests | Cross-origin protection is enabled, and every mutating request also carries a per-process random token. A hostile page in another tab cannot make the reviewer write to your repository. |
 | Interactive fragments | Rendered in `sandbox="allow-scripts"` frames under a restrictive Content-Security-Policy: no network (`connect-src 'none'`), no navigation of the parent, no access to the review application. |
 | Path traversal | Fragment assets are served only from inside the saga root. |
-| Release artifacts | Every archive is listed in `SHA256SUMS` and covered by a GitHub build provenance attestation; installers verify checksums before installing. |
+| Published release artifacts | Every archive is listed in `SHA256SUMS` and covered by a GitHub build-provenance attestation; installers verify checksums before installing. |
 
 **What it does not defend against**
 
