@@ -32,6 +32,15 @@ GITHUB_SHA=another-wrong-value CHANGE_SAGA_COMMIT="$commit" \
 cmp "$work/first/$archive" "$work/second/$archive"
 cmp "$work/first/$archive.sha256" "$work/second/$archive.sha256"
 
+mkdir "$work/caller"
+(
+	cd "$work/caller"
+	CHANGE_SAGA_COMMIT="$commit" "$repo_root/scripts/build-release.sh" \
+		"$version" "$goos" "$goarch" relative-dist >/dev/null
+)
+cmp "$work/first/$archive" "$work/caller/relative-dist/$archive"
+cmp "$work/first/$archive.sha256" "$work/caller/relative-dist/$archive.sha256"
+
 mkdir "$work/extracted"
 if [ "$goos" = "windows" ]; then
 	unzip -q "$work/first/$archive" -d "$work/extracted"
@@ -74,6 +83,26 @@ if SOURCE_DATE_EPOCH="$epoch" CHANGE_SAGA_COMMIT="$commit" \
 	exit 1
 fi
 rm -f "$dirty_probe"
+
+cp -R "$work/first" "$work/preserved"
+mkdir "$work/checksum-failure-bin"
+cat >"$work/checksum-failure-bin/sha256sum" <<'CHECKSUM_FAILURE'
+#!/bin/sh
+exit 1
+CHECKSUM_FAILURE
+chmod +x "$work/checksum-failure-bin/sha256sum"
+if PATH="$work/checksum-failure-bin:$PATH" SOURCE_DATE_EPOCH=$((epoch + 2)) \
+	CHANGE_SAGA_COMMIT="$commit" ./scripts/build-release.sh \
+	"$version" "$goos" "$goarch" "$work/preserved" >/dev/null 2>&1; then
+	echo "release rebuild unexpectedly survived checksum failure" >&2
+	exit 1
+fi
+cmp "$work/first/$archive" "$work/preserved/$archive"
+cmp "$work/first/$archive.sha256" "$work/preserved/$archive.sha256"
+if find "$work/preserved" -name '.release-bundle.*' -print -quit | grep -q .; then
+	echo "failed release rebuild left a staging directory" >&2
+	exit 1
+fi
 
 GOFLAGS='-tags=definitely_not_a_release_tag' GOEXPERIMENT=fieldtrack \
 	CHANGE_SAGA_COMMIT="$commit" ./scripts/build-release.sh \

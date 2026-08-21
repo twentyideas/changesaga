@@ -18,6 +18,7 @@ version="${1#v}"
 goos="$2"
 goarch="$3"
 dist="${4:-dist}"
+caller_dir="$PWD"
 
 # Keep values used in archive paths and -ldflags deliberately narrow. Besides
 # producing unusable releases, whitespace or path separators here could turn a
@@ -45,6 +46,10 @@ amd64 | arm64) ;;
 esac
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+case "$dist" in
+/*) ;;
+*) dist="$caller_dir/$dist" ;;
+esac
 cd "$repo_root"
 
 # Do not use GITHUB_SHA implicitly: on a manually dispatched release it can
@@ -114,7 +119,39 @@ fi
 
 name="change-saga_${version}_${goos}_${goarch}"
 stage="$(mktemp -d)"
-trap 'rm -rf "$stage"' EXIT
+bundle_stage=""
+publishing=0
+had_archive=0
+had_sidecar=0
+
+restore_release_file() { # restore_release_file <backup> <destination>
+	local backup="$1" destination="$2" restore
+	restore="$bundle_stage/.release-restore.$$"
+	cp -p "$backup" "$restore" && mv -f "$restore" "$destination"
+}
+
+cleanup() {
+	local status=$?
+	if [ "$publishing" -eq 1 ] && [ -n "$bundle_stage" ]; then
+		if [ "$had_archive" -eq 1 ]; then
+			restore_release_file "$bundle_stage/previous.archive" "$dist_abs/$archive" || true
+		else
+			rm -f "$dist_abs/$archive"
+		fi
+		if [ "$had_sidecar" -eq 1 ]; then
+			restore_release_file "$bundle_stage/previous.sha256" "$dist_abs/$archive.sha256" || true
+		else
+			rm -f "$dist_abs/$archive.sha256"
+		fi
+	fi
+	rm -rf "$stage"
+	if [ -n "$bundle_stage" ]; then
+		rm -rf "$bundle_stage"
+	fi
+	exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM HUP
 
 binary="change-saga"
 if [ "$goos" = "windows" ]; then
@@ -145,18 +182,34 @@ cp LICENSE README.md "$stage/"
 chmod 0755 "$stage/$binary"
 chmod 0644 "$stage/LICENSE" "$stage/README.md"
 
-mkdir -p "$dist"
+mkdir -p -- "$dist"
 dist_abs="$(cd "$dist" && pwd)"
-rm -f "$dist_abs/$name.tar.gz" "$dist_abs/$name.zip"
 
 if [ "$goos" = "windows" ]; then
 	archive="$name.zip"
 else
 	archive="$name.tar.gz"
 fi
+bundle_stage="$(mktemp -d "$dist_abs/.release-bundle.XXXXXX")"
 "${go_env[@]}" go run -mod=readonly ./internal/cmd/releasearchive \
-	"$dist_abs/$archive" "$source_date_epoch" "$stage" "$binary"
+	"$bundle_stage/$archive" "$source_date_epoch" "$stage" "$binary"
 
-"$repo_root/scripts/sha256.sh" "$dist_abs/$archive" > "$dist_abs/$archive.sha256"
+"$repo_root/scripts/sha256.sh" "$bundle_stage/$archive" > "$bundle_stage/$archive.sha256"
+chmod 0644 "$bundle_stage/$archive.sha256"
+# The archive writer and these same-filesystem renames keep prior outputs in
+# place until their replacements are complete. A failed build therefore never
+# deletes the last usable artifact or leaves a truncated checksum sidecar.
+if [ -e "$dist_abs/$archive" ] || [ -L "$dist_abs/$archive" ]; then
+	cp -p "$dist_abs/$archive" "$bundle_stage/previous.archive"
+	had_archive=1
+fi
+if [ -e "$dist_abs/$archive.sha256" ] || [ -L "$dist_abs/$archive.sha256" ]; then
+	cp -p "$dist_abs/$archive.sha256" "$bundle_stage/previous.sha256"
+	had_sidecar=1
+fi
+publishing=1
+mv -f "$bundle_stage/$archive" "$dist_abs/$archive"
+mv -f "$bundle_stage/$archive.sha256" "$dist_abs/$archive.sha256"
+publishing=0
 echo "wrote $dist_abs/$archive"
 cat "$dist_abs/$archive.sha256"

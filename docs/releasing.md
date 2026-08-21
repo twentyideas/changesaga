@@ -1,8 +1,8 @@
 # Releasing
 
-Change Saga ships as a single static binary for macOS, Linux, and Windows.
-Everything below is driven by repository workflows and scripts, so publishing a
-release is a tag push and nothing else.
+Change Saga ships self-contained command-line executables for macOS, Linux, and
+Windows. Everything below is driven by repository workflows and scripts, so
+publishing a release is a tag push and nothing else.
 
 | File | Role |
 | --- | --- |
@@ -49,6 +49,33 @@ with an existing tag. Every build and verification step runs, but the privileged
 provenance and GitHub Release job is skipped before it receives a runner or
 token. A manual run can never be promoted; push the tag to start a separate,
 tag-bound publication run.
+
+## Repository configuration
+
+The repository owner must configure these controls before treating releases as
+production-ready:
+
+- Keep the default `GITHUB_TOKEN` permission read-only. Repository or
+  organization policy must still permit the release workflow's explicit
+  `contents: write`, `id-token: write`, and `attestations: write` grants.
+- Protect `main` and require the CI and Browser E2E checks before merge.
+- Add a tag ruleset for `v*` that restricts tag creation to release maintainers
+  and blocks tag updates and deletion.
+- Create the `release-signing` environment. Allow the default branch (manual
+  rehearsals) and `v*` tags (publication), and add required reviewers if a human
+  release gate is desired. Add the six Apple secrets documented below.
+- After one signed rehearsal succeeds, set `REQUIRE_MACOS_SIGNING=true`; after
+  notarization succeeds, also set `REQUIRE_MACOS_NOTARIZATION=true`. Until
+  those variables are enabled, unsigned or signed-but-not-notarized macOS
+  releases are intentionally allowed and disclosed in their release notes.
+- Enable immutable releases so a published release's tag and assets cannot be
+  changed. The workflow already refuses to replace an existing release; this
+  repository setting makes that invariant server-side.
+
+GitHub Release assets are the distribution source of truth. The installers
+resolve a requested tag (or GitHub's latest stable release), then download the
+named archive and `SHA256SUMS` from that release. Workflow-run artifacts are
+temporary transport between jobs and are never an installer source.
 
 ## Versioning policy
 
@@ -126,9 +153,11 @@ For a direct Apple Silicon handoff, wrap the archive in a single installer:
 ```
 
 The resulting `.command` file contains the archive and its expected checksum.
-It verifies the payload, refuses non-macOS and non-arm64 machines, and installs
-without `sudo`. It installs the `change-saga` command. Zip the one file when
-sending it through a service that does not preserve executable permissions.
+It verifies the payload, requires exactly the documented regular archive
+members, checks the embedded binary's version, refuses non-macOS and non-arm64
+machines, and installs atomically without `sudo`. It installs the `change-saga`
+command. Zip the one file when sending it through a service that does not
+preserve executable permissions.
 
 `SHA256SUMS` is generated in an unprivileged preparation job from the artifacts
 as downloaded, after each one is re-checked against the checksum its build job
@@ -344,6 +373,9 @@ shellcheck scripts/*.sh
 ./scripts/check-workflows.sh                         # workflow syntax + immutable action refs
 ```
 
-`build-release.sh` honours `SOURCE_DATE_EPOCH` for the build timestamp and
-`CHANGE_SAGA_SIGN_HOOK` for signing, so a local rehearsal produces artifacts byte-close
-to CI's.
+`build-release.sh` requires the exact Go patch release in `.go-version`, honours
+`SOURCE_DATE_EPOCH` for the build timestamp, and uses `CHANGE_SAGA_COMMIT` to
+bind explicit release provenance to a clean checkout. Unsigned builds with the
+same source, toolchain, target, and epoch are byte-for-byte reproducible.
+`CHANGE_SAGA_SIGN_HOOK` adds platform signing; signatures and Apple's
+notarization service are intentionally outside that reproducibility claim.

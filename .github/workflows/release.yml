@@ -43,6 +43,7 @@ jobs:
     outputs:
       tag: ${{ steps.resolve.outputs.tag }}
       commit: ${{ steps.resolve.outputs.commit }}
+      source_date_epoch: ${{ steps.resolve.outputs.source_date_epoch }}
       version: ${{ steps.resolve.outputs.version }}
       prerelease: ${{ steps.resolve.outputs.prerelease }}
     steps:
@@ -75,17 +76,21 @@ jobs:
           fi
           version="${tag#v}"
           commit="$(git rev-parse "$tag^{commit}")"
+          source_date_epoch="$(git show -s --format=%ct "$commit")"
           if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$commit" != "$GITHUB_SHA" ]; then
             echo "::error::pushed tag resolves to $commit, but the event identifies $GITHUB_SHA"
             exit 1
           fi
-          case "$version" in
+          # Build metadata may contain hyphens, but only a hyphen before the
+          # optional +build section denotes a SemVer prerelease.
+          case "${version%%+*}" in
             *-*) prerelease=true ;;
             *) prerelease=false ;;
           esac
           {
             echo "tag=$tag"
             echo "commit=$commit"
+            echo "source_date_epoch=$source_date_epoch"
             echo "version=$version"
             echo "prerelease=$prerelease"
           } >> "$GITHUB_OUTPUT"
@@ -130,6 +135,9 @@ jobs:
           go-version-file: .go-version
           cache: true
       - name: build
+        env:
+          CHANGE_SAGA_COMMIT: ${{ needs.meta.outputs.commit }}
+          SOURCE_DATE_EPOCH: ${{ needs.meta.outputs.source_date_epoch }}
         run: ./scripts/build-release.sh "${{ needs.meta.outputs.version }}" "${{ matrix.goos }}" "${{ matrix.goarch }}" dist
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -190,10 +198,15 @@ jobs:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
           APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+          CHANGE_SAGA_COMMIT: ${{ needs.meta.outputs.commit }}
+          SOURCE_DATE_EPOCH: ${{ needs.meta.outputs.source_date_epoch }}
         run: ./scripts/build-release.sh "${{ needs.meta.outputs.version }}" darwin "${{ matrix.goarch }}" dist
 
       - name: build (unsigned)
         if: steps.signing.outputs.available != 'true'
+        env:
+          CHANGE_SAGA_COMMIT: ${{ needs.meta.outputs.commit }}
+          SOURCE_DATE_EPOCH: ${{ needs.meta.outputs.source_date_epoch }}
         run: ./scripts/build-release.sh "${{ needs.meta.outputs.version }}" darwin "${{ matrix.goarch }}" dist
 
       - name: verify the archived binary is signed
@@ -241,12 +254,23 @@ jobs:
 
       - name: verify per-artifact checksums and build SHA256SUMS
         working-directory: dist
+        env:
+          EXPECTED_VERSION: ${{ needs.meta.outputs.version }}
+          EXPECTED_COMMIT: ${{ needs.meta.outputs.commit }}
+          SOURCE_DATE_EPOCH: ${{ needs.meta.outputs.source_date_epoch }}
         run: |
           set -euo pipefail
           # Each build job recorded a checksum next to its archive. Re-checking
           # here proves the artifact survived the upload/download round trip
           # before it becomes the published SHA256SUMS entry.
-          for sidecar in *.sha256; do
+          archive_count="$(find . -maxdepth 1 -type f \( -name 'change-saga_*.tar.gz' -o -name 'change-saga_*.zip' \) | wc -l)"
+          sidecar_count="$(find . -maxdepth 1 -type f -name 'change-saga_*.sha256' | wc -l)"
+          if [ "$archive_count" -ne 6 ] || [ "$sidecar_count" -ne 6 ]; then
+            echo "::error::expected six archives and six checksum sidecars; found $archive_count and $sidecar_count"
+            find . -maxdepth 1 -type f -print | sort
+            exit 1
+          fi
+          for sidecar in change-saga_*.sha256; do
             sha256sum -c "$sidecar"
           done
           rm -f SHA256SUMS
@@ -258,6 +282,18 @@ jobs:
             cat SHA256SUMS
             exit 1
           fi
+          smoke_dir="$(mktemp -d)"
+          trap 'rm -rf "$smoke_dir"' EXIT
+          tar -xOzf "change-saga_${EXPECTED_VERSION}_linux_amd64.tar.gz" change-saga > "$smoke_dir/change-saga"
+          chmod 0755 "$smoke_dir/change-saga"
+          expected_date="$(date -u -d "@$SOURCE_DATE_EPOCH" +%Y-%m-%dT%H:%M:%SZ)"
+          expected_version="$EXPECTED_VERSION (${EXPECTED_COMMIT:0:12}) built $expected_date"
+          actual_version="$("$smoke_dir/change-saga" version)"
+          if [ "$actual_version" != "$expected_version" ]; then
+            echo "::error::release binary metadata mismatch: expected '$expected_version', got '$actual_version'"
+            exit 1
+          fi
+          "$smoke_dir/change-saga" help >/dev/null
           cat SHA256SUMS
           {
             echo "### Release artifacts"

@@ -52,6 +52,9 @@ Until then, the honest summary of what exists:
   contrast now pass the serious/critical real-browser accessibility gate.
 - Release archives carry fixed member permissions (`0755` binary, `0644`
   documents) instead of inheriting the umask of the machine that built them.
+- Release packaging stages archives, checksum sidecars, and standalone wrappers
+  before replacement, preserving the previous usable output when preparation
+  fails.
 
 <!--
 Maintainers: when cutting a release, rename this section to

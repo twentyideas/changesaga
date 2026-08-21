@@ -98,13 +98,41 @@ if [ "$(cat "$same_path")" = "original archive bytes" ]; then
 else
 	record 1 "same-path rejection preserves the input archive"
 fi
+leading_zero="$work/change-saga_01.2.3_darwin_arm64.tar.gz"
+printf 'not an archive\n' >"$leading_zero"
+expect_failure "standalone wrapper enforces strict SemVer" "expected a darwin/arm64 release archive" \
+	"$repo_root/scripts/build-macos-standalone-installer.sh" "$leading_zero" "$work/leading-zero.command"
+
+wrapper_stage="$work/wrapper-stage"
+mkdir "$wrapper_stage"
+printf '#!/bin/sh\necho "1.2.3 (test) built test"\n' >"$wrapper_stage/change-saga"
+printf 'license\n' >"$wrapper_stage/LICENSE"
+printf 'readme\n' >"$wrapper_stage/README.md"
+chmod 0755 "$wrapper_stage/change-saga"
+valid_archive="$work/change-saga_1.2.3_darwin_arm64.tar.gz"
+tar -czf "$valid_archive" -C "$wrapper_stage" change-saga LICENSE README.md
 wrapper="$work/Change-Saga.command"
-if "$repo_root/scripts/build-macos-standalone-installer.sh" "$same_path" "$wrapper" >/dev/null &&
+if "$repo_root/scripts/build-macos-standalone-installer.sh" "$valid_archive" "$wrapper" >/dev/null &&
 	[ -x "$wrapper" ] &&
-	grep -F "saga_archive_name='change-saga_1.2.3_darwin_arm64.tar.gz'" "$wrapper" >/dev/null; then
-	record 0 "standalone wrapper still accepts a canonical archive name"
+	grep -F "saga_expected_version='1.2.3'" "$wrapper" >/dev/null; then
+	record 0 "standalone wrapper accepts a canonical, exact-layout archive"
 else
-	record 1 "standalone wrapper still accepts a canonical archive name"
+	record 1 "standalone wrapper accepts a canonical, exact-layout archive"
+fi
+
+link_stage="$work/link-stage"
+mkdir "$link_stage"
+ln -s /tmp/not-the-release "$link_stage/change-saga"
+cp "$wrapper_stage/LICENSE" "$wrapper_stage/README.md" "$link_stage/"
+link_archive="$work/change-saga_1.2.4_darwin_arm64.tar.gz"
+tar -czf "$link_archive" -C "$link_stage" change-saga LICENSE README.md
+printf 'preserve this output\n' >"$work/preserved.command"
+expect_failure "standalone wrapper rejects link members" "must all be regular files" \
+	"$repo_root/scripts/build-macos-standalone-installer.sh" "$link_archive" "$work/preserved.command"
+if [ "$(cat "$work/preserved.command")" = "preserve this output" ]; then
+	record 0 "failed wrapper build preserves the prior output"
+else
+	record 1 "failed wrapper build preserves the prior output"
 fi
 
 echo "== build and inspect a host artifact"
@@ -124,9 +152,16 @@ esac
 version=9.8.7-test.1
 commit="$(git -C "$repo_root" rev-parse --verify 'HEAD^{commit}')"
 epoch=946684800
-dist="$work/dist"
-env CHANGE_SAGA_COMMIT="$commit" GITHUB_SHA='wrong value that must be ignored' SOURCE_DATE_EPOCH="$epoch" \
-	"$repo_root/scripts/build-release.sh" "$version" "$host_os" "$host_arch" "$dist" >/dev/null
+dist="$work/caller/relative-dist"
+mkdir -p "$work/caller"
+(cd "$work/caller" && \
+	env CHANGE_SAGA_COMMIT="$commit" GITHUB_SHA='wrong value that must be ignored' SOURCE_DATE_EPOCH="$epoch" \
+	"$repo_root/scripts/build-release.sh" "$version" "$host_os" "$host_arch" relative-dist >/dev/null)
+if [ -f "$dist/change-saga_${version}_${host_os}_${host_arch}.tar.gz" ]; then
+	record 0 "relative output directories resolve from the caller's working directory"
+else
+	record 1 "relative output directories resolve from the caller's working directory"
+fi
 
 archive="change-saga_${version}_${host_os}_${host_arch}.tar.gz"
 extract="$work/extract"
@@ -151,6 +186,40 @@ if [ "$(cat "$dist/$archive.sha256")" = "$expected_checksum" ]; then
 	record 0 "artifact checksum sidecar matches the archive"
 else
 	record 1 "artifact checksum sidecar matches the archive"
+fi
+
+if [ "$host_os/$host_arch" = darwin/arm64 ]; then
+	echo "== run the standalone macOS installer end to end"
+	standalone="$work/real.command"
+	standalone_install="$work/standalone-bin"
+	"$repo_root/scripts/build-macos-standalone-installer.sh" "$dist/$archive" "$standalone" >/dev/null
+	if CHANGE_SAGA_INSTALL_DIR="$standalone_install" "$standalone" >"$work/standalone-output" 2>&1 &&
+		[ "$("$standalone_install/change-saga" version)" = "$version (${commit:0:12}) built 2000-01-01T00:00:00Z" ]; then
+		record 0 "standalone installer verifies and atomically installs a real artifact"
+	else
+		cat "$work/standalone-output" >&2
+		record 1 "standalone installer verifies and atomically installs a real artifact"
+	fi
+
+	wrong_stage="$work/wrong-version-stage"
+	mkdir "$wrong_stage"
+	printf '#!/bin/sh\necho "0.0.0-wrong (test) built test"\n' >"$wrong_stage/change-saga"
+	printf 'license\n' >"$wrong_stage/LICENSE"
+	printf 'readme\n' >"$wrong_stage/README.md"
+	chmod 0755 "$wrong_stage/change-saga"
+	wrong_archive="$work/change-saga_1.2.5_darwin_arm64.tar.gz"
+	tar -czf "$wrong_archive" -C "$wrong_stage" change-saga LICENSE README.md
+	wrong_wrapper="$work/wrong-version.command"
+	"$repo_root/scripts/build-macos-standalone-installer.sh" "$wrong_archive" "$wrong_wrapper" >/dev/null
+	printf 'existing installation\n' >"$standalone_install/change-saga"
+	chmod 0755 "$standalone_install/change-saga"
+	if CHANGE_SAGA_INSTALL_DIR="$standalone_install" "$wrong_wrapper" >"$work/wrong-output" 2>&1; then
+		record 1 "standalone installer rejects a mismatched embedded version"
+	elif [ "$(cat "$standalone_install/change-saga")" = "existing installation" ]; then
+		record 0 "version rejection preserves the existing installation"
+	else
+		record 1 "version rejection preserves the existing installation"
+	fi
 fi
 
 if [ "$failures" -ne 0 ]; then
