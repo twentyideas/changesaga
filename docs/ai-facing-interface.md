@@ -266,6 +266,14 @@ absent from this schema because they are not the reviewer. A legacy payload
 name may be exposed separately as `legacy_claimed_author` during migration,
 never as `attribution.committer`.
 
+Every atom carries `content`, including when the changed line is empty. `kind`
+discriminates atom shape: a `line` atom always has `path`, `side`, `line`, and
+`content`; an `event` atom always has `event`. `change-saga status --json`
+follows the same rule for its collections — `uncovered`, `overlaps`, `orphans`,
+`targets`, `saga_changes`, and `schema_issues` are always present and encode as
+`[]` when empty, so a complete saga reports `"uncovered": []` rather than
+`null` or a missing key.
+
 `gaps` exposes uncovered atoms, stale selectors (the current `Orphans`), and
 overlaps as separate typed records. `stale` is the public term; `orphan` remains
 an internal compatibility name. Results include enough selector, target, and

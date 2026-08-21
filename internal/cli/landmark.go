@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"io/fs"
@@ -20,8 +19,7 @@ import (
 // AddLandmark creates an addressable place inside a fragment. Coverage can
 // then target the returned path or URN with the ordinary cover command.
 func AddLandmark(_ context.Context, args []string, out io.Writer) error {
-	flags := flag.NewFlagSet("add-landmark", flag.ContinueOnError)
-	flags.SetOutput(out)
+	flags := commandFlags("add-landmark", commandUsage["add-landmark"], out)
 	target := flags.String("target", "", "containing .fragment directory or fragment URN")
 	id := flags.String("id", "", "stable landmark identifier")
 	label := flags.String("label", "", "reviewer-facing landmark label")

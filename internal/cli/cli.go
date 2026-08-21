@@ -14,9 +14,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime/debug"
+	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/twentyideas/changesaga/internal/coverage"
 	"github.com/twentyideas/changesaga/internal/diffuri"
@@ -80,34 +80,90 @@ type StatusError struct{ Code int }
 
 func (e *StatusError) Error() string { return "command reported a non-success status" }
 
+// commandOrder fixes the order the top-level help lists commands in;
+// commandUsage is the single source of each command's usage line so the
+// overview, the per-command -h banner, and argument errors cannot drift apart.
+var commandOrder = []string{
+	"init", "add-chapter", "add-section", "add-fragment", "add-landmark", "cover",
+	"thread", "reply", "review", "validate", "status", "query",
+	"serve", "open", "install-skill", "spec",
+}
+
+var commandUsage = map[string]string{
+	"init":          "change-saga init [flags] <name.saga>",
+	"add-chapter":   "change-saga add-chapter [flags] <saga> <name>",
+	"add-section":   "change-saga add-section [flags] <saga> <section/path>",
+	"add-fragment":  "change-saga add-fragment [flags] <saga>",
+	"add-landmark":  "change-saga add-landmark [flags] <saga>",
+	"cover":         "change-saga cover [flags] [--batch FILE|-] [--dry-run] <saga>",
+	"thread":        "change-saga thread [flags] <saga>",
+	"reply":         "change-saga reply [flags] <saga>",
+	"review":        "change-saga review [flags] <saga>",
+	"validate":      "change-saga validate [--json] [--fix] <saga>",
+	"status":        "change-saga status [--json] [--repo PATH] <saga>",
+	"query":         "change-saga query <operation> --saga PATH [--repo PATH] [operation flags]",
+	"serve":         "change-saga serve [--addr ADDR] [--repo PATH] [--open] <saga>",
+	"open":          "change-saga open [--addr ADDR] [--repo PATH] <saga>",
+	"install-skill": "change-saga install-skill",
+	"spec":          "change-saga spec [--json]",
+}
+
 func PrintHelp(out io.Writer) {
-	fmt.Fprint(out, `Change Saga — make every part of a large change reviewable
+	fmt.Fprint(out, "Change Saga — make every part of a large change reviewable\n\nUsage:\n")
+	for _, command := range commandOrder {
+		fmt.Fprintf(out, "  %s\n", commandUsage[command])
+	}
+	fmt.Fprint(out, "\nRun \"change-saga <command> -h\" for command-specific options.\n")
+}
 
-Usage:
-  change-saga init [flags] <name.saga>
-  change-saga add-chapter [flags] <saga> <name>
-  change-saga add-section [flags] <saga> <section/path>
-  change-saga add-fragment [flags] <saga>
-  change-saga add-landmark [flags] <saga>
-  change-saga cover [flags] <saga>
-  change-saga thread [flags] <saga>
-  change-saga reply [flags] <saga>
-  change-saga review [flags] <saga>
-  change-saga validate [--json] <saga>
-  change-saga status [--json] [--repo PATH] <saga>
-  change-saga query <operation> --saga PATH [--repo PATH] [operation flags]
-  change-saga serve [--addr ADDR] [--repo PATH] [--open] <saga>
-  change-saga open [--addr ADDR] [--repo PATH] <saga>
-  change-saga install-skill
-  change-saga spec [--json]
+// commandFlags builds a flag set whose -h output always leads with the command
+// it was actually invoked as. The stock flag banner prints the flag set's name
+// and nothing else, which made "change-saga open -h" claim to be serve and gave
+// a flagless command like install-skill an empty, unexplained banner.
+func commandFlags(name, usage string, out io.Writer) *flag.FlagSet {
+	flags := flag.NewFlagSet(name, flag.ContinueOnError)
+	flags.SetOutput(out)
+	flags.Usage = func() {
+		fmt.Fprintf(out, "Usage:\n  %s\n", usage)
+		if description := commandDescription[name]; description != "" {
+			fmt.Fprintf(out, "\n%s\n", description)
+		}
+		count := 0
+		flags.VisitAll(func(*flag.Flag) { count++ })
+		if count > 0 {
+			fmt.Fprint(out, "\nFlags:\n")
+			flags.PrintDefaults()
+		}
+	}
+	return flags
+}
 
-Run "change-saga <command> -h" for command-specific options.
-`)
+var commandDescription = map[string]string{
+	"add-landmark": "Create a coverable target for one Markdown heading, exact text span, HTML/SVG\nelement, or normalized image region inside a fragment.",
+	"cover": `Attach the exact diff atoms a narrative target explains. --target accepts a
+section or fragment path, a target URN, or <fragment-path>#<landmark-id>.
+--batch reads newline-delimited JSON records (or one JSON array) with the
+per-record fields target, path, side, lines, event, old_path, new_path, note,
+name, and uris; the whole batch is resolved before anything is written, and a
+failing record leaves the saga untouched.`,
+	"open":          "Serve the saga on loopback and open it in a browser.",
+	"serve":         "Serve the saga on loopback for review.",
+	"install-skill": "Print the agent-agnostic prompt that installs the change-saga authoring skill.\nPipe it to a coding agent; it neither writes to this repository nor creates a saga.",
+	"validate":      "Check the saga against the format. --fix adds missing stable anchors to Markdown\nheadings in narrative fragments and changes nothing else.",
+}
+
+func flagWasSet(flags *flag.FlagSet, name string) bool {
+	found := false
+	flags.Visit(func(value *flag.Flag) {
+		if value.Name == name {
+			found = true
+		}
+	})
+	return found
 }
 
 func Init(ctx context.Context, args []string, out io.Writer) error {
-	flags := flag.NewFlagSet("init", flag.ContinueOnError)
-	flags.SetOutput(out)
+	flags := commandFlags("init", commandUsage["init"], out)
 	base := flags.String("base", "main", "base Git revision")
 	head := flags.String("head", "HEAD", "head Git revision, or WORKTREE")
 	title := flags.String("title", "", "saga title")
@@ -122,7 +178,7 @@ func Init(ctx context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: change-saga init [flags] <name.saga>")
+		return fmt.Errorf("usage: %s", commandUsage["init"])
 	}
 	root := flags.Arg(0)
 	if !strings.HasSuffix(filepath.Base(root), ".saga") {
@@ -208,8 +264,7 @@ func Init(ctx context.Context, args []string, out io.Writer) error {
 }
 
 func AddChapter(_ context.Context, args []string, out io.Writer) error {
-	flags := flag.NewFlagSet("add-chapter", flag.ContinueOnError)
-	flags.SetOutput(out)
+	flags := commandFlags("add-chapter", commandUsage["add-chapter"], out)
 	title := flags.String("title", "", "chapter title")
 	id := flags.String("id", "", "stable chapter identifier")
 	order := flags.Int("order", 0, "display order")
@@ -217,7 +272,7 @@ func AddChapter(_ context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 2 {
-		return fmt.Errorf("usage: change-saga add-chapter [flags] <saga> <name>")
+		return fmt.Errorf("usage: %s", commandUsage["add-chapter"])
 	}
 	name := strings.TrimSuffix(flags.Arg(1), ".chapter")
 	if name == "" || name == "." || name == ".." || filepath.IsAbs(name) || filepath.Clean(name) != name || filepath.Base(name) != name || strings.HasPrefix(name, "___") {
@@ -270,8 +325,7 @@ func AddChapter(_ context.Context, args []string, out io.Writer) error {
 }
 
 func AddSection(_ context.Context, args []string, out io.Writer) error {
-	flags := flag.NewFlagSet("add-section", flag.ContinueOnError)
-	flags.SetOutput(out)
+	flags := commandFlags("add-section", commandUsage["add-section"], out)
 	title := flags.String("title", "", "section title")
 	id := flags.String("id", "", "stable section identifier")
 	order := flags.Int("order", 0, "display order")
@@ -279,7 +333,7 @@ func AddSection(_ context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 2 {
-		return fmt.Errorf("usage: change-saga add-section [flags] <saga> <section/path>")
+		return fmt.Errorf("usage: %s", commandUsage["add-section"])
 	}
 	sectionPath := filepath.Clean(flags.Arg(1))
 	parentPath, name := filepath.Dir(sectionPath), filepath.Base(sectionPath)
@@ -327,8 +381,7 @@ func AddSection(_ context.Context, args []string, out io.Writer) error {
 }
 
 func AddFragment(_ context.Context, args []string, out io.Writer) error {
-	flags := flag.NewFlagSet("add-fragment", flag.ContinueOnError)
-	flags.SetOutput(out)
+	flags := commandFlags("add-fragment", commandUsage["add-fragment"], out)
 	section := flags.String("section", ".", "containing section")
 	id := flags.String("id", "", "stable fragment identifier")
 	title := flags.String("title", "", "fragment title")
@@ -342,7 +395,7 @@ func AddFragment(_ context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: change-saga add-fragment [flags] <saga>")
+		return fmt.Errorf("usage: %s", commandUsage["add-fragment"])
 	}
 	entrypoint, content, resolvedType, err := fragmentContent(*kind, *mediaType, *source)
 	if err != nil {
@@ -400,114 +453,8 @@ func (s *stringList) Set(value string) error {
 	return nil
 }
 
-func Cover(ctx context.Context, args []string, out io.Writer) error {
-	flags := flag.NewFlagSet("cover", flag.ContinueOnError)
-	flags.SetOutput(out)
-	target := flags.String("target", ".", "section or .fragment directory receiving evidence")
-	repoDir := flags.String("repo", "", "source repository checkout; required when separate")
-	path := flags.String("path", "", "changed repository path")
-	side := flags.String("side", "", "line side: old or new")
-	lines := flags.String("lines", "", "line ranges, for example 4-9,12")
-	event := flags.String("event", "", "file event: add, delete, type-change, rename, mode, binary, or modify")
-	oldPath := flags.String("old-path", "", "old path for a rename event")
-	newPath := flags.String("new-path", "", "new path for a rename event")
-	note := flags.String("note", "", "optional explanation for report authors")
-	name := flags.String("name", "", "coverage filename without .json")
-	allowRepositoryMismatch := flags.Bool("allow-repository-mismatch", false, "use a checkout whose origin differs from the declared repository")
-	var uris stringList
-	flags.Var(&uris, "uri", "absolute saga-diff URI; repeatable")
-	if err := flags.Parse(args); err != nil {
-		return err
-	}
-	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: change-saga cover [flags] <saga>")
-	}
-	document, _, err := saga.Load(flags.Arg(0))
-	if err != nil {
-		return err
-	}
-	for _, value := range uris {
-		reference, err := diffuri.Parse(value)
-		if err != nil {
-			return fmt.Errorf("invalid --uri: %w", err)
-		}
-		repository, err := diffuri.CanonicalRepository(document.Manifest.Source.Repository)
-		if err != nil {
-			return fmt.Errorf("invalid declared source repository: %w", err)
-		}
-		if reference.Repository != repository {
-			return fmt.Errorf("invalid --uri: repository %q does not match saga source repository %q", reference.Repository, repository)
-		}
-	}
-	if *path != "" || *event != "" {
-		checkout := firstNonEmpty(*repoDir, document.Root)
-		changes, err := gitdiff.ReadWithOptions(ctx, checkout, document.Manifest.Source.Repository, document.Manifest.Source.Base, document.Manifest.Source.Head, gitdiff.ReadOptions{AllowRepositoryMismatch: *allowRepositoryMismatch})
-		if err != nil {
-			return fmt.Errorf("read source diff (use --repo for a separate saga repository): %w", err)
-		}
-		if *event == "" {
-			if *side != "old" && *side != "new" {
-				return fmt.Errorf("line coverage requires --side old or new")
-			}
-			ranges, err := parseRanges(*lines)
-			if err != nil {
-				return err
-			}
-			for _, lineRange := range ranges {
-				value, err := diffuri.Build(diffuri.Reference{Repository: changes.Repository, Base: changes.BaseOID, Head: changes.HeadOID, Kind: "line", Path: filepath.ToSlash(*path), Side: *side, Start: lineRange.Start, End: lineRange.End})
-				if err != nil {
-					return err
-				}
-				uris = append(uris, value)
-			}
-		} else {
-			value, err := diffuri.Build(diffuri.Reference{Repository: changes.Repository, Base: changes.BaseOID, Head: changes.HeadOID, Kind: "event", Event: *event, Path: filepath.ToSlash(*path), OldPath: filepath.ToSlash(*oldPath), NewPath: filepath.ToSlash(*newPath)})
-			if err != nil {
-				return err
-			}
-			uris = append(uris, value)
-		}
-	}
-	if len(uris) == 0 {
-		return fmt.Errorf("provide --uri or --path/--lines (or --event)")
-	}
-	file := saga.DiffFile{Version: saga.CurrentVersion}
-	for _, value := range uris {
-		file.Diffs = append(file.Diffs, saga.DiffReference{URI: value, Note: *note})
-	}
-	if *name == "" {
-		*name = store.Slug(firstNonEmpty(*path, *event, "diff") + "-" + store.EventID(time.Now()))
-	}
-	// The Git comparison is read before the lock is taken so a slow diff does
-	// not stall other writers; only target resolution and the record write are
-	// serialized.
-	var created string
-	if err := authorMutation(flags.Arg(0), func(locked *saga.Saga) error {
-		targetDir, _, err := resolveTarget(locked, *target, true)
-		if err != nil {
-			return err
-		}
-		diffDir, err := store.EnsureDirWithin(locked.Root, filepath.Join(targetDir, "___diffs"))
-		if err != nil {
-			return err
-		}
-		targetPath := filepath.Join(diffDir, store.Slug(*name)+".json")
-		if err := store.WriteJSON(targetPath, file, true); err != nil {
-			return err
-		}
-		rel, _ := filepath.Rel(locked.Root, targetPath)
-		created = filepath.ToSlash(rel)
-		return nil
-	}); err != nil {
-		return err
-	}
-	fmt.Fprintf(out, "Added %s\n", created)
-	return nil
-}
-
 func Thread(_ context.Context, args []string, out io.Writer) error {
-	flags := flag.NewFlagSet("thread", flag.ContinueOnError)
-	flags.SetOutput(out)
+	flags := commandFlags("thread", commandUsage["thread"], out)
 	target := flags.String("target", ".", "section/fragment path or target URN")
 	body := flags.String("body", "", "initial Markdown comment")
 	anchorJSON := flags.String("anchor", `{"type":"target"}`, "anchor JSON")
@@ -519,7 +466,7 @@ func Thread(_ context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: change-saga thread [flags] <saga>")
+		return fmt.Errorf("usage: %s", commandUsage["thread"])
 	}
 	document, _, err := saga.Load(flags.Arg(0))
 	if err != nil {
@@ -542,8 +489,7 @@ func Thread(_ context.Context, args []string, out io.Writer) error {
 }
 
 func Reply(_ context.Context, args []string, out io.Writer) error {
-	flags := flag.NewFlagSet("reply", flag.ContinueOnError)
-	flags.SetOutput(out)
+	flags := commandFlags("reply", commandUsage["reply"], out)
 	threadID := flags.String("thread", "", "thread identifier")
 	body := flags.String("body", "", "Markdown reply")
 	state := flags.String("state", "", "optionally set thread to open, resolved, or withdrawn")
@@ -553,7 +499,7 @@ func Reply(_ context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: change-saga reply [flags] <saga>")
+		return fmt.Errorf("usage: %s", commandUsage["reply"])
 	}
 	document, _, err := saga.Load(flags.Arg(0))
 	if err != nil {
@@ -577,8 +523,7 @@ func Reply(_ context.Context, args []string, out io.Writer) error {
 }
 
 func Review(_ context.Context, args []string, out io.Writer) error {
-	flags := flag.NewFlagSet("review", flag.ContinueOnError)
-	flags.SetOutput(out)
+	flags := commandFlags("review", commandUsage["review"], out)
 	target := flags.String("target", ".", "saga, chapter, section, or fragment path")
 	state := flags.String("state", "", "approved, rejected, closed, or open")
 	body := flags.String("body", "", "optional review note")
@@ -586,7 +531,7 @@ func Review(_ context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: change-saga review [flags] <saga>")
+		return fmt.Errorf("usage: %s", commandUsage["review"])
 	}
 	document, _, err := saga.Load(flags.Arg(0))
 	if err != nil {
@@ -604,24 +549,35 @@ func Review(_ context.Context, args []string, out io.Writer) error {
 }
 
 func Validate(_ context.Context, args []string, out io.Writer) error {
-	flags := flag.NewFlagSet("validate", flag.ContinueOnError)
-	flags.SetOutput(out)
+	flags := commandFlags("validate", commandUsage["validate"], out)
 	jsonOutput := flags.Bool("json", false, "emit machine-readable JSON")
+	fix := flags.Bool("fix", false, "add missing stable anchors to Markdown headings in narrative fragments")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: change-saga validate [--json] <saga>")
+		return fmt.Errorf("usage: %s", commandUsage["validate"])
+	}
+	fixes := []AnchorFix{}
+	if *fix {
+		applied, err := fixHeadingAnchors(flags.Arg(0))
+		if err != nil {
+			return err
+		}
+		fixes = applied
 	}
 	_, validation, err := saga.Load(flags.Arg(0))
 	if err != nil {
 		return err
 	}
 	if *jsonOutput {
-		if err := writeJSON(out, validation); err != nil {
+		if err := writeJSON(out, validationOutput{Validation: validation, Fixes: fixes}); err != nil {
 			return err
 		}
 	} else {
+		for _, applied := range fixes {
+			fmt.Fprintf(out, "Fixed %s:%d heading %q now anchors as {#%s}\n", applied.Path, applied.Line, applied.Heading, applied.Anchor)
+		}
 		fmt.Fprintln(out, map[bool]string{true: "Valid saga", false: "Invalid saga"}[validation.Valid])
 		for _, issue := range validation.Issues {
 			fmt.Fprintf(out, "  %s: %s: %s\n", issue.Severity, issue.Path, issue.Message)
@@ -633,9 +589,80 @@ func Validate(_ context.Context, args []string, out io.Writer) error {
 	return nil
 }
 
+// AnchorFix is one heading that --fix gave a stable anchor.
+type AnchorFix struct {
+	Path    string `json:"path"`
+	Line    int    `json:"line"`
+	Heading string `json:"heading"`
+	Anchor  string `json:"anchor"`
+}
+
+// validationOutput keeps validate --json a single JSON value while still
+// reporting what --fix changed. "fixes" is always present, empty when nothing
+// was rewritten, so a consumer never has to test for the key.
+type validationOutput struct {
+	saga.Validation
+	Fixes []AnchorFix `json:"fixes"`
+}
+
+// fixHeadingAnchors is the only mutating part of validate. It rewrites narrative
+// Markdown fragments in place and deliberately never touches review-overlay
+// fragments: thread messages are append-only history, not authored content.
+func fixHeadingAnchors(root string) ([]AnchorFix, error) {
+	var applied []AnchorFix
+	err := authorMutation(root, func(document *saga.Saga) error {
+		var walk func(*saga.Section) error
+		walk = func(section *saga.Section) error {
+			for _, fragment := range section.Fragments {
+				if fragment.MediaType != "text/markdown" || fragment.Entrypoint == "" {
+					continue
+				}
+				entrypoint := filepath.Join(fragment.Directory, filepath.FromSlash(fragment.Entrypoint))
+				content, err := os.ReadFile(entrypoint)
+				if err != nil {
+					// A fragment whose entrypoint cannot be read is already an
+					// invalid saga; report that through validation rather than
+					// failing the fix of every other fragment.
+					continue
+				}
+				fixed, added := saga.FixMarkdownHeadingAnchors(content, reservedLandmarkIDs(fragment))
+				if len(added) == 0 {
+					continue
+				}
+				if err := store.WriteFile(entrypoint, fixed, 0o644, false); err != nil {
+					return err
+				}
+				for _, anchor := range added {
+					applied = append(applied, AnchorFix{Path: filepath.ToSlash(filepath.Join(fragment.Path, fragment.Entrypoint)), Line: anchor.Line, Heading: anchor.Heading, Anchor: anchor.Anchor})
+				}
+			}
+			for _, child := range section.Children {
+				if err := walk(child); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		return walk(document.Section)
+	})
+	return applied, err
+}
+
+// reservedLandmarkIDs keeps a generated heading anchor from claiming an id a
+// non-heading landmark already owns, which the loader rejects as a conflict.
+func reservedLandmarkIDs(fragment *saga.Fragment) map[string]bool {
+	reserved := map[string]bool{}
+	for index := range fragment.Landmarks {
+		landmark := &fragment.Landmarks[index]
+		if landmark.Selector.Type != "heading" {
+			reserved[landmark.ID] = true
+		}
+	}
+	return reserved
+}
+
 func Status(ctx context.Context, args []string, out io.Writer) error {
-	flags := flag.NewFlagSet("status", flag.ContinueOnError)
-	flags.SetOutput(out)
+	flags := commandFlags("status", commandUsage["status"], out)
 	jsonOutput := flags.Bool("json", false, "emit machine-readable JSON")
 	maxItems := flags.Int("max", 100, "maximum uncovered items in text mode; 0 means all")
 	repoDir := flags.String("repo", "", "source repository checkout; required when separate")
@@ -644,7 +671,7 @@ func Status(ctx context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: change-saga status [--json] [--repo PATH] <saga>")
+		return fmt.Errorf("usage: %s", commandUsage["status"])
 	}
 	report, err := buildReport(ctx, flags.Arg(0), *repoDir, *allowRepositoryMismatch)
 	if err != nil {
@@ -711,30 +738,36 @@ func printReport(out io.Writer, report coverage.Report, maxItems int) {
 	}
 }
 
+// Serve runs the loopback reviewer. It is reached as both "serve" and "open",
+// which differ only in whether a browser is launched, so the flag set is named
+// after the command the user actually typed and its -h says so.
 func Serve(ctx context.Context, args []string, out io.Writer, openByDefault ...bool) error {
-	flags := flag.NewFlagSet("serve", flag.ContinueOnError)
-	flags.SetOutput(out)
+	opensBrowser := len(openByDefault) > 0 && openByDefault[0]
+	name := "serve"
+	if opensBrowser {
+		name = "open"
+	}
+	flags := commandFlags(name, commandUsage[name], out)
 	addr := flags.String("addr", "127.0.0.1:7342", "loopback listen address; remote serving is disabled")
 	repoDir := flags.String("repo", "", "source repository checkout; required when separate")
-	openBrowser := flags.Bool("open", len(openByDefault) > 0 && openByDefault[0], "open the review in a browser")
+	openBrowser := flags.Bool("open", opensBrowser, "open the review in a browser")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: change-saga serve [--addr ADDR] [--repo PATH] [--open] <saga>")
+		return fmt.Errorf("usage: %s", commandUsage[name])
 	}
 	return reviewserver.Listen(ctx, flags.Arg(0), *repoDir, *addr, *openBrowser, out)
 }
 
 func Spec(args []string, out io.Writer) error {
-	flags := flag.NewFlagSet("spec", flag.ContinueOnError)
-	flags.SetOutput(out)
+	flags := commandFlags("spec", commandUsage["spec"], out)
 	jsonOutput := flags.Bool("json", false, "emit the contract vocabulary as JSON")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() != 0 {
-		return fmt.Errorf("usage: change-saga spec [--json]")
+		return fmt.Errorf("usage: %s", commandUsage["spec"])
 	}
 	if *jsonOutput {
 		return writeJSON(out, map[string]any{
@@ -757,15 +790,14 @@ func Spec(args []string, out io.Writer) error {
 // agent owns the platform-specific skill location and format; the saga binary
 // supplies the behavior contract without mutating the user's repository.
 func InstallSkill(args []string, out io.Writer) error {
-	flags := flag.NewFlagSet("install-skill", flag.ContinueOnError)
-	flags.SetOutput(out)
+	flags := commandFlags("install-skill", commandUsage["install-skill"], out)
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() != 0 {
-		return fmt.Errorf("usage: change-saga install-skill")
+		return fmt.Errorf("usage: %s", commandUsage["install-skill"])
 	}
-	_, err := io.WriteString(out, installSkillPrompt)
+	_, err := io.WriteString(out, installSkillPrompt())
 	return err
 }
 
@@ -872,6 +904,9 @@ func normalizeRepositoryURI(value, root string) (string, error) {
 }
 
 func resolveTarget(document *saga.Saga, value string, allowFragment bool) (string, string, error) {
+	if fragmentPath, landmarkID, ok := splitLandmarkTarget(value); ok {
+		return resolveLandmark(document, fragmentPath, landmarkID, allowFragment)
+	}
 	if strings.HasPrefix(value, "urn:change-saga:") {
 		var foundDir string
 		walkTargets(document.Root, document.Section, func(target, dir string, fragment bool) {
@@ -883,7 +918,7 @@ func resolveTarget(document *saga.Saga, value string, allowFragment bool) (strin
 			foundDir = document.Root
 		}
 		if foundDir == "" {
-			return "", "", fmt.Errorf("target %q does not exist", value)
+			return "", "", fmt.Errorf("target %q does not exist%s", value, targetHint(document, allowFragment))
 		}
 		return foundDir, value, nil
 	}
@@ -919,9 +954,101 @@ func resolveTarget(document *saga.Saga, value string, allowFragment bool) (strin
 		}
 	})
 	if foundTarget == "" || isFragment && !allowFragment {
-		return "", "", fmt.Errorf("target %q is not a valid %s", value, map[bool]string{true: "chapter, section, or fragment", false: "chapter or section"}[allowFragment])
+		return "", "", fmt.Errorf("target %q is not a valid %s%s", value, map[bool]string{true: "chapter, section, fragment, or landmark", false: "chapter or section"}[allowFragment], targetHint(document, allowFragment))
 	}
 	return abs, foundTarget, nil
+}
+
+// splitLandmarkTarget recognizes the <fragment>#<landmark-id> shorthand. A
+// landmark lives inside a reserved ___landmarks directory that ordinary section
+// resolution refuses to enter, so without this an author had to spell out the
+// full landmark URN before they had any way to discover it.
+func splitLandmarkTarget(value string) (string, string, bool) {
+	if strings.HasPrefix(value, "urn:change-saga:") {
+		return "", "", false
+	}
+	hash := strings.LastIndex(value, "#")
+	if hash < 0 {
+		return "", "", false
+	}
+	return value[:hash], value[hash+1:], true
+}
+
+func resolveLandmark(document *saga.Saga, fragmentPath, landmarkID string, allowFragment bool) (string, string, error) {
+	if !allowFragment {
+		return "", "", fmt.Errorf("landmark targets cannot contain chapters, sections, or fragments")
+	}
+	if strings.TrimSpace(fragmentPath) == "" {
+		return "", "", fmt.Errorf("landmark target %q must name its fragment, as <fragment-path>#<landmark-id>", "#"+landmarkID)
+	}
+	fragmentDir, fragmentTarget, err := resolveTarget(document, fragmentPath, true)
+	if err != nil {
+		return "", "", err
+	}
+	fragment := findFragment(document.Section, fragmentDir)
+	if fragment == nil {
+		return "", "", fmt.Errorf("%q is not a fragment, so it cannot contain landmark %q", fragmentPath, landmarkID)
+	}
+	for index := range fragment.Landmarks {
+		landmark := &fragment.Landmarks[index]
+		if landmark.ID == landmarkID {
+			return landmark.Directory, landmark.Target, nil
+		}
+	}
+	if len(fragment.Landmarks) == 0 {
+		return "", "", fmt.Errorf("fragment %q (%s) declares no landmarks; add %s/___landmarks/%s.landmark/landmark.json before covering it", fragmentPath, fragmentTarget, fragment.Path, landmarkID)
+	}
+	available := make([]string, 0, len(fragment.Landmarks))
+	for index := range fragment.Landmarks {
+		available = append(available, fragment.Landmarks[index].ID)
+	}
+	return "", "", fmt.Errorf("fragment %q has no landmark %q; it declares %s", fragmentPath, landmarkID, strings.Join(available, ", "))
+}
+
+func findFragment(section *saga.Section, dir string) *saga.Fragment {
+	dirAbs, _ := filepath.Abs(dir)
+	var found *saga.Fragment
+	var walk func(*saga.Section)
+	walk = func(current *saga.Section) {
+		for _, fragment := range current.Fragments {
+			if fragmentAbs, _ := filepath.Abs(fragment.Directory); fragmentAbs == dirAbs {
+				found = fragment
+			}
+		}
+		for _, child := range current.Children {
+			walk(child)
+		}
+	}
+	walk(section)
+	return found
+}
+
+// maxTargetHints bounds the suggestion list so a large saga still produces a
+// readable error instead of dumping its whole target space.
+const maxTargetHints = 12
+
+// targetHint turns "that target does not exist" into something actionable. The
+// query API is the supported way to enumerate targets, so the hint names it
+// rather than inviting the reader to go read metadata files.
+func targetHint(document *saga.Saga, allowFragment bool) string {
+	var targets []string
+	targets = append(targets, saga.SagaTarget(document.Manifest.ID))
+	walkTargets(document.Root, document.Section, func(target, _ string, fragment bool) {
+		if allowFragment || !fragment {
+			targets = append(targets, target)
+		}
+	})
+	sort.Strings(targets)
+	hint := "; run \"change-saga query children --saga " + filepath.Base(document.Root) + " --parent " + saga.SagaTarget(document.Manifest.ID) + "\" to list targets"
+	if len(targets) == 0 {
+		return hint
+	}
+	shown := targets
+	suffix := ""
+	if len(shown) > maxTargetHints {
+		shown, suffix = shown[:maxTargetHints], fmt.Sprintf(", and %d more", len(targets)-maxTargetHints)
+	}
+	return fmt.Sprintf("%s. Known targets: %s%s", hint, strings.Join(shown, ", "), suffix)
 }
 
 func walkTargets(root string, section *saga.Section, fn func(target, dir string, fragment bool)) {
@@ -1116,7 +1243,18 @@ const defaultHTMLFragment = `<!doctype html>
 <body><h1>Interactive fragment</h1><p>Bundle JavaScript, CSS, images, and data beside this file.</p><button id="demo">Clicks: 0</button><script>let n=0;document.querySelector('#demo').onclick=e=>e.target.textContent='Clicks: '+(++n)</script></body></html>
 `
 
-const installSkillPrompt = `Install or update a project-local agent skill named "change-saga" using this coding agent's native skill mechanism. Do not create a Change Saga as part of installation. Preserve the following behavior in the installed skill:
+// installSkillPrompt renders the bootstrap prompt. The query operation list is
+// generated from the same table the query command dispatches on, so an
+// operation can never be added to the CLI and left out of the installed skill.
+func installSkillPrompt() string {
+	var operations strings.Builder
+	for _, operation := range queryOperations {
+		fmt.Fprintf(&operations, "   - `%s` — %s\n     `%s`\n", operation, queryPurpose[operation], queryUsage[operation])
+	}
+	return strings.Replace(installSkillTemplate, "{{query_operations}}\n", operations.String()+"\n", 1)
+}
+
+const installSkillTemplate = `Install or update a project-local agent skill named "change-saga" using this coding agent's native skill mechanism. Do not create a Change Saga as part of installation. Preserve the following behavior in the installed skill:
 
 # Change Saga authoring
 
@@ -1140,18 +1278,57 @@ Use the installed "change-saga" CLI as the source of truth. Begin with
 working-tree comparison; inspect the full change and its existing PR context;
 then initialize and author the .saga directory.
 
+## Read the saga through the versioned query API
+
+Never read, glob, or grep saga metadata files to learn what a saga contains.
+Files under a .saga directory are an implementation detail and their layout is
+not a compatibility promise. Use "change-saga query", the versioned read API,
+for every read. It is deterministic, paginated, and safe to call concurrently;
+it never starts a server and never mutates either repository.
+
+Pass "--saga <path>" to every query, and "--repo <source-checkout>" when the
+source repository is separate from the saga. Every invocation writes exactly one
+JSON envelope carrying "schema", "ok", "snapshot", "data", "page.next_cursor",
+and on failure "error.code". Branch on "ok" and "error.code"; never parse
+message text. Follow "page.next_cursor" until it is null instead of raising
+"--limit" to swallow a whole saga. Compare "snapshot" across calls to detect a
+saga that changed underneath a multi-step read.
+
+The operations are:
+
+{{query_operations}}
+Start at "query overview", walk one level at a time with "query children", and
+read narrative content through "query fragment". "query children" is also how
+you discover landmark targets: a fragment's children are its landmarks, and each
+one reports the target URN to pass to "change-saga cover --target".
+
+## Author the saga
+
 Use this authoring loop, consulting each command's "-h" output for exact flags:
 
 1. "change-saga init" records the exact repository, base, head, title, and PR identity.
-2. "change-saga status --json" lists the uncovered product changes.
+2. "change-saga query gaps --kind uncovered --saga <path>" pages the coverage
+   work queue. Use "--kind stale" for reconciliation and "--kind overlap" for
+   mappings that need justification; preserve the returned snapshot across the
+   loop.
 3. "change-saga add-chapter", "change-saga add-section", and "change-saga add-fragment" build the
    reviewer-oriented narrative and its Markdown, SVG, image, or HTML packages.
 4. "change-saga add-landmark" makes a Markdown heading, HTML/SVG element, exact
    text, or image region independently addressable.
 5. "change-saga cover" connects a focused fragment or landmark to the exact diff atoms
-   it explains and includes a concise what-and-why note.
-6. Repeat status, then run "change-saga validate --json" before "change-saga open" presents
-   the authored proposal for review.
+   it explains and includes a concise what-and-why note. "--target" accepts a
+   path, a target URN, or the "<fragment-path>#<landmark-id>" shorthand. Use
+   "--dry-run" to see exactly which records an invocation would write before
+   writing them.
+6. When attaching many selectors, pipe newline-delimited JSON records to
+   "change-saga cover --batch -". Each record carries its own "target", "path",
+   "side", "lines", "event", "old_path", "new_path", "note", and "name". The
+   whole batch is resolved before anything is written and a failing record
+   leaves the saga untouched, so a batch is a delivery optimization only: every
+   record still maps the exact atoms it explains, never a widened range.
+7. Repeat status, then run "change-saga validate --json" before "change-saga open" presents
+   the authored proposal for review. "change-saga validate --fix" adds missing
+   stable anchors to Markdown headings and changes nothing else.
 
 Lead with pictures and show by example. The root should establish the goal,
 system/change map, affected workflows, and chapter path before dense prose.
@@ -1170,12 +1347,12 @@ risk, architecture, or reviewer intent rather than file type. Use Markdown to
 orient and connect visual artifacts, not as the default container for the whole
 explanation.
 
-Run "change-saga status --json <name>.saga" as the coverage work queue. Attach only
-the exact diff atoms a fragment or landmark explains, with concise notes saying
-what changed and why that content owns it. Never widen mappings only to reach
-100 percent. Iterate until every product change is accounted for and no mapping
-is stale, then run "change-saga validate --json" and "change-saga status --json" before
-handoff.
+Run "change-saga query gaps --kind uncovered --saga <name>.saga" as the coverage
+work queue. Attach only the exact diff atoms a fragment or landmark explains, with
+concise notes saying what changed and why that content owns it. Never widen
+mappings only to reach 100 percent. Iterate until every product change is
+accounted for and no mapping is stale, then run "change-saga validate --json"
+and "change-saga status --json" before handoff.
 
 Never leave generated instructions, blank scaffold fragments, or example
 diagram/HTML content in the handed-off saga. Treat every validation warning as

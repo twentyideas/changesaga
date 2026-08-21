@@ -17,6 +17,11 @@ import (
 	"github.com/twentyideas/changesaga/internal/diffuri"
 )
 
+// Atom is the smallest independently coverable unit of a comparison. Kind
+// discriminates the shape: a "line" atom always carries path, side, line, and
+// content; an "event" atom always carries event. Content is emitted even when
+// the changed line is empty, so a consumer can read it unconditionally instead
+// of having to distinguish a blank line from an absent field.
 type Atom struct {
 	Key     string `json:"key"`
 	URI     string `json:"uri"`
@@ -24,7 +29,7 @@ type Atom struct {
 	Path    string `json:"path,omitempty"`
 	Side    string `json:"side,omitempty"`
 	Line    int    `json:"line,omitempty"`
-	Content string `json:"content,omitempty"`
+	Content string `json:"content"`
 	Event   string `json:"event,omitempty"`
 	OldPath string `json:"old_path,omitempty"`
 	NewPath string `json:"new_path,omitempty"`

@@ -40,6 +40,10 @@ type TargetSummary struct {
 	Covered int    `json:"covered"`
 }
 
+// Report is a machine-consumed contract. Every collection field is always
+// present and never null, so an agent can index into it without first testing
+// for a missing key: a complete saga reports "uncovered": [] rather than
+// omitting the field or emitting null.
 type Report struct {
 	Complete     bool                    `json:"complete"`
 	Summary      Summary                 `json:"summary"`
@@ -47,14 +51,14 @@ type Report struct {
 	Overlaps     []Overlap               `json:"overlaps"`
 	Orphans      []Orphan                `json:"orphans"`
 	Targets      []TargetSummary         `json:"targets"`
-	SagaChanges  []gitdiff.Atom          `json:"saga_changes,omitempty"`
+	SagaChanges  []gitdiff.Atom          `json:"saga_changes"`
 	Repository   string                  `json:"repository"`
 	Base         string                  `json:"base"`
 	Head         string                  `json:"head"`
 	BaseOID      string                  `json:"base_oid"`
 	HeadOID      string                  `json:"head_oid"`
 	SchemaValid  bool                    `json:"schema_valid"`
-	SchemaIssues []saga.Issue            `json:"schema_issues,omitempty"`
+	SchemaIssues []saga.Issue            `json:"schema_issues"`
 	Ownership    map[string][]Assignment `json:"-"`
 }
 
@@ -72,7 +76,8 @@ type atomIndex struct {
 func Evaluate(document *saga.Saga, validation saga.Validation, changes gitdiff.ChangeSet) Report {
 	report := Report{
 		Repository: changes.Repository, Base: changes.Base, Head: changes.Head, BaseOID: changes.BaseOID, HeadOID: changes.HeadOID,
-		SchemaValid: validation.Valid, SchemaIssues: validation.Issues, SagaChanges: changes.SagaChanges,
+		SchemaValid: validation.Valid, SchemaIssues: nonNil(validation.Issues), SagaChanges: nonNil(changes.SagaChanges),
+		Uncovered: []gitdiff.Atom{}, Overlaps: []Overlap{}, Orphans: []Orphan{}, Targets: []TargetSummary{},
 		Ownership: make(map[string][]Assignment),
 	}
 	assignments := make(map[string][]Assignment, len(changes.Atoms))
@@ -124,6 +129,16 @@ func Evaluate(document *saga.Saga, validation saga.Validation, changes gitdiff.C
 	}
 	report.Complete = validation.Valid && len(report.Uncovered) == 0 && len(report.Orphans) == 0
 	return report
+}
+
+// nonNil keeps an empty collection encodable as [] instead of null. A nil Go
+// slice and an empty one are indistinguishable in code but not in JSON, and
+// consumers of the report branch on the JSON.
+func nonNil[T any](values []T) []T {
+	if values == nil {
+		return []T{}
+	}
+	return values
 }
 
 func visitDiffs(target string, files []saga.DiffFile, index atomIndex, assignments map[string][]Assignment, report *Report) {

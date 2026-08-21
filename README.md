@@ -138,6 +138,17 @@ change-saga query overview --saga checkout.saga
 change-saga query gaps --saga checkout.saga --kind uncovered
 ```
 
+Authoring is batchable in the same spirit. `change-saga cover --batch -` reads
+newline-delimited JSON records from standard input, resolves the whole batch
+before writing anything, and leaves the saga untouched if any record fails:
+
+```sh
+printf '%s\n' \
+  '{"target":"api.chapter","path":"api.go","side":"new","lines":"18-24","note":"validates the request"}' \
+  '{"target":"api.chapter/flow.fragment#submit-action","path":"ui.ts","side":"new","lines":"9","note":"wires the control"}' \
+  | change-saga cover --batch - checkout.saga
+```
+
 See [the AI-facing interface](docs/ai-facing-interface.md) for the complete
 contract.
 
