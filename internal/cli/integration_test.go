@@ -33,9 +33,32 @@ func TestAuthoringLoopAgainstGitDiff(t *testing.T) {
 	if err := Init(context.Background(), []string{"--repo", repo, "--repository", "https://example.test/acme/app.git", "--base", base, "--head", "HEAD", "--title", "Feature", root}, &output); err != nil {
 		t.Fatal(err)
 	}
+	bootstrap, err := os.ReadFile(filepath.Join(root, "README.md"))
+	if err != nil {
+		t.Fatalf("read reviewer bootstrap: %v", err)
+	}
+	for _, expected := range []string{"Review this Change Saga", "change-saga open", "ask the user", "change-saga query overview"} {
+		if !strings.Contains(string(bootstrap), expected) {
+			t.Errorf("reviewer bootstrap omitted %q", expected)
+		}
+	}
+	rootScaffold, err := os.ReadFile(filepath.Join(root, "overview.fragment", "content.md"))
+	if err != nil || len(rootScaffold) != 0 {
+		t.Fatalf("root overview should start empty, not expose authoring instructions: content=%q err=%v", rootScaffold, err)
+	}
+	writeFile(t, filepath.Join(root, "overview.fragment", "content.md"), "# Feature {#feature}\n\nThe change at a glance.\n")
 	if err := AddChapter(context.Background(), []string{"--title", "Backend behavior", root, "backend"}, &output); err != nil {
 		t.Fatal(err)
 	}
+	chapterScaffold, err := os.ReadFile(filepath.Join(root, "backend.chapter", "overview.fragment", "content.md"))
+	if err != nil || len(chapterScaffold) != 0 {
+		t.Fatalf("chapter overview should start empty, not expose authoring instructions: content=%q err=%v", chapterScaffold, err)
+	}
+	chapterManifest, err := os.ReadFile(filepath.Join(root, "backend.chapter", "overview.fragment", "fragment.json"))
+	if err != nil || strings.Contains(string(chapterManifest), "Chapter overview") {
+		t.Fatalf("chapter overview leaked renderer-facing scaffold metadata: manifest=%q err=%v", chapterManifest, err)
+	}
+	writeFile(t, filepath.Join(root, "backend.chapter", "overview.fragment", "content.md"), "# Backend behavior {#backend-behavior}\n\nReview this boundary independently.\n")
 	if err := AddSection(context.Background(), []string{"--title", "Request flow", root, "backend.chapter/request-flow"}, &output); err != nil {
 		t.Fatal(err)
 	}
@@ -66,6 +89,7 @@ func TestAuthoringLoopAgainstGitDiff(t *testing.T) {
 	if err := AddFragment(context.Background(), []string{"--section", ".", "--type", "html", "--title", "Interactive flow", root}, &output); err != nil {
 		t.Fatal(err)
 	}
+	writeFile(t, filepath.Join(root, "interactive-flow.fragment", "index.html"), `<!doctype html><title>Flow</title><p id="flow">Interactive behavior</p>`)
 	packageDir := filepath.Join(t.TempDir(), "demo")
 	writeFile(t, filepath.Join(packageDir, "index.html"), `<script src="app.js"></script>`)
 	writeFile(t, filepath.Join(packageDir, "app.js"), `document.body.append('interactive')`)
@@ -118,7 +142,7 @@ func TestInstallSkillPrintsPortableAuthoringContract(t *testing.T) {
 	text := output.String()
 	for _, expected := range []string{
 		"project-local agent skill", "existing PR-authoring", "thing to be reviewed, not the review itself",
-		"Do not create review", "change-saga --help", "change-saga status --json", "SVG diagram",
+		"Do not create review", "change-saga --help", "change-saga status --json", "change-saga add-landmark", "SVG diagram",
 		"interactive HTML", "data flows", "data models", "exact diff atoms",
 	} {
 		if !strings.Contains(text, expected) {

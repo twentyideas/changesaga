@@ -727,6 +727,38 @@ func TestSVGAspectRatioKeepsHotspotsAligned(t *testing.T) {
 	}
 }
 
+func TestMarkdownRendersSafeGFMWithStablePermalinks(t *testing.T) {
+	rendered := string(markdownWithAnchors(`# Story {#stable-story}
+
+| Before | After |
+| --- | --- |
+| **slow** | `+"`fast`"+` |
+
+1. First
+2. Second
+
+[safe](https://example.test) [unsafe](javascript:alert(1))
+
+<script>alert("no")</script>
+`, "fragment"))
+	for _, expected := range []string{
+		`id="fragment--stable-story"`,
+		`data-copy-link="#fragment--stable-story"`,
+		`<table>`,
+		`<strong>slow</strong>`,
+		`<code>fast</code>`,
+		`<ol>`,
+		`href="https://example.test"`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("Markdown output is missing %q:\n%s", expected, rendered)
+		}
+	}
+	if strings.Contains(rendered, `<script>`) || strings.Contains(rendered, `href="javascript:`) {
+		t.Fatalf("Markdown output contains unsafe content:\n%s", rendered)
+	}
+}
+
 func TestPageHandlerPreloadsCollapsedChaptersAndRedirectsLegacyRoutes(t *testing.T) {
 	root := validServerSaga(t)
 	writeServerFile(t, filepath.Join(root, "overview.fragment", "content.md"), "Root-only introduction\n")

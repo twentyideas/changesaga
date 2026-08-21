@@ -136,6 +136,32 @@ func validateFragmentManifest(value FragmentManifest, path, dir string, result *
 	if value.MediaType == "text/markdown" {
 		validateMarkdownHeadingAnchors(realEntry, path, result)
 	}
+	validateAuthoredFragment(realEntry, value.MediaType, path, result)
+}
+
+func validateAuthoredFragment(entrypoint, mediaType, path string, result *Validation) {
+	content, err := os.ReadFile(entrypoint)
+	if err != nil {
+		return
+	}
+	trimmed := strings.TrimSpace(string(content))
+	if (mediaType == "text/markdown" || mediaType == "text/plain") && trimmed == "" {
+		addIssue(result, "warning", path, "fragment content is empty; author it or remove the fragment before handoff")
+		return
+	}
+	for _, scaffold := range []string{
+		"Explain the change as a whole. Lead with the context that makes the rest of the saga easier to navigate.",
+		"Explain this chapter as an independently reviewable change. Describe its boundary, behavior, and risks.",
+		"Write this review fragment.",
+	} {
+		if trimmed == scaffold {
+			addIssue(result, "error", path, "fragment still contains generated authoring instructions; replace them with reviewer-facing content")
+			return
+		}
+	}
+	if strings.Contains(trimmed, "Replace with a useful diagram") || strings.Contains(trimmed, "<h1>Interactive fragment</h1>") {
+		addIssue(result, "error", path, "fragment still contains the generated example; replace it with reviewer-facing content")
+	}
 }
 
 func validateMarkdownHeadingAnchors(entrypoint, path string, result *Validation) {
@@ -440,6 +466,7 @@ func validateDocument(document *Saga, result *Validation) {
 			targets[section.Target] = true
 		}
 		for _, fragment := range section.Fragments {
+			validateVisualMappings(fragment, result)
 			visitFragment(fragment)
 		}
 		for _, child := range section.Children {
@@ -458,6 +485,25 @@ func validateDocument(document *Saga, result *Validation) {
 		if !targets[thread.Target] {
 			addIssue(result, "error", relativePath(document.Root, filepath.Join(thread.Directory, "thread.json")), "thread target does not exist")
 		}
+	}
+}
+
+func validateVisualMappings(fragment *Fragment, result *Validation) {
+	visual := fragment.MediaType == "text/html" || strings.HasPrefix(fragment.MediaType, "image/")
+	if !visual {
+		return
+	}
+	if len(fragment.Landmarks) == 0 {
+		addIssue(result, "warning", fragment.Path, "visual fragment has no addressable landmarks; mark meaningful nodes or regions so reviewers can link them to code")
+	}
+	mapped := len(fragment.Diffs) > 0
+	for _, landmark := range fragment.Landmarks {
+		if len(landmark.Diffs) > 0 {
+			mapped = true
+		}
+	}
+	if !mapped {
+		addIssue(result, "warning", fragment.Path, "visual fragment has no directly linked code; attach exact diff evidence to the fragment or its landmarks")
 	}
 }
 

@@ -55,6 +55,8 @@ change-saga init --base main --head HEAD --title "Checkout rewrite" checkout.sag
 change-saga add-chapter --title "Backend" checkout.saga backend
 change-saga add-fragment --section backend.chapter --type markdown \
   --title "Request flow" checkout.saga
+change-saga add-landmark --target backend.chapter/request-flow.fragment \
+  --heading-id request-validation --label "Request validation" checkout.saga
 ```
 
 Ask which changes still need an explanation:
@@ -115,6 +117,10 @@ one or more files and diff ranges. Everything remains ordinary files in a
 Reviews can be spread across multiple sessions. Reviewers can comment on text
 or code, highlight content, draw shapes, add sticky notes, mark files reviewed,
 and approve or reject individual parts of the saga.
+
+Every newly initialized saga also carries a small root `README.md`. It tells a
+human or AI assistant how to install and open the intended reviewer, and tells
+assistants to ask before downloading or executing anything from PR content.
 
 Review data is stored inside the saga. Each comment, reply, annotation, and
 state transition gets its own file, which keeps concurrent Git changes small

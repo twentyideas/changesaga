@@ -9,15 +9,10 @@ test("@critical navigates the saga, linked code, code tree, and coverage in both
   await expectNoSeriousAccessibilityViolations(page);
 
   const contents = page.getByRole("navigation", { name: "Contents" });
-  const architectureToggle = contents.getByRole("button", { name: "Toggle Architecture" });
-  await expect(architectureToggle).toHaveAttribute("aria-expanded", "false");
-  await architectureToggle.click();
-  await expect(architectureToggle).toHaveAttribute("aria-expanded", "true");
-  const architectureOverview = contents.getByRole("link", { name: "Chapter overview" });
-  await architectureOverview.click();
-  await expect(page).toHaveURL(/#.+architecture-overview/);
+  await contents.getByRole("link", { name: "Architecture", exact: true }).click();
+  await expect(page).toHaveURL(/#.+chapter-architecture-/);
   await expect(page.getByRole("button", { name: "Close Architecture" })).toHaveAttribute("aria-expanded", "true");
-  await expect(page.locator('[data-fragment-title="Chapter overview"]').getByText("The renderer and persistence boundary stay independent.")).toBeVisible();
+  await expect(page.getByRole("tabpanel", { name: "Saga" }).getByText("The renderer and persistence boundary stay independent.")).toBeVisible();
   await page.goto(`${saga.baseURL}/chapters/architecture`);
   await expect(page).toHaveURL(/\/#.+chapter-architecture-/);
   await expect(page.getByRole("button", { name: "Close Architecture" })).toHaveAttribute("aria-expanded", "true");
@@ -72,7 +67,12 @@ test("@critical navigates the saga, linked code, code tree, and coverage in both
 });
 
 test("renders Markdown, SVG, raster, and interactive HTML fragments", async ({ page, saga }) => {
-  await expect(page.locator('[data-fragment-title="Overview"] [data-selectable]')).toContainText("Reviewer path");
+  const markdown = page.locator('[data-fragment-title="Overview"] [data-selectable]');
+  await expect(markdown).toContainText("Reviewer path");
+  await expect(markdown.locator("table")).toContainText("Linked narrative");
+  await expect(markdown.locator("strong")).toHaveText("the behavior");
+  await expect(markdown.locator("code")).toHaveText("linked code");
+  await expect(markdown.locator("ol > li")).toHaveCount(2);
   const diagram = page.frameLocator('iframe[title="Architecture Diagram"]');
   await expect(diagram.getByRole("img", { name: "Review flow diagram" })).toBeVisible();
   await expect(page.locator('[data-fragment-title="Raster Preview"] img[alt="Raster Preview"]')).toBeVisible();

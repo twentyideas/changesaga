@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
 	"html/template"
 	"io"
 	"mime"
@@ -1329,74 +1328,6 @@ func validAnnotationColor(value string) bool { return saga.ValidAnnotationColor(
 
 func markdown(source string) template.HTML {
 	return markdownWithAnchors(source, "heading")
-}
-
-func markdownWithAnchors(source, namespace string) template.HTML {
-	lines := strings.Split(strings.ReplaceAll(source, "\r\n", "\n"), "\n")
-	var out strings.Builder
-	inCode, inList := false, false
-	anchors := map[string]int{}
-	closeList := func() {
-		if inList {
-			out.WriteString("</ul>")
-			inList = false
-		}
-	}
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "```") {
-			closeList()
-			if inCode {
-				out.WriteString("</code></pre>")
-			} else {
-				out.WriteString("<pre><code>")
-			}
-			inCode = !inCode
-			continue
-		}
-		if inCode {
-			out.WriteString(html.EscapeString(line))
-			out.WriteByte('\n')
-			continue
-		}
-		if trimmed == "" {
-			closeList()
-			continue
-		}
-		if strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "* ") {
-			if !inList {
-				out.WriteString("<ul>")
-				inList = true
-			}
-			out.WriteString("<li>")
-			out.WriteString(html.EscapeString(strings.TrimSpace(trimmed[2:])))
-			out.WriteString("</li>")
-			continue
-		}
-		closeList()
-		if heading, ok := saga.ParseMarkdownHeading(trimmed); ok {
-			anchor := heading.Anchor
-			if !heading.Explicit || !saga.ValidMarkdownAnchor(anchor) {
-				anchor = store.Slug(heading.Text)
-			}
-			anchors[anchor]++
-			if anchors[anchor] > 1 {
-				anchor += "-" + strconv.Itoa(anchors[anchor])
-			}
-			id := namespace + "--" + anchor
-			htmlLevel := min(heading.Level+2, 6)
-			fmt.Fprintf(&out, `<h%d id="%s" class="fragment-heading"><span>%s</span><a class="permalink heading-permalink" href="#%s" data-copy-link="#%s" aria-label="Copy link to %s">#</a></h%d>`, htmlLevel, html.EscapeString(id), html.EscapeString(heading.Text), html.EscapeString(id), html.EscapeString(id), html.EscapeString(heading.Text), htmlLevel)
-			continue
-		}
-		out.WriteString("<p>")
-		out.WriteString(html.EscapeString(trimmed))
-		out.WriteString("</p>")
-	}
-	closeList()
-	if inCode {
-		out.WriteString("</code></pre>")
-	}
-	return template.HTML(out.String()) // #nosec G203 -- all source text was escaped above.
 }
 
 func launchBrowser(target string) error {

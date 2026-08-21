@@ -148,7 +148,7 @@ function buildSagaRepository(root: string, source: { sourceRepo: string; base: s
     "init", "--repo", source.sourceRepo, "--repository", declaredRepository,
     "--base", source.base, "--head", source.head, "--id", "wave-one", "--title", "Wave One Review", sagaRoot
   ], sagaRepo);
-  write(join(sagaRoot, "overview.fragment", "content.md"), `# Review overview {#review-overview}\n\nWave 1 connects the story to the exact source changes.\n\n## Reviewer path {#reviewer-path}\n\nStart with the behavior, then follow the linked code.\n`);
+  write(join(sagaRoot, "overview.fragment", "content.md"), `# Review overview {#review-overview}\n\nWave 1 connects the story to the exact source changes.\n\n## Reviewer path {#reviewer-path}\n\nStart with **the behavior**, then follow the \`linked code\`.\n\n| Before | After |\n| --- | --- |\n| Flat prose | Linked narrative |\n\n1. Read the story.\n2. Inspect its code.\n`);
   runSaga(["add-chapter", "--id", "architecture", "--title", "Architecture", sagaRoot, "architecture"], sagaRepo);
   write(join(sagaRoot, "architecture.chapter", "overview.fragment", "content.md"), `# Architecture path {#architecture-path}\n\nThe renderer and persistence boundary stay independent.\n`);
 

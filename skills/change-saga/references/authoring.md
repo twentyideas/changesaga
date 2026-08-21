@@ -24,6 +24,12 @@ Use an available provider integration instead when it has better access. For a
 local change without a PR, identify the intended merge base and choose `HEAD` or
 `WORKTREE` explicitly.
 
+Cross-check the provider's head OID/branch, title, and changed files against the
+local checkout before initializing. If they do not describe the same change,
+stop and resolve the mismatch. Never put an unverified PR number into
+`saga.json`; a saga with no PR identity is better than one linked to the wrong
+review.
+
 ## Overview contract
 
 The root overview should let a reviewer answer these before opening code:
@@ -112,9 +118,15 @@ rewriting or renaming the visible heading. The renderer namespaces it with the
 fragment target, so the same anchor may be reused in another fragment. Do not
 rely on an automatically generated heading slug for authored saga content.
 
-For addressable content that needs metadata or code links, create one
-`___landmarks/<stable-id>.landmark/` package per item. Put this in
-`landmark.json`:
+For addressable content that needs metadata or code links, create one landmark
+package per item with the CLI. For example:
+
+```sh
+change-saga add-landmark --target path/to/map.fragment \
+  --element-id submit-action --label "Submit action" <name>.saga
+```
+
+This creates `___landmarks/<stable-id>.landmark/landmark.json` with the shape:
 
 ```json
 {
@@ -126,11 +138,12 @@ For addressable content that needs metadata or code links, create one
 ```
 
 - For a Markdown heading with related code, use a `heading` selector whose
-  `heading_id` matches its explicit heading anchor.
+  `heading_id` matches its explicit heading anchor:
+  `change-saga add-landmark --target <fragment> --heading-id request-validation <saga>`.
 - For HTML or SVG, put the same stable `id` on the meaningful element and use an
-  `element` selector.
+  `element` selector through `--element-id`.
 - For raster images, use a `region` selector with normalized `x`, `y`, `width`,
-  and `height` in `[0,1]`.
+  and `height` in `[0,1]`, passed as `--region x,y,width,height`.
 - For plain text, use a `text` selector with an exact quote and optional prefix
   and suffix. In Markdown, choose literal source text that also renders as the
   same visible text; do not span inline markup. Prefer heading anchors when a
@@ -151,7 +164,7 @@ For example: `"hotspot":{"x":0.68,"y":0.72,"width":0.2,"height":0.12}`.
 
 When a landmark is realized by code, put each focused diff association in its
 own `<landmark>/___diffs/*.json` file. Run `change-saga cover --target` with the
-landmark target URN; do not duplicate the same atom at fragment scope merely to
+path or target URN printed by `add-landmark`; do not duplicate the same atom at fragment scope merely to
 make it visible. This is the literate-programming bridge: prose and diagrams
 explain intent, while the landmark opens the exact implementation. The fragment
 is always addressable even when it has no inner landmarks.
@@ -195,7 +208,10 @@ Before handing off:
   controls, remain self-contained, and are not static prose placed in HTML.
 - Confirm diagrams and examples agree with current code.
 - Confirm meaningful diagram nodes, interactive controls, text regions, and
-  image regions have valid landmarks that still resolve to their content.
+  image regions have valid landmarks that still resolve to their content, and
+  that every code-bearing landmark opens its exact related diff.
+- Confirm validation reports no untouched scaffold and no unexplained visual
+  mapping warning.
 - Confirm every product atom is covered, no URI is stale, and every overlap is
   defensible.
 - Open linked code from representative fragments and confirm every collapsed

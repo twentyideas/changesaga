@@ -88,6 +88,7 @@ Usage:
   change-saga add-chapter [flags] <saga> <name>
   change-saga add-section [flags] <saga> <section/path>
   change-saga add-fragment [flags] <saga>
+  change-saga add-landmark [flags] <saga>
   change-saga cover [flags] <saga>
   change-saga thread [flags] <saga>
   change-saga reply [flags] <saga>
@@ -191,7 +192,10 @@ func Init(ctx context.Context, args []string, out io.Writer) error {
 		if err := store.WriteJSON(filepath.Join(stage, "saga.json"), manifest, true); err != nil {
 			return err
 		}
-		return populateFragment(filepath.Join(stage, "overview.fragment"), overview, "", []byte("Explain the change as a whole. Lead with the context that makes the rest of the saga easier to navigate.\n"))
+		if err := store.WriteFile(filepath.Join(stage, "README.md"), []byte(reviewerBootstrapREADME), 0o644, true); err != nil {
+			return err
+		}
+		return populateFragment(filepath.Join(stage, "overview.fragment"), overview, "", nil)
 	})
 	if errors.Is(err, fs.ErrExist) {
 		return fmt.Errorf("%s already exists", root)
@@ -234,8 +238,7 @@ func AddChapter(_ context.Context, args []string, out io.Writer) error {
 		}
 		dir := filepath.Join(document.Root, store.Slug(name)+".chapter")
 		manifest := saga.ChapterManifest{Version: saga.CurrentVersion, ID: chapterID, Title: chapterTitle, Order: *order}
-		overview := saga.FragmentManifest{Version: saga.CurrentVersion, ID: overviewID, Title: "Chapter overview", MediaType: "text/markdown", Entrypoint: "content.md"}
-		content := []byte("Explain this chapter as an independently reviewable change. Describe its boundary, behavior, and risks.\n")
+		overview := saga.FragmentManifest{Version: saga.CurrentVersion, ID: overviewID, MediaType: "text/markdown", Entrypoint: "content.md"}
 		// One staged rename: a failed chapter never leaves a manifest-less
 		// directory behind that would invalidate the saga for every later
 		// command.
@@ -251,7 +254,7 @@ func AddChapter(_ context.Context, args []string, out io.Writer) error {
 			if err := store.WriteJSON(filepath.Join(stage, "chapter.json"), manifest, true); err != nil {
 				return err
 			}
-			return populateFragment(filepath.Join(stage, "overview.fragment"), overview, "", content)
+			return populateFragment(filepath.Join(stage, "overview.fragment"), overview, "", nil)
 		})
 		if errors.Is(err, fs.ErrExist) {
 			return fmt.Errorf("chapter %s already exists", filepath.Base(dir))
@@ -741,6 +744,7 @@ func Spec(args []string, out io.Writer) error {
 			"target_scheme": "urn:change-saga", "diff_scheme": "saga-diff://v1",
 			"anchors":              []string{"target", "region", "drawing", "text", "note", "diff"},
 			"thread_kinds":         []string{"comment", "suggestion"},
+			"reviewer_bootstrap":   "README.md",
 			"reserved_directories": []string{"___diffs", "___approvals", "___review"},
 			"review_storage":       "append-only; one thread, message, or event record per path",
 		})
@@ -1050,9 +1054,9 @@ func fragmentContent(kind, explicitType, source string) (string, []byte, string,
 	}
 	switch mediaType {
 	case "text/markdown":
-		return "content.md", []byte("Write this review fragment.\n"), mediaType, nil
+		return "content.md", nil, mediaType, nil
 	case "text/plain":
-		return "content.txt", []byte("Write this review fragment.\n"), mediaType, nil
+		return "content.txt", nil, mediaType, nil
 	case "text/html":
 		return "index.html", []byte(defaultHTMLFragment), mediaType, nil
 	case "image/svg+xml":
@@ -1142,9 +1146,11 @@ Use this authoring loop, consulting each command's "-h" output for exact flags:
 2. "change-saga status --json" lists the uncovered product changes.
 3. "change-saga add-chapter", "change-saga add-section", and "change-saga add-fragment" build the
    reviewer-oriented narrative and its Markdown, SVG, image, or HTML packages.
-4. "change-saga cover" connects a focused fragment or landmark to the exact diff atoms
+4. "change-saga add-landmark" makes a Markdown heading, HTML/SVG element, exact
+   text, or image region independently addressable.
+5. "change-saga cover" connects a focused fragment or landmark to the exact diff atoms
    it explains and includes a concise what-and-why note.
-5. Repeat status, then run "change-saga validate --json" before "change-saga open" presents
+6. Repeat status, then run "change-saga validate --json" before "change-saga open" presents
    the authored proposal for review.
 
 Lead with pictures and show by example. The root should establish the goal,
@@ -1153,8 +1159,11 @@ Every substantial chapter should begin with an SVG diagram, self-contained
 interactive HTML walkthrough, or concrete before/after example. Highlight
 end-to-end workflows, data flows, data models, state transitions, boundaries,
 failure paths, compatibility, and observable outcomes. Give meaningful diagram
-nodes and interactive elements stable landmarks so they can link to the exact
-code that realizes them.
+nodes and interactive elements stable landmarks with "change-saga add-landmark"
+so they can link to the exact code that realizes them. Audit every visual before
+moving on: enumerate its meaningful nodes and attach focused evidence to each
+code-bearing landmark. A visual with no landmarks or direct code mapping is
+unfinished, not decorative completeness.
 
 Organize the change into independently reviewable chapters based on behavior,
 risk, architecture, or reviewer intent rather than file type. Use Markdown to
@@ -1168,6 +1177,13 @@ what changed and why that content owns it. Never widen mappings only to reach
 is stale, then run "change-saga validate --json" and "change-saga status --json" before
 handoff.
 
+Never leave generated instructions, blank scaffold fragments, or example
+diagram/HTML content in the handed-off saga. Treat every validation warning as
+an authoring task unless it is explicitly justified. For a PR request, verify
+the provider-reported head OID/branch and changed files match the inspected
+checkout; never guess a PR number, and omit PR metadata rather than recording
+an unverified identity.
+
 Opening the saga presents the authored proposal for a human to review. It does
 not authorize the agent to conduct that review.
 `
@@ -1179,6 +1195,10 @@ const defaultSVGFragment = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
 
 const specText = `Change Saga format v2 (experimental)
 
+A saga root includes a reviewer-facing README.md with safe installation,
+opening, and structured-query guidance. The file is informational bootstrap
+material rather than authored narrative or diff evidence.
+
 A saga begins with its overview and direct *.chapter directories. Chapters are
 independently reviewable boundaries roughly corresponding to the PRs one might
 have created when splitting the change. Sections recurse inside chapters and
@@ -1189,6 +1209,11 @@ and assets; the reference viewer executes them in sandboxed frames.
 Any saga, chapter, section, or fragment may own ___diffs/*.json evidence. Every
 evidence entry is an absolute saga-diff://v1 URI containing repository URI, immutable
 base/head identities, and a line range or file event.
+
+Addressable Markdown headings, exact text, HTML/SVG elements, and image regions
+live in independent ___landmarks/<id>.landmark packages beneath a fragment.
+Create them with change-saga add-landmark, then pass the printed path or URN to
+change-saga cover so a reviewer can move directly from a visual node to code.
 
 Review threads live under ___review/threads. They target stable
 urn:change-saga:* identifiers and anchor to a whole fragment, normalized shapes,

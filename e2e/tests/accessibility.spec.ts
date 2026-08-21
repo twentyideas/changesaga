@@ -122,6 +122,6 @@ test("@critical has no serious or critical axe violations on any workspace view"
 
   await page.getByRole("tab", { name: "Saga" }).click();
   await page.goto(`${saga.baseURL}/chapters/architecture`);
-  await expect(page.locator('[data-fragment-title="Chapter overview"]')).toBeVisible();
+  await expect(page.getByRole("tabpanel", { name: "Saga" }).getByText("The renderer and persistence boundary stay independent.")).toBeVisible();
   await expectNoSeriousAccessibilityViolations(page);
 });

@@ -38,6 +38,15 @@ A saga root ends in `.saga` and contains `saga.json` conforming to
 }
 ```
 
+New sagas also contain a root `README.md` written by `change-saga init`. It is
+non-normative reviewer bootstrap material: it identifies the directory as a
+Change Saga, explains how to install and open the local reviewer, and directs
+AI assistants to the structured `change-saga query` interface. Engines ignore
+the file when loading content and calculating diff coverage, so older sagas
+without it remain valid. Because a saga may arrive in an untrusted pull request,
+the bootstrap tells assistants to obtain user permission before downloading or
+executing software.
+
 `source.repository` is a canonical absolute URI and identifies the source
 repository, not necessarily the repository containing the saga. Repository
 identities never contain URL userinfo; credentials in a remote URL are removed
@@ -425,6 +434,9 @@ hide authored content behind a valid-looking saga. Other names beginning with
   project-local Change Saga authoring skill. It MUST NOT mutate the repository
   or assume an agent-specific skill path.
 - `change-saga add-fragment` creates Markdown, HTML, SVG, text, or image fragments.
+- `change-saga add-landmark` creates and validates a separately addressable
+  Markdown heading, exact text span, HTML/SVG element, or normalized image
+  region. It prints the target accepted by `change-saga cover`.
 - `change-saga add-chapter` creates a top-level independently reviewable chapter and
   its overview fragment.
 - `change-saga cover --target ...` attaches an absolute diff URI to any target.

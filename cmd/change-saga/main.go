@@ -43,6 +43,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		err = cli.AddChapter(ctx, args[1:], stdout)
 	case "add-fragment":
 		err = cli.AddFragment(ctx, args[1:], stdout)
+	case "add-landmark":
+		err = cli.AddLandmark(ctx, args[1:], stdout)
 	case "cover":
 		err = cli.Cover(ctx, args[1:], stdout)
 	case "thread":

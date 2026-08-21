@@ -73,6 +73,8 @@ change-saga add-chapter --title "Title" <name>.saga backend
 change-saga add-section --title "Title" <name>.saga backend.chapter/path/to/section
 change-saga add-fragment --section path/to/section --type markdown --title "Context" <name>.saga
 change-saga add-fragment --section path/to/section --type html --source ./demo-package --entrypoint index.html <name>.saga
+change-saga add-landmark --target path/to/demo.fragment --element-id submit-action --label "Submit action" --hotspot 0.68,0.72,0.2,0.12 <name>.saga
+change-saga add-landmark --target path/to/context.fragment --heading-id request-validation --label "Request validation" <name>.saga
 change-saga cover --repo <source-checkout> --target path/to/demo.fragment --path file.go --side new --lines 4-9,12 --note "Adds request validation so malformed input fails before persistence." <name>.saga
 change-saga cover --target path/to/demo.fragment --uri 'saga-diff://v1/line?...' --note "Implements the behavior explained by this fragment." <name>.saga
 change-saga cover --target path/to/demo.fragment/___landmarks/submit-action.landmark --uri 'saga-diff://v1/line?...' --note "Connects the diagram action to its exact submit handler." <name>.saga

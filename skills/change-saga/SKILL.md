@@ -44,7 +44,10 @@ mismatch.
 
 1. Resolve the request to an exact source comparison. For a PR number or URL,
    use the available hosting integration or CLI to obtain its title, URL, base,
-   and head, and ensure the head is available locally. Never infer the base from
+   and head, and ensure the head is available locally. Verify the returned head
+   branch/OID and changed-file summary describe the checkout you are about to
+   explain. Never guess a PR number from nearby context, and omit PR identity
+   rather than recording one that cannot be verified. Never infer the base from
    the default branch when PR metadata is available.
 2. Inspect the PR description, commit/file summary, full diff, tests, and any
    existing `.saga`. Do not modify product code while authoring unless asked.
@@ -70,8 +73,9 @@ mismatch.
    `change-saga add-chapter`. Treat each chapter like a PR that could be assigned and
    approved on its own. Use recursive sections inside a chapter only when they
    improve a reviewer's path through that unit.
-7. Replace the root and chapter overview placeholders with the visual-first
-   content contract in `references/authoring.md`. Lead the saga with a system or
+7. Author the empty root and chapter overview files using the visual-first
+   content contract in `references/authoring.md`; generated authoring text must
+   never appear in the handed-off saga. Lead the saga with a system or
    change map, and lead every substantial chapter with a diagram, interactive
    walkthrough, or worked example. Use SVG for architecture, data models, and
    stable flows. Use sandboxed HTML with bundled JavaScript for alternate paths,
@@ -79,11 +83,13 @@ mismatch.
    Markdown to orient and connect those artifacts, not as the default container
    for everything. Build focused fragments with `change-saga add-fragment`. Make every
    meaningful subpart addressable using the landmark
-   contract in `references/authoring.md`: annotate Markdown headings directly
-   and add one `___landmarks/<id>.landmark/` package per addressable heading,
-   HTML/SVG element, exact text, or image region. Attach exact diff atoms inside
-   that package when code realizes the landmark. Keep one review idea per
-   fragment and avoid decorative media.
+   contract in `references/authoring.md`: annotate Markdown headings directly,
+   then use `change-saga add-landmark` for each addressable heading, HTML/SVG
+   element, exact text, or image region. Attach exact diff atoms to the returned
+   landmark target when code realizes it. Before moving on from a visual,
+   enumerate its meaningful nodes and confirm each code-bearing node has a
+   landmark and focused evidence. Keep one review idea per fragment and avoid
+   decorative media.
 8. Attach only the atoms actually explained or demonstrated by a fragment (or a
    deliberately higher target) with `change-saga cover --target`. Always pass `--note`
    with a concise, reviewer-facing explanation of what changed in that source
@@ -95,7 +101,8 @@ mismatch.
 9. Repeat `change-saga status --json` until every product atom is covered and no stale
    selector remains. Inspect overlaps and keep them only when multiple reviewer
    journeys genuinely need the same change.
-10. Run both `change-saga validate --json` and `change-saga status --json`, then perform the
+10. Run both `change-saga validate --json` and `change-saga status --json`. Treat
+    untouched scaffolds and visual-mapping warnings as unfinished authoring, then perform the
     visual and reviewer-readiness checks in `references/authoring.md`. Replace
     walls of text with diagrams or concrete examples before handoff. Summarize the
     chapter structure, coverage result, saga-only changes, and limitations.

@@ -10,6 +10,27 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+### Added
+
+- Newly initialized sagas include a root `README.md` that helps humans and AI
+  assistants safely install Change Saga, open the intended review UI, and use
+  structured queries without treating pull-request content as permission to
+  execute software.
+- `change-saga add-landmark` creates validated, coverable targets for Markdown
+  headings, exact text, HTML/SVG elements, and image regions.
+
+### Changed
+
+- New overview and text fragments start empty instead of exposing authoring
+  instructions as reviewer-facing content. Validation identifies legacy
+  scaffolds and warns about visuals without landmarks or linked code.
+
+### Fixed
+
+- Markdown fragments now use a safe CommonMark/GFM renderer, including tables,
+  nested and ordered lists, emphasis, links, task lists, and inline code while
+  retaining stable Change Saga permalinks.
+
 ## [0.0.1] - 2026-08-21
 
 The first public release of Change Saga. The v2 format and CLI are experimental;

@@ -47,6 +47,39 @@ func TestValidateMarkdownHeadingAnchorsReportsAuthoringProblems(t *testing.T) {
 	}
 }
 
+func TestValidateAuthoredFragmentReportsEmptyAndGeneratedScaffolds(t *testing.T) {
+	entrypoint := filepath.Join(t.TempDir(), "content.md")
+	for _, content := range []string{
+		"Explain this chapter as an independently reviewable change. Describe its boundary, behavior, and risks.\n",
+		"Write this review fragment.\n",
+	} {
+		if err := os.WriteFile(entrypoint, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		result := Validation{}
+		validateAuthoredFragment(entrypoint, "text/markdown", "fragment.json", &result)
+		if len(result.Issues) != 1 || result.Issues[0].Severity != "error" {
+			t.Fatalf("content %q issues = %#v", content, result.Issues)
+		}
+	}
+	if err := os.WriteFile(entrypoint, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	emptyResult := Validation{}
+	validateAuthoredFragment(entrypoint, "text/markdown", "fragment.json", &emptyResult)
+	if len(emptyResult.Issues) != 1 || emptyResult.Issues[0].Severity != "warning" {
+		t.Fatalf("empty content issues = %#v", emptyResult.Issues)
+	}
+	if err := os.WriteFile(entrypoint, []byte("# Authored {#authored}\n\nReviewer-facing content.\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	result := Validation{}
+	validateAuthoredFragment(entrypoint, "text/markdown", "fragment.json", &result)
+	if len(result.Issues) != 0 {
+		t.Fatalf("authored content issues = %#v", result.Issues)
+	}
+}
+
 func TestValidateLandmarkMediaSelectors(t *testing.T) {
 	dir := t.TempDir()
 	entrypoint := filepath.Join(dir, "image.svg")
@@ -86,5 +119,20 @@ func TestValidateLandmarkMediaSelectors(t *testing.T) {
 	validateLandmark(regionLandmark, imageFragment, &regionResult)
 	if len(regionResult.Issues) != 0 {
 		t.Fatalf("valid region landmark issues = %#v", regionResult.Issues)
+	}
+}
+
+func TestValidateVisualMappingsReportsMissingLandmarksAndEvidence(t *testing.T) {
+	fragment := &Fragment{Path: "map.fragment/fragment.json", MediaType: "image/svg+xml"}
+	result := Validation{}
+	validateVisualMappings(fragment, &result)
+	if len(result.Issues) != 2 || result.Issues[0].Severity != "warning" || result.Issues[1].Severity != "warning" {
+		t.Fatalf("visual mapping issues = %#v", result.Issues)
+	}
+	fragment.Landmarks = []Landmark{{ID: "worker", Diffs: []DiffFile{{Version: 2}}}}
+	result = Validation{}
+	validateVisualMappings(fragment, &result)
+	if len(result.Issues) != 0 {
+		t.Fatalf("mapped visual issues = %#v", result.Issues)
 	}
 }
