@@ -69,7 +69,11 @@ if [ "$resolved_commit" != "$checkout_commit" ]; then
 fi
 commit_full="$resolved_commit"
 commit="${commit_full:0:12}"
-if [ -z "${CHANGE_SAGA_COMMIT:-}" ] && [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+dirty_status="$(git status --porcelain 2>/dev/null)"
+if [ -n "${CHANGE_SAGA_COMMIT:-}" ] && [ -n "$dirty_status" ]; then
+	echo "error: release builds with CHANGE_SAGA_COMMIT require a clean source checkout" >&2
+	exit 1
+elif [ -n "$dirty_status" ]; then
 	commit="$commit-dirty"
 fi
 

@@ -23,10 +23,10 @@ else
 	binary="change-saga"
 fi
 
-GITHUB_SHA="$commit" \
+GITHUB_SHA=wrong-ambient-value CHANGE_SAGA_COMMIT="$commit" \
 	./scripts/build-release.sh "$version" "$goos" "$goarch" "$work/first" >/dev/null
 sleep 1
-GITHUB_SHA="$commit" \
+GITHUB_SHA=another-wrong-value CHANGE_SAGA_COMMIT="$commit" \
 	./scripts/build-release.sh "$version" "$goos" "$goarch" "$work/second" >/dev/null
 
 cmp "$work/first/$archive" "$work/second/$archive"
@@ -51,22 +51,34 @@ if go version -m "$work/extracted/$binary" | grep -q $'\tbuild\tvcs\.'; then
 	exit 1
 fi
 
-if SOURCE_DATE_EPOCH=invalid GITHUB_SHA="$commit" \
+if SOURCE_DATE_EPOCH=invalid CHANGE_SAGA_COMMIT="$commit" \
 	./scripts/build-release.sh "$version" "$goos" "$goarch" "$work/invalid-epoch" >/dev/null 2>&1; then
 	echo "invalid SOURCE_DATE_EPOCH was accepted" >&2
 	exit 1
 fi
-if SOURCE_DATE_EPOCH="$epoch" GITHUB_SHA=not-a-commit \
+if SOURCE_DATE_EPOCH="$epoch" CHANGE_SAGA_COMMIT=not-a-commit \
 	./scripts/build-release.sh "$version" "$goos" "$goarch" "$work/invalid-commit" >/dev/null 2>&1; then
-	echo "invalid GITHUB_SHA was accepted" >&2
+	echo "invalid CHANGE_SAGA_COMMIT was accepted" >&2
+	exit 1
+fi
+other_commit="$(git rev-parse --verify 'HEAD^{commit}^')"
+if SOURCE_DATE_EPOCH="$epoch" CHANGE_SAGA_COMMIT="$other_commit" \
+	./scripts/build-release.sh "$version" "$goos" "$goarch" "$work/wrong-commit" >/dev/null 2>&1; then
+	echo "commit that does not match the checkout was accepted" >&2
 	exit 1
 fi
 touch "$dirty_probe"
-if SOURCE_DATE_EPOCH="$epoch" GITHUB_SHA="$commit" \
+if SOURCE_DATE_EPOCH="$epoch" CHANGE_SAGA_COMMIT="$commit" \
 	./scripts/build-release.sh "$version" "$goos" "$goarch" "$work/dirty" >/dev/null 2>&1; then
-	echo "dirty source checkout was accepted" >&2
+	echo "dirty source checkout was accepted for explicit release provenance" >&2
 	exit 1
 fi
 rm -f "$dirty_probe"
+
+GOFLAGS='-tags=definitely_not_a_release_tag' GOEXPERIMENT=fieldtrack \
+	CHANGE_SAGA_COMMIT="$commit" ./scripts/build-release.sh \
+	"$version" "$goos" "$goarch" "$work/hostile-env" >/dev/null
+cmp "$work/first/$archive" "$work/hostile-env/$archive"
+cmp "$work/first/$archive.sha256" "$work/hostile-env/$archive.sha256"
 
 echo "release reproducibility tests passed"

@@ -37,6 +37,12 @@ expect_failure "extra arguments are rejected" "usage:" \
 	"$repo_root/scripts/build-release.sh" 1.2.3 linux amd64 "$work/dist" extra
 expect_failure "path-like versions are rejected" "version must be" \
 	"$repo_root/scripts/build-release.sh" ../../escape linux amd64 "$work/dist"
+expect_failure "major versions with leading zeroes are rejected" "version must be" \
+	"$repo_root/scripts/build-release.sh" 01.2.3 linux amd64 "$work/dist"
+expect_failure "numeric prereleases with leading zeroes are rejected" "version must be" \
+	"$repo_root/scripts/build-release.sh" 1.2.3-01 linux amd64 "$work/dist"
+expect_failure "empty prerelease identifiers are rejected" "version must be" \
+	"$repo_root/scripts/build-release.sh" 1.2.3-rc..1 linux amd64 "$work/dist"
 expect_failure "unsupported operating systems are rejected" "unsupported GOOS" \
 	"$repo_root/scripts/build-release.sh" 1.2.3 plan9 amd64 "$work/dist"
 expect_failure "unsupported architectures are rejected" "unsupported GOARCH" \
@@ -116,7 +122,7 @@ darwin/amd64 | darwin/arm64 | linux/amd64 | linux/arm64) ;;
 esac
 
 version=9.8.7-test.1
-commit=0123456789abcdef0123456789abcdef01234567
+commit="$(git -C "$repo_root" rev-parse --verify 'HEAD^{commit}')"
 epoch=946684800
 dist="$work/dist"
 env CHANGE_SAGA_COMMIT="$commit" GITHUB_SHA='wrong value that must be ignored' SOURCE_DATE_EPOCH="$epoch" \
