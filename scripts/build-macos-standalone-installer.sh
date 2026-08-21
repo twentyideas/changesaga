@@ -74,7 +74,7 @@ saga_actual_sha="\$(shasum -a 256 "\$saga_work_dir/\$saga_archive_name" | awk '{
 
 tar -xzf "\$saga_work_dir/\$saga_archive_name" -C "\$saga_work_dir" ||
 	saga_fail 'could not unpack the embedded archive'
-[ -f "\$saga_work_dir/saga" ] || saga_fail 'archive does not contain the saga binary'
+[ -f "\$saga_work_dir/review-saga" ] || saga_fail 'archive does not contain the review-saga binary'
 
 if [ -n "\${SAGA_INSTALL_DIR:-}" ]; then
 	saga_install_dir="\$SAGA_INSTALL_DIR"
@@ -85,7 +85,7 @@ else
 fi
 
 mkdir -p "\$saga_install_dir" || saga_fail "could not create \$saga_install_dir"
-install -m 0755 "\$saga_work_dir/saga" "\$saga_install_dir/review-saga" ||
+install -m 0755 "\$saga_work_dir/review-saga" "\$saga_install_dir/review-saga" ||
 	saga_fail "could not install to \$saga_install_dir/review-saga"
 
 printf '\nReview Saga installed successfully.\n'

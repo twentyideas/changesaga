@@ -8,7 +8,7 @@ compatibility discussion in the pull request.
 gofmt -w cmd internal
 go test ./...
 go vet ./...
-go build ./cmd/saga
+go build ./cmd/review-saga
 ```
 
 Infrastructure changes live in `infra/` and use their own toolchain:

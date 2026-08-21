@@ -11,8 +11,10 @@ tag push and nothing else.
 | `scripts/build-release.sh` | Builds and archives one `GOOS/GOARCH` target. Used by both workflows. |
 | `scripts/build-macos-standalone-installer.sh` | Wraps an Apple Silicon archive in one self-contained `.command` file for direct handoff. |
 | `scripts/install.sh` | The `curl \| sh` installer for macOS and Linux. |
+| `scripts/install.ps1` | The `irm \| iex` installer for Windows PowerShell. |
 | `scripts/macos-*.sh` | Developer ID keychain setup, signing, notarization. Only ever called from the trusted release job. |
 | `scripts/install_test.sh` | End-to-end test of the installer against a locally staged release. |
+| `scripts/install_windows_test.ps1` | End-to-end Windows installer test with locally mocked release downloads. |
 
 ## Cutting a release
 
@@ -40,12 +42,12 @@ runs; only the release creation is skipped.
 ## Artifacts
 
 ```text
-saga_<version>_darwin_arm64.tar.gz
-saga_<version>_darwin_amd64.tar.gz
-saga_<version>_linux_amd64.tar.gz
-saga_<version>_linux_arm64.tar.gz
-saga_<version>_windows_amd64.zip
-saga_<version>_windows_arm64.zip
+review-saga_<version>_darwin_arm64.tar.gz
+review-saga_<version>_darwin_amd64.tar.gz
+review-saga_<version>_linux_amd64.tar.gz
+review-saga_<version>_linux_arm64.tar.gz
+review-saga_<version>_windows_amd64.zip
+review-saga_<version>_windows_arm64.zip
 SHA256SUMS
 ```
 
@@ -58,7 +60,7 @@ For a direct Apple Silicon handoff, wrap the archive in a single installer:
 
 ```sh
 ./scripts/build-macos-standalone-installer.sh \
-  dist/saga_0.3.0_darwin_arm64.tar.gz \
+  dist/review-saga_0.3.0_darwin_arm64.tar.gz \
   dist/Review-Saga.command
 ```
 
@@ -75,7 +77,7 @@ Users can verify a download two ways:
 
 ```sh
 sha256sum -c SHA256SUMS --ignore-missing
-gh attestation verify saga_0.3.0_linux_amd64.tar.gz --repo review-saga/review-saga
+gh attestation verify review-saga_0.3.0_linux_amd64.tar.gz --repo review-saga/review-saga
 ```
 
 The second command checks the Sigstore build provenance attestation, which ties
@@ -84,12 +86,27 @@ from.
 
 ## The installer
 
+macOS and Linux:
+
 ```sh
 curl -fsSL https://raw.githubusercontent.com/review-saga/review-saga/main/scripts/install.sh | sh
 curl -fsSL .../install.sh | sh -s -- --version v0.3.0 --dir ~/bin
 ```
 
-What it does, and what it refuses to do:
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/review-saga/review-saga/main/scripts/install.ps1 | iex
+```
+
+The PowerShell installer downloads `review-saga_<version>_windows_<arch>.zip`,
+verifies it against `SHA256SUMS`, installs to the current user's local
+application directory, and adds that directory to the user `PATH`. It never
+requests elevation or changes execution policy. CI exercises the complete
+download, checksum, extraction, installation, latest-release, dry-run, and
+tamper-rejection paths on Windows.
+
+What the macOS/Linux shell installer does, and what it refuses to do:
 
 - Detects `darwin`/`linux` and `amd64`/`arm64`, and prefers the native arm64
   build when the shell is running translated under Rosetta 2.
@@ -245,7 +262,7 @@ Linux artifacts rely on `SHA256SUMS` plus the provenance attestation.
 
 ```sh
 ./scripts/build-release.sh 0.3.0 darwin arm64 dist   # one target
-./scripts/build-macos-standalone-installer.sh dist/saga_0.3.0_darwin_arm64.tar.gz
+./scripts/build-macos-standalone-installer.sh dist/review-saga_0.3.0_darwin_arm64.tar.gz
 ./scripts/install_test.sh                            # installer, end to end
 shellcheck scripts/*.sh
 actionlint                                           # workflow syntax

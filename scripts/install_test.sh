@@ -27,7 +27,7 @@ x86_64 | amd64) arch=amd64 ;;
 arm64 | aarch64) arch=arm64 ;;
 *) echo "unsupported test host arch" >&2; exit 1 ;;
 esac
-archive="saga_${version}_${os}_${arch}.tar.gz"
+archive="review-saga_${version}_${os}_${arch}.tar.gz"
 
 echo "== building test release artifact"
 "$repo_root/scripts/build-release.sh" "$version" "$os" "$arch" "$release" >/dev/null

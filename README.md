@@ -43,36 +43,53 @@ macOS and Linux, from the latest release:
 curl -fsSL https://raw.githubusercontent.com/review-saga/review-saga/main/scripts/install.sh | sh
 ```
 
-The installer detects your OS and architecture, verifies the download against
-the release `SHA256SUMS`, and installs to `~/.local/bin`. It never calls `sudo`
-and never disables or works around Gatekeeper. Pass options after `-s --`:
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/review-saga/review-saga/main/scripts/install.ps1 | iex
+```
+
+Both installers detect the operating system architecture, download the matching
+asset from the latest GitHub Release, and verify it against the release
+`SHA256SUMS`. The shell installer writes to `~/.local/bin` and never calls
+`sudo`. The PowerShell installer writes to the current user's local application
+directory and adds it to the user `PATH`; it never requests elevation.
+
+Pass Unix options after `-s --`:
 
 ```sh
 curl -fsSL .../install.sh | sh -s -- --version v0.3.0 --dir ~/bin
 ```
 
-Prefer to do it by hand, or on Windows? Download the archive for your platform
-from the [releases page](https://github.com/review-saga/review-saga/releases),
-then verify it before unpacking:
+For a pinned Windows version, download the script before invoking it:
+
+```powershell
+irm https://raw.githubusercontent.com/review-saga/review-saga/main/scripts/install.ps1 -OutFile install.ps1
+.\install.ps1 -Version v0.3.0
+```
+
+Prefer to do it by hand? Download the archive for your platform from the
+[releases page](https://github.com/review-saga/review-saga/releases), then
+verify it before unpacking:
 
 ```sh
 sha256sum -c SHA256SUMS --ignore-missing
-gh attestation verify saga_0.3.0_linux_amd64.tar.gz --repo review-saga/review-saga
+gh attestation verify review-saga_0.3.0_linux_amd64.tar.gz --repo review-saga/review-saga
 ```
 
 From source, with Go 1.26 or newer:
 
 ```sh
-go build -o ./bin/review-saga ./cmd/saga
+go build -o ./bin/review-saga ./cmd/review-saga
 ```
 
 After the project is published at its provisional module path, installation can
-use `go install github.com/review-saga/review-saga/cmd/saga@latest`.
+use `go install github.com/review-saga/review-saga/cmd/review-saga@latest`.
 
 During local development:
 
 ```sh
-go run ./cmd/saga help
+go run ./cmd/review-saga help
 ```
 
 ## A first saga

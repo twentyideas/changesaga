@@ -31,7 +31,7 @@ dense prose.
 ## Locate the CLI
 
 Prefer an installed `saga` executable. In the Review Saga source repository, use
-`go run ./cmd/saga` when the executable is unavailable. Keep one invocation form
+`go run ./cmd/review-saga` when the executable is unavailable. Keep one invocation form
 for the whole task.
 
 Read [references/format.md](references/format.md) before changing saga files.
