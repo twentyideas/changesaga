@@ -10,6 +10,8 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-08-21
+
 ### Added
 
 - Newly initialized sagas include a root `README.md` that helps humans and AI
@@ -150,5 +152,6 @@ bottom. Group entries under Added / Changed / Deprecated / Removed / Fixed /
 Security, and mark anything that changes the on-disk format as **Format**.
 -->
 
-[Unreleased]: https://github.com/twentyideas/changesaga/compare/v0.0.1...HEAD
+[Unreleased]: https://github.com/twentyideas/changesaga/compare/v0.0.2...HEAD
+[0.0.2]: https://github.com/twentyideas/changesaga/releases/tag/v0.0.2
 [0.0.1]: https://github.com/twentyideas/changesaga/releases/tag/v0.0.1
