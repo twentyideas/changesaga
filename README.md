@@ -110,9 +110,10 @@ sha256sum -c SHA256SUMS --ignore-missing
 gh attestation verify change-saga_<version>_linux_amd64.tar.gz --repo change-saga/change-saga
 ```
 
-Every release archive is covered by `SHA256SUMS` and by a GitHub build
-provenance attestation. macOS builds are signed and notarized when release
-signing is configured; each release's notes say which applies. See
+Every release archive and `SHA256SUMS` are covered by GitHub build provenance.
+macOS builds are signed and notarized when the corresponding release credentials
+are configured; each release's notes distinguish unsigned, signed-only, and
+notarized artifacts. See
 [docs/releasing.md](docs/releasing.md).
 
 **From source**, with Go 1.26 or newer:

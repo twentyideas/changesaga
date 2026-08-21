@@ -52,7 +52,7 @@ If you touched anything under `scripts/` or `.github/workflows/`:
 
 ```sh
 shellcheck scripts/*.sh
-actionlint
+./scripts/check-workflows.sh
 ./scripts/install_test.sh
 ./scripts/build-release.sh 0.0.0-dev "$(go env GOOS)" "$(go env GOARCH)" dist
 ```
@@ -79,12 +79,14 @@ Docs-only changes still deserve one mechanical pass:
 
 | Workflow | On | What |
 | --- | --- | --- |
-| [`ci.yml`](.github/workflows/ci.yml) | every push to `main` and every pull request, forks included | `go test` on Linux, macOS, and Windows (with `-race` where a C toolchain exists), `gofmt`, `go vet`, `shellcheck`, both installer end-to-end tests, and an unsigned build of all six release targets |
+| [`ci.yml`](.github/workflows/ci.yml) | every push to `main` and every pull request, forks included | `go test` on Linux, macOS, and Windows (with `-race` where a C toolchain exists), `gofmt`, `go vet`, `shellcheck`, workflow lint/action-pin policy, both installer end-to-end tests, and an unsigned build of all six release targets |
 | [`e2e.yml`](.github/workflows/e2e.yml) | every push to `main` and every pull request | Playwright against the real binary and the real server, Chromium by default |
-| [`release.yml`](.github/workflows/release.yml) | `v*` tags and manual dispatch only | the full CI matrix again, then checksummed and provenance-attested artifacts, optional Developer ID signing/notarization for macOS, and the GitHub Release |
+| [`release.yml`](.github/workflows/release.yml) | `v*` tags and manual dispatch only | the full CI matrix again, checksummed artifacts, and optional Developer ID signing/notarization for macOS; only tag-push runs receive provenance/publish permissions and create the GitHub Release |
 
 `ci.yml` is read-only and uses no secrets, so it runs unchanged on pull requests
-from forks. All signing lives in `release.yml`, which tags alone can reach.
+from forks. All signing lives in `release.yml` behind the protected
+`release-signing` environment; manual dispatch is rehearsal-only and cannot
+publish.
 
 ## Changing the on-disk format
 

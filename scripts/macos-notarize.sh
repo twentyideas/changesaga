@@ -14,6 +14,7 @@
 #   APPLE_API_ISSUER_ID       App Store Connect issuer id
 #   APPLE_API_KEY_P8_BASE64   base64 of the AuthKey_<id>.p8 file
 set -euo pipefail
+umask 077
 
 binary="${1:?usage: $0 <binary>}"
 : "${APPLE_API_KEY_ID:?missing APPLE_API_KEY_ID}"
@@ -25,7 +26,7 @@ key="$workdir/AuthKey.p8"
 submission="$workdir/notarize.zip"
 trap 'rm -rf "$workdir"' EXIT
 
-printf '%s' "$APPLE_API_KEY_P8_BASE64" | base64 --decode > "$key"
+printf '%s' "$APPLE_API_KEY_P8_BASE64" | /usr/bin/base64 -D > "$key"
 ditto -c -k --keepParent "$binary" "$submission"
 
 xcrun notarytool submit "$submission" \

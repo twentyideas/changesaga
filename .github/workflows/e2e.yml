@@ -23,6 +23,9 @@ concurrency:
 env:
   CI: true
   GOTOOLCHAIN: local
+  # Treat workflow_dispatch inputs as data. Choice inputs can still be supplied
+  # directly through the API, so never interpolate this value into shell source.
+  BROWSER: ${{ github.event.inputs.browser || 'chromium' }}
 
 jobs:
   browser:
@@ -47,14 +50,20 @@ jobs:
           cache-dependency-path: e2e/package-lock.json
       - name: install JavaScript dependencies
         run: npm ci
+      - name: validate browser selection
+        run: |
+          case "$BROWSER" in
+            chromium|firefox|webkit) ;;
+            *) echo "invalid browser project: $BROWSER" >&2; exit 2 ;;
+          esac
       - name: install browser
-        run: npx playwright install --with-deps "${{ github.event.inputs.browser || 'chromium' }}"
+        run: npx playwright install --with-deps "$BROWSER"
       - name: typecheck
         run: npm run typecheck
       - name: run real-browser suite
-        run: npx playwright test --project="${{ github.event.inputs.browser || 'chromium' }}"
+        run: npx playwright test --project="$BROWSER"
       - name: repeat the mutation-heavy critical flows
-        run: npx playwright test --project="${{ github.event.inputs.browser || 'chromium' }}" --grep @critical --repeat-each=3
+        run: npx playwright test --project="$BROWSER" --grep @critical --repeat-each=3
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:

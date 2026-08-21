@@ -1,13 +1,13 @@
 # Releasing
 
 Change Saga ships as a single static binary for macOS, Linux, and Windows.
-Everything below is driven by two workflows and four scripts, so a release is a
-tag push and nothing else.
+Everything below is driven by repository workflows and scripts, so publishing a
+release is a tag push and nothing else.
 
 | File | Role |
 | --- | --- |
-| `.github/workflows/ci.yml` | Unsigned tests, lint, and cross-platform build. Runs on every pull request, including forks. |
-| `.github/workflows/release.yml` | Tag-only build, macOS signing and notarization, checksums, GitHub Release. |
+| `.github/workflows/ci.yml` | Unsigned tests, lint, workflow-policy checks, and cross-platform build. Runs on every pull request, including forks. |
+| `.github/workflows/release.yml` | Tag-push publication or manual rehearsal, optional macOS signing/notarization, checksums, provenance, and the GitHub Release. |
 | `scripts/build-release.sh` | Builds and archives one `GOOS/GOARCH` target. Used by both workflows. |
 | `scripts/build-macos-standalone-installer.sh` | Wraps an Apple Silicon archive in one self-contained `.command` file for direct handoff. |
 | `scripts/install.sh` | The `curl \| sh` installer for macOS and Linux. |
@@ -27,17 +27,27 @@ tag push and nothing else.
    ```
 
 3. The `Release` workflow validates the tag, re-runs the full CI matrix, builds
-   six artifacts, signs and notarizes the macOS pair when Apple credentials are
-   configured, generates `SHA256SUMS`, attaches a build provenance attestation,
-   and publishes the GitHub Release.
+   six artifacts, signs and notarizes the macOS pair when the corresponding
+   Apple credentials are configured, generates `SHA256SUMS`, attaches build
+   provenance to every published asset, and publishes the GitHub Release.
 
-Tags must be `v<major>.<minor>.<patch>` with an optional prerelease suffix. A
-suffix (`v0.3.0-rc.1`) publishes as a GitHub prerelease. The workflow refuses to
-overwrite an existing release; cut a new patch version instead.
+Tags must be `v<major>.<minor>.<patch>` with an optional prerelease suffix and
+must point to a commit on the default branch. A suffix (`v0.3.0-rc.1`) publishes
+as a GitHub prerelease. The workflow refuses to overwrite an existing release;
+cut a new patch version instead.
+
+Configure a repository tag ruleset for `v*` that restricts creation to release
+maintainers and blocks updates and deletion. The workflow also peels the tag to
+one commit before any build, checks that commit against the tag-push event, uses
+the commit SHA (not the mutable tag name) for every checkout, and re-fetches the
+tag immediately before publication. A moved tag therefore fails even if the
+repository ruleset is accidentally weakened.
 
 To rehearse without publishing, run the workflow manually from the Actions tab
-with an existing tag and `publish` left off. Every build and verification step
-runs; only the release creation is skipped.
+with an existing tag. Every build and verification step runs, but the privileged
+provenance and GitHub Release job is skipped before it receives a runner or
+token. A manual run can never be promoted; push the tag to start a separate,
+tag-bound publication run.
 
 ## Versioning policy
 
@@ -65,8 +75,11 @@ step, and anything that changes the on-disk format is marked **Format**.
 Exit codes are part of the contract: `0` success, `1` error (including schema
 errors from `validate`), `2` usage error, `3` incomplete coverage from `status`.
 
-Prerelease suffixes (`v1.0.0-rc.1`) publish as GitHub prereleases and are
-excluded from "latest" by the installers.
+Prerelease suffixes (`v1.0.0-rc.1`) publish as GitHub prereleases with
+`--latest=false`, so they can never replace the stable release used by the
+installers. Stable releases leave latest selection to GitHub's automatic
+semantic-version ordering, so publishing an older stable tag does not demote a
+newer one.
 
 **Release checklist**
 
@@ -110,9 +123,12 @@ It verifies the payload, refuses non-macOS and non-arm64 machines, and installs
 without `sudo`. It installs the `change-saga` command. Zip the one file when
 sending it through a service that does not preserve executable permissions.
 
-`SHA256SUMS` is generated in the publish job from the artifacts as downloaded,
-after each one is re-checked against the checksum its build job recorded. That
-catches corruption between the build and the release, not just at build time.
+`SHA256SUMS` is generated in an unprivileged preparation job from the artifacts
+as downloaded, after each one is re-checked against the checksum its build job
+recorded. That catches corruption between the build and the release, not just at
+build time. Only a tag-push run starts the separate job with `contents`,
+`id-token`, and `attestations` write permissions; it attests the six archives and
+`SHA256SUMS` before publishing them.
 
 Users can verify a download two ways:
 
@@ -186,15 +202,19 @@ enforce that:
    that true even if the workflow triggers are changed later.
 2. The signing secrets live in the `release-signing` GitHub Environment. Only a
    job that names `environment: release-signing` can read them, and the
-   environment's protection rules run before the job starts.
+   environment's protection rules run before the job starts. Its allowed refs
+   are the default branch (for manual rehearsals) and `v*` tags (for releases),
+   so dispatching a modified workflow from another branch cannot read them.
 3. The signing keychain is created fresh in `$RUNNER_TEMP` with a random
    password, and is deleted in an `if: always()` step.
 
-Signing is optional until it is configured. With no Apple secrets present, the
-release still builds and publishes, the macOS artifacts are unsigned, and the
-release notes say so. Once the Apple setup below is complete, set the repository
-variable `REQUIRE_MACOS_SIGNING` to `true` and a release that cannot sign will
-fail instead of quietly shipping unsigned binaries.
+Signing is optional until configured, and notarization is an additional optional
+layer. With no Apple secrets present, the release still builds and publishes,
+the macOS artifacts are unsigned, and the release notes say so. A complete
+Developer ID credential set produces signed artifacts; adding the complete App
+Store Connect set notarizes them too. Any partial set fails closed, and
+notarization is refused without signing. Once setup is complete, the enforcement
+variables below prevent a release from quietly dropping either guarantee.
 
 ### Secrets
 
@@ -215,6 +235,7 @@ Repository variable (Settings → Secrets and variables → Actions → Variable
 | Variable | Effect |
 | --- | --- |
 | `REQUIRE_MACOS_SIGNING` | `true` makes a release fail when signing credentials are missing. Leave unset until Apple setup is finished. |
+| `REQUIRE_MACOS_NOTARIZATION` | `true` makes a release fail when notarization credentials are missing. Enable after the App Store Connect setup is verified. |
 
 No keychain password secret is needed: the job generates one with
 `openssl rand` and throws the keychain away afterwards.
@@ -257,13 +278,15 @@ account (individual or organization, $99/year).
    an API key is preferred: it is scoped, revocable, and not tied to a person.
 
 5. **Create the `release-signing` environment**, add the six secrets, and
-   restrict its deployment branches and tags to tags matching `v*` so no other
-   ref can start a job that reads them. Add required reviewers if release
-   approval should be a human step.
+   restrict its deployment branches and tags to the default branch plus tags
+   matching `v*`. That permits default-branch manual rehearsals and tag releases
+   without exposing secrets to workflows dispatched from feature branches. Add
+   required reviewers if release approval should be a human step.
 6. **Verify** by dispatching the release workflow manually against an existing
-   tag with `publish` off. The job prints the signing authority and the
-   Gatekeeper assessment without publishing anything.
-7. **Turn on enforcement:** set `REQUIRE_MACOS_SIGNING=true`.
+   tag. The job prints the signing authority and the Gatekeeper assessment
+   without granting publish or provenance permissions.
+7. **Turn on enforcement:** set `REQUIRE_MACOS_SIGNING=true` and
+   `REQUIRE_MACOS_NOTARIZATION=true`.
 
 ### What notarization does and does not do here
 
@@ -306,7 +329,7 @@ Linux artifacts rely on `SHA256SUMS` plus the provenance attestation.
 ./scripts/build-macos-standalone-installer.sh dist/change-saga_0.3.0_darwin_arm64.tar.gz
 ./scripts/install_test.sh                            # installer, end to end
 shellcheck scripts/*.sh
-actionlint                                           # workflow syntax
+./scripts/check-workflows.sh                         # workflow syntax + immutable action refs
 ```
 
 `build-release.sh` honours `SOURCE_DATE_EPOCH` for the build timestamp and

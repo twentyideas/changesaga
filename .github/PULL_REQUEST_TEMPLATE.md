@@ -25,7 +25,7 @@ closes: "Closes #123". -->
 - [ ] `gofmt -l cmd internal` prints nothing
 - [ ] `go vet ./...` and `go test -race ./...` pass
 - [ ] Tests cover the change (a bug fix includes the test that would have caught it)
-- [ ] Touched `scripts/` or `.github/workflows/`? `shellcheck scripts/*.sh`, `actionlint`, and `./scripts/install_test.sh` pass
+- [ ] Touched `scripts/` or `.github/workflows/`? `shellcheck scripts/*.sh`, `./scripts/check-workflows.sh`, and `./scripts/install_test.sh` pass
 - [ ] Touched `internal/server/`? The `e2e/` suite passes and [docs/renderer-ui.md](https://github.com/change-saga/change-saga/blob/main/docs/renderer-ui.md) still holds
 - [ ] Touched docs? `./scripts/check-docs-links.sh` passes
 - [ ] User-visible change? [CHANGELOG.md](https://github.com/change-saga/change-saga/blob/main/CHANGELOG.md) `[Unreleased]` updated

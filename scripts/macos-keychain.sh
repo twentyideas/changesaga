@@ -11,6 +11,7 @@
 # Writes the keychain path to $GITHUB_ENV as CHANGE_SAGA_KEYCHAIN when running in
 # Actions so later steps and the cleanup step can find it.
 set -euo pipefail
+umask 077
 
 : "${MACOS_CERTIFICATE_P12_BASE64:?missing MACOS_CERTIFICATE_P12_BASE64}"
 : "${MACOS_CERTIFICATE_PASSWORD:?missing MACOS_CERTIFICATE_PASSWORD}"
@@ -19,13 +20,21 @@ keychain="${CHANGE_SAGA_KEYCHAIN:-$RUNNER_TEMP/saga-signing.keychain-db}"
 # The keychain password is ephemeral and never leaves this runner.
 keychain_password="$(openssl rand -base64 24)"
 cert="$RUNNER_TEMP/saga-signing.p12"
+keychain_created=0
+setup_complete=0
 
-cleanup_cert() { rm -f "$cert"; }
-trap cleanup_cert EXIT
+cleanup() {
+	rm -f "$cert"
+	if [ "$keychain_created" -eq 1 ] && [ "$setup_complete" -ne 1 ]; then
+		security delete-keychain "$keychain" >/dev/null 2>&1 || true
+	fi
+}
+trap cleanup EXIT
 
-printf '%s' "$MACOS_CERTIFICATE_P12_BASE64" | base64 --decode > "$cert"
+printf '%s' "$MACOS_CERTIFICATE_P12_BASE64" | /usr/bin/base64 -D > "$cert"
 
 security create-keychain -p "$keychain_password" "$keychain"
+keychain_created=1
 # Auto-lock disabled for the life of the job; the keychain is deleted in cleanup.
 security set-keychain-settings -lut 21600 "$keychain"
 security unlock-keychain -p "$keychain_password" "$keychain"
@@ -45,3 +54,4 @@ security find-identity -v -p codesigning "$keychain"
 if [ -n "${GITHUB_ENV:-}" ]; then
 	echo "CHANGE_SAGA_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
 fi
+setup_complete=1

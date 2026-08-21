@@ -25,11 +25,6 @@ on:
         description: "Existing tag to build (e.g. v0.3.0)"
         required: true
         type: string
-      publish:
-        description: "Create the GitHub Release (off = build and verify only)"
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -47,9 +42,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.resolve.outputs.tag }}
+      commit: ${{ steps.resolve.outputs.commit }}
       version: ${{ steps.resolve.outputs.version }}
       prerelease: ${{ steps.resolve.outputs.prerelease }}
-      publish: ${{ steps.resolve.outputs.publish }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -59,42 +54,57 @@ jobs:
         id: resolve
         env:
           INPUT_TAG: ${{ github.event.inputs.tag }}
-          INPUT_PUBLISH: ${{ github.event.inputs.publish }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
           if [ "$GITHUB_EVENT_NAME" = "push" ]; then
             tag="${GITHUB_REF#refs/tags/}"
-            publish=true
           else
             tag="$INPUT_TAG"
-            publish="${INPUT_PUBLISH:-false}"
             git rev-parse -q --verify "refs/tags/$tag" >/dev/null ||
               { echo "::error::tag $tag does not exist"; exit 1; }
           fi
           # Reject anything that is not v<semver>, so artifact names and the
           # installer's tag/version mapping stay predictable.
-          if ! printf '%s' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
+          numeric='(0|[1-9][0-9]*)'
+          prerelease_id="($numeric|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)"
+          semver="^v$numeric\\.$numeric\\.$numeric(-$prerelease_id(\\.$prerelease_id)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"
+          if ! printf '%s' "$tag" | grep -Eq "$semver"; then
             echo "::error::tag $tag is not of the form v<major>.<minor>.<patch>[-prerelease]"
             exit 1
           fi
           version="${tag#v}"
+          commit="$(git rev-parse "$tag^{commit}")"
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$commit" != "$GITHUB_SHA" ]; then
+            echo "::error::pushed tag resolves to $commit, but the event identifies $GITHUB_SHA"
+            exit 1
+          fi
           case "$version" in
             *-*) prerelease=true ;;
             *) prerelease=false ;;
           esac
           {
             echo "tag=$tag"
+            echo "commit=$commit"
             echo "version=$version"
             echo "prerelease=$prerelease"
-            echo "publish=$publish"
           } >> "$GITHUB_OUTPUT"
-          echo "Releasing $tag (version $version, prerelease $prerelease, publish $publish)" >> "$GITHUB_STEP_SUMMARY"
+          if ! git merge-base --is-ancestor "$commit" "origin/$DEFAULT_BRANCH"; then
+            echo "::error::$tag does not point to a commit on $DEFAULT_BRANCH"
+            exit 1
+          fi
+          echo "Building $tag (version $version, prerelease $prerelease)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "Manual dispatch is a rehearsal only; only a tag-push run can publish." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   verify:
     # The same unsigned test matrix a pull request runs. A tag never skips it.
     name: verify
     needs: meta
     uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.meta.outputs.commit }}
     permissions:
       contents: read
 
@@ -113,7 +123,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.meta.outputs.tag }}
+          ref: ${{ needs.meta.outputs.commit }}
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -140,10 +150,11 @@ jobs:
         goarch: [arm64, amd64]
     outputs:
       signed: ${{ steps.signing.outputs.available }}
+      notarized: ${{ steps.signing.outputs.notarization_available }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.meta.outputs.tag }}
+          ref: ${{ needs.meta.outputs.commit }}
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -157,20 +168,12 @@ jobs:
           MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
           MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
           MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
           REQUIRE_SIGNING: ${{ vars.REQUIRE_MACOS_SIGNING }}
-        run: |
-          set -euo pipefail
-          if [ -n "$MACOS_CERTIFICATE_P12_BASE64" ] &&
-             [ -n "$MACOS_CERTIFICATE_PASSWORD" ] &&
-             [ -n "$MACOS_SIGNING_IDENTITY" ]; then
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          elif [ "$REQUIRE_SIGNING" = "true" ]; then
-            echo "::error::REQUIRE_MACOS_SIGNING is set but the Developer ID secrets are missing from the release-signing environment. See docs/releasing.md."
-            exit 1
-          else
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Building an unsigned macOS artifact: Developer ID secrets are not configured. See docs/releasing.md."
-          fi
+          REQUIRE_NOTARIZATION: ${{ vars.REQUIRE_MACOS_NOTARIZATION }}
+        run: ./scripts/macos-release-credentials.sh
 
       - name: import Developer ID certificate
         if: steps.signing.outputs.available == 'true'
@@ -179,7 +182,7 @@ jobs:
           MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
         run: ./scripts/macos-keychain.sh
 
-      - name: build (signed and notarized)
+      - name: build (signed, optionally notarized)
         if: steps.signing.outputs.available == 'true'
         env:
           CHANGE_SAGA_SIGN_HOOK: ${{ github.workspace }}/scripts/macos-sign-hook.sh
@@ -218,18 +221,16 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
-  publish:
-    name: checksum and publish
+  prepare:
+    name: verify and prepare release bundle
     needs: [meta, build-unix-windows, build-macos]
     runs-on: ubuntu-latest
     permissions:
-      contents: write # create the GitHub Release and upload assets
-      id-token: write # sign the build provenance attestation
-      attestations: write
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.meta.outputs.tag }}
+          ref: ${{ needs.meta.outputs.commit }}
           persist-credentials: false
 
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -266,26 +267,19 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: attest build provenance
-        if: needs.meta.outputs.publish == 'true'
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-path: |
-            dist/change-saga_*.tar.gz
-            dist/change-saga_*.zip
-
       - name: write release notes
         env:
           TAG: ${{ needs.meta.outputs.tag }}
           VERSION: ${{ needs.meta.outputs.version }}
           SIGNED: ${{ needs.build-macos.outputs.signed }}
+          NOTARIZED: ${{ needs.build-macos.outputs.notarized }}
         run: |
           set -euo pipefail
           {
             echo "## Install"
             echo
             echo '```sh'
-            echo "curl -fsSL https://raw.githubusercontent.com/$GITHUB_REPOSITORY/main/scripts/install.sh | sh -s -- --version $TAG"
+            echo "curl -fsSL https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$TAG/scripts/install.sh | sh -s -- --version $TAG"
             echo '```'
             echo
             echo "The installer detects macOS or Linux and the native architecture, verifies the archive against \`SHA256SUMS\`, and installs into \`~/.local/bin\` by default."
@@ -293,7 +287,7 @@ jobs:
             echo "Windows PowerShell:"
             echo
             echo '```powershell'
-            echo "irm https://raw.githubusercontent.com/$GITHUB_REPOSITORY/main/scripts/install.ps1 | iex"
+            echo "\$env:CHANGE_SAGA_VERSION='$TAG'; irm https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$TAG/scripts/install.ps1 | iex"
             echo '```'
             echo
             echo "## Verify manually"
@@ -305,28 +299,83 @@ jobs:
             echo
             echo "## macOS"
             echo
-            if [ "$SIGNED" = "true" ]; then
+            if [ "$NOTARIZED" = "true" ]; then
               echo "The macOS binaries are signed with a Developer ID Application certificate and notarized by Apple."
+            elif [ "$SIGNED" = "true" ]; then
+              echo "> [!NOTE]"
+              echo "> The macOS binaries are signed with a Developer ID Application certificate but are **not notarized** by Apple. Browser downloads remain subject to Gatekeeper; use the checksum-verifying installer above or build from source rather than disabling Gatekeeper."
             else
               echo "> [!NOTE]"
               echo "> The macOS binaries in this release are **not** signed with a Developer ID certificate. They run when installed with the installer above, because a curl download carries no quarantine attribute. If you download the archive with a browser, macOS will quarantine it and Gatekeeper will block it; build from source instead of disabling Gatekeeper."
             fi
             echo
             echo "## Changes"
-          } > "$RUNNER_TEMP/notes.md"
-          cat "$RUNNER_TEMP/notes.md"
+          } > dist/RELEASE_NOTES.md
+          cat dist/RELEASE_NOTES.md
+
+      - name: stage the verified release bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: verified-release-${{ needs.meta.outputs.tag }}
+          path: |
+            dist/RELEASE_NOTES.md
+            dist/SHA256SUMS
+            dist/change-saga_*.tar.gz
+            dist/change-saga_*.zip
+          if-no-files-found: error
+
+      - name: rehearsal summary
+        if: github.event_name == 'workflow_dispatch'
+        run: echo "::notice::Artifacts built and verified. Push the tag to publish from a separate, tag-bound run."
+
+  publish:
+    name: attest and publish
+    if: github.event_name == 'push'
+    needs: [meta, prepare]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub Release and upload assets
+      id-token: write # sign the build provenance attestation
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.meta.outputs.commit }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: verified-release-${{ needs.meta.outputs.tag }}
+          path: dist
+
+      - name: attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/SHA256SUMS
+            dist/change-saga_*.tar.gz
+            dist/change-saga_*.zip
 
       - name: create the GitHub Release
-        if: needs.meta.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.meta.outputs.tag }}
+          EXPECTED_COMMIT: ${{ needs.meta.outputs.commit }}
           PRERELEASE: ${{ needs.meta.outputs.prerelease }}
         run: |
           set -euo pipefail
-          flags=(--title "$TAG" --notes-file "$RUNNER_TEMP/notes.md" --generate-notes --verify-tag)
+          git fetch --no-tags origin "refs/tags/$TAG"
+          actual_commit="$(git rev-parse 'FETCH_HEAD^{commit}')"
+          if [ "$actual_commit" != "$EXPECTED_COMMIT" ]; then
+            echo "::error::$TAG moved from $EXPECTED_COMMIT to $actual_commit during the workflow; refusing to publish"
+            exit 1
+          fi
+          flags=(--title "$TAG" --notes-file dist/RELEASE_NOTES.md --generate-notes --verify-tag)
           if [ "$PRERELEASE" = "true" ]; then
-            flags+=(--prerelease)
+            # Never let GitHub's automatic latest selection promote a prerelease.
+            flags+=(--prerelease --latest=false)
           fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "::error::release $TAG already exists; delete it first or tag a new version"
@@ -336,7 +385,3 @@ jobs:
             dist/SHA256SUMS \
             dist/change-saga_*.tar.gz \
             dist/change-saga_*.zip
-
-      - name: dry run summary
-        if: needs.meta.outputs.publish != 'true'
-        run: echo "::notice::Artifacts built and verified. Re-run with publish=true, or push the tag, to create the release."
