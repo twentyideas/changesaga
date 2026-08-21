@@ -16,8 +16,11 @@ type Manifest struct {
 	Source  Source `json:"source"`
 }
 
+// PR uses a pointer for Number so an absent pull request number stays absent.
+// schema/v2/saga.schema.json requires a positive number when the field is
+// present; a plain int could not tell "unset" from an invalid literal 0.
 type PR struct {
-	Number int    `json:"number,omitempty"`
+	Number *int   `json:"number,omitempty"`
 	URL    string `json:"url,omitempty"`
 }
 

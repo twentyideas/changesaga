@@ -244,7 +244,13 @@ func validateMutableSaga(root string) error {
 }
 
 func existingThreadDir(root, threadID string) (string, error) {
-	threadDir := filepath.Join(root, "___review", "threads", filepath.Base(threadID)+".thread")
+	// A thread is addressed by its stable id. Accepting anything else and then
+	// reducing it with filepath.Base would silently retarget "../other" at a
+	// different record instead of reporting an unusable identifier.
+	if !saga.ValidID(threadID) {
+		return "", fmt.Errorf("thread %q is not a stable identifier", threadID)
+	}
+	threadDir := filepath.Join(root, "___review", "threads", threadID+".thread")
 	info, err := os.Lstat(filepath.Join(threadDir, "thread.json"))
 	if err != nil || info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return "", fmt.Errorf("thread %q does not exist", threadID)

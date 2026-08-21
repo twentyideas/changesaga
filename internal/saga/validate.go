@@ -2,6 +2,7 @@ package saga
 
 import (
 	"fmt"
+	"math"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -28,15 +29,49 @@ func validateManifest(manifest Manifest, result *Validation) {
 	if manifest.Schema != "" && manifest.Schema != SchemaURL {
 		addIssue(result, "warning", "saga.json", fmt.Sprintf("$schema is %q; the current schema is %q", manifest.Schema, SchemaURL))
 	}
-	if manifest.PR != nil && manifest.PR.Number < 0 {
-		addIssue(result, "error", "saga.json", "pr.number cannot be negative")
+	if manifest.PR != nil {
+		if manifest.PR.Number != nil && *manifest.PR.Number < 1 {
+			addIssue(result, "error", "saga.json", "pr.number must be a positive pull request number")
+		}
+		if manifest.PR.URL != "" {
+			if parsed, err := url.Parse(manifest.PR.URL); err != nil || !parsed.IsAbs() {
+				addIssue(result, "error", "saga.json", "pr.url must be an absolute URI")
+			}
+		}
 	}
-	repository, err := url.Parse(manifest.Source.Repository)
-	if err != nil || !repository.IsAbs() || repository.Host == "" && repository.Scheme != "file" {
-		addIssue(result, "error", "saga.json", "source.repository must be an absolute URI")
-	}
+	validateRepositoryIdentity(manifest.Source.Repository, "saga.json", result)
 	if strings.TrimSpace(manifest.Source.Base) == "" || strings.TrimSpace(manifest.Source.Head) == "" {
 		addIssue(result, "error", "saga.json", "source.base and source.head are required")
+	}
+}
+
+// validateRepositoryIdentity enforces the portable identity rule shared by
+// SPEC.md and schema/v2/saga.schema.json: an absolute URI that never carries
+// URL userinfo credentials. Noncanonical-but-resolvable spellings stay loadable
+// so existing v2 sagas keep working, but they are reported so authors can fix
+// the identity before it is published.
+func validateRepositoryIdentity(value, path string, result *Validation) {
+	repository, err := url.Parse(value)
+	if err != nil || !repository.IsAbs() || repository.Host == "" && repository.Scheme != "file" {
+		addIssue(result, "error", path, "source.repository must be an absolute URI")
+		return
+	}
+	if repository.User != nil {
+		// Every builder in this codebase strips userinfo, so a manifest that
+		// keeps it would disagree with its own diff URIs about the repository
+		// identity even before the credential-leak problem.
+		stripped := *repository
+		stripped.User = nil
+		addIssue(result, "error", path, fmt.Sprintf("source.repository must not contain URL userinfo; use %q", stripped.String()))
+		return
+	}
+	canonical, err := diffuri.CanonicalRepository(value)
+	if err != nil {
+		addIssue(result, "error", path, fmt.Sprintf("source.repository is not a usable repository identity: %v", err))
+		return
+	}
+	if canonical != value {
+		addIssue(result, "warning", path, fmt.Sprintf("source.repository %q is not canonical; the canonical identity is %q", value, canonical))
 	}
 }
 
@@ -71,14 +106,17 @@ func validateFragmentManifest(value FragmentManifest, path, dir string, result *
 	if !stableID.MatchString(value.ID) {
 		addIssue(result, "error", path, "fragment id must be stable and non-empty")
 	}
-	if !validMediaType(value.MediaType) {
+	if !ValidMediaType(value.MediaType) {
 		addIssue(result, "error", path, "unsupported media_type")
 	}
-	if value.Entrypoint == "" || filepath.IsAbs(value.Entrypoint) || filepath.Clean(value.Entrypoint) != value.Entrypoint || value.Entrypoint == ".." || strings.HasPrefix(value.Entrypoint, ".."+string(filepath.Separator)) {
-		addIssue(result, "error", path, "entrypoint must be a normalized fragment-relative path")
+	if reason := EntrypointError(value.Entrypoint); reason != "" {
+		addIssue(result, "error", path, reason)
 		return
 	}
-	entry := filepath.Join(dir, value.Entrypoint)
+	if reason := PortablePathWarning(value.Entrypoint); reason != "" {
+		addIssue(result, "warning", path, fmt.Sprintf("entrypoint %q %s", value.Entrypoint, reason))
+	}
+	entry := filepath.Join(dir, filepath.FromSlash(value.Entrypoint))
 	info, err := os.Stat(entry)
 	if err != nil || info.IsDir() {
 		addIssue(result, "error", path, "entrypoint must name an existing file")
@@ -146,10 +184,6 @@ func markdownAnchorSuggestion(value string) string {
 	return suggestion
 }
 
-func validMediaType(value string) bool {
-	return value == "text/markdown" || value == "text/html" || value == "text/plain" || value == "image/svg+xml" || strings.HasPrefix(value, "image/")
-}
-
 func validateLandmark(value Landmark, fragment *Fragment, result *Validation) {
 	if value.Version != CurrentVersion {
 		addIssue(result, "error", value.Path, "landmark version must be 2")
@@ -182,7 +216,7 @@ func validateLandmark(value Landmark, fragment *Fragment, result *Validation) {
 		}
 		if !ValidMarkdownAnchor(selector.ElementID) {
 			addIssue(result, "error", value.Path, "element landmark requires a stable element_id")
-		} else if content, err := os.ReadFile(filepath.Join(fragment.Directory, fragment.Entrypoint)); err == nil && !containsElementID(string(content), selector.ElementID) {
+		} else if content, err := os.ReadFile(filepath.Join(fragment.Directory, filepath.FromSlash(fragment.Entrypoint))); err == nil && !containsElementID(string(content), selector.ElementID) {
 			addIssue(result, "error", value.Path, fmt.Sprintf("element_id %q does not appear in the fragment entrypoint", selector.ElementID))
 		}
 		if selector.HeadingID != "" || selector.Exact != "" || selector.Prefix != "" || selector.Suffix != "" || selector.Width != 0 || selector.Height != 0 || selector.X != 0 || selector.Y != 0 {
@@ -194,7 +228,7 @@ func validateLandmark(value Landmark, fragment *Fragment, result *Validation) {
 		}
 		if selector.Exact == "" {
 			addIssue(result, "error", value.Path, "text landmark requires an exact quote")
-		} else if content, err := os.ReadFile(filepath.Join(fragment.Directory, fragment.Entrypoint)); err == nil && !textSelectorMatches(string(content), selector.Exact, selector.Prefix, selector.Suffix) {
+		} else if content, err := os.ReadFile(filepath.Join(fragment.Directory, filepath.FromSlash(fragment.Entrypoint))); err == nil && !textSelectorMatches(string(content), selector.Exact, selector.Prefix, selector.Suffix) {
 			addIssue(result, "error", value.Path, "text landmark exact quote does not appear in the fragment entrypoint")
 		}
 		if selector.ElementID != "" || selector.HeadingID != "" || selector.Width != 0 || selector.Height != 0 || selector.X != 0 || selector.Y != 0 {
@@ -224,11 +258,20 @@ func validateLandmark(value Landmark, fragment *Fragment, result *Validation) {
 }
 
 func validNormalizedRegion(x, y, width, height float64) bool {
+	if math.IsNaN(x) || math.IsNaN(y) || math.IsNaN(width) || math.IsNaN(height) {
+		return false
+	}
 	return x >= 0 && y >= 0 && width > 0 && height > 0 && x+width <= 1 && y+height <= 1
 }
 
+// normalized rejects NaN explicitly: every NaN comparison is false, so a plain
+// range test would silently accept it as an in-range coordinate.
+func normalized(value float64) bool {
+	return !math.IsNaN(value) && value >= 0 && value <= 1
+}
+
 func fragmentHasExplicitHeading(fragment *Fragment, id string) bool {
-	content, err := os.ReadFile(filepath.Join(fragment.Directory, fragment.Entrypoint))
+	content, err := os.ReadFile(filepath.Join(fragment.Directory, filepath.FromSlash(fragment.Entrypoint)))
 	if err != nil {
 		return false
 	}
@@ -315,18 +358,30 @@ func ValidateAnchor(anchor Anchor) error {
 			if shape.Type != "rect" && shape.Type != "ellipse" && shape.Type != "line" && shape.Type != "path" {
 				return fmt.Errorf("unsupported annotation shape %q", shape.Type)
 			}
-			if shape.X < 0 || shape.X > 1 || shape.Y < 0 || shape.Y > 1 || shape.Width < 0 || shape.Width > 1 || shape.Height < 0 || shape.Height > 1 {
+			if !normalized(shape.X) || !normalized(shape.Y) || !normalized(shape.Width) || !normalized(shape.Height) {
 				return fmt.Errorf("shape coordinates must be normalized between 0 and 1")
 			}
 			for _, point := range shape.Points {
-				if point.X < 0 || point.X > 1 || point.Y < 0 || point.Y > 1 {
+				if !normalized(point.X) || !normalized(point.Y) {
 					return fmt.Errorf("shape points must be normalized between 0 and 1")
 				}
 			}
+			if shape.StrokeWidth < 0 || math.IsNaN(shape.StrokeWidth) {
+				return fmt.Errorf("shape stroke_width cannot be negative")
+			}
+			if shape.Color != "" && !ValidAnnotationColor(shape.Color) {
+				return fmt.Errorf("shape color must be a #rrggbb value")
+			}
 		}
 	case "text":
-		if anchor.Text == nil || anchor.Text.Exact == "" || len(anchor.Shapes) != 0 || anchor.Note != nil || anchor.Diff != nil || anchor.Text.End < anchor.Text.Start {
-			return fmt.Errorf("text anchor requires an exact quote and valid positions")
+		if anchor.Text == nil || anchor.Text.Exact == "" || len(anchor.Shapes) != 0 || anchor.Note != nil || anchor.Diff != nil {
+			return fmt.Errorf("text anchor requires an exact quote")
+		}
+		if anchor.Text.Start < 0 || anchor.Text.End < 0 || anchor.Text.End < anchor.Text.Start {
+			return fmt.Errorf("text anchor positions must be non-negative with end at or after start")
+		}
+		if anchor.Text.Color != "" && !ValidAnnotationColor(anchor.Text.Color) {
+			return fmt.Errorf("text highlight color must be a #rrggbb value")
 		}
 	case "note":
 		if anchor.Note == nil || len(anchor.Shapes) != 0 || anchor.Text != nil || anchor.Diff != nil {
@@ -338,7 +393,7 @@ func ValidateAnchor(anchor Anchor) error {
 		if strings.TrimSpace(anchor.Note.Text) == "" || len([]rune(anchor.Note.Text)) > MaxNoteRunes {
 			return fmt.Errorf("note text must contain 1 to %d characters", MaxNoteRunes)
 		}
-		if anchor.Note.X < 0 || anchor.Note.X > 1 || anchor.Note.Y < 0 || anchor.Note.Y > 1 {
+		if !normalized(anchor.Note.X) || !normalized(anchor.Note.Y) {
 			return fmt.Errorf("note placement must be normalized between 0 and 1")
 		}
 		if anchor.Note.Color != "" && !ValidAnnotationColor(anchor.Note.Color) {

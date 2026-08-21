@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/change-saga/change-saga/security/advisories/new
+    about: Never in a public issue. This opens a private report visible only to maintainers.
+  - name: Getting help
+    url: https://github.com/change-saga/change-saga/blob/main/SUPPORT.md
+    about: Answers to the questions that come up most, and what to include when you ask.
+  - name: Contributing
+    url: https://github.com/change-saga/change-saga/blob/main/CONTRIBUTING.md
+    about: Setup, the checks CI runs, and the rules for changing the on-disk format.

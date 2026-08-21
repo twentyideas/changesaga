@@ -41,9 +41,12 @@ A saga root ends in `.saga` and contains `saga.json` conforming to
 `source.repository` is a canonical absolute URI and identifies the source
 repository, not necessarily the repository containing the saga. Repository
 identities never contain URL userinfo; credentials in a remote URL are removed
-before the identity is persisted. `base` and `head` select the comparison to
-evaluate. Commit comparisons resolve both revisions and record their actual Git
-merge base. `WORKTREE` is allowed as `head`; engines resolve the merge base of
+before the identity is persisted, and a persisted identity that still carries
+userinfo is invalid rather than silently stripped on read. An optional `pr`
+records a positive `number`, an absolute `url`, or both.
+
+`base` and `head` select the comparison to evaluate. Commit comparisons resolve
+both revisions and record their actual Git merge base. `WORKTREE` is allowed as `head`; engines resolve the merge base of
 the configured base and current `HEAD`, then compare that tree to the tracked
 worktree. Untracked files are excluded.
 
@@ -120,7 +123,15 @@ interactive-flow.fragment/
 The reference engine supports `text/markdown`, `text/plain`, `text/html`,
 `image/svg+xml`, and raster `image/*` fragments. A fragment is directory-backed
 so HTML and SVG can use JavaScript, CSS, images, data, and other relative assets.
-Entrypoints cannot escape their package.
+
+`entrypoint` is a normalized package-relative slash path. It is never absolute,
+never begins with a drive letter, never contains `\` or a control character,
+never traverses with `.` or `..`, and never addresses `fragment.json` or a
+reserved `___` path. Backslash is excluded because it is an ordinary filename
+byte on Unix and a separator on Windows, so one saga would otherwise address two
+different files. Entrypoints cannot escape their package. Engines should warn
+about component names that cannot be checked out on every supported platform,
+such as reserved Windows device names.
 
 Markdown headings should declare a durable fragment-local anchor after the
 visible heading text:
@@ -275,7 +286,7 @@ The root, a section, or a fragment can contain `___diffs/*.json` conforming to
 ```
 
 The containing object is the target of the evidence. One link may select a line
-range; one evidence file may hold multiple links. Coverage is complete when
+range; one evidence file may hold multiple links and must hold at least one. Coverage is complete when
 every changed line and file event is selected and every committed link
 matches the current source comparison. Overlap is reported but permitted.
 Every Git-reported product file has at least one event or line atom, so an
@@ -314,7 +325,9 @@ ___review/diffs/<event-id>-reviewed.json
 Each event conforms to
 [`schema/v2/diff-review.schema.json`](schema/v2/diff-review.schema.json), uses a
 fully realized `/file` diff URI, and has state `reviewed` or `unreviewed`. The
-latest event for the URI is current. A new comparison identity therefore starts
+latest event for the URI is current; when two events share a `created_at`, the
+greater event `id` is the later one. Ordering never depends on file names, so
+every engine resolves the same commit to the same state. A new comparison identity therefore starts
 with no files implicitly reviewed.
 
 A thread conforms to [`schema/v2/thread.schema.json`](schema/v2/thread.schema.json)
@@ -354,7 +367,8 @@ therefore not limited to plain text: a reply may contain Markdown, images, SVG,
 or sandboxed interactive HTML using the same fragment model as the saga.
 
 Thread lifecycle changes are append-only files in `events/` with state `open`,
-`resolved`, or `withdrawn`. The latest event by `created_at` is current. A
+`resolved`, or `withdrawn`. The latest event by `created_at` is current, with
+ties broken by the greater event `id`. A
 withdrawn thread is omitted from the active review surface but remains fully
 auditable; a later `open` event restores it. An event may instead carry an
 `anchor` replacement to move, recolor, reword, or otherwise edit committed
@@ -367,9 +381,13 @@ should not be rewritten or deleted during ordinary review.
 Review mutations never append to a shared JSON array or rewrite a neighboring
 reviewer's record:
 
-- Each top-level comment creates its own `<id>.thread/` directory.
+- Each top-level comment creates its own `<id>.thread/` directory, whose name is
+  exactly the `id` in its `thread.json`.
 - The initial comment and every reply create separate `<id>.message/`
-  directories, with independent `message.json` metadata and fragment files.
+  directories, with independent `message.json` metadata and fragment files, and
+  the directory name is exactly the `id` in its `message.json`. A record whose
+  directory and identifier disagree is invalid: the two would otherwise address
+  different records.
 - Every resolve/reopen/remove/restore, anchor edit, approval/rejection, and
   reviewed/unreviewed change is a new event file with a unique time-plus-random
   identifier.
@@ -386,16 +404,20 @@ are never applied to source code automatically.
 Saga-, chapter-, section-, and fragment-level decisions remain separate from discussion threads.
 Append-only approval events live in the target's `___approvals/` directory and
 use state `approved`, `rejected`, `closed`, or `open` as defined by
-[`schema/v2/review.schema.json`](schema/v2/review.schema.json). The latest event
-is the displayed state; repository policy, not this format, decides whether an
-approval permits merging.
+[`schema/v2/review.schema.json`](schema/v2/review.schema.json). The latest event, resolving `created_at` ties by the greater `id`, is the
+displayed state; repository policy, not this format, decides whether an approval
+permits merging.
 
 ## 9. Reserved names
 
 `___diffs` and `___approvals` are reserved on saga/chapter/section/fragment targets.
 `___landmarks` is reserved inside fragments.
 `___review` is reserved at the saga root. Reserved metadata directories must be
-real directories, not symlinks. Other names beginning with `___` are invalid.
+real directories, not symlinks. So must every entity package: a `.chapter`,
+`.fragment`, `.landmark`, `.thread`, or `.message` entry that is a symlink or a
+regular file is invalid rather than ignored, because silently skipping it would
+hide authored content behind a valid-looking saga. Other names beginning with
+`___` are invalid.
 
 ## 10. CLI behavior
 

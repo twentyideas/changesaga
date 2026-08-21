@@ -1,0 +1,72 @@
+name: Bug report
+description: Something behaves differently from what the docs or the CLI help say.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. A reproduction is worth ten paragraphs — the
+        smallest command sequence that shows the problem is ideal.
+
+        **Do not report security vulnerabilities here.** Use
+        [private reporting](https://github.com/change-saga/change-saga/security/advisories/new)
+        instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you observed, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: >-
+        The exact commands, starting from a fresh repository if possible. Paste
+        the full output, including any `saga-diff://` URIs and the exit code.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `change-saga version`, or the commit you built from.
+      placeholder: "0.2.0-dev"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Best guess is fine.
+      options:
+        - CLI (init, add-*, cover, status, validate)
+        - Coverage and diff URIs
+        - Local reviewer (serve / open)
+        - Review records (threads, annotations, approvals)
+        - Installers and releases
+        - Format, spec, or schema
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: >-
+        Repository shape (saga beside the code or separate), whether the
+        comparison spans a rebase, browser and version for reviewer issues.

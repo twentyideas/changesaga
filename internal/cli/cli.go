@@ -3,9 +3,11 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"mime"
 	"net/url"
 	"os"
@@ -111,23 +113,59 @@ func Init(ctx context.Context, args []string, out io.Writer) error {
 	if *prNumber < 0 {
 		return fmt.Errorf("--pr cannot be negative")
 	}
+	if *prURL != "" {
+		if parsed, err := url.Parse(*prURL); err != nil || !parsed.IsAbs() {
+			return fmt.Errorf("--pr-url must be an absolute URI")
+		}
+	}
 	repositoryURI, _, err := discoverRepository(ctx, *repoDir, *repository, *allowLocalRepository, *allowRepositoryMismatch)
 	if err != nil {
 		return err
 	}
-	for _, dir := range []string{"___diffs", "___approvals", filepath.Join("___review", "threads"), filepath.Join("___review", "diffs")} {
-		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
-			return err
-		}
-	}
 	manifest := saga.Manifest{Schema: saga.SchemaURL, Version: saga.CurrentVersion, ID: *id, Title: *title, Source: saga.Source{Repository: repositoryURI, Base: *base, Head: *head}}
 	if *prNumber != 0 || *prURL != "" {
-		manifest.PR = &saga.PR{Number: *prNumber, URL: *prURL}
+		manifest.PR = &saga.PR{URL: *prURL}
+		if *prNumber != 0 {
+			manifest.PR.Number = prNumber
+		}
 	}
-	if err := store.WriteJSON(filepath.Join(root, "saga.json"), manifest, true); err != nil {
+	overview := saga.FragmentManifest{Version: saga.CurrentVersion, ID: *id + "-overview", Title: "Overview", MediaType: "text/markdown", Entrypoint: "content.md"}
+	// A failed init must not leave a half-built .saga behind, because the
+	// directory would then block a retry while never loading.
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
 		return err
 	}
-	if err := createFragment(filepath.Join(root, "overview.fragment"), saga.FragmentManifest{Version: saga.CurrentVersion, ID: *id + "-overview", Title: "Overview", MediaType: "text/markdown", Entrypoint: "content.md"}, "", []byte("Explain the change as a whole. Lead with the context that makes the rest of the saga easier to navigate.\n")); err != nil {
+	// The saga itself is staged and published atomically; its containing
+	// directories are ordinary parents and may be created up front. The parent
+	// is then resolved, because a saga may legitimately live under a symlinked
+	// ancestor such as macOS /tmp even though nothing inside a saga may be a
+	// symlink.
+	if err := os.MkdirAll(filepath.Dir(absRoot), 0o755); err != nil {
+		return err
+	}
+	parent, err := filepath.EvalSymlinks(filepath.Dir(absRoot))
+	if err != nil {
+		return err
+	}
+	err = store.CommitDir(parent, filepath.Join(parent, filepath.Base(absRoot)), func(stage string) error {
+		if err := os.Chmod(stage, 0o755); err != nil {
+			return err
+		}
+		for _, dir := range []string{"___diffs", "___approvals", filepath.Join("___review", "threads"), filepath.Join("___review", "diffs")} {
+			if err := os.MkdirAll(filepath.Join(stage, dir), 0o755); err != nil {
+				return err
+			}
+		}
+		if err := store.WriteJSON(filepath.Join(stage, "saga.json"), manifest, true); err != nil {
+			return err
+		}
+		return populateFragment(filepath.Join(stage, "overview.fragment"), overview, "", []byte("Explain the change as a whole. Lead with the context that makes the rest of the saga easier to navigate.\n"))
+	})
+	if errors.Is(err, fs.ErrExist) {
+		return fmt.Errorf("%s already exists", root)
+	}
+	if err != nil {
 		return err
 	}
 	fmt.Fprintf(out, "Created %s\nNext: change-saga add-chapter --title \"Architecture\" %s architecture\n", root, root)
@@ -146,45 +184,54 @@ func AddChapter(_ context.Context, args []string, out io.Writer) error {
 	if flags.NArg() != 2 {
 		return fmt.Errorf("usage: change-saga add-chapter [flags] <saga> <name>")
 	}
-	document, _, err := saga.Load(flags.Arg(0))
-	if err != nil {
-		return err
-	}
 	name := strings.TrimSuffix(flags.Arg(1), ".chapter")
 	if name == "" || name == "." || name == ".." || filepath.IsAbs(name) || filepath.Clean(name) != name || filepath.Base(name) != name || strings.HasPrefix(name, "___") {
 		return fmt.Errorf("chapter name must be a single non-reserved path component")
 	}
-	if *title == "" {
-		*title = strings.ReplaceAll(name, "-", " ")
-	}
-	if *id == "" {
-		*id = store.Slug(name)
-	}
-	overviewID := *id + "-overview"
-	if !saga.ValidID(*id) || !saga.ValidID(overviewID) || targetIDExists(document, *id) || targetIDExists(document, overviewID) {
-		return fmt.Errorf("chapter id %q or its overview id is invalid or already used", *id)
-	}
-	dir := filepath.Join(document.Root, store.Slug(name)+".chapter")
-	if _, err := os.Stat(dir); err == nil {
-		return fmt.Errorf("chapter %s already exists", filepath.Base(dir))
-	} else if !os.IsNotExist(err) {
-		return err
-	}
-	for _, reserved := range []string{"___diffs", "___approvals"} {
-		if err := os.MkdirAll(filepath.Join(dir, reserved), 0o755); err != nil {
-			return err
+	var created string
+	err := authorMutation(flags.Arg(0), func(document *saga.Saga) error {
+		chapterTitle, chapterID := *title, *id
+		if chapterTitle == "" {
+			chapterTitle = strings.ReplaceAll(name, "-", " ")
 		}
-	}
-	manifest := saga.ChapterManifest{Version: saga.CurrentVersion, ID: *id, Title: *title, Order: *order}
-	if err := store.WriteJSON(filepath.Join(dir, "chapter.json"), manifest, true); err != nil {
+		if chapterID == "" {
+			chapterID = store.Slug(name)
+		}
+		overviewID := chapterID + "-overview"
+		if !saga.ValidID(chapterID) || !saga.ValidID(overviewID) || targetIDExists(document, chapterID) || targetIDExists(document, overviewID) {
+			return fmt.Errorf("chapter id %q or its overview id is invalid or already used", chapterID)
+		}
+		dir := filepath.Join(document.Root, store.Slug(name)+".chapter")
+		manifest := saga.ChapterManifest{Version: saga.CurrentVersion, ID: chapterID, Title: chapterTitle, Order: *order}
+		overview := saga.FragmentManifest{Version: saga.CurrentVersion, ID: overviewID, Title: "Chapter overview", MediaType: "text/markdown", Entrypoint: "content.md"}
+		content := []byte("Explain this chapter as an independently reviewable change. Describe its boundary, behavior, and risks.\n")
+		// One staged rename: a failed chapter never leaves a manifest-less
+		// directory behind that would invalidate the saga for every later
+		// command.
+		err := store.CommitDir(document.Root, dir, func(stage string) error {
+			if err := os.Chmod(stage, 0o755); err != nil {
+				return err
+			}
+			for _, reserved := range []string{"___diffs", "___approvals"} {
+				if err := os.Mkdir(filepath.Join(stage, reserved), 0o755); err != nil {
+					return err
+				}
+			}
+			if err := store.WriteJSON(filepath.Join(stage, "chapter.json"), manifest, true); err != nil {
+				return err
+			}
+			return populateFragment(filepath.Join(stage, "overview.fragment"), overview, "", content)
+		})
+		if errors.Is(err, fs.ErrExist) {
+			return fmt.Errorf("chapter %s already exists", filepath.Base(dir))
+		}
+		created = filepath.Base(dir)
+		return err
+	})
+	if err != nil {
 		return err
 	}
-	overview := saga.FragmentManifest{Version: saga.CurrentVersion, ID: overviewID, Title: "Chapter overview", MediaType: "text/markdown", Entrypoint: "content.md"}
-	content := []byte("Explain this chapter as an independently reviewable change. Describe its boundary, behavior, and risks.\n")
-	if err := createFragment(filepath.Join(dir, "overview.fragment"), overview, "", content); err != nil {
-		return err
-	}
-	fmt.Fprintf(out, "Added chapter %s\n", filepath.Base(dir))
+	fmt.Fprintf(out, "Added chapter %s\n", created)
 	return nil
 }
 
@@ -200,41 +247,45 @@ func AddSection(_ context.Context, args []string, out io.Writer) error {
 	if flags.NArg() != 2 {
 		return fmt.Errorf("usage: change-saga add-section [flags] <saga> <section/path>")
 	}
-	document, _, err := saga.Load(flags.Arg(0))
-	if err != nil {
-		return err
-	}
 	sectionPath := filepath.Clean(flags.Arg(1))
 	parentPath, name := filepath.Dir(sectionPath), filepath.Base(sectionPath)
 	if parentPath == "." || name == "." || strings.HasPrefix(name, "___") || strings.HasSuffix(name, ".chapter") || strings.HasSuffix(name, ".fragment") {
 		return fmt.Errorf("sections must be created inside an existing chapter or section")
 	}
-	parentDir, _, err := resolveTarget(document, parentPath, false)
-	if err != nil {
-		return fmt.Errorf("resolve parent: %w", err)
-	}
-	dir := filepath.Join(parentDir, name)
-	if _, err := os.Stat(dir); err == nil {
-		return fmt.Errorf("section %s already exists", flags.Arg(1))
-	} else if !os.IsNotExist(err) {
-		return err
-	}
-	if *title == "" {
-		*title = strings.ReplaceAll(filepath.Base(dir), "-", " ")
-	}
-	if *id == "" {
-		*id = store.Slug(strings.ReplaceAll(filepath.ToSlash(flags.Arg(1)), "/", "-"))
-	}
-	if !saga.ValidID(*id) || targetIDExists(document, *id) {
-		return fmt.Errorf("section id %q is invalid or already used", *id)
-	}
-	for _, reserved := range []string{"___diffs", "___approvals"} {
-		if err := os.MkdirAll(filepath.Join(dir, reserved), 0o755); err != nil {
-			return err
+	err := authorMutation(flags.Arg(0), func(document *saga.Saga) error {
+		parentDir, _, err := resolveTarget(document, parentPath, false)
+		if err != nil {
+			return fmt.Errorf("resolve parent: %w", err)
 		}
-	}
-	manifest := saga.SectionManifest{Version: saga.CurrentVersion, ID: *id, Title: *title, Order: *order}
-	if err := store.WriteJSON(filepath.Join(dir, "section.json"), manifest, true); err != nil {
+		dir := filepath.Join(parentDir, name)
+		sectionTitle, sectionID := *title, *id
+		if sectionTitle == "" {
+			sectionTitle = strings.ReplaceAll(name, "-", " ")
+		}
+		if sectionID == "" {
+			sectionID = store.Slug(strings.ReplaceAll(filepath.ToSlash(flags.Arg(1)), "/", "-"))
+		}
+		if !saga.ValidID(sectionID) || targetIDExists(document, sectionID) {
+			return fmt.Errorf("section id %q is invalid or already used", sectionID)
+		}
+		manifest := saga.SectionManifest{Version: saga.CurrentVersion, ID: sectionID, Title: sectionTitle, Order: *order}
+		err = store.CommitDir(document.Root, dir, func(stage string) error {
+			if err := os.Chmod(stage, 0o755); err != nil {
+				return err
+			}
+			for _, reserved := range []string{"___diffs", "___approvals"} {
+				if err := os.Mkdir(filepath.Join(stage, reserved), 0o755); err != nil {
+					return err
+				}
+			}
+			return store.WriteJSON(filepath.Join(stage, "section.json"), manifest, true)
+		})
+		if errors.Is(err, fs.ErrExist) {
+			return fmt.Errorf("section %s already exists", flags.Arg(1))
+		}
+		return err
+	})
+	if err != nil {
 		return err
 	}
 	fmt.Fprintf(out, "Added section %s\n", filepath.ToSlash(flags.Arg(1)))
@@ -259,49 +310,49 @@ func AddFragment(_ context.Context, args []string, out io.Writer) error {
 	if flags.NArg() != 1 {
 		return fmt.Errorf("usage: change-saga add-fragment [flags] <saga>")
 	}
-	document, _, err := saga.Load(flags.Arg(0))
-	if err != nil {
-		return err
-	}
-	sectionDir, _, err := resolveTarget(document, *section, false)
-	if err != nil {
-		return err
-	}
-	if *name == "" {
-		*name = store.Slug(firstNonEmpty(*title, *id, *kind))
-	}
-	if *id == "" {
-		*id = store.Slug(document.Manifest.ID + "-" + strings.ReplaceAll(filepath.ToSlash(*section), "/", "-") + "-" + *name)
-	}
-	if !saga.ValidID(*id) || targetIDExists(document, *id) {
-		return fmt.Errorf("fragment id %q is invalid or already used", *id)
-	}
-	fragmentDir := filepath.Join(sectionDir, store.Slug(*name)+".fragment")
-	if _, err := os.Stat(fragmentDir); err == nil {
-		return fmt.Errorf("fragment %s already exists", fragmentDir)
-	}
 	entrypoint, content, resolvedType, err := fragmentContent(*kind, *mediaType, *source)
 	if err != nil {
 		return err
 	}
 	if *entrypointFlag != "" {
-		if filepath.Clean(*entrypointFlag) != *entrypointFlag {
-			return fmt.Errorf("entrypoint must be a normalized fragment-relative path")
-		}
-		entrypoint = *entrypointFlag
+		entrypoint = filepath.ToSlash(*entrypointFlag)
 	}
-	if filepath.IsAbs(entrypoint) || entrypoint == ".." || strings.HasPrefix(entrypoint, ".."+string(filepath.Separator)) || filepath.Clean(entrypoint) != entrypoint {
-		return fmt.Errorf("entrypoint must be a normalized fragment-relative path")
+	if reason := saga.EntrypointError(entrypoint); reason != "" {
+		return fmt.Errorf("%s", reason)
 	}
-	if !supportedMediaType(resolvedType) {
+	if !saga.ValidMediaType(resolvedType) {
 		return fmt.Errorf("unsupported fragment media type %q", resolvedType)
 	}
-	manifest := saga.FragmentManifest{Version: saga.CurrentVersion, ID: *id, Title: *title, MediaType: resolvedType, Entrypoint: entrypoint, Order: *order}
-	if err := createFragment(fragmentDir, manifest, *source, content); err != nil {
+	var created string
+	err = authorMutation(flags.Arg(0), func(document *saga.Saga) error {
+		sectionDir, _, err := resolveTarget(document, *section, false)
+		if err != nil {
+			return err
+		}
+		fragmentName, fragmentID := *name, *id
+		if fragmentName == "" {
+			fragmentName = store.Slug(firstNonEmpty(*title, fragmentID, *kind))
+		}
+		if fragmentID == "" {
+			fragmentID = store.Slug(document.Manifest.ID + "-" + strings.ReplaceAll(filepath.ToSlash(*section), "/", "-") + "-" + fragmentName)
+		}
+		if !saga.ValidID(fragmentID) || targetIDExists(document, fragmentID) {
+			return fmt.Errorf("fragment id %q is invalid or already used", fragmentID)
+		}
+		fragmentDir := filepath.Join(sectionDir, store.Slug(fragmentName)+".fragment")
+		manifest := saga.FragmentManifest{Version: saga.CurrentVersion, ID: fragmentID, Title: *title, MediaType: resolvedType, Entrypoint: entrypoint, Order: *order}
+		err = createFragment(document.Root, fragmentDir, manifest, *source, content)
+		if errors.Is(err, fs.ErrExist) {
+			return fmt.Errorf("fragment %s already exists", fragmentDir)
+		}
+		rel, _ := filepath.Rel(document.Root, fragmentDir)
+		created = filepath.ToSlash(rel)
+		return err
+	})
+	if err != nil {
 		return err
 	}
-	rel, _ := filepath.Rel(document.Root, fragmentDir)
-	fmt.Fprintf(out, "Added fragment %s\n", filepath.ToSlash(rel))
+	fmt.Fprintf(out, "Added fragment %s\n", created)
 	return nil
 }
 
@@ -336,10 +387,6 @@ func Cover(ctx context.Context, args []string, out io.Writer) error {
 		return fmt.Errorf("usage: change-saga cover [flags] <saga>")
 	}
 	document, _, err := saga.Load(flags.Arg(0))
-	if err != nil {
-		return err
-	}
-	targetDir, _, err := resolveTarget(document, *target, true)
 	if err != nil {
 		return err
 	}
@@ -395,16 +442,30 @@ func Cover(ctx context.Context, args []string, out io.Writer) error {
 	if *name == "" {
 		*name = store.Slug(firstNonEmpty(*path, *event, "diff") + "-" + store.EventID(time.Now()))
 	}
-	diffDir, err := store.EnsureDirWithin(document.Root, filepath.Join(targetDir, "___diffs"))
-	if err != nil {
+	// The Git comparison is read before the lock is taken so a slow diff does
+	// not stall other writers; only target resolution and the record write are
+	// serialized.
+	var created string
+	if err := authorMutation(flags.Arg(0), func(locked *saga.Saga) error {
+		targetDir, _, err := resolveTarget(locked, *target, true)
+		if err != nil {
+			return err
+		}
+		diffDir, err := store.EnsureDirWithin(locked.Root, filepath.Join(targetDir, "___diffs"))
+		if err != nil {
+			return err
+		}
+		targetPath := filepath.Join(diffDir, store.Slug(*name)+".json")
+		if err := store.WriteJSON(targetPath, file, true); err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(locked.Root, targetPath)
+		created = filepath.ToSlash(rel)
+		return nil
+	}); err != nil {
 		return err
 	}
-	targetPath := filepath.Join(diffDir, store.Slug(*name)+".json")
-	if err := store.WriteJSON(targetPath, file, true); err != nil {
-		return err
-	}
-	rel, _ := filepath.Rel(document.Root, targetPath)
-	fmt.Fprintf(out, "Added %s\n", filepath.ToSlash(rel))
+	fmt.Fprintf(out, "Added %s\n", created)
 	return nil
 }
 
@@ -857,14 +918,31 @@ func targetIDExists(document *saga.Saga, id string) bool {
 	return found
 }
 
-func createFragment(dir string, manifest saga.FragmentManifest, source string, content []byte) error {
+// createFragment publishes a complete fragment package with one rename. A
+// fragment that is missing its entrypoint invalidates the whole saga, so a
+// half-written package must never become visible under its final name.
+func createFragment(root, dir string, manifest saga.FragmentManifest, source string, content []byte) error {
+	return store.CommitDir(root, dir, func(stage string) error {
+		if err := os.Chmod(stage, 0o755); err != nil {
+			return err
+		}
+		return populateFragment(stage, manifest, source, content)
+	})
+}
+
+// populateFragment fills an already-created directory. Callers that are
+// themselves staging a larger entity reuse it directly.
+func populateFragment(dir string, manifest saga.FragmentManifest, source string, content []byte) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 	if err := store.WriteJSON(filepath.Join(dir, "fragment.json"), manifest, true); err != nil {
 		return err
 	}
-	target := filepath.Join(dir, manifest.Entrypoint)
+	target := filepath.Join(dir, filepath.FromSlash(manifest.Entrypoint))
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return err
+	}
 	if source != "" {
 		info, err := os.Stat(source)
 		if err != nil {
@@ -886,6 +964,19 @@ func createFragment(dir string, manifest saga.FragmentManifest, source string, c
 		return os.WriteFile(target, data, 0o644)
 	}
 	return os.WriteFile(target, content, 0o644)
+}
+
+// authorMutation serializes an authoring write against every other supported
+// writer and re-resolves the saga under that lock, so target resolution cannot
+// go stale between the read and the commit.
+func authorMutation(root string, operation func(*saga.Saga) error) error {
+	return store.WithSagaLock(root, store.DefaultLockTimeout, func() error {
+		document, _, err := saga.Load(root)
+		if err != nil {
+			return err
+		}
+		return operation(document)
+	})
 }
 
 func fragmentContent(kind, explicitType, source string) (string, []byte, string, error) {
@@ -970,10 +1061,6 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
-}
-
-func supportedMediaType(value string) bool {
-	return value == "text/markdown" || value == "text/html" || value == "text/plain" || value == "image/svg+xml" || strings.HasPrefix(value, "image/")
 }
 
 func writeJSON(out io.Writer, value any) error {

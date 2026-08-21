@@ -561,7 +561,7 @@ func openFragmentEntrypoint(fragment *saga.Fragment) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	realPath, err := filepath.EvalSymlinks(filepath.Join(fragment.Directory, fragment.Entrypoint))
+	realPath, err := filepath.EvalSymlinks(filepath.Join(fragment.Directory, filepath.FromSlash(fragment.Entrypoint)))
 	if err != nil {
 		return nil, err
 	}
