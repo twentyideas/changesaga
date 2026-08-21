@@ -60,6 +60,20 @@ func TestEvaluateComplete(t *testing.T) {
 	}
 }
 
+func TestLifecycleAtomCannotYieldFalseCompleteCoverage(t *testing.T) {
+	atom := eventAtom(t, "add", "empty.txt", "", "")
+	document := &saga.Saga{Section: &saga.Section{Target: "urn:change-saga:test:saga"}}
+	report := Evaluate(document, saga.Validation{Valid: true}, gitdiff.ChangeSet{Atoms: []gitdiff.Atom{atom}})
+	if report.Complete || report.Summary.Total != 1 || report.Summary.Uncovered != 1 || len(report.Uncovered) != 1 {
+		t.Fatalf("uncovered empty-file lifecycle was reported complete: %#v", report)
+	}
+	document.Section.Diffs = []saga.DiffFile{{Diffs: []saga.DiffReference{{URI: atom.URI}}}}
+	report = Evaluate(document, saga.Validation{Valid: true}, gitdiff.ChangeSet{Atoms: []gitdiff.Atom{atom}})
+	if !report.Complete || report.Summary.Covered != 1 {
+		t.Fatalf("covered lifecycle event was not complete: %#v", report)
+	}
+}
+
 func TestEvaluateLandmarkDiffs(t *testing.T) {
 	atom := lineAtom(t, "app.go", "new", 12)
 	landmarkTarget := saga.LandmarkTarget("test", "flow", "submit-action")
@@ -88,7 +102,11 @@ func eventAtom(t *testing.T, event, path, oldPath, newPath string) gitdiff.Atom 
 	t.Helper()
 	atom := gitdiff.Atom{Kind: "event", Event: event, Path: path, OldPath: oldPath, NewPath: newPath}
 	atom.Key = gitdiff.Key(atom)
-	atom.URI = buildURI(t, diffuri.Reference{Repository: testRepository, Base: testBase, Head: testHead, Kind: "event", Event: event, Path: path, OldPath: oldPath, NewPath: newPath})
+	reference := diffuri.Reference{Repository: testRepository, Base: testBase, Head: testHead, Kind: "event", Event: event, Path: path, OldPath: oldPath, NewPath: newPath}
+	if event == "rename" {
+		reference.Path = ""
+	}
+	atom.URI = buildURI(t, reference)
 	return atom
 }
 

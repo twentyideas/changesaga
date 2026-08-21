@@ -23,7 +23,12 @@
       "additionalProperties": false,
       "required": ["repository", "base", "head"],
       "properties": {
-        "repository": { "type": "string", "format": "uri" },
+        "repository": {
+          "type": "string",
+          "format": "uri",
+          "not": { "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://[^/?#]*@" },
+          "description": "Canonical absolute repository identity without URL userinfo credentials."
+        },
         "base": { "type": "string", "minLength": 1 },
         "head": { "type": "string", "minLength": 1 }
       }

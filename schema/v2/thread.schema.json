@@ -124,7 +124,11 @@
               "additionalProperties": false,
               "required": ["uri"],
               "properties": {
-                "uri": { "type": "string", "pattern": "^saga-diff://v1/(line|event)\\?" }
+                "uri": {
+                  "type": "string",
+                  "pattern": "^saga-diff://v1/(line|event)\\?",
+                  "description": "Canonical absolute line or file-event diff URI."
+                }
               }
             }
           }

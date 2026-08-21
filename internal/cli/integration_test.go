@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/change-saga/change-saga/internal/diffuri"
 	"github.com/change-saga/change-saga/internal/saga"
 )
 
@@ -17,6 +18,7 @@ func TestAuthoringLoopAgainstGitDiff(t *testing.T) {
 	git(t, repo, "init", "-b", "main")
 	git(t, repo, "config", "user.name", "Test Author")
 	git(t, repo, "config", "user.email", "test@example.test")
+	git(t, repo, "remote", "add", "origin", "https://example.test/acme/app.git")
 	writeFile(t, filepath.Join(repo, "README.md"), "base\n")
 	git(t, repo, "add", "README.md")
 	git(t, repo, "commit", "-m", "base")
@@ -41,18 +43,21 @@ func TestAuthoringLoopAgainstGitDiff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Summary.Total != 3 || report.Complete {
-		t.Fatalf("expected three uncovered lines: %#v", report.Summary)
+	if report.Summary.Total != 4 || report.Complete {
+		t.Fatalf("expected an uncovered add event and three lines: %#v", report.Summary)
 	}
 	output.Reset()
 	if err := Cover(context.Background(), []string{"--repo", repo, "--target", "overview.fragment", "--path", "app.go", "--side", "new", "--lines", "1-3", root}, &output); err != nil {
+		t.Fatal(err)
+	}
+	if err := Cover(context.Background(), []string{"--repo", repo, "--target", "overview.fragment", "--path", "app.go", "--event", "add", root}, &output); err != nil {
 		t.Fatal(err)
 	}
 	report, err = buildReport(context.Background(), root, repo)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !report.Complete || report.Summary.Covered != 3 {
+	if !report.Complete || report.Summary.Covered != 4 {
 		t.Fatalf("expected complete report: %#v", report)
 	}
 	if len(report.Targets) != 1 || !strings.Contains(report.Targets[0].Target, ":fragment:") {
@@ -127,6 +132,98 @@ func TestInstallSkillPrintsPortableAuthoringContract(t *testing.T) {
 	}
 	if err := InstallSkill([]string{"unexpected"}, &output); err == nil {
 		t.Fatal("install-skill accepted positional arguments")
+	}
+}
+
+func TestInitRequiresPortableRepositoryOrExplicitLocalOptIn(t *testing.T) {
+	repo := t.TempDir()
+	git(t, repo, "init", "-b", "main")
+	git(t, repo, "config", "user.name", "Test Author")
+	git(t, repo, "config", "user.email", "test@example.test")
+	writeFile(t, filepath.Join(repo, "README.md"), "base\n")
+	git(t, repo, "add", ".")
+	git(t, repo, "commit", "-m", "base")
+	var output bytes.Buffer
+	root := filepath.Join(t.TempDir(), "portable.saga")
+	if err := Init(context.Background(), []string{"--repo", repo, root}, &output); err == nil || !strings.Contains(err.Error(), "portable --repository") {
+		t.Fatalf("Init without origin should require a deliberate identity: %v", err)
+	}
+	if err := Init(context.Background(), []string{"--repo", repo, "--allow-local-repository", root}, &output); err != nil {
+		t.Fatal(err)
+	}
+	document, _, err := saga.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(document.Manifest.Source.Repository, "file://") {
+		t.Fatalf("local opt-in did not record a file URI: %q", document.Manifest.Source.Repository)
+	}
+}
+
+func TestRepositoryDiscoveryCanonicalizesCredentialsAndChecksMismatch(t *testing.T) {
+	repo := t.TempDir()
+	git(t, repo, "init", "-b", "main")
+	git(t, repo, "remote", "add", "origin", "https://user:secret@EXAMPLE.TEST/acme/app.git/")
+	repository, _, err := discoverRepository(context.Background(), repo, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if repository != "https://example.test/acme/app.git" || strings.Contains(repository, "user") || strings.Contains(repository, "secret") {
+		t.Fatalf("origin was not safely canonicalized: %q", repository)
+	}
+	if _, _, err := discoverRepository(context.Background(), repo, "https://example.test/other/repo.git"); err == nil {
+		t.Fatal("mismatched declared repository was accepted")
+	}
+	overridden, _, err := discoverRepository(context.Background(), repo, "https://example.test/other/repo.git", false, true)
+	if err != nil || overridden != "https://example.test/other/repo.git" {
+		t.Fatalf("explicit mismatch override failed: %q %v", overridden, err)
+	}
+}
+
+func TestNormalizeRepositoryURIStripsSCPUser(t *testing.T) {
+	got, err := normalizeRepositoryURI("git@example.test:acme/app.git", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "ssh://example.test/acme/app.git" {
+		t.Fatalf("normalized repository = %q", got)
+	}
+}
+
+func TestRepositoryDiscoveryRequiresOptInForLocalOrigin(t *testing.T) {
+	repo := t.TempDir()
+	git(t, repo, "init", "-b", "main")
+	localOrigin := t.TempDir()
+	git(t, repo, "remote", "add", "origin", localOrigin)
+	if _, _, err := discoverRepository(context.Background(), repo, ""); err == nil || !strings.Contains(err.Error(), "local file repository") {
+		t.Fatalf("local origin was persisted without opt-in: %v", err)
+	}
+	repository, _, err := discoverRepository(context.Background(), repo, "", true)
+	if err != nil || !strings.HasPrefix(repository, "file://") {
+		t.Fatalf("local origin opt-in failed: %q %v", repository, err)
+	}
+}
+
+func TestCoverRejectsURIForDifferentRepository(t *testing.T) {
+	repo := t.TempDir()
+	git(t, repo, "init", "-b", "main")
+	git(t, repo, "config", "user.name", "Test Author")
+	git(t, repo, "config", "user.email", "test@example.test")
+	writeFile(t, filepath.Join(repo, "README.md"), "base\n")
+	git(t, repo, "add", ".")
+	git(t, repo, "commit", "-m", "base")
+	root := filepath.Join(t.TempDir(), "different.saga")
+	var output bytes.Buffer
+	if err := Init(context.Background(), []string{"--repo", repo, "--repository", "https://example.test/acme/source.git", root}, &output); err != nil {
+		t.Fatal(err)
+	}
+	uri, err := diffuri.Build(diffuri.Reference{Repository: "https://example.test/acme/other.git", Base: "a", Head: "b", Kind: "event", Event: "add", Path: "empty.txt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = Cover(context.Background(), []string{"--uri", uri, root}, &output)
+	if err == nil || !strings.Contains(err.Error(), "does not match saga source repository") {
+		t.Fatalf("foreign repository URI was accepted: %v", err)
 	}
 }
 

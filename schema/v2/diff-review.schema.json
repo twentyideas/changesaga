@@ -8,7 +8,11 @@
   "properties": {
     "version": { "const": 2 },
     "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
-    "uri": { "type": "string", "pattern": "^saga-diff://v1/file\\?" },
+    "uri": {
+      "type": "string",
+      "pattern": "^saga-diff://v1/file\\?",
+      "description": "Canonical absolute file-review URI; file URIs are not coverage atoms."
+    },
     "author": { "type": "string", "minLength": 1 },
     "state": { "enum": ["reviewed", "unreviewed"] },
     "created_at": { "type": "string", "format": "date-time" }
