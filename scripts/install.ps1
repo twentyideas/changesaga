@@ -98,6 +98,7 @@ if ($InstallDir.Contains(';')) {
 $WorkDir = Join-Path ([IO.Path]::GetTempPath()) ("change-saga-install-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $WorkDir | Out-Null
 $Staged = $null
+$Backup = $null
 
 try {
     $ArchivePath = Join-Path $WorkDir $ArchiveName
@@ -222,15 +223,26 @@ try {
     try {
         if ([IO.File]::Exists($Destination)) {
             # File.Replace is an atomic same-volume swap and preserves the existing
-            # binary if replacement fails.
-            [IO.File]::Replace($Staged, $Destination, $null)
+            # binary if replacement fails. PowerShell 5.1 converts a null backup
+            # path to an empty string, so provide a real same-directory backup.
+            $Backup = Join-Path $InstallDir (".change-saga.backup." + [guid]::NewGuid().ToString("N") + ".exe")
+            [IO.File]::Replace($Staged, $Destination, $Backup)
         } else {
             [IO.File]::Move($Staged, $Destination)
         }
     } catch {
+        # File.Replace is atomic, but retain an explicit recovery path in case a
+        # filesystem reports failure after moving the original into the backup.
+        if ($Backup -and [IO.File]::Exists($Backup) -and -not [IO.File]::Exists($Destination)) {
+            try { [IO.File]::Move($Backup, $Destination) } catch { }
+        }
         Fail "could not atomically replace ${Destination}: $($_.Exception.Message)"
     }
     $Staged = $null
+    if ($Backup -and (Test-Path -LiteralPath $Backup)) {
+        Remove-Item -LiteralPath $Backup -Force -ErrorAction SilentlyContinue
+    }
+    $Backup = $null
 
     if (-not $NoPathUpdate) {
         $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
@@ -263,6 +275,9 @@ try {
 } finally {
     if ($Staged -and (Test-Path -LiteralPath $Staged)) {
         Remove-Item -LiteralPath $Staged -Force -ErrorAction SilentlyContinue
+    }
+    if ($Backup -and (Test-Path -LiteralPath $Backup) -and (Test-Path -LiteralPath $Destination)) {
+        Remove-Item -LiteralPath $Backup -Force -ErrorAction SilentlyContinue
     }
     if (Test-Path -LiteralPath $WorkDir) {
         Remove-Item -LiteralPath $WorkDir -Recurse -Force -ErrorAction SilentlyContinue
