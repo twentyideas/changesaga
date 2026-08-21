@@ -157,6 +157,7 @@ type queryHelp struct {
 
 type queryPaginationDescription struct {
 	Kind           string `json:"kind"`
+	CountedPath    string `json:"counted_path,omitempty"`
 	TotalPath      string `json:"total_path,omitempty"`
 	ReturnedPath   string `json:"returned_path,omitempty"`
 	HasMorePath    string `json:"has_more_path,omitempty"`
@@ -345,12 +346,22 @@ func querySchemaFor(operation string) querySchemaDescription {
 		"claims":         {"data.claims"},
 		"verifications":  {"data.verifications"},
 	}
+	countedPaths := map[string]string{
+		"children":       "data.children",
+		"fragment-diffs": "data.selectors",
+		"diff-owners":    "data.atoms",
+		"reviews":        "data.items",
+		"gaps":           "data.gaps",
+		"mappings":       "data.mappings",
+		"claims":         "data.claims",
+		"verifications":  "data.verifications",
+	}
 	pagination := queryPaginationDescription{Kind: "none"}
 	if operation == "fragment" {
 		pagination = queryPaginationDescription{Kind: "byte-offset", NextOffsetPath: "data.content.next_offset"}
 	} else if operation != "overview" {
 		pagination = queryPaginationDescription{
-			Kind: "cursor", TotalPath: "page.total", ReturnedPath: "page.returned",
+			Kind: "cursor", CountedPath: countedPaths[operation], TotalPath: "page.total", ReturnedPath: "page.returned",
 			HasMorePath: "page.has_more", NextCursorPath: "page.next_cursor",
 		}
 	}

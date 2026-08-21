@@ -25,7 +25,7 @@ func AddLandmark(_ context.Context, args []string, out io.Writer) error {
 	label := flags.String("label", "", "reviewer-facing landmark label")
 	description := flags.String("description", "", "semantic explanation for AI and non-visual consumers")
 	elementID := flags.String("element-id", "", "id of an element in an HTML or SVG fragment")
-	headingID := flags.String("heading-id", "", "explicit Markdown heading anchor")
+	headingID := flags.String("heading-id", "", "explicit Markdown heading anchor; must equal --id when --id is provided")
 	exact := flags.String("text", "", "exact text to mark in a Markdown or text fragment")
 	prefix := flags.String("prefix", "", "text immediately before --text, for disambiguation")
 	suffix := flags.String("suffix", "", "text immediately after --text, for disambiguation")

@@ -10,6 +10,15 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+### Changed
+
+- Query schemas now expose `pagination.counted_path`, identifying the response
+  collection described by `page.total` and `page.returned`. This disambiguates
+  multi-collection responses such as `fragment-diffs`, whose selector page also
+  contains derived atom and stale-selector arrays.
+- `change-saga add-landmark --help` now states that a heading landmark's
+  explicit `--id` must equal its `--heading-id`.
+
 ## [0.0.3] - 2026-08-21
 
 ### Added

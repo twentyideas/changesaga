@@ -197,7 +197,10 @@ pagination kind and continuation fields. Operation-specific `--help` includes
 the same paths. Cursor pages expose `page.total`, `page.returned`,
 `page.has_more`, and `page.next_cursor`; consumers must follow the cursor while
 `has_more` is true. `total` is the size of the filtered result at the response
-snapshot, not merely the current page.
+snapshot, not merely the current page. The schema's
+`pagination.counted_path` identifies the collection that `page.total` and
+`page.returned` count. Other collections in the response may be derived from
+that page and must not be compared with those counts.
 
 The operations are:
 
@@ -260,7 +263,9 @@ Text is UTF-8; binary data is base64. Reads are chunked and capped. An
 supporting HTML/SVG assets. The AI read path never executes active content.
 
 `fragment-diffs` returns both the committed selectors and their resolution for
-any saga, chapter, section, fragment, or landmark target:
+any saga, chapter, section, fragment, or landmark target. It paginates
+`data.selectors`; `data.atoms` and `data.stale` are the resolution of the
+selectors returned on that page:
 
 ```json
 {

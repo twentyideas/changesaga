@@ -259,12 +259,12 @@ func TestQueryHelpNeverOpensSessionAndAlwaysUsesOneEnvelope(t *testing.T) {
 }
 
 func TestQuerySchemaDescribesEveryResponseWithoutOpeningSession(t *testing.T) {
-	wantPaths := map[string]string{
+	wantCountedPaths := map[string]string{
 		"overview": "data.coverage", "children": "data.children", "fragment": "data.content.data",
 		"fragment-diffs": "data.selectors", "diff-owners": "data.atoms", "reviews": "data.items",
 		"gaps": "data.gaps", "mappings": "data.mappings", "claims": "data.claims", "verifications": "data.verifications",
 	}
-	for operation, wantPath := range wantPaths {
+	for operation, wantPath := range wantCountedPaths {
 		t.Run(operation, func(t *testing.T) {
 			var out bytes.Buffer
 			if err := queryWithOpener(context.Background(), []string{"schema", operation}, &out, failIfOpened(t)); err != nil {
@@ -285,8 +285,10 @@ func TestQuerySchemaDescribesEveryResponseWithoutOpeningSession(t *testing.T) {
 				t.Fatalf("schema paths = %#v, want %q", paths, wantPath)
 			}
 			pagination, _ := description["pagination"].(map[string]any)
-			if operation != "overview" && operation != "fragment" && pagination["total_path"] != "page.total" {
-				t.Fatalf("pagination contract = %#v", pagination)
+			if operation != "overview" && operation != "fragment" {
+				if pagination["total_path"] != "page.total" || pagination["counted_path"] != wantPath {
+					t.Fatalf("pagination contract = %#v, want counted_path %q", pagination, wantPath)
+				}
 			}
 		})
 	}
@@ -300,7 +302,7 @@ func TestQueryOperationHelpNamesResponsePaths(t *testing.T) {
 	var envelope queryEnvelope
 	decodeOneJSONValue(t, out.Bytes(), &envelope)
 	help := envelope.Data.(map[string]any)
-	if !strings.Contains(fmt.Sprint(help["data_paths"]), "data.gaps") || !strings.Contains(fmt.Sprint(help["pagination"]), "page.total") {
+	if !strings.Contains(fmt.Sprint(help["data_paths"]), "data.gaps") || !strings.Contains(fmt.Sprint(help["pagination"]), "page.total") || !strings.Contains(fmt.Sprint(help["pagination"]), "data.gaps") {
 		t.Fatalf("operation help is not self-describing: %#v", help)
 	}
 }

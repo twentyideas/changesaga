@@ -61,6 +61,17 @@ func TestAddLandmarkMakesDiagramElementsCoverable(t *testing.T) {
 	}
 }
 
+func TestAddLandmarkHelpExplainsHeadingIDInvariant(t *testing.T) {
+	var output bytes.Buffer
+	if err := AddLandmark(context.Background(), []string{"-h"}, &output); err == nil {
+		t.Fatal("-h must report flag.ErrHelp")
+	}
+	text := output.String()
+	if !strings.Contains(text, "-heading-id") || !strings.Contains(text, "must equal --id") {
+		t.Fatalf("add-landmark -h omitted the heading id invariant:\n%s", text)
+	}
+}
+
 func TestAddLandmarkRejectsMissingElementsWithoutPartialMetadata(t *testing.T) {
 	root := newAuthoredSaga(t)
 	source := filepath.Join(t.TempDir(), "map.svg")

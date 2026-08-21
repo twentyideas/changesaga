@@ -65,9 +65,10 @@ source repository is separate. The one exception is `change-saga query schema
 contract without opening a saga. Use it instead of probing or guessing response
 shapes. Each invocation writes exactly one JSON envelope with `schema`, `ok`,
 `snapshot`, `data`, and `page`; failures carry `error.code`. Branch on `ok` and
-`error.code`; never parse message text. For cursor-paginated operations, compare
-`page.returned` with `page.total` and follow `page.next_cursor` while
-`page.has_more` is true. Do not raise `--limit` to silently swallow a partial
+`error.code`; never parse message text. For cursor-paginated operations, the
+current page length at `pagination.counted_path` must equal `page.returned`.
+Follow `page.next_cursor` while `page.has_more` is true, and confirm the
+aggregate count equals `page.total`. Do not raise `--limit` to silently swallow a partial
 result. `query
 children` on a fragment lists its landmarks with the target URNs to pass to
 `change-saga cover --target`.
