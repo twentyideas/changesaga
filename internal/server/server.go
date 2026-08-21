@@ -795,37 +795,25 @@ func latestReview(reviews []saga.Review) (string, string, string, string) {
 }
 
 func applyGitAttribution(ctx context.Context, resolver *gitattribution.Resolver, document *saga.Saga) {
-	apply := func(path string, author *string, detail *string) {
-		value := resolver.Resolve(ctx, path)
-		switch value.State {
-		case gitattribution.Committed:
-			*author = value.Name
-			commitID := value.CommitID
-			if len(commitID) > 12 {
-				commitID = commitID[:12]
-			}
-			*detail = fmt.Sprintf("%s · committed %s · %s", value.Email, value.CommittedAt.Format("2006-01-02 15:04 MST"), commitID)
-		case gitattribution.Uncommitted:
-			*author = "Local / uncommitted"
-			*detail = "This review event has not been committed yet."
-		case gitattribution.Rewritten:
-			*author = "History rewritten"
-			*detail = "Git history no longer contains the commit that introduced this review event. Stored legacy identity is not authoritative."
-		default:
-			*author = "Git history unavailable"
-			*detail = "Git attribution is unavailable. Stored legacy identity is not authoritative."
-		}
+	type target struct {
+		path   string
+		author *string
+		detail *string
+	}
+	var targets []target
+	collect := func(path string, author *string, detail *string) {
+		targets = append(targets, target{path: path, author: author, detail: detail})
 	}
 	var walk func(*saga.Section)
 	walk = func(section *saga.Section) {
 		for index := range section.Reviews {
 			review := &section.Reviews[index]
-			apply(review.Path, &review.Author, &review.AttributionDetail)
+			collect(review.Path, &review.Author, &review.AttributionDetail)
 		}
 		for _, fragment := range section.Fragments {
 			for index := range fragment.Reviews {
 				review := &fragment.Reviews[index]
-				apply(review.Path, &review.Author, &review.AttributionDetail)
+				collect(review.Path, &review.Author, &review.AttributionDetail)
 			}
 		}
 		for _, child := range section.Children {
@@ -834,18 +822,43 @@ func applyGitAttribution(ctx context.Context, resolver *gitattribution.Resolver,
 	}
 	walk(document.Section)
 	for _, thread := range document.Threads {
-		apply(filepath.Join(thread.Directory, "thread.json"), &thread.CreatedBy, &thread.AttributionDetail)
+		collect(filepath.Join(thread.Directory, "thread.json"), &thread.CreatedBy, &thread.AttributionDetail)
 		for _, message := range thread.Messages {
-			apply(message.Path, &message.Author, &message.AttributionDetail)
+			collect(message.Path, &message.Author, &message.AttributionDetail)
 		}
 		for index := range thread.Events {
 			event := &thread.Events[index]
-			apply(event.Path, &event.Author, &event.AttributionDetail)
+			collect(event.Path, &event.Author, &event.AttributionDetail)
 		}
 	}
 	for index := range document.DiffReviews {
 		review := &document.DiffReviews[index]
-		apply(review.Path, &review.Author, &review.AttributionDetail)
+		collect(review.Path, &review.Author, &review.AttributionDetail)
+	}
+	paths := make([]string, len(targets))
+	for index, target := range targets {
+		paths[index] = target.path
+	}
+	for index, value := range resolver.ResolveAll(ctx, paths) {
+		target := targets[index]
+		switch value.State {
+		case gitattribution.Committed:
+			*target.author = value.Name
+			commitID := value.CommitID
+			if len(commitID) > 12 {
+				commitID = commitID[:12]
+			}
+			*target.detail = fmt.Sprintf("%s · committed %s · %s", value.Email, value.CommittedAt.Format("2006-01-02 15:04 MST"), commitID)
+		case gitattribution.Uncommitted:
+			*target.author = "Local / uncommitted"
+			*target.detail = "This review event has not been committed yet."
+		case gitattribution.Rewritten:
+			*target.author = "History rewritten"
+			*target.detail = "Git history no longer contains the commit that introduced this review event. Stored legacy identity is not authoritative."
+		default:
+			*target.author = "Git history unavailable"
+			*target.detail = "Git attribution is unavailable. Stored legacy identity is not authoritative."
+		}
 	}
 }
 
