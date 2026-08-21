@@ -149,6 +149,7 @@ func TestWorkspaceTabsAndClosedDrawerCarryAccessibleSemantics(t *testing.T) {
 		"tab.tabIndex = selected ? 0 : -1",
 		"drawer.setAttribute('inert', '')",
 		"removeAttribute('inert')",
+		"openDrawer(drawerButton.dataset.openDiffs, drawerButton)",
 	} {
 		if !strings.Contains(appJavaScript, fragment) {
 			t.Errorf("browser script no longer maintains %q", fragment)

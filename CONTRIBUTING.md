@@ -82,7 +82,7 @@ Docs-only changes still deserve one mechanical pass:
 | Workflow | On | What |
 | --- | --- | --- |
 | [`ci.yml`](.github/workflows/ci.yml) | every push to `main` and every pull request, forks included | `go test` on Linux, macOS, and Windows (with `-race` where a C toolchain exists), `gofmt`, `go vet`, `shellcheck`, workflow lint/action-pin policy, both installer end-to-end tests, and an unsigned build of all six release targets |
-| [`e2e.yml`](.github/workflows/e2e.yml) | every push to `main` and every pull request | Playwright against the real binary and the real server, Chromium by default |
+| [`e2e.yml`](.github/workflows/e2e.yml) | every push to `main` and every pull request | Playwright against the real binary and real server in Chromium, Firefox, and WebKit, including repeated critical mutation flows |
 | [`release.yml`](.github/workflows/release.yml) | `v*` tags and manual dispatch only | the full CI matrix again, checksummed artifacts, and optional Developer ID signing/notarization for macOS; only tag-push runs receive provenance/publish permissions and create the GitHub Release |
 
 `ci.yml` is read-only and uses no secrets, so it runs unchanged on pull requests

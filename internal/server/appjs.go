@@ -721,10 +721,15 @@ const appJavaScript = `(() => {
     setSelectedTool('select');
   }
 
-  function openDrawer(templateID) {
+  function openDrawer(templateID, opener) {
     const source = document.getElementById(templateID);
     if (!source) return;
-    drawerOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // WebKit does not consistently move document.activeElement to a button
+    // before dispatching its click event. Preserve the event's explicit opener
+    // so Escape always restores focus to the control the reviewer activated.
+    drawerOpener = opener instanceof HTMLElement && opener.isConnected
+      ? opener
+      : (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     const body = q('.drawer-body');
     body.innerHTML = source.innerHTML;
     const attached = q('[data-attached-title]', body);
@@ -1476,7 +1481,7 @@ const appJavaScript = `(() => {
     }
     if (event.target.closest('[data-selection-clear]')) { selectionAnchor = null; updateLineSelection([]); return; }
     const drawerButton = event.target.closest('[data-open-diffs]');
-    if (drawerButton) { openDrawer(drawerButton.dataset.openDiffs); return; }
+    if (drawerButton) { openDrawer(drawerButton.dataset.openDiffs, drawerButton); return; }
     if (event.target.closest('[data-close-drawer]')) { closeDrawer(); return; }
     const reviewDecision = event.target.closest('[data-review-decision]');
     if (reviewDecision) { activateReviewDecision(reviewDecision); return; }

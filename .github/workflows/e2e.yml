@@ -5,13 +5,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      browser:
-        description: Browser project to run
-        required: false
-        default: chromium
-        type: choice
-        options: [chromium, firefox, webkit]
 
 permissions:
   contents: read
@@ -23,14 +16,17 @@ concurrency:
 env:
   CI: true
   GOTOOLCHAIN: local
-  # Treat workflow_dispatch inputs as data. Choice inputs can still be supplied
-  # directly through the API, so never interpolate this value into shell source.
-  BROWSER: ${{ github.event.inputs.browser || 'chromium' }}
 
 jobs:
   browser:
-    name: ${{ github.event.inputs.browser || 'chromium' }}
+    name: ${{ matrix.browser }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    env:
+      BROWSER: ${{ matrix.browser }}
     defaults:
       run:
         working-directory: e2e
@@ -67,7 +63,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
-          name: e2e-${{ github.event.inputs.browser || 'chromium' }}-${{ github.run_id }}
+          name: e2e-${{ matrix.browser }}-${{ github.run_id }}
           path: |
             e2e/test-results/
             e2e/playwright-report/
