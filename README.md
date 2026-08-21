@@ -241,7 +241,7 @@ discovering saga metadata paths. Every invocation writes exactly one
 
 ```sh
 change-saga query overview --saga pr-1234.saga
-change-saga query children --saga pr-1234.saga --parent urn:change-saga:checkout:saga:checkout
+change-saga query children --saga pr-1234.saga --parent urn:change-saga:checkout:saga
 change-saga query fragment --saga pr-1234.saga --target urn:change-saga:checkout:fragment:request-flow
 change-saga query gaps --saga pr-1234.saga --kind uncovered
 ```

@@ -16,7 +16,7 @@ func TestRunQueryKeepsMachineOutputOnStdout(t *testing.T) {
 	}{
 		{"help", []string{"query", "--help"}, 0},
 		{"invalid", []string{"query", "overview"}, 2},
-		{"unavailable application", []string{"query", "overview", "--saga", "review.saga"}, 1},
+		{"missing saga", []string{"query", "overview", "--saga", "review.saga"}, 5},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

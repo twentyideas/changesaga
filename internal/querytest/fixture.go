@@ -125,7 +125,7 @@ func (f *Fixture) AddActiveFragments() (htmlTarget, svgTarget string) {
 
 // AddEscapingEntrypointSymlink replaces the overview entrypoint with a link to
 // a secret outside the saga. Session opening must reject this as invalid_saga
-// (or unsafe_path) without returning the secret.
+// without returning the secret.
 func (f *Fixture) AddEscapingEntrypointSymlink() string {
 	f.testing.Helper()
 	outside := filepath.Join(filepath.Dir(f.SagaRepo), "entrypoint-secret.txt")
@@ -142,7 +142,8 @@ func (f *Fixture) AddEscapingEntrypointSymlink() string {
 
 // AddEscapingAssetSymlink adds a non-entrypoint asset link. This distinction is
 // important: the saga loader can remain valid while an asset enumerator still
-// has to omit or reject the escaping link.
+// has to omit or reject the escaping link. This phase has no asset-content read
+// operation, so callers should test metadata enumeration only.
 func (f *Fixture) AddEscapingAssetSymlink() string {
 	f.testing.Helper()
 	outside := filepath.Join(filepath.Dir(f.SagaRepo), "asset-secret.txt")

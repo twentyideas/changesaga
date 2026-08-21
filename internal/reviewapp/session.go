@@ -1,15 +1,16 @@
 package reviewapp
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
-	"mime"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -62,7 +63,18 @@ func Open(ctx context.Context, options OpenOptions) (Session, error) {
 	if strings.TrimSpace(options.SagaRoot) == "" {
 		return nil, invalidArgument("saga_root is required")
 	}
-	document, validation, err := saga.Load(options.SagaRoot)
+	absRoot, err := filepath.Abs(options.SagaRoot)
+	if err != nil {
+		return nil, invalidArgument("saga_root could not be resolved")
+	}
+	resolvedRoot, err := filepath.EvalSymlinks(absRoot)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, notFound("saga", filepath.Base(filepath.Clean(options.SagaRoot)))
+		}
+		return nil, newError(CodeInvalidSaga, "the saga root could not be resolved safely", false, nil, err)
+	}
+	document, validation, err := saga.Load(resolvedRoot)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, notFound("saga", filepath.Base(filepath.Clean(options.SagaRoot)))
@@ -253,9 +265,11 @@ func (s *session) Overview(ctx context.Context, _ OverviewQuery) (Overview, erro
 	}
 	root := s.document.Section
 	result := Overview{
-		Saga:   SagaIdentity{ID: s.document.Manifest.ID, Title: s.document.Manifest.Title, PR: s.document.Manifest.PR},
-		Source: SourceSnapshot{Repository: s.changes.Repository, Base: s.changes.Base, Head: s.changes.Head, BaseOID: s.changes.BaseOID, HeadOID: s.changes.HeadOID},
-		Root:   s.finishNode(root.Target, false),
+		Saga:              SagaIdentity{ID: s.document.Manifest.ID, Title: s.document.Manifest.Title, PR: s.document.Manifest.PR},
+		Source:            SourceSnapshot{Repository: s.changes.Repository, Base: s.changes.Base, Head: s.changes.Head, BaseOID: s.changes.BaseOID, HeadOID: s.changes.HeadOID},
+		Root:              s.finishNode(root.Target, false),
+		OverviewFragments: []Node{},
+		Chapters:          []ChapterSummary{},
 		Coverage: CoverageSummary{Complete: s.report.Complete, Total: s.report.Summary.Total, Covered: s.report.Summary.Covered,
 			Uncovered: s.report.Summary.Uncovered, Overlapping: s.report.Summary.Overlapping, Stale: s.report.Summary.Orphaned},
 	}
@@ -276,6 +290,9 @@ func (s *session) Children(ctx context.Context, query ChildrenQuery) (ChildrenPa
 	if err := ctx.Err(); err != nil {
 		return ChildrenPage{}, err
 	}
+	if err := s.validateTargetArgument(query.Parent); err != nil {
+		return ChildrenPage{}, err
+	}
 	entry := s.targets[query.Parent]
 	if entry == nil {
 		return ChildrenPage{}, notFound("target", query.Parent)
@@ -284,7 +301,7 @@ func (s *session) Children(ctx context.Context, query ChildrenQuery) (ChildrenPa
 	if err != nil {
 		return ChildrenPage{}, err
 	}
-	result := ChildrenPage{Parent: query.Parent, Page: page}
+	result := ChildrenPage{Parent: query.Parent, Children: []Node{}, Page: page}
 	for _, target := range entry.children[start:end] {
 		result.Children = append(result.Children, s.finishNode(target, false))
 	}
@@ -295,9 +312,15 @@ func (s *session) ReadFragment(ctx context.Context, query FragmentQuery) (Fragme
 	if err := ctx.Err(); err != nil {
 		return FragmentContent{}, err
 	}
+	if err := s.validateTargetArgument(query.Target); err != nil {
+		return FragmentContent{}, err
+	}
 	entry := s.targets[query.Target]
-	if entry == nil || entry.fragment == nil {
+	if entry == nil {
 		return FragmentContent{}, notFound("fragment", query.Target)
+	}
+	if entry.fragment == nil {
+		return FragmentContent{}, invalidArgument("target must identify a fragment")
 	}
 	if query.Offset < 0 {
 		return FragmentContent{}, invalidArgument("offset must not be negative")
@@ -323,7 +346,7 @@ func (s *session) ReadFragment(ctx context.Context, query FragmentQuery) (Fragme
 	part := value.data[query.Offset:end]
 	encoding := "base64"
 	data := base64.StdEncoding.EncodeToString(part)
-	if strings.HasPrefix(entry.fragment.MediaType, "text/") || entry.fragment.MediaType == "image/svg+xml" {
+	if strings.HasPrefix(entry.fragment.MediaType, "text/") {
 		if !utf8.Valid(value.data) {
 			return FragmentContent{}, newError(CodeUnsupportedMedia, "text fragment content must be valid UTF-8", false, map[string]any{"media_type": entry.fragment.MediaType}, nil)
 		}
@@ -334,10 +357,7 @@ func (s *session) ReadFragment(ctx context.Context, query FragmentQuery) (Fragme
 			end--
 		}
 		if end == query.Offset && end < int64(len(value.data)) {
-			end++
-			for end < int64(len(value.data)) && !utf8.RuneStart(value.data[end]) {
-				end++
-			}
+			return FragmentContent{}, invalidArgument("limit is too small to contain the next UTF-8 character")
 		}
 		part = value.data[query.Offset:end]
 		encoding, data = "utf-8", string(part)
@@ -348,23 +368,29 @@ func (s *session) ReadFragment(ctx context.Context, query FragmentQuery) (Fragme
 		next := end
 		chunk.NextOffset = &next
 	}
-	return FragmentContent{Target: query.Target, ID: entry.fragment.ID, Title: entry.node.Title, MediaType: entry.fragment.MediaType, Content: chunk, Assets: append([]AssetSummary(nil), value.assets...)}, nil
+	return FragmentContent{Target: query.Target, ID: entry.fragment.ID, Title: entry.node.Title, MediaType: entry.fragment.MediaType, Content: chunk, Assets: append([]AssetSummary{}, value.assets...)}, nil
 }
 
 func (s *session) FragmentDiffs(ctx context.Context, query FragmentDiffQuery) (FragmentDiffs, error) {
 	if err := ctx.Err(); err != nil {
 		return FragmentDiffs{}, err
 	}
+	if err := s.validateTargetArgument(query.Target); err != nil {
+		return FragmentDiffs{}, err
+	}
 	entry := s.targets[query.Target]
-	if entry == nil || entry.fragment == nil {
+	if entry == nil {
 		return FragmentDiffs{}, notFound("fragment", query.Target)
+	}
+	if entry.fragment == nil {
+		return FragmentDiffs{}, invalidArgument("target must identify a fragment")
 	}
 	selectors := s.selectors[query.Target]
 	start, end, page, err := s.page("fragment-diffs", query.Target, query.Cursor, query.Limit, len(selectors))
 	if err != nil {
 		return FragmentDiffs{}, err
 	}
-	result := FragmentDiffs{Target: query.Target, Page: page}
+	result := FragmentDiffs{Target: query.Target, Selectors: []ResolvedSelector{}, Atoms: []gitdiff.Atom{}, Stale: []StaleSelector{}, Page: page}
 	seen := map[string]bool{}
 	for _, entry := range selectors[start:end] {
 		result.Selectors = append(result.Selectors, entry.selector)
@@ -411,10 +437,9 @@ func (s *session) DiffOwners(ctx context.Context, query DiffOwnerQuery) (DiffOwn
 	if pageErr != nil {
 		return DiffOwnership{}, pageErr
 	}
-	result := DiffOwnership{Diff: query.Diff, Kind: reference.Kind, Page: page}
+	result := DiffOwnership{Diff: query.Diff, Kind: reference.Kind, Atoms: []OwnedAtom{}, Page: page}
 	for _, atom := range atoms[start:end] {
-		owned := OwnedAtom{Atom: atom, Owners: append([]DiffOwner(nil), s.selectorsByAtom[atom.URI]...)}
-		owned.Threads = append(owned.Threads, s.threadsByDiff[atom.URI]...)
+		owned := OwnedAtom{Atom: atom, Owners: append([]DiffOwner{}, s.selectorsByAtom[atom.URI]...), Threads: append([]ReviewThread{}, s.threadsByDiff[atom.URI]...)}
 		result.Atoms = append(result.Atoms, owned)
 	}
 	return result, nil
@@ -424,10 +449,18 @@ func (s *session) Reviews(ctx context.Context, query ReviewQuery) (ReviewPage, e
 	if err := ctx.Err(); err != nil {
 		return ReviewPage{}, err
 	}
-	if query.Target != "" && s.targets[query.Target] == nil {
-		return ReviewPage{}, notFound("target", query.Target)
+	if query.Target != "" {
+		if err := s.validateTargetArgument(query.Target); err != nil {
+			return ReviewPage{}, err
+		}
+		if s.targets[query.Target] == nil {
+			return ReviewPage{}, notFound("target", query.Target)
+		}
 	}
 	if query.Thread != "" {
+		if !saga.ValidID(query.Thread) {
+			return ReviewPage{}, invalidArgument("thread must be a stable ID")
+		}
 		if _, ok := s.threads[query.Thread]; !ok {
 			return ReviewPage{}, notFound("thread", query.Thread)
 		}
@@ -446,7 +479,7 @@ func (s *session) Reviews(ctx context.Context, query ReviewQuery) (ReviewPage, e
 	if err != nil {
 		return ReviewPage{}, err
 	}
-	return ReviewPage{Items: append([]ReviewItem(nil), items[start:end]...), Page: page}, nil
+	return ReviewPage{Items: append([]ReviewItem{}, items[start:end]...), Page: page}, nil
 }
 
 func (s *session) Gaps(ctx context.Context, query GapQuery) (GapPage, error) {
@@ -499,7 +532,7 @@ func (s *session) Gaps(ctx context.Context, query GapQuery) (GapPage, error) {
 	if err != nil {
 		return GapPage{}, err
 	}
-	return GapPage{Gaps: append([]Gap(nil), gaps[start:end]...), Page: page}, nil
+	return GapPage{Gaps: append([]Gap{}, gaps[start:end]...), Page: page}, nil
 }
 
 func landmarkValue(value saga.LandmarkSelector) *LandmarkValue {
@@ -511,6 +544,13 @@ func cleanDiagnosticPath(value string) string {
 		return ""
 	}
 	return filepath.ToSlash(filepath.Clean(value))
+}
+
+func (s *session) validateTargetArgument(value string) error {
+	if strings.TrimSpace(value) == "" || !strings.HasPrefix(value, "urn:change-saga:") {
+		return invalidArgument("target must be a Change Saga target URN")
+	}
+	return nil
 }
 
 func sanitizeIssues(issues []saga.Issue) []saga.Issue {
@@ -573,6 +613,10 @@ func readContainedFile(root, name string) ([]byte, error) {
 	if err != nil || contained == ".." || strings.HasPrefix(contained, ".."+string(filepath.Separator)) {
 		return nil, fmt.Errorf("path escapes fragment")
 	}
+	info, err := os.Stat(realPath)
+	if err != nil || !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("fragment content must be a regular file")
+	}
 	return os.ReadFile(realPath)
 }
 
@@ -611,18 +655,47 @@ func listAssets(fragment *saga.Fragment) ([]AssetSummary, error) {
 		if infoErr != nil || !info.Mode().IsRegular() {
 			return infoErr
 		}
-		mediaType := mime.TypeByExtension(strings.ToLower(filepath.Ext(rel)))
-		if semi := strings.IndexByte(mediaType, ';'); semi >= 0 {
-			mediaType = mediaType[:semi]
-		}
-		if mediaType == "" {
-			mediaType = "application/octet-stream"
-		}
+		mediaType := assetMediaType(filepath.Ext(rel))
 		assets = append(assets, AssetSummary{Name: filepath.ToSlash(rel), MediaType: mediaType, Bytes: info.Size()})
 		return nil
 	})
 	sort.SliceStable(assets, func(i, j int) bool { return assets[i].Name < assets[j].Name })
 	return assets, err
+}
+
+func assetMediaType(extension string) string {
+	switch strings.ToLower(extension) {
+	case ".md", ".markdown":
+		return "text/markdown"
+	case ".txt":
+		return "text/plain"
+	case ".html", ".htm":
+		return "text/html"
+	case ".css":
+		return "text/css"
+	case ".js", ".mjs":
+		return "text/javascript"
+	case ".json":
+		return "application/json"
+	case ".svg":
+		return "image/svg+xml"
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".gif":
+		return "image/gif"
+	case ".webp":
+		return "image/webp"
+	case ".avif":
+		return "image/avif"
+	case ".ico":
+		return "image/x-icon"
+	case ".pdf":
+		return "application/pdf"
+	default:
+		return "application/octet-stream"
+	}
 }
 
 func buildSnapshot(ctx context.Context, root string, changes gitdiff.ChangeSet) (string, error) {
@@ -660,6 +733,14 @@ func buildSnapshot(ctx context.Context, root string, changes gitdiff.ChangeSet) 
 			_, _ = hash.Write([]byte("dir\x00"))
 			return nil
 		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			_, _ = hash.Write([]byte("special\x00"))
+			return nil
+		}
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return err
@@ -683,6 +764,14 @@ type cursorToken struct {
 	Key       string `json:"key"`
 	Snapshot  string `json:"snapshot"`
 	Offset    int    `json:"offset"`
+	Checksum  string `json:"checksum"`
+}
+
+func cursorChecksum(token cursorToken) string {
+	token.Checksum = ""
+	data, _ := json.Marshal(token)
+	digest := sha256.Sum256(append([]byte("change-saga-cursor-v1\x00"), data...))
+	return hex.EncodeToString(digest[:])
 }
 
 func (s *session) page(operation, key, cursor string, limit, total int) (int, int, Page, error) {
@@ -699,7 +788,11 @@ func (s *session) page(operation, key, cursor string, limit, total int) (int, in
 			return 0, 0, Page{}, invalidArgument("cursor is invalid")
 		}
 		var token cursorToken
-		if err := json.Unmarshal(data, &token); err != nil || token.Version != 1 || token.Operation != operation || token.Key != key {
+		unmarshalErr := json.Unmarshal(data, &token)
+		canonical, marshalErr := json.Marshal(token)
+		if unmarshalErr != nil || marshalErr != nil || !bytes.Equal(data, canonical) || len(token.Checksum) != sha256.Size*2 ||
+			subtle.ConstantTimeCompare([]byte(token.Checksum), []byte(cursorChecksum(token))) != 1 ||
+			token.Version != 1 || token.Operation != operation || token.Key != key {
 			return 0, 0, Page{}, invalidArgument("cursor does not apply to this query")
 		}
 		if token.Snapshot != s.snapshot {
@@ -716,7 +809,9 @@ func (s *session) page(operation, key, cursor string, limit, total int) (int, in
 	}
 	page := Page{}
 	if end < total {
-		data, _ := json.Marshal(cursorToken{Version: 1, Operation: operation, Key: key, Snapshot: s.snapshot, Offset: end})
+		token := cursorToken{Version: 1, Operation: operation, Key: key, Snapshot: s.snapshot, Offset: end}
+		token.Checksum = cursorChecksum(token)
+		data, _ := json.Marshal(token)
 		next := base64.RawURLEncoding.EncodeToString(data)
 		page.NextCursor = &next
 	}
@@ -725,7 +820,7 @@ func (s *session) page(operation, key, cursor string, limit, total int) (int, in
 
 func validReviewState(value string) bool {
 	switch value {
-	case "open", "resolved", "withdrawn", "approved", "rejected", "reviewed", "unreviewed":
+	case "open", "closed", "resolved", "withdrawn", "approved", "rejected", "reviewed", "unreviewed":
 		return true
 	default:
 		return false

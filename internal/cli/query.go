@@ -9,6 +9,8 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/change-saga/change-saga/internal/reviewapp"
 )
 
 const querySchema = "change-saga.ai/v1"
@@ -84,11 +86,8 @@ type querySession interface {
 
 type querySessionOpener func(context.Context, queryOpenOptions) (querySession, error)
 
-// openQuerySession is replaced by the reviewapp bridge when the application
-// package is linked. Tests replace it with a deterministic in-memory session.
-var openQuerySession querySessionOpener = func(context.Context, queryOpenOptions) (querySession, error) {
-	return nil, &queryError{Code: "internal", Message: "the query application is unavailable"}
-}
+// Tests replace this constructor with a deterministic in-memory session.
+var openQuerySession querySessionOpener = openReviewAppSession
 
 type queryError struct {
 	Code      string
@@ -263,6 +262,15 @@ func parseQuery(operation string, args []string) (any, queryOpenOptions, bool, e
 	if flags.NArg() != 0 {
 		return nil, queryOpenOptions{}, false, fmt.Errorf("%s accepts no positional arguments", operation)
 	}
+	cursorSet := false
+	flags.Visit(func(value *flag.Flag) {
+		if value.Name == "cursor" {
+			cursorSet = true
+		}
+	})
+	if cursorSet && cursor == "" {
+		return nil, queryOpenOptions{}, false, errors.New("--cursor cannot be empty")
+	}
 	if strings.TrimSpace(*sagaRoot) == "" {
 		return nil, queryOpenOptions{}, false, errors.New("--saga is required")
 	}
@@ -365,6 +373,13 @@ func normalizeQueryError(err error) *queryError {
 	if errors.As(err, &domainErr) {
 		if _, ok := queryExitCodes[domainErr.Code]; ok {
 			return domainErr
+		}
+	}
+	var applicationErr *reviewapp.Error
+	if errors.As(err, &applicationErr) {
+		code := string(applicationErr.Code)
+		if _, ok := queryExitCodes[code]; ok {
+			return &queryError{Code: code, Message: applicationErr.Message, Retryable: applicationErr.Retryable, Details: applicationErr.Details}
 		}
 	}
 	return &queryError{Code: "internal", Message: "an unexpected error occurred"}

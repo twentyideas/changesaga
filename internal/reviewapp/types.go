@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	DefaultPageLimit     = 50
-	MaxPageLimit         = 200
-	DefaultFragmentLimit = 64 << 10
+	DefaultPageLimit     = 100
+	MaxPageLimit         = 1000
+	DefaultFragmentLimit = 256 << 10
 	MaxFragmentLimit     = 1 << 20
 )
 
@@ -158,7 +158,7 @@ type CoverageSummary struct {
 type ChildrenPage struct {
 	Parent   string `json:"parent"`
 	Children []Node `json:"children"`
-	Page     Page   `json:"page"`
+	Page     Page   `json:"-"`
 }
 
 type FragmentChunk struct {
@@ -207,7 +207,7 @@ type FragmentDiffs struct {
 	Selectors []ResolvedSelector `json:"selectors"`
 	Atoms     []gitdiff.Atom     `json:"atoms"`
 	Stale     []StaleSelector    `json:"stale"`
-	Page      Page               `json:"page"`
+	Page      Page               `json:"-"`
 }
 
 type DiffOwner struct {
@@ -227,7 +227,7 @@ type DiffOwnership struct {
 	Diff  string      `json:"diff"`
 	Kind  string      `json:"kind"`
 	Atoms []OwnedAtom `json:"atoms"`
-	Page  Page        `json:"page"`
+	Page  Page        `json:"-"`
 }
 
 type Attribution struct {
@@ -296,7 +296,7 @@ type ReviewItem struct {
 
 type ReviewPage struct {
 	Items []ReviewItem `json:"items"`
-	Page  Page         `json:"page"`
+	Page  Page         `json:"-"`
 }
 
 type UncoveredGap struct {
@@ -317,5 +317,5 @@ type Gap struct {
 
 type GapPage struct {
 	Gaps []Gap `json:"gaps"`
-	Page Page  `json:"page"`
+	Page Page  `json:"-"`
 }

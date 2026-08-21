@@ -4,6 +4,10 @@ Status: **accepted for incremental implementation**
 
 Date: 2026-08-19
 
+Implementation: the read application core and structured `change-saga query`
+CLI (incremental delivery steps 1 and 2) are available. Writes, the UI HTTP
+adapter, and MCP remain gated as described below.
+
 ## Context
 
 An AI reviewer needs to understand and update a Change Saga through a stable

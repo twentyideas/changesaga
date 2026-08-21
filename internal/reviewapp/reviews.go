@@ -62,7 +62,7 @@ func (s *session) indexReviewItems(ctx context.Context) {
 func (s *session) normalizeThread(ctx context.Context, resolver *gitattribution.Resolver, stored *saga.Thread) ReviewThread {
 	thread := ReviewThread{
 		ID: stored.ID, Kind: stored.Kind, Target: stored.Target, Anchor: stored.Anchor, Suggestion: stored.Suggestion,
-		State: stored.State, CreatedAt: stored.CreatedAt,
+		State: stored.State, CreatedAt: stored.CreatedAt, Messages: []ReviewMessage{}, Events: []ReviewEvent{},
 		Attribution: attribution(ctx, resolver, filepath.Join(stored.Directory, "thread.json")), LegacyClaimedAuthor: stored.CreatedBy,
 	}
 	if thread.Kind == "" {
@@ -71,7 +71,7 @@ func (s *session) normalizeThread(ctx context.Context, resolver *gitattribution.
 	for _, storedMessage := range stored.Messages {
 		message := ReviewMessage{
 			ID: storedMessage.ID, CreatedAt: storedMessage.CreatedAt,
-			Attribution: attribution(ctx, resolver, storedMessage.Path), LegacyClaimedAuthor: storedMessage.Author,
+			Attribution: attribution(ctx, resolver, storedMessage.Path), LegacyClaimedAuthor: storedMessage.Author, Fragments: []ReviewFragment{},
 		}
 		for _, fragment := range storedMessage.Fragments {
 			message.Fragments = append(message.Fragments, normalizeReviewFragment(fragment))
@@ -116,12 +116,12 @@ func normalizeReviewFragment(fragment *saga.Fragment) ReviewFragment {
 	}
 	result.Encoding = "base64"
 	result.Data = base64.StdEncoding.EncodeToString(data)
-	if strings.HasPrefix(fragment.MediaType, "text/") || fragment.MediaType == "image/svg+xml" {
+	if strings.HasPrefix(fragment.MediaType, "text/") {
 		for len(data) > 0 && !utf8.Valid(data) && result.Truncated {
 			data = data[:len(data)-1]
 		}
 	}
-	if (strings.HasPrefix(fragment.MediaType, "text/") || fragment.MediaType == "image/svg+xml") && utf8.Valid(data) {
+	if strings.HasPrefix(fragment.MediaType, "text/") && utf8.Valid(data) {
 		result.Encoding = "utf-8"
 		result.Data = string(data)
 	}

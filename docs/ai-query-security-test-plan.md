@@ -1,6 +1,6 @@
 # AI query adversarial test plan
 
-Status: **fixture-ready; application and CLI suites pending their APIs**
+Status: **phase-one baseline implemented; extended matrix retained as a hardening checklist**
 
 This plan turns the safety boundary in
 [ai-facing-interface.md](ai-facing-interface.md) into transport-independent
@@ -27,7 +27,7 @@ These details must be stable before the pending tests can assert them.
 | Cursor from another operation or filter | `invalid_argument`, not retryable | exit 2 | A cursor is bound to operation and canonical query/filter arguments, not only to a numeric offset. |
 | Well-formed cursor from an old snapshot | `stale_snapshot`, retryable, with expected and actual snapshot tokens | exit 4 | Pagination never mixes nodes from two snapshots. The client can restart from the first page. |
 | Escaping entrypoint symlink | open fails with `invalid_saga` | exit 3 | Validation issue paths are relative and secret bytes are never read or returned. |
-| Escaping non-entrypoint asset symlink | asset is omitted from fragment metadata; a later direct asset read returns `unsafe_path` | exit 6 for direct reads | Enumeration and reads evaluate canonical containment. A symlink target outside the package is never hashed, sized, MIME-sniffed, or opened. |
+| Escaping non-entrypoint asset symlink | asset metadata omits the link or the fragment query rejects it with `unsafe_path` | success without the link, or exit 6 | Enumeration evaluates canonical containment. A symlink target outside the package is never hashed, sized, MIME-sniffed, or opened. There is no asset-content operation in this phase. |
 | HTML or SVG with script/event content | ordinary inert content bytes | success | Reads do not render, sanitize-and-rewrite, execute, fetch referenced URLs, or create a browser/server process. Content hashes cover the original bytes. |
 | Read-only request | normal result or domain error | normal envelope and documented exit | Source files, saga files, modes, worktree status, index, and HEAD are byte-for-byte unchanged. No temp or receipt file remains. |
 
@@ -46,10 +46,10 @@ rules so paging can be implemented without loss or duplication:
 - Offset zero starts the file. Offset exactly equal to the complete byte length
   returns an empty final chunk. An offset beyond the length, or inside a UTF-8
   code point, is `invalid_argument`.
-- Invalid UTF-8 in a declared textual fragment is `unsupported_media`; binary
-  image content is base64. `image/svg+xml` needs an explicit decision: return
-  UTF-8 text like HTML, or base64 like other image media. Tests must not infer
-  this from filename extensions.
+- Invalid UTF-8 in a declared `text/*` fragment is `unsupported_media`. Every
+  `image/*` entrypoint is base64, including `image/svg+xml`; active SVG is
+  therefore never treated as HTML-like text. Encoding follows the declared
+  media type and is not inferred from filename extensions.
 
 Run these against sizes 0, 1, 256 KiB-1, 256 KiB, 256 KiB+1, 1 MiB, and
 1 MiB+1, including a multi-byte rune across each boundary. The checked-in
