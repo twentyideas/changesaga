@@ -101,6 +101,9 @@ jobs:
       - name: lint workflows and enforce action pinning
         run: ./scripts/check-workflows.sh "$RUNNER_TEMP/actionlint"
 
+      - name: release artifact script tests
+        run: ./scripts/release_artifact_test.sh
+
   installer:
     name: installer (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

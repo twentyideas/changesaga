@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -36,12 +37,41 @@ var (
 
 // VersionString renders the version plus whatever build metadata was injected.
 func VersionString() string {
-	out := Version
-	if Commit != "" {
-		out += " (" + Commit + ")"
+	info, _ := debug.ReadBuildInfo()
+	return versionString(Version, Commit, BuildDate, info)
+}
+
+func versionString(version, commit, buildDate string, info *debug.BuildInfo) string {
+	// `go install module@version` cannot supply linker flags. Preserve release
+	// injection when present, but make an installed module report its module and
+	// VCS metadata instead of the source-tree development placeholder.
+	if info != nil {
+		if strings.HasSuffix(version, "-dev") && info.Main.Version != "" && info.Main.Version != "(devel)" {
+			version = strings.TrimPrefix(info.Main.Version, "v")
+		}
+		for _, setting := range info.Settings {
+			switch setting.Key {
+			case "vcs.revision":
+				if commit == "" {
+					commit = setting.Value
+					if len(commit) > 12 {
+						commit = commit[:12]
+					}
+				}
+			case "vcs.time":
+				if buildDate == "" {
+					buildDate = setting.Value
+				}
+			}
+		}
 	}
-	if BuildDate != "" {
-		out += " built " + BuildDate
+
+	out := version
+	if commit != "" {
+		out += " (" + commit + ")"
+	}
+	if buildDate != "" {
+		out += " built " + buildDate
 	}
 	return out
 }

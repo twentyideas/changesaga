@@ -15,14 +15,12 @@ fi
 
 archive="$1"
 output="${2:-dist/Change-Saga.command}"
+archive_name="$(basename "$archive")"
 
-case "$(basename "$archive")" in
-*_darwin_arm64.tar.gz) ;;
-*)
+if [[ ! "$archive_name" =~ ^change-saga_[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?_darwin_arm64\.tar\.gz$ ]]; then
 	echo "error: expected a darwin/arm64 release archive, got $archive" >&2
 	exit 2
-	;;
-esac
+fi
 
 if [ ! -f "$archive" ]; then
 	echo "error: archive not found: $archive" >&2
@@ -35,8 +33,12 @@ output_dir="$(dirname "$output")"
 mkdir -p "$output_dir"
 output_abs="$(cd "$output_dir" && pwd)/$(basename "$output")"
 
+if [ "$archive_abs" = "$output_abs" ] || { [ -e "$output_abs" ] && [ "$archive_abs" -ef "$output_abs" ]; }; then
+	echo "error: output must not overwrite the input archive" >&2
+	exit 2
+fi
+
 archive_sha="$("$repo_root/scripts/sha256.sh" "$archive_abs" | awk '{print $1}')"
-archive_name="$(basename "$archive_abs")"
 
 cat >"$output_abs" <<INSTALLER
 #!/bin/sh
