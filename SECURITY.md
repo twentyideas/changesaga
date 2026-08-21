@@ -36,8 +36,9 @@ release.
 
 ## Threat model
 
-Change Saga is a local, single-user developer tool. It has no server component
-you operate, no accounts, no telemetry, and no network service of its own.
+Change Saga is a local, single-user developer tool. It has no hosted or remote
+service, no accounts, and no telemetry. Its reviewer is an ephemeral HTTP server
+that is deliberately restricted to the loopback interface.
 
 **What the tool defends against**
 

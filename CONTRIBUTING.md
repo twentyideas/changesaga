@@ -81,7 +81,7 @@ Docs-only changes still deserve one mechanical pass:
 | --- | --- | --- |
 | [`ci.yml`](.github/workflows/ci.yml) | every push to `main` and every pull request, forks included | `go test` on Linux, macOS, and Windows (with `-race` where a C toolchain exists), `gofmt`, `go vet`, `shellcheck`, both installer end-to-end tests, and an unsigned build of all six release targets |
 | [`e2e.yml`](.github/workflows/e2e.yml) | every push to `main` and every pull request | Playwright against the real binary and the real server, Chromium by default |
-| [`release.yml`](.github/workflows/release.yml) | `v*` tags and manual dispatch only | the full CI matrix again, then signed builds, checksums, provenance, and the GitHub Release |
+| [`release.yml`](.github/workflows/release.yml) | `v*` tags and manual dispatch only | the full CI matrix again, then checksummed and provenance-attested artifacts, optional Developer ID signing/notarization for macOS, and the GitHub Release |
 
 `ci.yml` is read-only and uses no secrets, so it runs unchanged on pull requests
 from forks. All signing lives in `release.yml`, which tags alone can reach.
@@ -105,8 +105,9 @@ forces which version bump.
 
 ## Conventions
 
-- **Keep the core deterministic.** Same inputs, same bytes out. Sorted iteration,
-  stable identifiers, no wall-clock or map ordering leaking into output.
+- **Keep authored output deterministic where identity does not require an event.**
+  Use sorted iteration and stable identifiers; wall-clock time belongs only in
+  append-only review events that explicitly record when something happened.
 - **Every reviewer action becomes a small file suitable for Git.** New review
   data means a new file, never a mutation of a shared array — that is what makes
   concurrent review merge cleanly. Withdrawals append; they do not delete.

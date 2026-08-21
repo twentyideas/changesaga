@@ -5,21 +5,12 @@ a Git-native way to *author* that change so a reviewer meets it gradually — an
 overview, then chapters, then the exact lines — and it mechanically proves that
 no changed line was left out of the story.
 
+[![CI](https://github.com/change-saga/change-saga/actions/workflows/ci.yml/badge.svg)](https://github.com/change-saga/change-saga/actions/workflows/ci.yml)
+[![Browser E2E](https://github.com/change-saga/change-saga/actions/workflows/e2e.yml/badge.svg)](https://github.com/change-saga/change-saga/actions/workflows/e2e.yml)
 ![status: experimental](https://img.shields.io/badge/status-experimental-orange)
 ![license: MIT](https://img.shields.io/badge/license-MIT-blue)
 ![go 1.26+](https://img.shields.io/badge/go-1.26%2B-00ADD8)
 ![platforms: macOS | Linux | Windows](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)
-
-<!--
-Repository owners: once this repository is public, the workflow badges below
-become meaningful and can replace or join the static row above. They are left
-commented out on purpose — an unpublished repository renders them as "invalid",
-and a badge that cannot report the truth should not be shown.
-
-[![CI](https://github.com/change-saga/change-saga/actions/workflows/ci.yml/badge.svg)](https://github.com/change-saga/change-saga/actions/workflows/ci.yml)
-[![Browser E2E](https://github.com/change-saga/change-saga/actions/workflows/e2e.yml/badge.svg)](https://github.com/change-saga/change-saga/actions/workflows/e2e.yml)
-[![Release](https://img.shields.io/github/v/release/change-saga/change-saga?include_prereleases&sort=semver)](https://github.com/change-saga/change-saga/releases)
--->
 
 > [!WARNING]
 > Early scaffold. The v2 format is experimental and there is no compatibility
