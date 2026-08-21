@@ -2,8 +2,12 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"html/template"
@@ -32,9 +36,10 @@ import (
 )
 
 type app struct {
-	root      string
-	sourceDir string
-	template  *template.Template
+	root          string
+	sourceDir     string
+	template      *template.Template
+	mutationToken string
 }
 
 type pageData struct {
@@ -50,6 +55,7 @@ type pageData struct {
 	ReviewDecided int
 	ReviewTotal   int
 	ReviewItems   []*reviewProgressItem
+	MutationToken string
 }
 
 type reviewProgressItem struct {
@@ -137,6 +143,9 @@ type threadView struct {
 }
 
 func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool, out io.Writer) error {
+	if !loopbackListenAddress(addr) {
+		return fmt.Errorf("refusing non-loopback listen address %q; remote serving is disabled", addr)
+	}
 	abs, err := filepath.Abs(root)
 	if err != nil {
 		return err
@@ -153,26 +162,20 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 	if err != nil {
 		return err
 	}
-	application := &app{root: abs, sourceDir: sourceDir, template: tmpl}
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /chapters/{chapter}", application.page)
-	mux.HandleFunc("GET /", application.page)
-	mux.HandleFunc("GET /app.js", application.javascript)
-	mux.HandleFunc("GET /f/{id}/{path...}", application.fragmentFile)
-	mux.HandleFunc("POST /api/thread", application.createThread)
-	mux.HandleFunc("POST /api/reply", application.reply)
-	mux.HandleFunc("POST /api/thread-state", application.threadState)
-	mux.HandleFunc("POST /api/thread-anchor", application.threadAnchor)
-	mux.HandleFunc("POST /api/review", application.review)
-	mux.HandleFunc("POST /api/diff-review", application.diffReview)
+	mutationToken, err := newMutationToken()
+	if err != nil {
+		return fmt.Errorf("create mutation token: %w", err)
+	}
+	application := &app{root: abs, sourceDir: sourceDir, template: tmpl, mutationToken: mutationToken}
+	mux := newMux(application)
 
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", addr, err)
 	}
-	server := &http.Server{Handler: securityHeaders(mux), ReadHeaderTimeout: 5 * time.Second}
+	server := newHTTPServer(secureHandler(mux, listener.Addr().String()))
 	serverURL := "http://" + listener.Addr().String()
-	if host, port, err := net.SplitHostPort(listener.Addr().String()); err == nil && (host == "127.0.0.1" || host == "::1") {
+	if host, port, err := net.SplitHostPort(listener.Addr().String()); err == nil && host == "127.0.0.1" {
 		serverURL = "http://127.0.0.1:" + port
 	}
 	fmt.Fprintf(out, "Change Saga is available at %s\nPress Ctrl-C to stop.\n", serverURL)
@@ -194,6 +197,83 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 		}
 		return err
 	}
+}
+
+func newMux(application *app) *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /chapters/{chapter}", application.page)
+	mux.HandleFunc("GET /", application.page)
+	mux.HandleFunc("GET /app.js", application.javascript)
+	mux.HandleFunc("GET /f/{id}/{path...}", application.fragmentFile)
+	mux.HandleFunc("POST /api/thread", application.createThread)
+	mux.HandleFunc("POST /api/reply", application.reply)
+	mux.HandleFunc("POST /api/thread-state", application.threadState)
+	mux.HandleFunc("POST /api/thread-anchor", application.threadAnchor)
+	mux.HandleFunc("POST /api/review", application.review)
+	mux.HandleFunc("POST /api/diff-review", application.diffReview)
+	return mux
+}
+
+func newHTTPServer(handler http.Handler) *http.Server {
+	return &http.Server{
+		Handler:           securityHeaders(handler),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
+}
+
+func secureHandler(next http.Handler, listenerAddress string) http.Handler {
+	crossOrigin := http.NewCrossOriginProtection()
+	crossOrigin.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "Cross-origin request rejected.", http.StatusForbidden)
+	}))
+	return validateHost(listenerAddress, crossOrigin.Handler(next))
+}
+
+func validateHost(listenerAddress string, next http.Handler) http.Handler {
+	allowed := allowedListenerHosts(listenerAddress)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !allowed[strings.ToLower(r.Host)] {
+			http.Error(w, "Invalid request host.", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func allowedListenerHosts(listenerAddress string) map[string]bool {
+	host, port, err := net.SplitHostPort(listenerAddress)
+	if err != nil {
+		return map[string]bool{}
+	}
+	allowed := map[string]bool{strings.ToLower(net.JoinHostPort(host, port)): true}
+	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+		allowed[net.JoinHostPort("localhost", port)] = true
+	}
+	return allowed
+}
+
+func loopbackListenAddress(address string) bool {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return false
+	}
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+func newMutationToken() (string, error) {
+	var token [32]byte
+	if _, err := rand.Read(token[:]); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(token[:]), nil
 }
 
 // newPageTemplate is the single definition of the renderer's template funcs so
@@ -237,7 +317,7 @@ func templateFuncs() template.FuncMap {
 func (a *app) page(w http.ResponseWriter, r *http.Request) {
 	document, validation, err := saga.Load(a.root)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "The saga could not be loaded. Run change-saga validate for details.", http.StatusInternalServerError)
 		return
 	}
 	chapterID, chapterRoute := requestedChapter(r)
@@ -296,9 +376,10 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 	}
 	rootView := makeSectionView(document.Section, changesByTarget, threadsByTarget, threadsByDiff)
 	data := pageData{
-		Saga: document,
-		Root: rootView,
-		Code: code,
+		Saga:          document,
+		Root:          rootView,
+		Code:          code,
+		MutationToken: a.mutationToken,
 	}
 	data.ReviewItems = makeReviewProgressItems(rootView)
 	data.ReviewDecided, data.ReviewTotal = reviewProgressSummary(data.ReviewItems)
@@ -316,7 +397,7 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := a.template.ExecuteTemplate(w, "page", data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "The review page could not be rendered.", http.StatusInternalServerError)
 	}
 }
 
@@ -763,7 +844,7 @@ func applyGitAttribution(ctx context.Context, resolver *gitattribution.Resolver,
 func (a *app) fragmentFile(w http.ResponseWriter, r *http.Request) {
 	document, _, err := saga.Load(a.root)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "The saga could not be loaded. Run change-saga validate for details.", http.StatusInternalServerError)
 		return
 	}
 	fragment := findFragment(document, r.PathValue("id"))
@@ -813,15 +894,19 @@ func (a *app) javascript(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (a *app) createThread(w http.ResponseWriter, r *http.Request) {
-	attachments, err := parseMultipart(r, w)
+	attachments, cleanup, err := parseMultipart(r, w)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeMultipartError(w, err)
 		return
 	}
-	defer removeTemporary(attachments)
+	defer cleanup()
+	if !a.validMutationToken(r) {
+		http.Error(w, "Missing or invalid mutation token.", http.StatusForbidden)
+		return
+	}
 	document, _, err := saga.Load(a.root)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "The saga could not be loaded. Run change-saga validate for details.", http.StatusConflict)
 		return
 	}
 	target := r.FormValue("target")
@@ -835,43 +920,53 @@ func (a *app) createThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := reviewstore.AddThread(a.root, target, r.FormValue("body"), anchor, r.FormValue("kind"), r.FormValue("replacement"), attachments); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeMutationError(w)
 		return
 	}
 	redirectAfterReview(w, r, "/#"+domID(target))
 }
 
 func (a *app) reply(w http.ResponseWriter, r *http.Request) {
-	attachments, err := parseMultipart(r, w)
+	attachments, cleanup, err := parseMultipart(r, w)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeMultipartError(w, err)
 		return
 	}
-	defer removeTemporary(attachments)
+	defer cleanup()
+	if !a.validMutationToken(r) {
+		http.Error(w, "Missing or invalid mutation token.", http.StatusForbidden)
+		return
+	}
 	if _, err := reviewstore.AddReply(a.root, r.FormValue("thread"), r.FormValue("body"), attachments); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeMutationError(w)
 		return
 	}
 	redirectAfterReview(w, r, "/#"+domID(r.FormValue("target")))
 }
 
 func (a *app) threadState(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if err := parseForm(w, r, 64<<10); err != nil {
+		http.Error(w, "Invalid request body.", http.StatusBadRequest)
+		return
+	}
+	if !a.validMutationToken(r) {
+		http.Error(w, "Missing or invalid mutation token.", http.StatusForbidden)
 		return
 	}
 	if err := reviewstore.SetState(a.root, r.FormValue("thread"), r.FormValue("state")); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeMutationError(w)
 		return
 	}
 	redirectAfterReview(w, r, "/#"+domID(r.FormValue("target")))
 }
 
 func (a *app) threadAnchor(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 2<<20)
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if err := parseForm(w, r, 2<<20); err != nil {
+		http.Error(w, "Invalid request body.", http.StatusBadRequest)
+		return
+	}
+	if !a.validMutationToken(r) {
+		http.Error(w, "Missing or invalid mutation token.", http.StatusForbidden)
 		return
 	}
 	var anchor saga.Anchor
@@ -880,21 +975,24 @@ func (a *app) threadAnchor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := reviewstore.SetAnchor(a.root, r.FormValue("thread"), anchor); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeMutationError(w)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *app) review(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if err := parseForm(w, r, 64<<10); err != nil {
+		http.Error(w, "Invalid request body.", http.StatusBadRequest)
+		return
+	}
+	if !a.validMutationToken(r) {
+		http.Error(w, "Missing or invalid mutation token.", http.StatusForbidden)
 		return
 	}
 	document, _, err := saga.Load(a.root)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "The saga could not be loaded. Run change-saga validate for details.", http.StatusConflict)
 		return
 	}
 	dir := findTargetDirectory(document, r.FormValue("target"))
@@ -903,7 +1001,7 @@ func (a *app) review(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := reviewstore.AddReview(a.root, dir, r.FormValue("state"), r.FormValue("body")); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeMutationError(w)
 		return
 	}
 	if r.Header.Get("X-Change-Saga-Async") == "true" {
@@ -914,13 +1012,16 @@ func (a *app) review(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *app) diffReview(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if err := parseForm(w, r, 64<<10); err != nil {
+		http.Error(w, "Invalid request body.", http.StatusBadRequest)
+		return
+	}
+	if !a.validMutationToken(r) {
+		http.Error(w, "Missing or invalid mutation token.", http.StatusForbidden)
 		return
 	}
 	if err := reviewstore.AddDiffReview(a.root, r.FormValue("uri"), r.FormValue("state")); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeMutationError(w)
 		return
 	}
 	fallback := "/?view=code#" + url.PathEscape(r.FormValue("file"))
@@ -942,46 +1043,137 @@ func reviewRedirectDestination(destination, fallback string) string {
 	return destination
 }
 
-func parseMultipart(r *http.Request, w http.ResponseWriter) ([]string, error) {
-	r.Body = http.MaxBytesReader(w, r.Body, 12<<20)
-	if err := r.ParseMultipartForm(10 << 20); err != nil {
-		return nil, err
+const (
+	maxMultipartBytes  = 32 << 20
+	maxAttachmentBytes = 10 << 20
+	maxAttachments     = 8
+)
+
+var (
+	errUploadTooLarge = errors.New("upload too large")
+	errInvalidUpload  = errors.New("invalid upload")
+	attachmentTempDir string
+)
+
+func parseMultipart(r *http.Request, w http.ResponseWriter) ([]string, func(), error) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxMultipartBytes)
+	var paths []string
+	cleanup := func() {
+		removeTemporary(paths)
+		if r.MultipartForm != nil {
+			_ = r.MultipartForm.RemoveAll()
+		}
+	}
+	if err := r.ParseMultipartForm(1 << 20); err != nil {
+		cleanup()
+		var maxBytes *http.MaxBytesError
+		if errors.As(err, &maxBytes) {
+			return nil, func() {}, errUploadTooLarge
+		}
+		return nil, func() {}, errInvalidUpload
 	}
 	files := r.MultipartForm.File["attachment"]
-	var paths []string
+	if len(files) > maxAttachments {
+		cleanup()
+		return nil, func() {}, errUploadTooLarge
+	}
 	for _, header := range files {
 		file, err := header.Open()
 		if err != nil {
-			removeTemporary(paths)
-			return nil, err
+			cleanup()
+			return nil, func() {}, errInvalidUpload
 		}
 		ext := filepath.Ext(filepath.Base(header.Filename))
-		temp, err := os.CreateTemp("", "change-saga-attachment-*"+ext)
+		temp, err := os.CreateTemp(attachmentTempDir, "change-saga-attachment-*"+ext)
 		if err != nil {
-			file.Close()
-			removeTemporary(paths)
-			return nil, err
+			_ = file.Close()
+			cleanup()
+			return nil, func() {}, errInvalidUpload
 		}
-		_, copyErr := io.Copy(temp, io.LimitReader(file, 10<<20))
-		file.Close()
+		path := temp.Name()
+		paths = append(paths, path)
+		written, copyErr := io.Copy(temp, io.LimitReader(file, maxAttachmentBytes+1))
+		fileErr := file.Close()
 		closeErr := temp.Close()
-		if copyErr != nil || closeErr != nil {
-			_ = os.Remove(temp.Name())
-			removeTemporary(paths)
-			if copyErr != nil {
-				return nil, copyErr
-			}
-			return nil, closeErr
+		if written > maxAttachmentBytes {
+			cleanup()
+			return nil, func() {}, errUploadTooLarge
 		}
-		paths = append(paths, temp.Name())
+		if copyErr != nil || fileErr != nil || closeErr != nil || !validUploadedContent(path, header.Filename) {
+			cleanup()
+			return nil, func() {}, errInvalidUpload
+		}
 	}
-	return paths, nil
+	return paths, cleanup, nil
+}
+
+func validUploadedContent(path, filename string) bool {
+	file, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+	var sample [512]byte
+	n, err := file.Read(sample[:])
+	if err != nil && !errors.Is(err, io.EOF) {
+		return false
+	}
+	detected := http.DetectContentType(sample[:n])
+	if parsed, _, err := mime.ParseMediaType(detected); err == nil {
+		detected = parsed
+	}
+	declared := mime.TypeByExtension(strings.ToLower(filepath.Ext(filename)))
+	if parsed, _, err := mime.ParseMediaType(declared); err == nil {
+		declared = parsed
+	}
+	if declared == "image/svg+xml" {
+		lower := strings.ToLower(string(sample[:n]))
+		return (detected == "text/plain" || detected == "text/xml") && strings.Contains(lower, "<svg")
+	}
+	if strings.HasPrefix(declared, "image/") {
+		return detected == declared
+	}
+	if declared == "text/html" {
+		return detected == "text/html"
+	}
+	if declared == "text/plain" || declared == "text/markdown" {
+		return detected == "text/plain"
+	}
+	return false
 }
 
 func removeTemporary(paths []string) {
 	for _, path := range paths {
 		_ = os.Remove(path)
 	}
+}
+
+func parseForm(w http.ResponseWriter, r *http.Request, limit int64) error {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
+	return r.ParseForm()
+}
+
+func (a *app) validMutationToken(r *http.Request) bool {
+	if a.mutationToken == "" {
+		return true
+	}
+	provided := r.Header.Get("X-Change-Saga-Mutation-Token")
+	if provided == "" {
+		provided = r.FormValue("mutation_token")
+	}
+	return subtle.ConstantTimeCompare([]byte(provided), []byte(a.mutationToken)) == 1
+}
+
+func writeMutationError(w http.ResponseWriter) {
+	http.Error(w, "The review request was invalid or the saga could not be updated. Run change-saga validate and try again.", http.StatusBadRequest)
+}
+
+func writeMultipartError(w http.ResponseWriter, err error) {
+	if errors.Is(err, errUploadTooLarge) {
+		http.Error(w, "Upload exceeds the allowed size or file count.", http.StatusRequestEntityTooLarge)
+		return
+	}
+	http.Error(w, "Upload must be a supported image, HTML, Markdown, or plain-text file.", http.StatusBadRequest)
 }
 
 func findFragment(document *saga.Saga, id string) *saga.Fragment {

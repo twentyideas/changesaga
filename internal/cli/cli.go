@@ -604,7 +604,7 @@ func printReport(out io.Writer, report coverage.Report, maxItems int) {
 func Serve(ctx context.Context, args []string, out io.Writer, openByDefault ...bool) error {
 	flags := flag.NewFlagSet("serve", flag.ContinueOnError)
 	flags.SetOutput(out)
-	addr := flags.String("addr", "127.0.0.1:7342", "listen address")
+	addr := flags.String("addr", "127.0.0.1:7342", "loopback listen address; remote serving is disabled")
 	repoDir := flags.String("repo", "", "source repository checkout; required when separate")
 	openBrowser := flags.Bool("open", len(openByDefault) > 0 && openByDefault[0], "open the review in a browser")
 	if err := flags.Parse(args); err != nil {

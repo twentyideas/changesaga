@@ -2,20 +2,20 @@ package reviewstore
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
 	"github.com/change-saga/change-saga/internal/diffuri"
 	"github.com/change-saga/change-saga/internal/saga"
+	"github.com/change-saga/change-saga/internal/store"
 )
 
 func TestReviewRecordsAreAppendOnlyAndFileGranular(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "test.saga")
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	root := newTestSaga(t)
 	target := "urn:change-saga:test:fragment:overview"
 	first, err := AddThread(root, target, "First comment", saga.Anchor{Type: "target"}, "comment", "", nil)
 	if err != nil {
@@ -93,10 +93,7 @@ func TestReviewRecordsAreAppendOnlyAndFileGranular(t *testing.T) {
 }
 
 func TestThreadUndoAndRedoAppendStateEvents(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "test.saga")
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	root := newTestSaga(t)
 	threadID, err := AddThread(root, "urn:change-saga:test:fragment:overview", "Keep this history", saga.Anchor{Type: "target"}, "comment", "", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -133,10 +130,7 @@ func TestThreadUndoAndRedoAppendStateEvents(t *testing.T) {
 }
 
 func TestConcurrentStickyNotesStayFileGranular(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "test.saga")
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	root := newTestSaga(t)
 	target := "urn:change-saga:test:fragment:overview"
 	note := func(text string, x, y float64) saga.Anchor {
 		return saga.Anchor{Type: "note", Coordinate: "normalized", Note: &saga.NoteSelector{Text: text, X: x, Y: y, Color: "#f2bd4b"}}
@@ -171,6 +165,100 @@ func TestConcurrentStickyNotesStayFileGranular(t *testing.T) {
 	}
 	if err := SetAnchor(root, first, note("Off canvas", 1.5, .5)); err == nil {
 		t.Fatal("an off-canvas sticky note placement was accepted")
+	}
+}
+
+func TestFailedThreadAndReplyLeaveNoPartialEntity(t *testing.T) {
+	root := newTestSaga(t)
+	mutationFaultHook = func(step string) error {
+		if step == "after-message-manifest" {
+			return fmt.Errorf("injected message failure")
+		}
+		return nil
+	}
+	t.Cleanup(func() { mutationFaultHook = nil })
+	if _, err := AddThread(root, "urn:change-saga:test:fragment:overview", "partial", saga.Anchor{Type: "target"}, "comment", "", nil); err == nil {
+		t.Fatal("AddThread succeeded despite injected failure")
+	}
+	assertNoCommittedOrTemporaryEntries(t, filepath.Join(root, "___review", "threads"))
+
+	mutationFaultHook = nil
+	threadID, err := AddThread(root, "urn:change-saga:test:fragment:overview", "complete", saga.Anchor{Type: "target"}, "comment", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	messagesDir := filepath.Join(root, "___review", "threads", threadID+".thread", "messages")
+	before, err := os.ReadDir(messagesDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutationFaultHook = func(step string) error {
+		if step == "after-message-manifest" {
+			return fmt.Errorf("injected reply failure")
+		}
+		return nil
+	}
+	if _, err := AddReply(root, threadID, "partial reply", nil); err == nil {
+		t.Fatal("AddReply succeeded despite injected failure")
+	}
+	after, err := os.ReadDir(messagesDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(after) != len(before) {
+		t.Fatalf("failed reply left a committed message: before=%d after=%d", len(before), len(after))
+	}
+	for _, entry := range after {
+		if strings.HasPrefix(entry.Name(), ".change-saga-stage-") {
+			t.Fatalf("failed reply left temporary state %q", entry.Name())
+		}
+	}
+}
+
+func TestMutationRefusesStructurallyInvalidSagaWithoutSideEffect(t *testing.T) {
+	root := newTestSaga(t)
+	manifest := saga.Manifest{Schema: saga.SchemaURL, Version: 999, ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/repo.git", Base: "main", Head: "HEAD"}}
+	if err := store.WriteJSON(filepath.Join(root, "saga.json"), manifest, false); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := AddReview(root, root, "approved", "should not exist"); err == nil || !strings.Contains(err.Error(), "structurally invalid") {
+		t.Fatalf("AddReview error = %v, want invalid saga refusal", err)
+	}
+	after, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(after) != len(before) {
+		t.Fatalf("invalid saga mutation changed root entries: before=%d after=%d", len(before), len(after))
+	}
+	if _, err := os.Stat(filepath.Join(root, ".change-saga.lock")); !os.IsNotExist(err) {
+		t.Fatalf("invalid saga mutation created writer lock: %v", err)
+	}
+}
+
+func TestReservedSymlinkRejectionHasZeroOutsideSideEffects(t *testing.T) {
+	root := newTestSaga(t)
+	outside := filepath.Join(t.TempDir(), "outside")
+	if err := os.Mkdir(outside, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, "___review")); err != nil {
+		t.Fatal(err)
+	}
+	_, err := AddThread(root, "urn:change-saga:test:fragment:overview", "escape", saga.Anchor{Type: "target"}, "comment", "", nil)
+	if err == nil {
+		t.Fatal("AddThread accepted symlinked reserved metadata directory")
+	}
+	entries, err := os.ReadDir(outside)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("rejected symlink caused %d outside side effects, want zero", len(entries))
 	}
 }
 
@@ -209,4 +297,36 @@ func assertEntryCount(t *testing.T, path string, want int) {
 	if err != nil || len(entries) != want {
 		t.Fatalf("%s has %d entries, want %d (err=%v)", path, len(entries), want, err)
 	}
+}
+
+func assertNoCommittedOrTemporaryEntries(t *testing.T, path string) {
+	t.Helper()
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("failed entity left entries in %s: %v", path, entries)
+	}
+}
+
+func newTestSaga(t *testing.T) string {
+	t.Helper()
+	root := filepath.Join(t.TempDir(), "test.saga")
+	fragmentDir := filepath.Join(root, "overview.fragment")
+	if err := os.MkdirAll(fragmentDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := saga.Manifest{Schema: saga.SchemaURL, Version: saga.CurrentVersion, ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/repo.git", Base: "main", Head: "HEAD"}}
+	if err := store.WriteJSON(filepath.Join(root, "saga.json"), manifest, true); err != nil {
+		t.Fatal(err)
+	}
+	fragment := saga.FragmentManifest{Version: saga.CurrentVersion, ID: "overview", Title: "Overview", MediaType: "text/markdown", Entrypoint: "content.md"}
+	if err := store.WriteJSON(filepath.Join(fragmentDir, "fragment.json"), fragment, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.WriteFile(filepath.Join(fragmentDir, "content.md"), []byte("Overview\n"), 0o644, true); err != nil {
+		t.Fatal(err)
+	}
+	return root
 }

@@ -2,6 +2,8 @@ package server
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"html/template"
 	"mime/multipart"
 	"net/http"
@@ -20,6 +22,169 @@ import (
 	"github.com/change-saga/change-saga/internal/reviewstore"
 	"github.com/change-saga/change-saga/internal/saga"
 )
+
+func TestSecureHandlerRejectsCrossOriginFetchSiteAndHost(t *testing.T) {
+	called := 0
+	handler := secureHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called++
+		w.WriteHeader(http.StatusNoContent)
+	}), "127.0.0.1:7342")
+	tests := []struct {
+		name   string
+		method string
+		host   string
+		header map[string]string
+	}{
+		{name: "origin", method: http.MethodPost, host: "127.0.0.1:7342", header: map[string]string{"Origin": "http://evil.test"}},
+		{name: "fetch metadata", method: http.MethodPost, host: "127.0.0.1:7342", header: map[string]string{"Sec-Fetch-Site": "cross-site"}},
+		{name: "host", method: http.MethodGet, host: "attacker.test:7342"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(test.method, "http://127.0.0.1:7342/", nil)
+			request.Host = test.host
+			for key, value := range test.header {
+				request.Header.Set(key, value)
+			}
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, request)
+			if recorder.Code != http.StatusForbidden {
+				t.Fatalf("status = %d, want forbidden", recorder.Code)
+			}
+		})
+	}
+	if called != 0 {
+		t.Fatalf("rejected requests reached handler %d times", called)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:7342/", nil)
+	request.Host = "127.0.0.1:7342"
+	request.Header.Set("Origin", "http://127.0.0.1:7342")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusNoContent || called != 1 {
+		t.Fatalf("same-origin request status=%d called=%d", recorder.Code, called)
+	}
+}
+
+func TestEveryMutationEndpointRequiresSessionToken(t *testing.T) {
+	application := &app{root: validServerSaga(t), mutationToken: "correct-token"}
+	handler := secureHandler(newMux(application), "127.0.0.1:7342")
+	for _, path := range []string{"/api/thread", "/api/reply", "/api/thread-state", "/api/thread-anchor", "/api/review", "/api/diff-review"} {
+		t.Run(path, func(t *testing.T) {
+			var request *http.Request
+			if path == "/api/thread" || path == "/api/reply" {
+				request = multipartRequest(t, path, map[string]string{})
+			} else {
+				request = httptest.NewRequest(http.MethodPost, path, strings.NewReader("state=open"))
+				request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			}
+			request.Host = "127.0.0.1:7342"
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, request)
+			if recorder.Code != http.StatusForbidden || !strings.Contains(recorder.Body.String(), "mutation token") {
+				t.Fatalf("status=%d body=%q, want missing-token rejection", recorder.Code, recorder.Body.String())
+			}
+		})
+	}
+}
+
+func TestValidMutationTokenPassesSecurityGate(t *testing.T) {
+	application := &app{root: validServerSaga(t), mutationToken: "correct-token"}
+	values := url.Values{"thread": {"missing"}, "state": {"open"}}
+	request := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:7342/api/thread-state", strings.NewReader(values.Encode()))
+	request.Host = "127.0.0.1:7342"
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Set("X-Change-Saga-Mutation-Token", "correct-token")
+	recorder := httptest.NewRecorder()
+	secureHandler(newMux(application), "127.0.0.1:7342").ServeHTTP(recorder, request)
+	if recorder.Code == http.StatusForbidden {
+		t.Fatalf("valid token was rejected: %s", recorder.Body.String())
+	}
+}
+
+func TestHTTPServerHasBoundedResourceSettings(t *testing.T) {
+	server := newHTTPServer(http.NotFoundHandler())
+	if server.ReadTimeout <= 0 || server.WriteTimeout <= 0 || server.IdleTimeout <= 0 || server.ReadHeaderTimeout <= 0 || server.MaxHeaderBytes <= 0 {
+		t.Fatalf("server limits are incomplete: %#v", server)
+	}
+}
+
+func TestMutationTokensAreRandomAndPlumbedIntoBrowserRequests(t *testing.T) {
+	first, err := newMutationToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := newMutationToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == second || len(first) < 40 {
+		t.Fatalf("mutation tokens are not independent 256-bit values: %q %q", first, second)
+	}
+	if !strings.Contains(pageTemplate, `name="change-saga-mutation-token"`) || !strings.Contains(appJavaScript, `X-Change-Saga-Mutation-Token`) || !strings.Contains(appJavaScript, `mutation_token:mutationToken`) {
+		t.Fatal("browser mutation token plumbing is incomplete")
+	}
+}
+
+func TestListenRefusesNonLoopbackAddressBeforeServing(t *testing.T) {
+	err := Listen(context.Background(), filepath.Join(t.TempDir(), "missing.saga"), "", "0.0.0.0:0", false, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "non-loopback") {
+		t.Fatalf("Listen error = %v, want explicit non-loopback refusal", err)
+	}
+}
+
+func TestMultipartLimitsSniffingAndCleanup(t *testing.T) {
+	tempDir := t.TempDir()
+	attachmentTempDir = tempDir
+	t.Cleanup(func() { attachmentTempDir = "" })
+
+	oversized := multipartFileRequest(t, "/api/thread", "large.txt", bytes.Repeat([]byte("x"), maxAttachmentBytes+1))
+	if _, _, err := parseMultipart(oversized, httptest.NewRecorder()); !errors.Is(err, errUploadTooLarge) {
+		t.Fatalf("oversized attachment error = %v", err)
+	}
+	assertEmptyDirectory(t, tempDir)
+
+	totalOversized := multipartFilesRequest(t, "/api/thread", map[string][]byte{
+		"one.txt":   bytes.Repeat([]byte("a"), 9<<20),
+		"two.txt":   bytes.Repeat([]byte("b"), 9<<20),
+		"three.txt": bytes.Repeat([]byte("c"), 9<<20),
+		"four.txt":  bytes.Repeat([]byte("d"), 9<<20),
+	})
+	if _, _, err := parseMultipart(totalOversized, httptest.NewRecorder()); !errors.Is(err, errUploadTooLarge) {
+		t.Fatalf("total oversized multipart error = %v", err)
+	}
+	assertEmptyDirectory(t, tempDir)
+
+	hiddenExecutable := multipartFileRequest(t, "/api/thread", "fake.png", []byte("#!/bin/sh\necho nope\n"))
+	if _, _, err := parseMultipart(hiddenExecutable, httptest.NewRecorder()); !errors.Is(err, errInvalidUpload) {
+		t.Fatalf("content mismatch error = %v", err)
+	}
+	assertEmptyDirectory(t, tempDir)
+
+	valid := multipartFileRequest(t, "/api/thread", "note.txt", []byte("hello\n"))
+	paths, cleanup, err := parseMultipart(valid, httptest.NewRecorder())
+	if err != nil || len(paths) != 1 {
+		t.Fatalf("valid upload paths=%v err=%v", paths, err)
+	}
+	if _, err := os.Stat(paths[0]); err != nil {
+		t.Fatalf("staged upload missing before cleanup: %v", err)
+	}
+	cleanup()
+	assertEmptyDirectory(t, tempDir)
+}
+
+func TestBrowserErrorsDoNotExposeFilesystemPaths(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "private", "missing.saga")
+	recorder := httptest.NewRecorder()
+	(&app{root: root}).page(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+	if recorder.Code != http.StatusInternalServerError {
+		t.Fatalf("page status = %d", recorder.Code)
+	}
+	if strings.Contains(recorder.Body.String(), root) || strings.Contains(recorder.Body.String(), "no such file") {
+		t.Fatalf("browser error exposed an internal path: %q", recorder.Body.String())
+	}
+}
 
 func TestCreateAnchoredThreadWritesOverlayRecords(t *testing.T) {
 	root := validServerSaga(t)
@@ -783,6 +948,42 @@ func multipartRequest(t *testing.T, path string, fields map[string]string) *http
 	request := httptest.NewRequest(http.MethodPost, path, &body)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
 	return request
+}
+
+func multipartFileRequest(t *testing.T, path, filename string, content []byte) *http.Request {
+	return multipartFilesRequest(t, path, map[string][]byte{filename: content})
+}
+
+func multipartFilesRequest(t *testing.T, path string, files map[string][]byte) *http.Request {
+	t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for filename, content := range files {
+		part, err := writer.CreateFormFile("attachment", filename)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := part.Write(content); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, path, &body)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	return request
+}
+
+func assertEmptyDirectory(t *testing.T, path string) {
+	t.Helper()
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("temporary upload files remain: %v", entries)
+	}
 }
 
 func serverTemplate(t *testing.T) *template.Template {

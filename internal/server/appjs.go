@@ -3,6 +3,7 @@ package server
 const appJavaScript = `(() => {
   const q = (selector, root = document) => root.querySelector(selector);
   const qa = (selector, root = document) => [...root.querySelectorAll(selector)];
+  const mutationToken = q('meta[name="change-saga-mutation-token"]')?.content || '';
   let drawing = null;
   let activeFragment = null;
   let selectedTool = 'select';
@@ -77,7 +78,7 @@ const appJavaScript = `(() => {
     form.action = action;
     if (multipart) form.enctype = 'multipart/form-data';
     // form.submit() bypasses the submit listener, so the return path is explicit here.
-    Object.entries({...fields, return_to:location.pathname + location.search + location.hash}).forEach(([name,value]) => {
+    Object.entries({...fields, mutation_token:mutationToken, return_to:location.pathname + location.search + location.hash}).forEach(([name,value]) => {
       const input = document.createElement('input');
       input.type = 'hidden';
       input.name = name;
@@ -223,7 +224,7 @@ const appJavaScript = `(() => {
     buttons.forEach(button => button.disabled = true);
     try {
       const values = new URLSearchParams({target:control.dataset.reviewTarget, state, body, return_to:location.pathname + location.search + location.hash});
-      const response = await fetch('/api/review', {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-Change-Saga-Async':'true'},body:values,credentials:'same-origin'});
+      const response = await fetch('/api/review', {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-Change-Saga-Async':'true','X-Change-Saga-Mutation-Token':mutationToken},body:values,credentials:'same-origin'});
       if (!response.ok) throw new Error((await response.text()).trim() || 'review could not be saved');
       control.dataset.reviewAuthor = 'Local / uncommitted';
       control.dataset.reviewDetail = 'This review event has not been committed yet.';
@@ -1227,7 +1228,7 @@ const appJavaScript = `(() => {
   async function persistAnnotationAnchor(thread, anchor) {
     const response = await fetch('/api/thread-anchor', {
       method:'POST',
-      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      headers:{'Content-Type':'application/x-www-form-urlencoded','X-Change-Saga-Mutation-Token':mutationToken},
       body:new URLSearchParams({thread,anchor:JSON.stringify(anchor)})
     });
     if (!response.ok) throw new Error(await response.text());
@@ -1489,6 +1490,14 @@ const appJavaScript = `(() => {
       return;
     }
     if (form.matches('form[action^="/api/"]')) {
+      let token = q('[name=mutation_token]', form);
+      if (!token) {
+        token = document.createElement('input');
+        token.type = 'hidden';
+        token.name = 'mutation_token';
+        form.append(token);
+      }
+      token.value = mutationToken;
       let returnTo = q('[name=return_to]', form);
       if (!returnTo) {
         returnTo = document.createElement('input');

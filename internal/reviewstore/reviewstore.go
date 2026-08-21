@@ -13,7 +13,9 @@ import (
 	"github.com/change-saga/change-saga/internal/store"
 )
 
-func AddThread(root, target, body string, anchor saga.Anchor, kind, replacement string, attachments []string) (string, error) {
+var mutationFaultHook func(string) error
+
+func AddThread(root, target, body string, anchor saga.Anchor, kind, replacement string, attachments []string) (id string, err error) {
 	if target == "" {
 		return "", fmt.Errorf("target is required")
 	}
@@ -39,23 +41,29 @@ func AddThread(root, target, body string, anchor saga.Anchor, kind, replacement 
 		return "", err
 	}
 	now := time.Now().UTC()
-	id := store.EventID(now)
-	threadsDir, err := store.EnsureDirWithin(root, filepath.Join(root, "___review", "threads"))
+	id = store.EventID(now)
+	err = mutate(root, func() error {
+		threadsDir, err := store.EnsureDirWithin(root, filepath.Join(root, "___review", "threads"))
+		if err != nil {
+			return err
+		}
+		threadDir := filepath.Join(threadsDir, id+".thread")
+		return store.CommitDir(root, threadDir, func(stage string) error {
+			thread := saga.ThreadManifest{Version: saga.CurrentVersion, ID: id, Target: target, Anchor: anchor, Kind: kind, CreatedAt: now}
+			if kind == "suggestion" {
+				thread.Suggestion = &saga.Suggestion{Replacement: replacement}
+			}
+			if err := store.WriteJSON(filepath.Join(stage, "thread.json"), thread, true); err != nil {
+				return err
+			}
+			if err := injectMutationFault("after-thread-manifest"); err != nil {
+				return err
+			}
+			_, err = addMessageToUncommittedThread(stage, body, attachments, now)
+			return err
+		})
+	})
 	if err != nil {
-		return "", err
-	}
-	threadDir := filepath.Join(threadsDir, id+".thread")
-	if err := os.Mkdir(threadDir, 0o755); err != nil {
-		return "", err
-	}
-	thread := saga.ThreadManifest{Version: saga.CurrentVersion, ID: id, Target: target, Anchor: anchor, Kind: kind, CreatedAt: now}
-	if kind == "suggestion" {
-		thread.Suggestion = &saga.Suggestion{Replacement: replacement}
-	}
-	if err := store.WriteJSON(filepath.Join(threadDir, "thread.json"), thread, true); err != nil {
-		return "", err
-	}
-	if _, err := addMessage(threadDir, body, attachments, now); err != nil {
 		return "", err
 	}
 	return id, nil
@@ -69,161 +77,246 @@ func AddDiffReview(root, uri, state string) error {
 	if state != "reviewed" && state != "unreviewed" {
 		return fmt.Errorf("diff review requires reviewed or unreviewed state")
 	}
-	dir, err := store.EnsureDirWithin(root, filepath.Join(root, "___review", "diffs"))
-	if err != nil {
-		return err
-	}
-	now := time.Now().UTC()
-	id := store.EventID(now)
-	review := saga.DiffReview{Version: saga.CurrentVersion, ID: id, URI: uri, State: state, CreatedAt: now}
-	return store.WriteJSON(filepath.Join(dir, id+"-"+state+".json"), review, true)
+	return mutate(root, func() error {
+		dir, err := store.EnsureDirWithin(root, filepath.Join(root, "___review", "diffs"))
+		if err != nil {
+			return err
+		}
+		now := time.Now().UTC()
+		id := store.EventID(now)
+		review := saga.DiffReview{Version: saga.CurrentVersion, ID: id, URI: uri, State: state, CreatedAt: now}
+		return store.WriteJSON(filepath.Join(dir, id+"-"+state+".json"), review, true)
+	})
 }
 
-func AddReply(root, threadID, body string, attachments []string) (string, error) {
+func AddReply(root, threadID, body string, attachments []string) (id string, err error) {
 	if strings.TrimSpace(threadID) == "" {
 		return "", fmt.Errorf("thread is required")
+	}
+	if strings.TrimSpace(body) == "" && len(attachments) == 0 {
+		return "", fmt.Errorf("message body or attachment is required")
 	}
 	if err := validateAttachments(attachments); err != nil {
 		return "", err
 	}
-	threadDir := filepath.Join(root, "___review", "threads", filepath.Base(threadID)+".thread")
-	if info, err := os.Stat(filepath.Join(threadDir, "thread.json")); err != nil || info.IsDir() {
-		return "", fmt.Errorf("thread %q does not exist", threadID)
-	}
-	if _, err := store.EnsureDirWithin(root, threadDir); err != nil {
+	now := time.Now().UTC()
+	id = store.EventID(now)
+	err = mutate(root, func() error {
+		threadDir, err := existingThreadDir(root, threadID)
+		if err != nil {
+			return err
+		}
+		messagesDir, err := store.EnsureDirWithin(root, filepath.Join(threadDir, "messages"))
+		if err != nil {
+			return err
+		}
+		messageDir := filepath.Join(messagesDir, id+".message")
+		return store.CommitDir(root, messageDir, func(stage string) error {
+			return populateMessage(stage, id, body, attachments, now)
+		})
+	})
+	if err != nil {
 		return "", err
 	}
-	return addMessage(threadDir, body, attachments, time.Now().UTC())
+	return id, nil
 }
 
 func SetState(root, threadID, state string) error {
 	if state != "open" && state != "resolved" && state != "withdrawn" {
 		return fmt.Errorf("thread state must be open, resolved, or withdrawn")
 	}
-	threadDir := filepath.Join(root, "___review", "threads", filepath.Base(threadID)+".thread")
-	if info, err := os.Stat(filepath.Join(threadDir, "thread.json")); err != nil || info.IsDir() {
-		return fmt.Errorf("thread %q does not exist", threadID)
-	}
-	eventsDir, err := store.EnsureDirWithin(root, filepath.Join(threadDir, "events"))
-	if err != nil {
-		return err
-	}
-	now := time.Now().UTC()
-	id := store.EventID(now)
-	event := saga.ThreadEvent{Version: saga.CurrentVersion, ID: id, State: state, CreatedAt: now}
-	return store.WriteJSON(filepath.Join(eventsDir, id+"-"+state+".json"), event, true)
+	return mutate(root, func() error {
+		threadDir, err := existingThreadDir(root, threadID)
+		if err != nil {
+			return err
+		}
+		eventsDir, err := store.EnsureDirWithin(root, filepath.Join(threadDir, "events"))
+		if err != nil {
+			return err
+		}
+		now := time.Now().UTC()
+		id := store.EventID(now)
+		event := saga.ThreadEvent{Version: saga.CurrentVersion, ID: id, State: state, CreatedAt: now}
+		return store.WriteJSON(filepath.Join(eventsDir, id+"-"+state+".json"), event, true)
+	})
 }
 
 func SetAnchor(root, threadID string, anchor saga.Anchor) error {
 	if err := saga.ValidateAnchor(anchor); err != nil {
 		return err
 	}
-	threadDir := filepath.Join(root, "___review", "threads", filepath.Base(threadID)+".thread")
-	if info, err := os.Stat(filepath.Join(threadDir, "thread.json")); err != nil || info.IsDir() {
-		return fmt.Errorf("thread %q does not exist", threadID)
-	}
-	eventsDir, err := store.EnsureDirWithin(root, filepath.Join(threadDir, "events"))
-	if err != nil {
-		return err
-	}
-	now := time.Now().UTC()
-	id := store.EventID(now)
-	event := saga.ThreadEvent{Version: saga.CurrentVersion, ID: id, Anchor: &anchor, CreatedAt: now}
-	return store.WriteJSON(filepath.Join(eventsDir, id+"-anchor.json"), event, true)
+	return mutate(root, func() error {
+		threadDir, err := existingThreadDir(root, threadID)
+		if err != nil {
+			return err
+		}
+		eventsDir, err := store.EnsureDirWithin(root, filepath.Join(threadDir, "events"))
+		if err != nil {
+			return err
+		}
+		now := time.Now().UTC()
+		id := store.EventID(now)
+		event := saga.ThreadEvent{Version: saga.CurrentVersion, ID: id, Anchor: &anchor, CreatedAt: now}
+		return store.WriteJSON(filepath.Join(eventsDir, id+"-anchor.json"), event, true)
+	})
 }
 
 func AddReview(root, targetDir, state, body string) error {
 	if state != "approved" && state != "rejected" && state != "closed" && state != "open" {
 		return fmt.Errorf("review requires approved, rejected, closed, or open state")
 	}
-	dir, err := store.EnsureDirWithin(root, filepath.Join(targetDir, "___approvals"))
-	if err != nil {
-		return err
-	}
-	now := time.Now().UTC()
-	id := store.EventID(now)
-	review := saga.Review{Version: saga.CurrentVersion, ID: id, State: state, Body: strings.TrimSpace(body), CreatedAt: now}
-	return store.WriteJSON(filepath.Join(dir, id+"-"+state+".json"), review, true)
+	return mutate(root, func() error {
+		dir, err := store.EnsureDirWithin(root, filepath.Join(targetDir, "___approvals"))
+		if err != nil {
+			return err
+		}
+		now := time.Now().UTC()
+		id := store.EventID(now)
+		review := saga.Review{Version: saga.CurrentVersion, ID: id, State: state, Body: strings.TrimSpace(body), CreatedAt: now}
+		return store.WriteJSON(filepath.Join(dir, id+"-"+state+".json"), review, true)
+	})
 }
 
-func addMessage(threadDir, body string, attachments []string, now time.Time) (string, error) {
-	if strings.TrimSpace(body) == "" && len(attachments) == 0 {
-		return "", fmt.Errorf("message body or attachment is required")
+func mutate(root string, operation func() error) error {
+	if err := validateMutableSaga(root); err != nil {
+		return err
 	}
+	return store.WithSagaLock(root, store.DefaultLockTimeout, func() error {
+		// Validate again under the writer lock so a concurrent supported writer or
+		// external edit cannot turn a previously valid snapshot into a mutation
+		// target between the check and the commit.
+		if err := validateMutableSaga(root); err != nil {
+			return err
+		}
+		return operation()
+	})
+}
+
+func validateMutableSaga(root string) error {
+	_, validation, err := saga.Load(root)
+	if err != nil {
+		return fmt.Errorf("cannot mutate saga: %w", err)
+	}
+	if !validation.Valid {
+		return fmt.Errorf("cannot mutate structurally invalid saga; run change-saga validate")
+	}
+	return nil
+}
+
+func existingThreadDir(root, threadID string) (string, error) {
+	threadDir := filepath.Join(root, "___review", "threads", filepath.Base(threadID)+".thread")
+	info, err := os.Lstat(filepath.Join(threadDir, "thread.json"))
+	if err != nil || info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return "", fmt.Errorf("thread %q does not exist", threadID)
+	}
+	if _, err := store.EnsureDirWithin(root, threadDir); err != nil {
+		return "", err
+	}
+	return threadDir, nil
+}
+
+func addMessageToUncommittedThread(threadDir, body string, attachments []string, now time.Time) (string, error) {
 	id := store.EventID(now)
 	messagesDir := filepath.Join(threadDir, "messages")
-	if err := os.MkdirAll(messagesDir, 0o755); err != nil {
+	if err := os.Mkdir(messagesDir, 0o755); err != nil {
 		return "", err
 	}
 	messageDir := filepath.Join(messagesDir, id+".message")
 	if err := os.Mkdir(messageDir, 0o755); err != nil {
 		return "", err
 	}
+	if err := populateMessage(messageDir, id, body, attachments, now); err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+func populateMessage(messageDir, id, body string, attachments []string, now time.Time) error {
 	message := saga.MessageManifest{Version: saga.CurrentVersion, ID: id, CreatedAt: now}
 	if err := store.WriteJSON(filepath.Join(messageDir, "message.json"), message, true); err != nil {
-		return "", err
+		return err
+	}
+	if err := injectMutationFault("after-message-manifest"); err != nil {
+		return err
 	}
 	order := 0
 	if strings.TrimSpace(body) != "" {
 		fragmentID := id + "-body"
 		fragmentDir := filepath.Join(messageDir, "body.fragment")
 		if err := os.Mkdir(fragmentDir, 0o755); err != nil {
-			return "", err
+			return err
 		}
 		manifest := saga.FragmentManifest{Version: saga.CurrentVersion, ID: fragmentID, MediaType: "text/markdown", Entrypoint: "content.md", Order: order}
 		if err := store.WriteJSON(filepath.Join(fragmentDir, "fragment.json"), manifest, true); err != nil {
-			return "", err
+			return err
 		}
-		if err := os.WriteFile(filepath.Join(fragmentDir, "content.md"), []byte(body+"\n"), 0o644); err != nil {
-			return "", err
+		if err := store.WriteFile(filepath.Join(fragmentDir, "content.md"), []byte(body+"\n"), 0o644, true); err != nil {
+			return err
 		}
 		order++
 	}
 	for i, source := range attachments {
 		name := filepath.Base(source)
-		mediaType := mime.TypeByExtension(strings.ToLower(filepath.Ext(name)))
-		if mediaType == "" {
-			mediaType = "application/octet-stream"
-		} else if parsed, _, err := mime.ParseMediaType(mediaType); err == nil {
-			mediaType = parsed
+		if name == "fragment.json" || strings.HasPrefix(name, "___") {
+			return fmt.Errorf("attachment name %q is reserved", name)
 		}
-		if !strings.HasPrefix(mediaType, "image/") && mediaType != "text/html" && mediaType != "text/plain" && mediaType != "text/markdown" {
-			return "", fmt.Errorf("unsupported attachment type %q", mediaType)
-		}
+		mediaType := attachmentMediaType(source)
 		fragmentID := fmt.Sprintf("%s-attachment-%d", id, i+1)
 		fragmentDir := filepath.Join(messageDir, fmt.Sprintf("attachment-%02d.fragment", i+1))
 		if err := os.Mkdir(fragmentDir, 0o755); err != nil {
-			return "", err
+			return err
 		}
 		manifest := saga.FragmentManifest{Version: saga.CurrentVersion, ID: fragmentID, Title: name, MediaType: mediaType, Entrypoint: name, Order: order}
 		if err := store.WriteJSON(filepath.Join(fragmentDir, "fragment.json"), manifest, true); err != nil {
-			return "", err
+			return err
 		}
 		data, err := os.ReadFile(source)
 		if err != nil {
-			return "", err
+			return err
 		}
-		if err := os.WriteFile(filepath.Join(fragmentDir, name), data, 0o644); err != nil {
-			return "", err
+		if err := store.WriteFile(filepath.Join(fragmentDir, name), data, 0o644, true); err != nil {
+			return err
+		}
+		if err := injectMutationFault("after-attachment"); err != nil {
+			return err
 		}
 		order++
 	}
-	return id, nil
+	return nil
 }
 
 func validateAttachments(attachments []string) error {
 	for _, source := range attachments {
-		info, err := os.Stat(source)
-		if err != nil || info.IsDir() {
-			return fmt.Errorf("attachment %q must be a readable file", source)
+		info, err := os.Lstat(source)
+		if err != nil || !info.Mode().IsRegular() {
+			return fmt.Errorf("attachment %q must be a readable regular file", source)
 		}
-		mediaType := mime.TypeByExtension(strings.ToLower(filepath.Ext(source)))
-		if parsed, _, err := mime.ParseMediaType(mediaType); err == nil {
-			mediaType = parsed
-		}
-		if !strings.HasPrefix(mediaType, "image/") && mediaType != "text/html" && mediaType != "text/plain" && mediaType != "text/markdown" {
+		mediaType := attachmentMediaType(source)
+		if !supportedAttachmentType(mediaType) {
 			return fmt.Errorf("unsupported attachment type %q", mediaType)
 		}
+	}
+	return nil
+}
+
+func attachmentMediaType(path string) string {
+	mediaType := mime.TypeByExtension(strings.ToLower(filepath.Ext(path)))
+	if mediaType == "" {
+		return "application/octet-stream"
+	}
+	if parsed, _, err := mime.ParseMediaType(mediaType); err == nil {
+		return parsed
+	}
+	return mediaType
+}
+
+func supportedAttachmentType(mediaType string) bool {
+	return strings.HasPrefix(mediaType, "image/") || mediaType == "text/html" || mediaType == "text/plain" || mediaType == "text/markdown"
+}
+
+func injectMutationFault(step string) error {
+	if mutationFaultHook != nil {
+		return mutationFaultHook(step)
 	}
 	return nil
 }
