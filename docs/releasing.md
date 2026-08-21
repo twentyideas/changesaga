@@ -101,7 +101,11 @@ step, and anything that changes the on-disk format is marked **Format**.
 | Bug fix, renderer change, docs, dependency update | patch |
 
 Exit codes are part of the contract: `0` success, `1` error (including schema
-errors from `validate`), `2` usage error, `3` incomplete coverage from `status`.
+errors from `validate`), `2` usage error, and `3` incomplete coverage from
+`status`. The structured `query` boundary additionally uses `3` for an invalid
+saga, `4` for stale snapshots or conflicts, `5` for missing resources, `6` for
+unsafe paths, unsupported media, or oversized content, and `7` when the source
+comparison is unavailable; its JSON error code is the authoritative detail.
 
 Prerelease suffixes (`v1.0.0-rc.1`) publish as GitHub prereleases with
 `--latest=false`, so they can never replace the stable release used by the

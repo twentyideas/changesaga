@@ -42,7 +42,7 @@ Options:
   --version <tag>   release tag to install (default: latest, e.g. v0.3.0)
   --dir <path>      install directory (default: ~/.local/bin, or /usr/local/bin
                     when it is already writable by you)
-  --repo <owner/nm> GitHub repository to install from
+  --repo <owner/name> GitHub repository to install from
   --attestation     additionally verify GitHub build provenance (needs `gh`)
   --dry-run         download and verify, but do not install
   --help            show this message
