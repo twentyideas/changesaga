@@ -49,6 +49,16 @@ the repository containing your change. It uses the project's normal PR-writing
 workflow, but produces a visual, structured saga instead of one long PR
 description.
 
+Then give the agent one of these prompts:
+
+**To author a PR's saga:**
+
+> Use the change-saga cli to create a Saga for this PR
+
+**To review a PR's saga:**
+
+> Use the change-saga cli to open this PR's Saga
+
 To create one manually:
 
 ```sh
