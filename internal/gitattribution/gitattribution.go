@@ -94,21 +94,29 @@ func (r *Resolver) ResolveAll(ctx context.Context, paths []string) []Attribution
 	sort.Strings(relatives)
 	uncommitted := r.uncommittedPaths(ctx, relatives)
 	tracked := r.trackedPaths(ctx, relatives)
+	resolved := make(map[string]Attribution, len(relatives))
+	var historyPaths []string
 	for _, relative := range relatives {
 		group := groups[relative]
-		value := Attribution{}
 		switch {
 		case uncommitted[relative]:
-			value.State = Uncommitted
+			resolved[relative] = Attribution{State: Uncommitted}
 		case !tracked[relative]:
 			if _, err := os.Stat(group.absolute); err == nil {
-				value.State = Uncommitted
+				resolved[relative] = Attribution{State: Uncommitted}
 			} else {
-				value.State = Unavailable
+				resolved[relative] = Attribution{State: Unavailable}
 			}
 		default:
-			value = r.resolveTracked(ctx, relative)
+			historyPaths = append(historyPaths, relative)
 		}
+	}
+	for relative, value := range r.resolveTrackedPaths(ctx, historyPaths) {
+		resolved[relative] = value
+	}
+	for _, relative := range relatives {
+		value := resolved[relative]
+		group := groups[relative]
 		for _, index := range group.indexes {
 			result[index] = value
 		}
@@ -166,7 +174,7 @@ func (r *Resolver) uncommittedPaths(ctx context.Context, paths []string) map[str
 			}
 			// Porcelain v1 -z emits a second NUL-terminated source path for
 			// renames and copies. It has no status prefix of its own.
-			if status[0] == 'R' || status[0] == 'C' {
+			if status[0] == 'R' || status[0] == 'C' || status[1] == 'R' || status[1] == 'C' {
 				if sourceEnd := bytes.IndexByte(output, 0); sourceEnd >= 0 {
 					output = output[sourceEnd+1:]
 				}
@@ -207,6 +215,34 @@ func (r *Resolver) resolveTracked(ctx context.Context, relative string) Attribut
 		return Attribution{State: Unavailable}
 	}
 	return Attribution{State: Committed, CommitID: parts[0], Name: parts[1], Email: parts[2], CommittedAt: committedAt}
+}
+
+// resolveTrackedPaths bounds concurrent history walks. Git must retain the
+// per-path --follow query to preserve attribution across renames, but the
+// independent lookups need not make a large review page wait on them serially.
+func (r *Resolver) resolveTrackedPaths(ctx context.Context, paths []string) map[string]Attribution {
+	const maximumWorkers = 4
+	result := make(map[string]Attribution, len(paths))
+	if len(paths) == 0 {
+		return result
+	}
+	values := make([]Attribution, len(paths))
+	workers := min(maximumWorkers, len(paths))
+	var wait sync.WaitGroup
+	wait.Add(workers)
+	for worker := range workers {
+		go func() {
+			defer wait.Done()
+			for index := worker; index < len(paths); index += workers {
+				values[index] = r.resolveTracked(ctx, paths[index])
+			}
+		}()
+	}
+	wait.Wait()
+	for index, path := range paths {
+		result[path] = values[index]
+	}
+	return result
 }
 
 func (r *Resolver) run(ctx context.Context, args ...string) ([]byte, error) {

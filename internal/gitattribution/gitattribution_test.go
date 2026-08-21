@@ -11,6 +11,48 @@ import (
 	"testing"
 )
 
+func BenchmarkResolverLargeSaga(b *testing.B) {
+	repo := b.TempDir()
+	benchmarkGit(b, repo, "init", "-b", "main")
+	benchmarkGit(b, repo, "config", "user.name", "Benchmark")
+	benchmarkGit(b, repo, "config", "user.email", "benchmark@example.test")
+	paths := make([]string, 100)
+	for index := range paths {
+		paths[index] = filepath.Join(repo, fmt.Sprintf("reviews/%03d.json", index))
+		if err := os.MkdirAll(filepath.Dir(paths[index]), 0o755); err != nil {
+			b.Fatal(err)
+		}
+		if err := os.WriteFile(paths[index], []byte("{}\n"), 0o644); err != nil {
+			b.Fatal(err)
+		}
+	}
+	benchmarkGit(b, repo, "add", ".")
+	benchmarkGit(b, repo, "commit", "-m", "add review events")
+
+	b.Run("individual", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			resolver := New(context.Background(), repo)
+			for _, path := range paths {
+				if value := resolver.Resolve(context.Background(), path); value.State != Committed {
+					b.Fatalf("attribution for %s = %#v", path, value)
+				}
+			}
+		}
+	})
+	b.Run("batched", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			values := New(context.Background(), repo).ResolveAll(context.Background(), paths)
+			for index, value := range values {
+				if value.State != Committed {
+					b.Fatalf("attribution for %s = %#v", paths[index], value)
+				}
+			}
+		}
+	})
+}
+
 func TestResolverUsesIntroducingCommitCommitter(t *testing.T) {
 	repo := t.TempDir()
 	git(t, repo, "init", "-b", "main")
@@ -154,6 +196,34 @@ func TestResolverBatchesRepositoryQueriesAndCaches(t *testing.T) {
 	resolver.ResolveAll(context.Background(), absolute)
 	if len(commands) != 3 {
 		t.Fatalf("cached batch ran more Git commands: %v", commands)
+	}
+}
+
+func TestUncommittedPathsSkipsWorktreeRenameSource(t *testing.T) {
+	resolver := &Resolver{
+		root: "/repo",
+		command: func(_ context.Context, args ...string) ([]byte, error) {
+			if !slices.Contains(args, "status") {
+				return nil, fmt.Errorf("unexpected git command: %v", args)
+			}
+			// A worktree rename records R in the Y column and follows the
+			// destination with a prefix-free source path. The source is shaped
+			// like a status record to prove it cannot create a false result.
+			return []byte(" R destination.json\x00A  forged.json\x00?? actual.json\x00"), nil
+		},
+	}
+	result := resolver.uncommittedPaths(context.Background(), []string{"destination.json", "actual.json"})
+	if !result["actual.json"] || result["forged.json"] {
+		t.Fatalf("parsed worktree rename status incorrectly: %v", result)
+	}
+}
+
+func benchmarkGit(tb testing.TB, dir string, args ...string) {
+	tb.Helper()
+	command := exec.Command("git", args...)
+	command.Dir = dir
+	if output, err := command.CombinedOutput(); err != nil {
+		tb.Fatalf("git %v: %v\n%s", args, err, output)
 	}
 }
 

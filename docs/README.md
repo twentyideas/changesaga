@@ -36,6 +36,7 @@ not a contract — where they disagree with the code, the code is current.
 | | |
 | --- | --- |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | Setup, the checks CI runs, and the rules for format changes. |
+| [performance.md](performance.md) | Deterministic mega-saga fixtures, benchmark commands, budgets, reference results, and remaining bottlenecks. |
 | [../GOVERNANCE.md](../GOVERNANCE.md) | Roles, how decisions are made, and what is out of scope. |
 | [../SECURITY.md](../SECURITY.md) | Threat model and private reporting. |
 | [../SUPPORT.md](../SUPPORT.md) | Where to ask, and answers to the questions that come up most. |
