@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/change-saga/change-saga/internal/reviewapp"
+	"github.com/twentyideas/changesaga/internal/reviewapp"
 )
 
 const querySchema = "change-saga.ai/v1"

@@ -26,17 +26,17 @@ closes: "Closes #123". -->
 - [ ] `go vet ./...` and `go test -race ./...` pass
 - [ ] Tests cover the change (a bug fix includes the test that would have caught it)
 - [ ] Touched `scripts/` or `.github/workflows/`? `shellcheck scripts/*.sh`, `./scripts/check-workflows.sh`, and `./scripts/install_test.sh` pass
-- [ ] Touched `internal/server/`? The `e2e/` suite passes and [docs/renderer-ui.md](https://github.com/change-saga/change-saga/blob/main/docs/renderer-ui.md) still holds
+- [ ] Touched `internal/server/`? The `e2e/` suite passes and [docs/renderer-ui.md](https://github.com/twentyideas/changesaga/blob/main/docs/renderer-ui.md) still holds
 - [ ] Touched docs? `./scripts/check-docs-links.sh` passes
-- [ ] User-visible change? [CHANGELOG.md](https://github.com/change-saga/change-saga/blob/main/CHANGELOG.md) `[Unreleased]` updated
+- [ ] User-visible change? [CHANGELOG.md](https://github.com/twentyideas/changesaga/blob/main/CHANGELOG.md) `[Unreleased]` updated
 
 ## Format change
 
 <!-- Delete this whole section if the on-disk format is untouched. Otherwise all
 of the following belong in this pull request. -->
 
-- [ ] [SPEC.md](https://github.com/change-saga/change-saga/blob/main/SPEC.md) updated
-- [ ] [`schema/`](https://github.com/change-saga/change-saga/blob/main/schema) updated
+- [ ] [SPEC.md](https://github.com/twentyideas/changesaga/blob/main/SPEC.md) updated
+- [ ] [`schema/`](https://github.com/twentyideas/changesaga/blob/main/schema) updated
 - [ ] `change-saga spec` output still matches the spec
 - [ ] CHANGELOG entry marked **Format**
 

@@ -10,9 +10,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/change-saga/change-saga/internal/diffuri"
-	"github.com/change-saga/change-saga/internal/saga"
-	"github.com/change-saga/change-saga/internal/store"
+	"github.com/twentyideas/changesaga/internal/diffuri"
+	"github.com/twentyideas/changesaga/internal/saga"
+	"github.com/twentyideas/changesaga/internal/store"
 )
 
 func TestReviewRecordsAreAppendOnlyAndFileGranular(t *testing.T) {

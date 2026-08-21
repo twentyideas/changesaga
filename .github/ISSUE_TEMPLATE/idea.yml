@@ -14,7 +14,7 @@ body:
         - The core stays **deterministic, dependency-light, and local**. No
           hosted service, no accounts, no telemetry.
 
-        See [GOVERNANCE.md](https://github.com/change-saga/change-saga/blob/main/GOVERNANCE.md).
+        See [GOVERNANCE.md](https://github.com/twentyideas/changesaga/blob/main/GOVERNANCE.md).
   - type: textarea
     id: problem
     attributes:

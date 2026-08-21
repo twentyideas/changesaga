@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/change-saga/change-saga/internal/diffuri"
-	"github.com/change-saga/change-saga/internal/saga"
+	"github.com/twentyideas/changesaga/internal/diffuri"
+	"github.com/twentyideas/changesaga/internal/saga"
 )
 
 func TestAuthoringLoopAgainstGitDiff(t *testing.T) {

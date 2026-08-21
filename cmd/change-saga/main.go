@@ -11,7 +11,7 @@ import (
 	"os/signal"
 	"strings"
 
-	"github.com/change-saga/change-saga/internal/cli"
+	"github.com/twentyideas/changesaga/internal/cli"
 )
 
 func main() {

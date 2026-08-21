@@ -74,4 +74,4 @@ bottom. Group entries under Added / Changed / Deprecated / Removed / Fixed /
 Security, and mark anything that changes the on-disk format as **Format**.
 -->
 
-[Unreleased]: https://github.com/change-saga/change-saga/commits/main
+[Unreleased]: https://github.com/twentyideas/changesaga/commits/main

@@ -165,9 +165,9 @@ check "attestation verification succeeds" 0 sh "$install_sh" \
 	--version "$tag" --dir "$attested" --attestation --dry-run
 expect_log "reports attestation verification" "build provenance ok"
 if grep -Fxq -- '--repo' "$CHANGE_SAGA_TEST_GH_LOG" &&
-	grep -Fxq -- 'change-saga/change-saga' "$CHANGE_SAGA_TEST_GH_LOG" &&
+	grep -Fxq -- 'twentyideas/changesaga' "$CHANGE_SAGA_TEST_GH_LOG" &&
 	grep -Fxq -- '--signer-workflow' "$CHANGE_SAGA_TEST_GH_LOG" &&
-	grep -Fxq -- 'change-saga/change-saga/.github/workflows/release.yml' "$CHANGE_SAGA_TEST_GH_LOG" &&
+	grep -Fxq -- 'twentyideas/changesaga/.github/workflows/release.yml' "$CHANGE_SAGA_TEST_GH_LOG" &&
 	grep -Fxq -- '--source-ref' "$CHANGE_SAGA_TEST_GH_LOG" &&
 	grep -Fxq -- "refs/tags/$tag" "$CHANGE_SAGA_TEST_GH_LOG"; then
 	record "pins attestation to the release workflow and tag" 0

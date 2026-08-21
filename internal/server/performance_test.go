@@ -6,10 +6,10 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/change-saga/change-saga/internal/coverage"
-	"github.com/change-saga/change-saga/internal/diffuri"
-	"github.com/change-saga/change-saga/internal/gitdiff"
-	"github.com/change-saga/change-saga/internal/saga"
+	"github.com/twentyideas/changesaga/internal/coverage"
+	"github.com/twentyideas/changesaga/internal/diffuri"
+	"github.com/twentyideas/changesaga/internal/gitdiff"
+	"github.com/twentyideas/changesaga/internal/saga"
 )
 
 func TestLargeSagaCoverageAndDrawerNavigationContracts(t *testing.T) {

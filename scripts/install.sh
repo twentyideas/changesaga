@@ -1,7 +1,7 @@
 #!/bin/sh
 # Change Saga installer for macOS and Linux.
 #
-#   curl -fsSL https://raw.githubusercontent.com/change-saga/change-saga/main/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/twentyideas/changesaga/main/scripts/install.sh | sh
 #
 # With options, pass them after `-s --`:
 #
@@ -24,7 +24,7 @@
 #     non-root user; it never attempts to gain access to a system directory.
 set -eu
 
-REPO="${CHANGE_SAGA_REPO:-change-saga/change-saga}"
+REPO="${CHANGE_SAGA_REPO:-twentyideas/changesaga}"
 BIN_NAME="change-saga"
 VERSION="${CHANGE_SAGA_VERSION:-latest}"
 INSTALL_DIR="${CHANGE_SAGA_INSTALL_DIR:-}"

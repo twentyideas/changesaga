@@ -1,3 +1,3 @@
-module github.com/change-saga/change-saga
+module github.com/twentyideas/changesaga
 
 go 1.26

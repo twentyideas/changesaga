@@ -8,9 +8,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/change-saga/change-saga/internal/diffuri"
-	"github.com/change-saga/change-saga/internal/gitattribution"
-	"github.com/change-saga/change-saga/internal/saga"
+	"github.com/twentyideas/changesaga/internal/diffuri"
+	"github.com/twentyideas/changesaga/internal/gitattribution"
+	"github.com/twentyideas/changesaga/internal/saga"
 )
 
 func (s *session) indexReviewItems(ctx context.Context) {

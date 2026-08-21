@@ -8,8 +8,8 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/change-saga/change-saga/internal/querytest"
-	"github.com/change-saga/change-saga/internal/saga"
+	"github.com/twentyideas/changesaga/internal/querytest"
+	"github.com/twentyideas/changesaga/internal/saga"
 )
 
 func TestDocumentedReadBounds(t *testing.T) {

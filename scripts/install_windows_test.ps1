@@ -70,7 +70,7 @@ try {
     $env:GOOS = "windows"
     $env:GOARCH = "amd64"
     $Binary = Join-Path $StageDir "change-saga.exe"
-    $Ldflags = "-s -w -X github.com/change-saga/change-saga/internal/cli.Version=$Version"
+    $Ldflags = "-s -w -X github.com/twentyideas/changesaga/internal/cli.Version=$Version"
     & go build -trimpath -ldflags $Ldflags -o $Binary ./cmd/change-saga
     if ($LASTEXITCODE -ne 0) { throw "go build failed" }
     Copy-Item (Join-Path $RepoRoot "LICENSE"), (Join-Path $RepoRoot "README.md") -Destination $StageDir

@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/change-saga/change-saga/internal/diffuri"
+	"github.com/twentyideas/changesaga/internal/diffuri"
 )
 
 type Atom struct {

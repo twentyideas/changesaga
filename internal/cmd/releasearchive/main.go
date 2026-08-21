@@ -5,7 +5,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/change-saga/change-saga/internal/releasearchive"
+	"github.com/twentyideas/changesaga/internal/releasearchive"
 )
 
 func main() {

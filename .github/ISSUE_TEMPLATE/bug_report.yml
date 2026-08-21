@@ -9,7 +9,7 @@ body:
         smallest command sequence that shows the problem is ideal.
 
         **Do not report security vulnerabilities here.** Use
-        [private reporting](https://github.com/change-saga/change-saga/security/advisories/new)
+        [private reporting](https://github.com/twentyideas/changesaga/security/advisories/new)
         instead.
   - type: textarea
     id: what-happened

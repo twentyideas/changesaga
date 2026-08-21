@@ -174,7 +174,7 @@ Users can verify a download two ways:
 
 ```sh
 sha256sum -c SHA256SUMS --ignore-missing
-gh attestation verify change-saga_0.3.0_linux_amd64.tar.gz --repo change-saga/change-saga
+gh attestation verify change-saga_0.3.0_linux_amd64.tar.gz --repo twentyideas/changesaga
 ```
 
 The second command checks the Sigstore build provenance attestation, which ties
@@ -186,14 +186,14 @@ from.
 macOS and Linux:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/change-saga/change-saga/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/twentyideas/changesaga/main/scripts/install.sh | sh
 curl -fsSL .../install.sh | sh -s -- --version v0.3.0 --dir ~/bin
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/change-saga/change-saga/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/twentyideas/changesaga/main/scripts/install.ps1 | iex
 ```
 
 The PowerShell installer downloads `change-saga_<version>_windows_<arch>.zip`,

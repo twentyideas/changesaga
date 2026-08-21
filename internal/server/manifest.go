@@ -8,10 +8,10 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/change-saga/change-saga/internal/coverage"
-	"github.com/change-saga/change-saga/internal/diffuri"
-	"github.com/change-saga/change-saga/internal/gitdiff"
-	"github.com/change-saga/change-saga/internal/saga"
+	"github.com/twentyideas/changesaga/internal/coverage"
+	"github.com/twentyideas/changesaga/internal/diffuri"
+	"github.com/twentyideas/changesaga/internal/gitdiff"
+	"github.com/twentyideas/changesaga/internal/saga"
 )
 
 // CoverageManifestView is the human-auditable, bidirectional projection of

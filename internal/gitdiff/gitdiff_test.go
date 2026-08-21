@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/change-saga/change-saga/internal/diffuri"
+	"github.com/twentyideas/changesaga/internal/diffuri"
 )
 
 func TestParseLinesAndEvents(t *testing.T) {

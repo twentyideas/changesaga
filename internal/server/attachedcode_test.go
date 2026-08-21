@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/change-saga/change-saga/internal/gitdiff"
-	"github.com/change-saga/change-saga/internal/saga"
+	"github.com/twentyideas/changesaga/internal/gitdiff"
+	"github.com/twentyideas/changesaga/internal/saga"
 )
 
 func TestAttachedCodeGroupsExactChangesByFileWithAuthoredReason(t *testing.T) {

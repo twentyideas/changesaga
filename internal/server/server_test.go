@@ -16,11 +16,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/change-saga/change-saga/internal/diffuri"
-	"github.com/change-saga/change-saga/internal/gitattribution"
-	"github.com/change-saga/change-saga/internal/gitdiff"
-	"github.com/change-saga/change-saga/internal/reviewstore"
-	"github.com/change-saga/change-saga/internal/saga"
+	"github.com/twentyideas/changesaga/internal/diffuri"
+	"github.com/twentyideas/changesaga/internal/gitattribution"
+	"github.com/twentyideas/changesaga/internal/gitdiff"
+	"github.com/twentyideas/changesaga/internal/reviewstore"
+	"github.com/twentyideas/changesaga/internal/saga"
 )
 
 func TestSecureHandlerRejectsCrossOriginFetchSiteAndHost(t *testing.T) {

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/change-saga/change-saga/internal/diffuri"
+	"github.com/twentyideas/changesaga/internal/diffuri"
 )
 
 func Load(root string) (*Saga, Validation, error) {

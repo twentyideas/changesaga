@@ -159,9 +159,9 @@ if [ "$goos" = "windows" ]; then
 fi
 
 ldflags="-s -w"
-ldflags="$ldflags -X github.com/change-saga/change-saga/internal/cli.Version=${version}"
-ldflags="$ldflags -X github.com/change-saga/change-saga/internal/cli.Commit=${commit}"
-ldflags="$ldflags -X github.com/change-saga/change-saga/internal/cli.BuildDate=${build_date}"
+ldflags="$ldflags -X github.com/twentyideas/changesaga/internal/cli.Version=${version}"
+ldflags="$ldflags -X github.com/twentyideas/changesaga/internal/cli.Commit=${commit}"
+ldflags="$ldflags -X github.com/twentyideas/changesaga/internal/cli.BuildDate=${build_date}"
 
 echo "building ${name}"
 "${go_env[@]}" CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \

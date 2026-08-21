@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/change-saga/change-saga/internal/diffuri"
+	"github.com/twentyideas/changesaga/internal/diffuri"
 )
 
 const (

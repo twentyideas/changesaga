@@ -1,6 +1,6 @@
 # Change Saga installer for Windows PowerShell 5.1+ and PowerShell 7+.
 #
-#   irm https://raw.githubusercontent.com/change-saga/change-saga/main/scripts/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/twentyideas/changesaga/main/scripts/install.ps1 | iex
 #
 # The installer downloads the matching GitHub Release asset, verifies it against
 # SHA256SUMS, and installs change-saga.exe for the current user. It never embeds
@@ -9,7 +9,7 @@
 param(
     [string]$Version = $env:CHANGE_SAGA_VERSION,
     [string]$InstallDir = $env:CHANGE_SAGA_INSTALL_DIR,
-    [string]$Repo = $(if ($env:CHANGE_SAGA_REPO) { $env:CHANGE_SAGA_REPO } else { "change-saga/change-saga" }),
+    [string]$Repo = $(if ($env:CHANGE_SAGA_REPO) { $env:CHANGE_SAGA_REPO } else { "twentyideas/changesaga" }),
     [switch]$DryRun,
     [switch]$NoPathUpdate
 )

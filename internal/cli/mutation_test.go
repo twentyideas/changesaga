@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/change-saga/change-saga/internal/saga"
+	"github.com/twentyideas/changesaga/internal/saga"
 )
 
 // newAuthoredSaga returns a valid saga backed by a real repository, because

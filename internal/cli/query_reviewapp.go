@@ -3,7 +3,7 @@ package cli
 import (
 	"context"
 
-	"github.com/change-saga/change-saga/internal/reviewapp"
+	"github.com/twentyideas/changesaga/internal/reviewapp"
 )
 
 type reviewAppQuerySession struct {

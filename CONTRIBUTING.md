@@ -28,7 +28,7 @@ first. It is much cheaper to agree on the shape before the code exists. See
 Go 1.26 or newer, and Git. Nothing else for the Go side.
 
 ```sh
-git clone https://github.com/change-saga/change-saga
+git clone https://github.com/twentyideas/changesaga
 cd change-saga
 go build ./cmd/change-saga
 go run ./cmd/change-saga help

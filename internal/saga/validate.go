@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/change-saga/change-saga/internal/diffuri"
+	"github.com/twentyideas/changesaga/internal/diffuri"
 )
 
 var stableID = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$`)

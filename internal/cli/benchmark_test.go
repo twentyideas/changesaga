@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/change-saga/change-saga/internal/testfixture"
+	"github.com/twentyideas/changesaga/internal/testfixture"
 )
 
 const (
