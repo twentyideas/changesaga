@@ -14,6 +14,7 @@ release is a tag push and nothing else.
 | `scripts/install.ps1` | The `irm \| iex` installer for Windows PowerShell. |
 | `scripts/macos-*.sh` | Developer ID keychain setup, signing, notarization. Only ever called from the trusted release job. |
 | `scripts/install_test.sh` | End-to-end test of the installer against a locally staged release. |
+| `scripts/artifact_test.sh` | Checks a built archive's contents, layout, and permissions. |
 | `scripts/install_windows_test.ps1` | End-to-end Windows installer test with locally mocked release downloads. |
 
 ## Cutting a release
@@ -105,10 +106,16 @@ change-saga_<version>_windows_arm64.zip
 SHA256SUMS
 ```
 
-Each archive contains the binary, `LICENSE`, and `README.md`. Builds are
-`CGO_ENABLED=0 -trimpath`, so the binary has no libc or toolchain dependency and
-build paths do not leak into it. `internal/cli.Version`, `.Commit`, and
-`.BuildDate` are injected with `-ldflags -X`; `change-saga version` prints all three.
+Each archive is flat and contains only the platform binary, `LICENSE`, and
+`README.md`; extract it into an empty directory when unpacking by hand. The
+binary is mode `0755` and both documents are `0644`, regardless of the builder's
+umask. Builds use `CGO_ENABLED=0` and `-trimpath`, so users do not need a
+separately installed Go runtime or third-party dynamic library and absolute
+source paths are omitted. The executables still use platform system libraries
+where the operating system requires them. `Version`, `Commit`, and `BuildDate`
+in `internal/cli` are injected with `-ldflags -X`;
+`change-saga version` prints all three. `Commit` is the first 12 characters of
+the tagged revision's object ID, and `BuildDate` is UTC.
 
 For a direct Apple Silicon handoff, wrap the archive in a single installer:
 

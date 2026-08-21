@@ -50,6 +50,8 @@ Until then, the honest summary of what exists:
   bound-host requests, bounded uploads, and strict loopback-only serving.
 - Workspace tabs, linked-code focus management, diff interactions, and color
   contrast now pass the serious/critical real-browser accessibility gate.
+- Release archives carry fixed member permissions (`0755` binary, `0644`
+  documents) instead of inheriting the umask of the machine that built them.
 
 <!--
 Maintainers: when cutting a release, rename this section to

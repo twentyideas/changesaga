@@ -139,6 +139,12 @@ fi
 
 cp LICENSE README.md "$stage/"
 
+# Pin the archived modes instead of inheriting the builder's umask. A machine
+# with `umask 077` would otherwise produce an archive whose binary only the
+# extracting user can run and whose docs only they can read.
+chmod 0755 "$stage/$binary"
+chmod 0644 "$stage/LICENSE" "$stage/README.md"
+
 mkdir -p "$dist"
 dist_abs="$(cd "$dist" && pwd)"
 rm -f "$dist_abs/$name.tar.gz" "$dist_abs/$name.zip"
