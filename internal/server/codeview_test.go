@@ -183,7 +183,7 @@ func TestRelatedSagaLinksBackToExactLandmark(t *testing.T) {
 	result := makeRelatedSagaViews([]narrativeLocation{location}, []*diffAtomView{atom}, map[string][]coverage.Assignment{
 		"changed": {{Target: landmarkTarget}},
 	})
-	if len(result) != 1 || len(result[0].Fragments) != 1 || result[0].Fragments[0].Title != "Submit action" || result[0].Fragments[0].Href != location.fragmentHref {
+	if len(result) != 1 || len(result[0].Fragments) != 1 || result[0].Fragments[0].Title != "Submit action" || result[0].Fragments[0].Href != location.fragmentHref || result[0].Fragments[0].Anchor != strings.TrimPrefix(location.fragmentHref, "#") {
 		t.Fatalf("landmark reverse link = %#v", result)
 	}
 }

@@ -48,7 +48,7 @@ Use `change-saga query`, the versioned read API, for every read of an existing
 saga during both authoring and review. It is deterministic and paginated, never
 starts the server, and never mutates either repository.
 
-The operations are `overview`, `children`, `fragment`, `fragment-diffs`,
+The operations are `schema`, `overview`, `children`, `fragment`, `fragment-diffs`,
 `diff-owners`, `reviews`, `gaps`, `mappings`, `claims`, and `verifications`. Start at `query overview`, walk one level
 at a time with `query children`, read narrative content through `query
 fragment`, navigate evidence in both directions with `query fragment-diffs` and
@@ -60,10 +60,15 @@ thin justification deserves the most skepticism. Use `query claims` and
 append-only verification history.
 
 Pass `--saga <path>` to every query, and `--repo <source-checkout>` when the
-source repository is separate. Each invocation writes exactly one JSON envelope
-with `schema`, `ok`, `snapshot`, `data`, `page.next_cursor`, and on failure
-`error.code`. Branch on `ok` and `error.code`; never parse message text. Follow
-`page.next_cursor` until it is null rather than raising `--limit`. `query
+source repository is separate. The one exception is `change-saga query schema
+<operation>`, which describes that operation's data paths and pagination
+contract without opening a saga. Use it instead of probing or guessing response
+shapes. Each invocation writes exactly one JSON envelope with `schema`, `ok`,
+`snapshot`, `data`, and `page`; failures carry `error.code`. Branch on `ok` and
+`error.code`; never parse message text. For cursor-paginated operations, compare
+`page.returned` with `page.total` and follow `page.next_cursor` while
+`page.has_more` is true. Do not raise `--limit` to silently swallow a partial
+result. `query
 children` on a fragment lists its landmarks with the target URNs to pass to
 `change-saga cover --target`.
 

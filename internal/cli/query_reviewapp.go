@@ -26,7 +26,7 @@ func (s *reviewAppQuerySession) Overview(ctx context.Context, _ overviewQuery) (
 
 func (s *reviewAppQuerySession) Children(ctx context.Context, query childrenQuery) (queryPage, error) {
 	value, err := s.session.Children(ctx, reviewapp.ChildrenQuery{Parent: query.Parent, Cursor: query.Cursor, Limit: query.Limit})
-	return queryPage{Data: value, NextCursor: value.Page.NextCursor}, err
+	return queryPage{Data: value, Page: queryPageFromApplication(value.Page)}, err
 }
 
 func (s *reviewAppQuerySession) ReadFragment(ctx context.Context, query fragmentQuery) (any, error) {
@@ -35,35 +35,39 @@ func (s *reviewAppQuerySession) ReadFragment(ctx context.Context, query fragment
 
 func (s *reviewAppQuerySession) FragmentDiffs(ctx context.Context, query fragmentDiffQuery) (queryPage, error) {
 	value, err := s.session.FragmentDiffs(ctx, reviewapp.FragmentDiffQuery{Target: query.Target, Cursor: query.Cursor, Limit: query.Limit})
-	return queryPage{Data: value, NextCursor: value.Page.NextCursor}, err
+	return queryPage{Data: value, Page: queryPageFromApplication(value.Page)}, err
 }
 
 func (s *reviewAppQuerySession) DiffOwners(ctx context.Context, query diffOwnerQuery) (queryPage, error) {
 	value, err := s.session.DiffOwners(ctx, reviewapp.DiffOwnerQuery{Diff: query.Diff, Cursor: query.Cursor, Limit: query.Limit})
-	return queryPage{Data: value, NextCursor: value.Page.NextCursor}, err
+	return queryPage{Data: value, Page: queryPageFromApplication(value.Page)}, err
 }
 
 func (s *reviewAppQuerySession) Reviews(ctx context.Context, query reviewQuery) (queryPage, error) {
 	value, err := s.session.Reviews(ctx, reviewapp.ReviewQuery{Target: query.Target, Thread: query.Thread, State: query.State, Cursor: query.Cursor, Limit: query.Limit})
-	return queryPage{Data: value, NextCursor: value.Page.NextCursor}, err
+	return queryPage{Data: value, Page: queryPageFromApplication(value.Page)}, err
 }
 
 func (s *reviewAppQuerySession) Gaps(ctx context.Context, query gapQuery) (queryPage, error) {
 	value, err := s.session.Gaps(ctx, reviewapp.GapQuery{Kind: query.Kind, Cursor: query.Cursor, Limit: query.Limit})
-	return queryPage{Data: value, NextCursor: value.Page.NextCursor}, err
+	return queryPage{Data: value, Page: queryPageFromApplication(value.Page)}, err
 }
 
 func (s *reviewAppQuerySession) Mappings(ctx context.Context, query mappingQuery) (queryPage, error) {
 	value, err := s.session.Mappings(ctx, reviewapp.MappingQuery{Target: query.Target, Sort: query.Sort, MinimumScore: query.MinimumScore, Cursor: query.Cursor, Limit: query.Limit})
-	return queryPage{Data: value, NextCursor: value.Page.NextCursor}, err
+	return queryPage{Data: value, Page: queryPageFromApplication(value.Page)}, err
 }
 
 func (s *reviewAppQuerySession) Claims(ctx context.Context, query claimQuery) (queryPage, error) {
 	value, err := s.session.Claims(ctx, reviewapp.ClaimQuery{Target: query.Target, Status: query.Status, Cursor: query.Cursor, Limit: query.Limit})
-	return queryPage{Data: value, NextCursor: value.Page.NextCursor}, err
+	return queryPage{Data: value, Page: queryPageFromApplication(value.Page)}, err
 }
 
 func (s *reviewAppQuerySession) Verifications(ctx context.Context, query verificationQuery) (queryPage, error) {
 	value, err := s.session.Verifications(ctx, reviewapp.VerificationQuery{Claim: query.Claim, Status: query.Status, Cursor: query.Cursor, Limit: query.Limit})
-	return queryPage{Data: value, NextCursor: value.Page.NextCursor}, err
+	return queryPage{Data: value, Page: queryPageFromApplication(value.Page)}, err
+}
+
+func queryPageFromApplication(page reviewapp.Page) queryPageEnvelope {
+	return queryPageEnvelope{Total: page.Total, Returned: page.Returned, HasMore: page.HasMore, NextCursor: page.NextCursor}
 }

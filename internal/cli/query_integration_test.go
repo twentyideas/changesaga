@@ -83,6 +83,9 @@ func TestQueryCLIRealSeparateRepositoriesAllOperations(t *testing.T) {
 					t.Fatalf("pagination leaked into data instead of the common envelope: %s", body)
 				}
 			}
+			if envelope.Page.HasMore != (envelope.Page.NextCursor != nil) || envelope.Page.Returned > envelope.Page.Total {
+				t.Fatalf("incoherent page metadata: %#v", envelope.Page)
+			}
 		})
 	}
 	_, firstStatus, firstOverview := runRealQuery(t, append([]string{"overview"}, common...))
@@ -109,13 +112,16 @@ func TestQueryCLIStaleTamperedAndCrossQueryCursors(t *testing.T) {
 	fixture.AddActiveFragments()
 	common := []string{"--saga", fixture.SagaRoot, "--repo", fixture.SourceDir}
 	first, status, body := runRealQuery(t, append([]string{"children", "--parent", saga.SagaTarget("security"), "--limit", "1"}, common...))
-	if status != 0 || first.Page == nil || first.Page.NextCursor == nil {
+	if status != 0 || first.Page == nil || first.Page.Total < 2 || first.Page.Returned != 1 || !first.Page.HasMore || first.Page.NextCursor == nil {
 		t.Fatalf("first page status=%d envelope=%#v body=%s", status, first, body)
 	}
 	cursor := *first.Page.NextCursor
 	second, status, body := runRealQuery(t, append([]string{"children", "--parent", saga.SagaTarget("security"), "--limit", "1", "--cursor", cursor}, common...))
 	if status != 0 || !second.OK {
 		t.Fatalf("unchanged cursor status=%d body=%s", status, body)
+	}
+	if second.Page.Total != first.Page.Total || second.Page.Returned != 1 || second.Page.HasMore != (second.Page.NextCursor != nil) {
+		t.Fatalf("second page metadata=%#v", second.Page)
 	}
 
 	for _, attack := range querytest.TamperedCursors(cursor) {

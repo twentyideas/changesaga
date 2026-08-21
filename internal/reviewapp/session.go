@@ -823,7 +823,7 @@ func (s *session) page(operation, key, cursor string, limit, total int) (int, in
 	if end > total {
 		end = total
 	}
-	page := Page{}
+	page := Page{Total: total, Returned: end - start, HasMore: end < total}
 	if end < total {
 		token := cursorToken{Version: 1, Operation: operation, Key: key, Snapshot: s.snapshot, Offset: end}
 		token.Checksum = cursorChecksum(token)

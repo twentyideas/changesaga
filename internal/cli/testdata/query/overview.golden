@@ -1,1 +1,1 @@
-{"schema":"change-saga.ai/v1","ok":true,"snapshot":"sha256:test","data":{"operation":"overview"},"page":{"next_cursor":null}}
+{"schema":"change-saga.ai/v1","ok":true,"snapshot":"sha256:test","data":{"operation":"overview"},"page":{"total":1,"returned":1,"has_more":false,"next_cursor":null}}

@@ -310,6 +310,9 @@ section:hover>.section-actions .review-controls,.section:hover>.section-head>.se
 .drawer-head strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 12.5px var(--ui)}
 .drawer-head .icon-button{margin-left:auto}
 .drawer-body{overflow:auto;padding-bottom:60px;background:var(--bg)}
+.diff-drawer[data-drawer-mode=fragment] .drawer-body{padding:10px clamp(16px,4vw,54px) 72px}
+.diff-drawer[data-drawer-mode=fragment] .fragment{max-width:980px;margin:0 auto;padding-left:0}
+.diff-drawer[data-drawer-mode=fragment] .fragment.active-fragment{border-left-color:transparent}
 .drawer-body .file-head{top:0}
 .drawer-body .diff-column-head{top:38px}
 

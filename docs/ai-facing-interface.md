@@ -135,7 +135,10 @@ All machine commands emit exactly one JSON value. Successful results use:
   "snapshot": "sha256:...",
   "data": {},
   "page": {
-    "next_cursor": null
+	"total": 1373,
+	"returned": 100,
+	"has_more": true,
+    "next_cursor": "eyJ2IjoxLCJvcCI6ImdhcHMifQ..."
   }
 }
 ```
@@ -182,6 +185,19 @@ Common read form:
 ```text
 change-saga query <operation> --saga PATH [--repo PATH] [operation flags]
 ```
+
+Discover a response before parsing it:
+
+```text
+change-saga query schema <operation>
+```
+
+This requires no saga and returns the operation's stable `data_paths` plus its
+pagination kind and continuation fields. Operation-specific `--help` includes
+the same paths. Cursor pages expose `page.total`, `page.returned`,
+`page.has_more`, and `page.next_cursor`; consumers must follow the cursor while
+`has_more` is true. `total` is the size of the filtered result at the response
+snapshot, not merely the current page.
 
 The operations are:
 

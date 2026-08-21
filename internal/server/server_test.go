@@ -139,6 +139,7 @@ func TestWorkspaceTabsAndClosedDrawerCarryAccessibleSemantics(t *testing.T) {
 		`id="view-code" role="tabpanel" aria-labelledby="view-tab-code"`,
 		`id="view-manifest" role="tabpanel" aria-labelledby="view-tab-manifest"`,
 		`<aside class="diff-drawer" aria-hidden="true" inert`,
+		`data-open-fragment="{{.Anchor}}"`,
 	} {
 		if !strings.Contains(pageTemplate, fragment) {
 			t.Errorf("page template is missing accessible chrome markup %q", fragment)
@@ -150,6 +151,8 @@ func TestWorkspaceTabsAndClosedDrawerCarryAccessibleSemantics(t *testing.T) {
 		"drawer.setAttribute('inert', '')",
 		"removeAttribute('inert')",
 		"openDrawer(drawerButton.dataset.openDiffs, drawerButton)",
+		"openFragmentDrawer(fragmentDrawerLink.dataset.openFragment, fragmentDrawerLink)",
+		"drawer.setAttribute('aria-label', mode === 'fragment' ? 'Related explanation' : 'Linked code')",
 	} {
 		if !strings.Contains(appJavaScript, fragment) {
 			t.Errorf("browser script no longer maintains %q", fragment)

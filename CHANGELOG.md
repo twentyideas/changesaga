@@ -10,6 +10,23 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-08-21
+
+### Added
+
+- `change-saga query schema <operation>` reports each query's response paths
+  and pagination contract without opening a saga. Operation-specific query
+  help includes the same information.
+- Related explanations in the Code Diff sidebar open their live fragment in a
+  wide drawer, preserving interactive content, landmarks, comments, and
+  annotations while the reviewer stays in the code view.
+
+### Changed
+
+- Cursor-paginated query responses now expose `page.total`, `page.returned`,
+  and `page.has_more` alongside `page.next_cursor`, making a partial result
+  distinguishable from a complete one without relying on caller discipline.
+
 ## [0.0.2] - 2026-08-21
 
 ### Added

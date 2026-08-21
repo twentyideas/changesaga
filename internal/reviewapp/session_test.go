@@ -50,11 +50,11 @@ func TestSessionReadOperations(t *testing.T) {
 		{name: "children paginate", run: func(t *testing.T) {
 			root := saga.SagaTarget("query-test")
 			first, err := fixture.session.Children(ctx, ChildrenQuery{Parent: root, Limit: 1})
-			if err != nil || len(first.Children) != 1 || first.Page.NextCursor == nil {
+			if err != nil || len(first.Children) != 1 || first.Page.Total != 2 || first.Page.Returned != 1 || !first.Page.HasMore || first.Page.NextCursor == nil {
 				t.Fatalf("first page = %#v, err = %v", first, err)
 			}
 			second, err := fixture.session.Children(ctx, ChildrenQuery{Parent: root, Limit: 1, Cursor: *first.Page.NextCursor})
-			if err != nil || len(second.Children) != 1 || second.Page.NextCursor != nil || first.Children[0].Target == second.Children[0].Target {
+			if err != nil || len(second.Children) != 1 || second.Page.Total != 2 || second.Page.Returned != 1 || second.Page.HasMore || second.Page.NextCursor != nil || first.Children[0].Target == second.Children[0].Target {
 				t.Fatalf("second page = %#v, err = %v", second, err)
 			}
 		}},

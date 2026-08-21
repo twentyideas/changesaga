@@ -1293,12 +1293,16 @@ for every read. It is deterministic, paginated, and safe to call concurrently;
 it never starts a server and never mutates either repository.
 
 Pass "--saga <path>" to every query, and "--repo <source-checkout>" when the
-source repository is separate from the saga. Every invocation writes exactly one
-JSON envelope carrying "schema", "ok", "snapshot", "data", "page.next_cursor",
-and on failure "error.code". Branch on "ok" and "error.code"; never parse
-message text. Follow "page.next_cursor" until it is null instead of raising
-"--limit" to swallow a whole saga. Compare "snapshot" across calls to detect a
-saga that changed underneath a multi-step read.
+source repository is separate from the saga. The exception is "change-saga
+query schema <operation>", which describes the operation's data paths and
+pagination contract without opening a saga. Use it instead of probing or
+guessing response shapes. Every invocation writes exactly one JSON envelope
+carrying "schema", "ok", "snapshot", "data", and "page"; failures carry
+"error.code". Branch on "ok" and "error.code"; never parse message text. For
+cursor-paginated operations, compare "page.returned" with "page.total" and
+follow "page.next_cursor" while "page.has_more" is true. Do not raise "--limit"
+to silently swallow a partial result. Compare "snapshot" across calls to detect
+a saga that changed underneath a multi-step read.
 
 The operations are:
 

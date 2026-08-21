@@ -91,8 +91,8 @@ type verificationQuery struct {
 }
 
 type queryPage struct {
-	Data       any
-	NextCursor *string
+	Data any
+	Page queryPageEnvelope
 }
 
 type querySession interface {
@@ -131,6 +131,9 @@ type queryErrorEnvelope struct {
 }
 
 type queryPageEnvelope struct {
+	Total      int     `json:"total"`
+	Returned   int     `json:"returned"`
+	HasMore    bool    `json:"has_more"`
 	NextCursor *string `json:"next_cursor"`
 }
 
@@ -144,11 +147,33 @@ type queryEnvelope struct {
 }
 
 type queryHelp struct {
-	Usage      string   `json:"usage"`
-	Operations []string `json:"operations,omitempty"`
+	Usage      string                      `json:"usage"`
+	Operations []string                    `json:"operations,omitempty"`
+	Operation  string                      `json:"operation,omitempty"`
+	Purpose    string                      `json:"purpose,omitempty"`
+	DataPaths  []string                    `json:"data_paths,omitempty"`
+	Pagination *queryPaginationDescription `json:"pagination,omitempty"`
+}
+
+type queryPaginationDescription struct {
+	Kind           string `json:"kind"`
+	TotalPath      string `json:"total_path,omitempty"`
+	ReturnedPath   string `json:"returned_path,omitempty"`
+	HasMorePath    string `json:"has_more_path,omitempty"`
+	NextCursorPath string `json:"next_cursor_path,omitempty"`
+	NextOffsetPath string `json:"next_offset_path,omitempty"`
+}
+
+type querySchemaDescription struct {
+	Operation  string                     `json:"operation"`
+	Purpose    string                     `json:"purpose"`
+	Usage      string                     `json:"usage"`
+	DataPaths  []string                   `json:"data_paths"`
+	Pagination queryPaginationDescription `json:"pagination"`
 }
 
 var queryOperations = []string{
+	"schema",
 	"overview",
 	"children",
 	"fragment",
@@ -166,6 +191,7 @@ var queryOperations = []string{
 // install-skill prompt in particular — cannot describe an operation the CLI
 // does not have, or omit one it does.
 var queryPurpose = map[string]string{
+	"schema":         "the response paths and pagination contract for a query operation; no saga is required",
 	"overview":       "saga identity, source comparison, coverage summary, and the top of the hierarchy",
 	"children":       "one level of children under a target; a fragment's children are its landmarks",
 	"fragment":       "bounded fragment content by byte range, without reading files directly",
@@ -180,6 +206,7 @@ var queryPurpose = map[string]string{
 
 var queryUsage = map[string]string{
 	"":               "change-saga query <operation> --saga PATH [--repo PATH] [operation flags]",
+	"schema":         "change-saga query schema <operation>",
 	"overview":       "change-saga query overview --saga PATH [--repo PATH]",
 	"children":       "change-saga query children --saga PATH --parent TARGET [--cursor TOKEN] [--limit N] [--repo PATH]",
 	"fragment":       "change-saga query fragment --saga PATH --target FRAGMENT [--offset N] [--limit N] [--repo PATH]",
@@ -213,10 +240,13 @@ func queryWithOpener(ctx context.Context, args []string, out io.Writer, open que
 			Details: map[string]any{"allowed": queryOperations},
 		})
 	}
+	if operation == "schema" {
+		return writeQuerySchema(args[1:], out)
+	}
 
 	request, options, help, err := parseQuery(operation, args[1:])
 	if help {
-		return writeQuerySuccess(out, "", queryHelp{Usage: queryUsage[operation]}, nil)
+		return writeQuerySuccess(out, "", queryHelpFor(operation), nil)
 	}
 	if err != nil {
 		return writeQueryFailure(out, &queryError{Code: "invalid_argument", Message: err.Error()})
@@ -228,51 +258,106 @@ func queryWithOpener(ctx context.Context, args []string, out io.Writer, open que
 	}
 
 	var result any
-	var nextCursor *string
+	var responsePage *queryPageEnvelope
 	switch request := request.(type) {
 	case overviewQuery:
 		result, err = session.Overview(ctx, request)
 	case childrenQuery:
 		var page queryPage
 		page, err = session.Children(ctx, request)
-		result, nextCursor = page.Data, page.NextCursor
+		result, responsePage = page.Data, &page.Page
 	case fragmentQuery:
 		result, err = session.ReadFragment(ctx, request)
 	case fragmentDiffQuery:
 		var page queryPage
 		page, err = session.FragmentDiffs(ctx, request)
-		result, nextCursor = page.Data, page.NextCursor
+		result, responsePage = page.Data, &page.Page
 	case diffOwnerQuery:
 		var page queryPage
 		page, err = session.DiffOwners(ctx, request)
-		result, nextCursor = page.Data, page.NextCursor
+		result, responsePage = page.Data, &page.Page
 	case reviewQuery:
 		var page queryPage
 		page, err = session.Reviews(ctx, request)
-		result, nextCursor = page.Data, page.NextCursor
+		result, responsePage = page.Data, &page.Page
 	case gapQuery:
 		var page queryPage
 		page, err = session.Gaps(ctx, request)
-		result, nextCursor = page.Data, page.NextCursor
+		result, responsePage = page.Data, &page.Page
 	case mappingQuery:
 		var page queryPage
 		page, err = session.Mappings(ctx, request)
-		result, nextCursor = page.Data, page.NextCursor
+		result, responsePage = page.Data, &page.Page
 	case claimQuery:
 		var page queryPage
 		page, err = session.Claims(ctx, request)
-		result, nextCursor = page.Data, page.NextCursor
+		result, responsePage = page.Data, &page.Page
 	case verificationQuery:
 		var page queryPage
 		page, err = session.Verifications(ctx, request)
-		result, nextCursor = page.Data, page.NextCursor
+		result, responsePage = page.Data, &page.Page
 	default:
 		err = errors.New("unsupported query request")
 	}
 	if err != nil {
 		return writeQueryFailure(out, normalizeQueryError(err))
 	}
-	return writeQuerySuccess(out, session.Snapshot(), result, nextCursor)
+	return writeQuerySuccess(out, session.Snapshot(), result, responsePage)
+}
+
+func writeQuerySchema(args []string, out io.Writer) error {
+	if len(args) == 0 || (len(args) == 1 && isHelpArg(args[0])) {
+		return writeQuerySuccess(out, "", queryHelp{Usage: queryUsage["schema"], Operations: queryDataOperations()}, nil)
+	}
+	if len(args) != 1 {
+		return writeQueryFailure(out, &queryError{Code: "invalid_argument", Message: "schema requires exactly one query operation"})
+	}
+	operation := args[0]
+	if operation == "schema" || queryUsage[operation] == "" {
+		return writeQueryFailure(out, &queryError{Code: "invalid_argument", Message: "unknown schema operation", Details: map[string]any{"allowed": queryDataOperations()}})
+	}
+	description := querySchemaFor(operation)
+	return writeQuerySuccess(out, "", description, nil)
+}
+
+func queryDataOperations() []string {
+	return append([]string(nil), queryOperations[1:]...)
+}
+
+func queryHelpFor(operation string) queryHelp {
+	description := querySchemaFor(operation)
+	return queryHelp{
+		Usage: queryUsage[operation], Operation: operation, Purpose: description.Purpose,
+		DataPaths: description.DataPaths, Pagination: &description.Pagination,
+	}
+}
+
+func querySchemaFor(operation string) querySchemaDescription {
+	paths := map[string][]string{
+		"overview":       {"data.saga", "data.source", "data.root", "data.overview_fragments", "data.chapters", "data.coverage"},
+		"children":       {"data.children"},
+		"fragment":       {"data.target", "data.content.data", "data.content.next_offset", "data.assets", "data.landmarks"},
+		"fragment-diffs": {"data.selectors", "data.atoms", "data.stale"},
+		"diff-owners":    {"data.atoms"},
+		"reviews":        {"data.items"},
+		"gaps":           {"data.gaps"},
+		"mappings":       {"data.mappings"},
+		"claims":         {"data.claims"},
+		"verifications":  {"data.verifications"},
+	}
+	pagination := queryPaginationDescription{Kind: "none"}
+	if operation == "fragment" {
+		pagination = queryPaginationDescription{Kind: "byte-offset", NextOffsetPath: "data.content.next_offset"}
+	} else if operation != "overview" {
+		pagination = queryPaginationDescription{
+			Kind: "cursor", TotalPath: "page.total", ReturnedPath: "page.returned",
+			HasMorePath: "page.has_more", NextCursorPath: "page.next_cursor",
+		}
+	}
+	return querySchemaDescription{
+		Operation: operation, Purpose: queryPurpose[operation], Usage: queryUsage[operation],
+		DataPaths: append([]string(nil), paths[operation]...), Pagination: pagination,
+	}
 }
 
 func parseQuery(operation string, args []string) (any, queryOpenOptions, bool, error) {
@@ -428,13 +513,16 @@ func (v *optionalInt) Set(raw string) error {
 
 func isHelpArg(arg string) bool { return arg == "help" || arg == "-h" || arg == "--help" }
 
-func writeQuerySuccess(out io.Writer, snapshot string, data any, nextCursor *string) error {
+func writeQuerySuccess(out io.Writer, snapshot string, data any, page *queryPageEnvelope) error {
+	if page == nil {
+		page = &queryPageEnvelope{Total: 1, Returned: 1}
+	}
 	return encodeQueryEnvelope(out, queryEnvelope{
 		Schema:   querySchema,
 		OK:       true,
 		Snapshot: snapshot,
 		Data:     data,
-		Page:     &queryPageEnvelope{NextCursor: nextCursor},
+		Page:     page,
 	})
 }
 

@@ -425,7 +425,7 @@ func makeRelatedSagaViews(locations []narrativeLocation, atoms []*diffAtomView, 
 		}
 		group.Fragments = append(group.Fragments, &RelatedSagaFragmentView{
 			ID: location.itemID, Title: title, Target: location.target,
-			Excerpt: fragmentExcerpt(location.fragment), Anchor: domID(location.target), Href: location.fragmentHref, DiffURIs: uris,
+			Excerpt: fragmentExcerpt(location.fragment), Anchor: strings.TrimPrefix(location.fragmentHref, "#"), Href: location.fragmentHref, DiffURIs: uris,
 		})
 	}
 	return result

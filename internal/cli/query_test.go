@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -74,7 +75,7 @@ func (s *fakeQuerySession) Verifications(_ context.Context, request verification
 
 func fakePage(operation string) queryPage {
 	next := "next-page"
-	return queryPage{Data: map[string]any{"operation": operation}, NextCursor: &next}
+	return queryPage{Data: map[string]any{"operation": operation}, Page: queryPageEnvelope{Total: 20, Returned: 1, HasMore: true, NextCursor: &next}}
 }
 
 func TestQueryGoldenEnvelopes(t *testing.T) {
@@ -244,7 +245,7 @@ func TestQueryRejectsAdversarialArgumentsBeforeOpening(t *testing.T) {
 }
 
 func TestQueryHelpNeverOpensSessionAndAlwaysUsesOneEnvelope(t *testing.T) {
-	for _, args := range [][]string{nil, {"help"}, {"-h"}, {"--help"}, {"reviews", "--help"}} {
+	for _, args := range [][]string{nil, {"help"}, {"-h"}, {"--help"}, {"schema", "--help"}, {"reviews", "--help"}} {
 		var out bytes.Buffer
 		if err := queryWithOpener(context.Background(), args, &out, failIfOpened(t)); err != nil {
 			t.Fatalf("%v: %v", args, err)
@@ -254,6 +255,53 @@ func TestQueryHelpNeverOpensSessionAndAlwaysUsesOneEnvelope(t *testing.T) {
 		if !envelope.OK || envelope.Data == nil {
 			t.Fatalf("%v: wrong help envelope: %#v", args, envelope)
 		}
+	}
+}
+
+func TestQuerySchemaDescribesEveryResponseWithoutOpeningSession(t *testing.T) {
+	wantPaths := map[string]string{
+		"overview": "data.coverage", "children": "data.children", "fragment": "data.content.data",
+		"fragment-diffs": "data.selectors", "diff-owners": "data.atoms", "reviews": "data.items",
+		"gaps": "data.gaps", "mappings": "data.mappings", "claims": "data.claims", "verifications": "data.verifications",
+	}
+	for operation, wantPath := range wantPaths {
+		t.Run(operation, func(t *testing.T) {
+			var out bytes.Buffer
+			if err := queryWithOpener(context.Background(), []string{"schema", operation}, &out, failIfOpened(t)); err != nil {
+				t.Fatal(err)
+			}
+			var envelope queryEnvelope
+			decodeOneJSONValue(t, out.Bytes(), &envelope)
+			description, ok := envelope.Data.(map[string]any)
+			if !ok || description["operation"] != operation {
+				t.Fatalf("schema data = %#v", envelope.Data)
+			}
+			paths, _ := description["data_paths"].([]any)
+			found := false
+			for _, path := range paths {
+				found = found || path == wantPath
+			}
+			if !found {
+				t.Fatalf("schema paths = %#v, want %q", paths, wantPath)
+			}
+			pagination, _ := description["pagination"].(map[string]any)
+			if operation != "overview" && operation != "fragment" && pagination["total_path"] != "page.total" {
+				t.Fatalf("pagination contract = %#v", pagination)
+			}
+		})
+	}
+}
+
+func TestQueryOperationHelpNamesResponsePaths(t *testing.T) {
+	var out bytes.Buffer
+	if err := queryWithOpener(context.Background(), []string{"gaps", "--help"}, &out, failIfOpened(t)); err != nil {
+		t.Fatal(err)
+	}
+	var envelope queryEnvelope
+	decodeOneJSONValue(t, out.Bytes(), &envelope)
+	help := envelope.Data.(map[string]any)
+	if !strings.Contains(fmt.Sprint(help["data_paths"]), "data.gaps") || !strings.Contains(fmt.Sprint(help["pagination"]), "page.total") {
+		t.Fatalf("operation help is not self-describing: %#v", help)
 	}
 }
 

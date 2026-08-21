@@ -99,6 +99,9 @@ type VerificationQuery struct {
 }
 
 type Page struct {
+	Total      int     `json:"total"`
+	Returned   int     `json:"returned"`
+	HasMore    bool    `json:"has_more"`
 	NextCursor *string `json:"next_cursor"`
 }
 

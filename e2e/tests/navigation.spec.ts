@@ -42,7 +42,18 @@ test("@critical navigates the saga, linked code, code tree, and coverage in both
   await docsFile.click();
   await expect(page.locator('[data-file-path="docs/guide.md"].file-diff')).toBeVisible();
   const related = page.getByRole("complementary", { name: "Explanations for this file" });
-  await related.getByRole("link", { name: "Overview", exact: true }).click();
+  const explanationLink = related.locator("a.related-fragment").first();
+  await explanationLink.click();
+  const explanationDrawer = page.getByRole("complementary", { name: "Related explanation" });
+  await expect(explanationDrawer).toHaveAttribute("aria-hidden", "false");
+  await expect(explanationDrawer.locator("article.fragment")).toHaveCount(1);
+  await expect(explanationDrawer.getByText("Wave 1 connects the story to the exact source changes.")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Code Diff" })).toHaveAttribute("aria-selected", "true");
+  await explanationDrawer.getByRole("button", { name: "Close related explanation" }).click();
+  await expect(explanationLink).toBeFocused();
+  await expect(page.locator("aside.diff-drawer")).toHaveAttribute("aria-hidden", "true");
+
+  await related.locator("a.related-chapter-link").first().click();
   await expect(page.getByRole("tab", { name: "Saga" })).toHaveAttribute("aria-selected", "true");
   await expect(overview).toBeVisible();
 

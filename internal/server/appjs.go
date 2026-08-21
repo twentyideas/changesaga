@@ -17,6 +17,7 @@ const appJavaScript = `(() => {
   let noteNudge = null;
   let annotationColorTouched = false;
   let drawerOpener = null;
+  let drawerRestore = null;
   const noteDefaultColor = '#f2bd4b';
 
   const languageKeywords = {
@@ -721,27 +722,77 @@ const appJavaScript = `(() => {
     setSelectedTool('select');
   }
 
+  function configureDrawer(mode, title) {
+    const drawer = q('.diff-drawer');
+    if (!drawer) return;
+    drawer.dataset.drawerMode = mode;
+    drawer.setAttribute('aria-label', mode === 'fragment' ? 'Related explanation' : 'Linked code');
+    const heading = q('.drawer-head strong', drawer);
+    if (heading) heading.textContent = title;
+    const icon = q('.drawer-head .i use', drawer);
+    if (icon) icon.setAttribute('href', mode === 'fragment' ? '#i-book' : '#i-diff');
+    const close = q('[data-close-drawer]', drawer);
+    if (close) {
+      close.setAttribute('aria-label', mode === 'fragment' ? 'Close related explanation' : 'Close linked code');
+      close.title = 'Close';
+    }
+  }
+
+  function restoreDrawerContent() {
+    const body = q('.drawer-body');
+    if (drawerRestore) {
+      if (drawerRestore.placeholder.isConnected) drawerRestore.placeholder.replaceWith(drawerRestore.fragment);
+      drawerRestore = null;
+    }
+    if (body) body.replaceChildren();
+  }
+
+  function showDrawer(opener) {
+    drawerOpener = opener instanceof HTMLElement && opener.isConnected
+      ? opener
+      : (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    const drawer = q('.diff-drawer');
+    drawer.classList.add('open');
+    drawer.removeAttribute('inert');
+    drawer.setAttribute('aria-hidden', 'false');
+    q('.drawer-backdrop').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    q('[data-close-drawer]', drawer).focus();
+  }
+
   function openDrawer(templateID, opener) {
     const source = document.getElementById(templateID);
     if (!source) return;
     // WebKit does not consistently move document.activeElement to a button
     // before dispatching its click event. Preserve the event's explicit opener
     // so Escape always restores focus to the control the reviewer activated.
-    drawerOpener = opener instanceof HTMLElement && opener.isConnected
-      ? opener
-      : (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    const returnOpener = drawerRestore ? drawerOpener : opener;
+    restoreDrawerContent();
     const body = q('.drawer-body');
     body.innerHTML = source.innerHTML;
     const attached = q('[data-attached-title]', body);
-    const heading = q('.drawer-head strong');
-    if (heading) heading.textContent = attached?.dataset.attachedTitle ? 'Linked code · ' + attached.dataset.attachedTitle : 'Linked code';
+    configureDrawer('code', attached?.dataset.attachedTitle ? 'Linked code · ' + attached.dataset.attachedTitle : 'Linked code');
     highlightCode(body);
-    q('.diff-drawer').classList.add('open');
-    q('.diff-drawer').removeAttribute('inert');
-    q('.diff-drawer').setAttribute('aria-hidden', 'false');
-    q('.drawer-backdrop').classList.add('open');
-    document.body.style.overflow = 'hidden';
-    q('[data-close-drawer]', q('.diff-drawer')).focus();
+    showDrawer(returnOpener);
+  }
+
+  function openFragmentDrawer(anchor, opener) {
+    const destination = document.getElementById(anchor);
+    const fragment = destination?.matches('.fragment') ? destination : destination?.closest('.fragment');
+    if (!fragment) return;
+    restoreDrawerContent();
+    const placeholder = document.createComment('change-saga fragment drawer');
+    fragment.replaceWith(placeholder);
+    drawerRestore = {fragment, placeholder};
+    q('.drawer-body').append(fragment);
+    configureDrawer('fragment', fragment.dataset.fragmentTitle || 'Related explanation');
+    setActiveFragment(fragment);
+    showDrawer(opener);
+    positionLandmarkHotspots();
+    requestAnimationFrame(() => {
+      const visual = q('[data-landmark-visual="' + CSS.escape(anchor) + '"]', fragment);
+      (visual || destination).scrollIntoView({block:'center'});
+    });
   }
 
   function closeDrawer() {
@@ -750,13 +801,16 @@ const appJavaScript = `(() => {
     const wasOpen = drawer.classList.contains('open');
     drawer.classList.remove('open');
     drawer.setAttribute('aria-hidden', 'true');
-    // Return focus before the drawer becomes inert, otherwise the browser drops
-    // the reviewer's focus to the document body.
-    if (wasOpen && drawer.contains(document.activeElement) && drawerOpener?.isConnected) drawerOpener.focus();
+    // Return focus before the drawer becomes inert. WebKit does not always make
+    // a clicked close button active, so do not condition this on activeElement
+    // still being inside the drawer.
+    if (wasOpen && drawerOpener?.isConnected) drawerOpener.focus();
     drawer.setAttribute('inert', '');
-    drawerOpener = null;
     q('.drawer-backdrop').classList.remove('open');
     document.body.style.overflow = '';
+    restoreDrawerContent();
+    drawerOpener = null;
+    configureDrawer('code', 'Linked code');
   }
 
   function openDiffComposer(button) {
@@ -1417,6 +1471,12 @@ const appJavaScript = `(() => {
   });
 
   document.addEventListener('click', event => {
+    const fragmentDrawerLink = event.target.closest?.('[data-open-fragment]');
+    if (fragmentDrawerLink) {
+      event.preventDefault();
+      openFragmentDrawer(fragmentDrawerLink.dataset.openFragment, fragmentDrawerLink);
+      return;
+    }
     const sagaLink = event.target.closest?.('a[href^="#"]');
     if (sagaLink) {
       const id = decodeURIComponent(sagaLink.getAttribute('href').slice(1));
