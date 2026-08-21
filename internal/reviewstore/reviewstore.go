@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/review-saga/review-saga/internal/diffuri"
-	"github.com/review-saga/review-saga/internal/saga"
-	"github.com/review-saga/review-saga/internal/store"
+	"github.com/change-saga/change-saga/internal/diffuri"
+	"github.com/change-saga/change-saga/internal/saga"
+	"github.com/change-saga/change-saga/internal/store"
 )
 
 func AddThread(root, target, body string, anchor saga.Anchor, kind, replacement string, attachments []string) (string, error) {

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reviewsaga.dev/schema/v1/coverage.schema.json",
-  "title": "Review Saga coverage evidence",
+  "$id": "https://changesaga.dev/schema/v1/coverage.schema.json",
+  "title": "Change Saga coverage evidence",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "changes"],

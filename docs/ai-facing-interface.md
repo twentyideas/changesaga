@@ -6,7 +6,7 @@ Date: 2026-08-19
 
 ## Context
 
-An AI reviewer needs to understand and update a Review Saga through a stable
+An AI reviewer needs to understand and update a Change Saga through a stable
 application contract. Requiring it to discover `*.chapter`, `*.fragment`, or
 `___review` paths with filesystem searches would couple the client to storage
 layout, bypass validation, and make reverse diff ownership unnecessarily hard.
@@ -66,7 +66,7 @@ The interfaces above describe capabilities, not a requirement that callers
 hold a process open. The first adapter will be structured JSON CLI commands.
 Each invocation opens a session, executes one request, writes one JSON result,
 and exits. The installed UI will use an HTTP adapter over the same session
-methods while `review-saga open` is running. A thin stdio MCP adapter may be added as a
+methods while `change-saga open` is running. A thin stdio MCP adapter may be added as a
 separate binary after the CLI contract and attribution migration prove stable.
 The core package must not import HTTP, CLI flag, JSON-RPC, or MCP packages.
 
@@ -80,7 +80,7 @@ it when its snapshot changes without changing the domain API.
 | Shape | Strengths | Costs and risks | Decision |
 | --- | --- | --- | --- |
 | Structured JSON CLI | Already installable with the product; inherits local filesystem permissions; easy to invoke from any agent; one request has an obvious lifetime; no listening socket | Process and Git-diff cost per call; shell arguments are awkward for nested writes; capability discovery is weaker than MCP | Implement first. Complex bodies are JSON on stdin, never shell-expanded flags. |
-| Local Go HTTP API | Natural for the installed browser UI; supports lazy page loading and retained indexes; familiar streaming and status semantics | Introduces listener authentication, CSRF/origin, lifecycle, and port concerns; a CLI-to-HTTP requirement would make the daemon mandatory | Use only inside `review-saga open` initially. The CLI calls the Go application layer directly. Documented endpoints mirror, rather than define, the contract. |
+| Local Go HTTP API | Natural for the installed browser UI; supports lazy page loading and retained indexes; familiar streaming and status semantics | Introduces listener authentication, CSRF/origin, lifecycle, and port concerns; a CLI-to-HTTP requirement would make the daemon mandatory | Use only inside `change-saga open` initially. The CLI calls the Go application layer directly. Documented endpoints mirror, rather than define, the contract. |
 | Thin stdio MCP adapter | Tool discovery, typed schemas, resource pagination, and no network listener; a good fit for MCP-capable agents | Adds protocol/dependency surface before names and payloads stabilize; not every agent host supports MCP; easy to let tool handlers accumulate business logic | Defer the dependency. Later ship a separate `saga-mcp` stdio binary that performs a mechanical mapping to the application layer. |
 
 ## Resource and identifier model
@@ -88,7 +88,7 @@ it when its snapshot changes without changing the domain API.
 Clients address domain resources, never metadata paths.
 
 - Saga, chapter, section, and fragment: the existing
-  `urn:review-saga:<saga-id>:...` target URNs.
+  `urn:change-saga:<saga-id>:...` target URNs.
 - Thread, message, and event: their existing stable IDs, always accompanied by
   their kind in results. APIs do not accept a path synthesized from an ID.
 - Diff atom or selector: the complete `saga-diff://v1/line?...` or
@@ -121,7 +121,7 @@ All machine commands emit exactly one JSON value. Successful results use:
 
 ```json
 {
-  "schema": "review-saga.ai/v1",
+  "schema": "change-saga.ai/v1",
   "ok": true,
   "snapshot": "sha256:...",
   "data": {},
@@ -135,7 +135,7 @@ Errors are stable domain values rather than parsed prose:
 
 ```json
 {
-  "schema": "review-saga.ai/v1",
+  "schema": "change-saga.ai/v1",
   "ok": false,
   "error": {
     "code": "stale_snapshot",
@@ -164,26 +164,26 @@ error content; transport error numbers are not domain API.
 
 ## Structured CLI contract
 
-The proposed command group is `review-saga query` for reads and `review-saga mutate` for
+The proposed command group is `change-saga query` for reads and `change-saga mutate` for
 writes. These commands always emit the envelope above; they do not need a
 separate `--json` switch.
 
 Common read form:
 
 ```text
-review-saga query <operation> --saga PATH [--repo PATH] [operation flags]
+change-saga query <operation> --saga PATH [--repo PATH] [operation flags]
 ```
 
 The operations are:
 
 ```text
-review-saga query overview       --saga PATH [--repo PATH]
-review-saga query children       --saga PATH --parent TARGET [--cursor TOKEN] [--limit N]
-review-saga query fragment       --saga PATH --target FRAGMENT [--offset N] [--limit N]
-review-saga query fragment-diffs --saga PATH --target FRAGMENT [--cursor TOKEN] [--limit N]
-review-saga query diff-owners    --saga PATH --diff URI [--cursor TOKEN] [--limit N]
-review-saga query reviews        --saga PATH [--target TARGET] [--thread ID] [--state STATE]
-review-saga query gaps           --saga PATH [--kind uncovered|stale|overlap] [--cursor TOKEN] [--limit N]
+change-saga query overview       --saga PATH [--repo PATH]
+change-saga query children       --saga PATH --parent TARGET [--cursor TOKEN] [--limit N]
+change-saga query fragment       --saga PATH --target FRAGMENT [--offset N] [--limit N]
+change-saga query fragment-diffs --saga PATH --target FRAGMENT [--cursor TOKEN] [--limit N]
+change-saga query diff-owners    --saga PATH --diff URI [--cursor TOKEN] [--limit N]
+change-saga query reviews        --saga PATH [--target TARGET] [--thread ID] [--state STATE]
+change-saga query gaps           --saga PATH [--kind uncovered|stale|overlap] [--cursor TOKEN] [--limit N]
 ```
 
 `overview` returns saga identity, source snapshot, the root overview fragment
@@ -199,7 +199,7 @@ review/diff counts. Fragments are nodes with a media type and byte size.
 
 ```json
 {
-  "target": "urn:review-saga:checkout:fragment:request-flow",
+  "target": "urn:change-saga:checkout:fragment:request-flow",
   "id": "request-flow",
   "title": "Request flow",
   "media_type": "text/markdown",
@@ -225,7 +225,7 @@ supporting HTML/SVG assets. The AI read path never executes active content.
 
 ```json
 {
-  "target": "urn:review-saga:checkout:fragment:request-flow",
+  "target": "urn:change-saga:checkout:fragment:request-flow",
   "selectors": [{"uri": "saga-diff://v1/line?...", "note": "...", "status": "current"}],
   "atoms": [{"uri": "saga-diff://v1/line?...", "path": "api.go", "side": "new", "line": 18, "content": "..."}],
   "stale": []
@@ -270,7 +270,7 @@ without requiring metadata searches.
 Common write form:
 
 ```text
-review-saga mutate <operation> --saga PATH [--repo PATH] --input -
+change-saga mutate <operation> --saga PATH [--repo PATH] --input -
 ```
 
 `--input -` reads one bounded JSON object from stdin. A named file may be
@@ -289,7 +289,7 @@ diff-review-record
 {
   "request_id": "agent-run-42-comment-1",
   "if_snapshot": "sha256:...",
-  "target": "urn:review-saga:checkout:fragment:request-flow",
+  "target": "urn:change-saga:checkout:fragment:request-flow",
   "kind": "comment",
   "anchor": {"type": "text", "text": {"exact": "retry forever", "prefix": "will ", "suffix": " when"}},
   "body": {"media_type": "text/markdown", "text": "Should this be bounded?"},
@@ -324,7 +324,7 @@ shape schema, so annotation creation is not a separate persistence operation.
 {
   "request_id": "agent-run-42-approval-1",
   "if_snapshot": "sha256:...",
-  "target": "urn:review-saga:checkout:chapter:backend",
+  "target": "urn:change-saga:checkout:chapter:backend",
   "state": "approved",
   "body": "The retry concern is resolved."
 }
@@ -346,7 +346,7 @@ the read side derives identity from that introducing commit.
 
 ## HTTP mapping
 
-When `review-saga open` is active, the installed UI uses the following JSON endpoints:
+When `change-saga open` is active, the installed UI uses the following JSON endpoints:
 
 ```text
 GET  /api/v1/overview
@@ -383,18 +383,18 @@ If usage validates the need, `cmd/saga-mcp` will expose these stdio tools:
 
 | Tool | Required arguments | Optional arguments | Result data |
 | --- | --- | --- | --- |
-| `review_saga_overview` | `saga_root` | `source_root` | The `overview` result |
-| `review_saga_children` | `saga_root`, `parent` | `source_root`, `cursor`, `limit` | The `children` page |
-| `review_saga_read_fragment` | `saga_root`, `target` | `source_root`, `offset`, `limit` | The `fragment` content result |
-| `review_saga_fragment_diffs` | `saga_root`, `target` | `source_root`, `cursor`, `limit` | The `fragment-diffs` page |
-| `review_saga_diff_owners` | `saga_root`, `diff` | `source_root`, `cursor`, `limit` | The `diff-owners` page |
-| `review_saga_reviews` | `saga_root` | `source_root`, `target`, `thread`, `state`, `cursor`, `limit` | The `reviews` page |
-| `review_saga_gaps` | `saga_root` | `source_root`, `kind`, `cursor`, `limit` | The `gaps` page |
-| `review_saga_create_thread` | `saga_root`, `target`, `kind`, `anchor`, `body` | `source_root`, `request_id`, `if_snapshot`, `replacement`, `attachments` | A mutation result with thread and message IDs |
-| `review_saga_reply` | `saga_root`, `thread`, `body` | `source_root`, `request_id`, `if_snapshot`, `attachments` | A mutation result with the message ID |
-| `review_saga_set_thread_state` | `saga_root`, `thread`, `state` | `source_root`, `request_id`, `if_snapshot` | A mutation result with the event ID |
-| `review_saga_record_review` | `saga_root`, `target`, `state` | `source_root`, `request_id`, `if_snapshot`, `body` | A mutation result with the event ID |
-| `review_saga_record_diff_review` | `saga_root`, `diff`, `state` | `source_root`, `request_id`, `if_snapshot` | A mutation result with the event ID |
+| `change_saga_overview` | `saga_root` | `source_root` | The `overview` result |
+| `change_saga_children` | `saga_root`, `parent` | `source_root`, `cursor`, `limit` | The `children` page |
+| `change_saga_read_fragment` | `saga_root`, `target` | `source_root`, `offset`, `limit` | The `fragment` content result |
+| `change_saga_fragment_diffs` | `saga_root`, `target` | `source_root`, `cursor`, `limit` | The `fragment-diffs` page |
+| `change_saga_diff_owners` | `saga_root`, `diff` | `source_root`, `cursor`, `limit` | The `diff-owners` page |
+| `change_saga_reviews` | `saga_root` | `source_root`, `target`, `thread`, `state`, `cursor`, `limit` | The `reviews` page |
+| `change_saga_gaps` | `saga_root` | `source_root`, `kind`, `cursor`, `limit` | The `gaps` page |
+| `change_saga_create_thread` | `saga_root`, `target`, `kind`, `anchor`, `body` | `source_root`, `request_id`, `if_snapshot`, `replacement`, `attachments` | A mutation result with thread and message IDs |
+| `change_saga_reply` | `saga_root`, `thread`, `body` | `source_root`, `request_id`, `if_snapshot`, `attachments` | A mutation result with the message ID |
+| `change_saga_set_thread_state` | `saga_root`, `thread`, `state` | `source_root`, `request_id`, `if_snapshot` | A mutation result with the event ID |
+| `change_saga_record_review` | `saga_root`, `target`, `state` | `source_root`, `request_id`, `if_snapshot`, `body` | A mutation result with the event ID |
+| `change_saga_record_diff_review` | `saga_root`, `diff`, `state` | `source_root`, `request_id`, `if_snapshot` | A mutation result with the event ID |
 
 Each MCP input schema sets `additionalProperties: false`, applies the existing
 stable-ID, target-URN, diff-URI, anchor, and state constraints, and uses integer
@@ -410,7 +410,7 @@ resource links may represent large fragment assets, but the adapter must still
 call the application's bounded read method.
 
 The MCP binary owns protocol negotiation and schema descriptions only. It does
-not load metadata directly, shell out to the `review-saga` CLI, or implement alternate
+not load metadata directly, shell out to the `change-saga` CLI, or implement alternate
 validation. Initially it is a separate module or build target so the core CLI
 does not take a mandatory MCP dependency. Add it only when at least one target
 host gains material value from tool discovery or retained sessions beyond what
@@ -532,7 +532,7 @@ avoid shell quoting and accidental command-history exposure.
    ownership, reviews, and gaps. Add table-driven service tests using a real
    temporary Git comparison. No transport changes are required to validate the
    result types.
-2. **Structured read CLI.** Add `review-saga query` operations and the common envelope,
+2. **Structured read CLI.** Add `change-saga query` operations and the common envelope,
    pagination, exit codes, and golden JSON integration tests. Update the AI
    skill to use these commands instead of filesystem discovery.
 3. **Git attribution and compatibility.** Retain event-file provenance in the

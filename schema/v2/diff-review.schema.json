@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reviewsaga.dev/schema/v2/diff-review.schema.json",
-  "title": "Review Saga file review event",
+  "$id": "https://changesaga.dev/schema/v2/diff-review.schema.json",
+  "title": "Change Saga file review event",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "id", "uri", "state", "created_at"],

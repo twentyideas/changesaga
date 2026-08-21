@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/review-saga/review-saga/internal/diffuri"
+	"github.com/change-saga/change-saga/internal/diffuri"
 )
 
 var stableID = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$`)
@@ -263,7 +263,7 @@ func validateThread(thread Thread, sagaID, path string, result *Validation) {
 	if thread.Version != CurrentVersion || !stableID.MatchString(thread.ID) || thread.CreatedAt.IsZero() {
 		addIssue(result, "error", path, "thread requires version 2, id, and created_at")
 	}
-	prefix := "urn:review-saga:" + sagaID + ":"
+	prefix := "urn:change-saga:" + sagaID + ":"
 	if !strings.HasPrefix(thread.Target, prefix) {
 		addIssue(result, "error", path, "thread target must be a URN in this saga")
 	}

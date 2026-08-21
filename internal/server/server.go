@@ -22,13 +22,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/review-saga/review-saga/internal/coverage"
-	"github.com/review-saga/review-saga/internal/diffuri"
-	"github.com/review-saga/review-saga/internal/gitattribution"
-	"github.com/review-saga/review-saga/internal/gitdiff"
-	"github.com/review-saga/review-saga/internal/reviewstore"
-	"github.com/review-saga/review-saga/internal/saga"
-	"github.com/review-saga/review-saga/internal/store"
+	"github.com/change-saga/change-saga/internal/coverage"
+	"github.com/change-saga/change-saga/internal/diffuri"
+	"github.com/change-saga/change-saga/internal/gitattribution"
+	"github.com/change-saga/change-saga/internal/gitdiff"
+	"github.com/change-saga/change-saga/internal/reviewstore"
+	"github.com/change-saga/change-saga/internal/saga"
+	"github.com/change-saga/change-saga/internal/store"
 )
 
 type app struct {
@@ -144,7 +144,7 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 	if _, validation, err := saga.Load(abs); err != nil {
 		return err
 	} else if !validation.Valid {
-		return fmt.Errorf("saga is structurally invalid; run review-saga validate")
+		return fmt.Errorf("saga is structurally invalid; run change-saga validate")
 	}
 	if sourceDir == "" {
 		sourceDir = abs
@@ -175,7 +175,7 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 	if host, port, err := net.SplitHostPort(listener.Addr().String()); err == nil && (host == "127.0.0.1" || host == "::1") {
 		serverURL = "http://127.0.0.1:" + port
 	}
-	fmt.Fprintf(out, "Review Saga is available at %s\nPress Ctrl-C to stop.\n", serverURL)
+	fmt.Fprintf(out, "Change Saga is available at %s\nPress Ctrl-C to stop.\n", serverURL)
 	if openBrowser {
 		if err := launchBrowser(serverURL); err != nil {
 			fmt.Fprintf(out, "Could not open a browser automatically: %v\n", err)
@@ -310,9 +310,9 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 		data.Files, data.ReviewedFiles = code.Files, code.ReviewedFiles
 	}
 	if diffErr != nil {
-		data.Error = "The source comparison could not be loaded. Run review-saga validate for diagnostic details."
+		data.Error = "The source comparison could not be loaded. Run change-saga validate for diagnostic details."
 	} else if !report.Complete {
-		data.Diagnostic = "Review is blocked because this saga does not account for every source change. Run review-saga validate for diagnostic details."
+		data.Diagnostic = "Review is blocked because this saga does not account for every source change. Run change-saga validate for diagnostic details."
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := a.template.ExecuteTemplate(w, "page", data); err != nil {
@@ -906,7 +906,7 @@ func (a *app) review(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if r.Header.Get("X-Review-Saga-Async") == "true" {
+	if r.Header.Get("X-Change-Saga-Async") == "true" {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -956,7 +956,7 @@ func parseMultipart(r *http.Request, w http.ResponseWriter) ([]string, error) {
 			return nil, err
 		}
 		ext := filepath.Ext(filepath.Base(header.Filename))
-		temp, err := os.CreateTemp("", "review-saga-attachment-*"+ext)
+		temp, err := os.CreateTemp("", "change-saga-attachment-*"+ext)
 		if err != nil {
 			file.Close()
 			removeTemporary(paths)

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reviewsaga.dev/schema/v2/section.schema.json",
-  "title": "Review Saga section",
+  "$id": "https://changesaga.dev/schema/v2/section.schema.json",
+  "title": "Change Saga section",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "id", "title"],

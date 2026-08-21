@@ -5,14 +5,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/review-saga/review-saga/internal/gitdiff"
-	"github.com/review-saga/review-saga/internal/saga"
+	"github.com/change-saga/change-saga/internal/gitdiff"
+	"github.com/change-saga/change-saga/internal/saga"
 )
 
 func TestFocusedCodeRendererIncludesAccessibleLocalDiffControls(t *testing.T) {
 	tmpl := serverTemplate(t)
-	old := &diffAtomView{Atom: gitdiff.Atom{Kind: "line", Key: "old", URI: "saga-diff://v1/line?base=a&end=7&head=b&path=src/app.go&repository=https%3A%2F%2Fexample.test%2Fa.git&side=old&start=7", Path: "src/app.go", Side: "old", Line: 7, Content: "return old"}, Target: "urn:review-saga:test:saga"}
-	added := &diffAtomView{Atom: gitdiff.Atom{Kind: "line", Key: "new", URI: "saga-diff://v1/line?base=a&end=7&head=b&path=src/app.go&repository=https%3A%2F%2Fexample.test%2Fa.git&side=new&start=7", Path: "src/app.go", Side: "new", Line: 7, Content: "return fresh"}, Target: "urn:review-saga:test:saga", Selected: true}
+	old := &diffAtomView{Atom: gitdiff.Atom{Kind: "line", Key: "old", URI: "saga-diff://v1/line?base=a&end=7&head=b&path=src/app.go&repository=https%3A%2F%2Fexample.test%2Fa.git&side=old&start=7", Path: "src/app.go", Side: "old", Line: 7, Content: "return old"}, Target: "urn:change-saga:test:saga"}
+	added := &diffAtomView{Atom: gitdiff.Atom{Kind: "line", Key: "new", URI: "saga-diff://v1/line?base=a&end=7&head=b&path=src/app.go&repository=https%3A%2F%2Fexample.test%2Fa.git&side=new&start=7", Path: "src/app.go", Side: "new", Line: 7, Content: "return fresh"}, Target: "urn:change-saga:test:saga", Selected: true}
 	file := &FileDiffView{ID: "diff-app", Name: "app.go", Path: "src/app.go", URI: "file-uri", Added: 1, Deleted: 1, Selected: true, Atoms: []*diffAtomView{old, added}, Lines: []*DiffLineView{
 		{Kind: "context", Path: "src/app.go", OldLine: 6, NewLine: 6, Content: "func value() string {"},
 		{Kind: "old", Path: "src/app.go", OldLine: 7, Content: old.Content, Atom: old},

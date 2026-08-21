@@ -1,8 +1,8 @@
-# Review Saga UX reframe
+# Change Saga UX reframe
 
 ## Outcome
 
-Review Saga should make a very large change feel like a sequence of small,
+Change Saga should make a very large change feel like a sequence of small,
 finishable review sessions. The interface presents the story first, keeps
 mechanical coverage guarantees in the validator, and reveals review controls
 only when the reviewer asks for them.

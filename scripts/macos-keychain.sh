@@ -8,14 +8,14 @@
 #   MACOS_CERTIFICATE_P12_BASE64  base64 of the exported .p12 (cert + key)
 #   MACOS_CERTIFICATE_PASSWORD    password used when exporting the .p12
 #
-# Writes the keychain path to $GITHUB_ENV as SAGA_KEYCHAIN when running in
+# Writes the keychain path to $GITHUB_ENV as CHANGE_SAGA_KEYCHAIN when running in
 # Actions so later steps and the cleanup step can find it.
 set -euo pipefail
 
 : "${MACOS_CERTIFICATE_P12_BASE64:?missing MACOS_CERTIFICATE_P12_BASE64}"
 : "${MACOS_CERTIFICATE_PASSWORD:?missing MACOS_CERTIFICATE_PASSWORD}"
 
-keychain="${SAGA_KEYCHAIN:-$RUNNER_TEMP/saga-signing.keychain-db}"
+keychain="${CHANGE_SAGA_KEYCHAIN:-$RUNNER_TEMP/saga-signing.keychain-db}"
 # The keychain password is ephemeral and never leaves this runner.
 keychain_password="$(openssl rand -base64 24)"
 cert="$RUNNER_TEMP/saga-signing.p12"
@@ -43,5 +43,5 @@ echo "imported signing identities:"
 security find-identity -v -p codesigning "$keychain"
 
 if [ -n "${GITHUB_ENV:-}" ]; then
-	echo "SAGA_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+	echo "CHANGE_SAGA_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
 fi

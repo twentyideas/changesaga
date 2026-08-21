@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/review-saga/review-saga/internal/diffuri"
+	"github.com/change-saga/change-saga/internal/diffuri"
 )
 
 type Atom struct {

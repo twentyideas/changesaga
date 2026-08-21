@@ -87,7 +87,7 @@ they answer “what is next,” such as “4 of 7 chapters complete” or “Vie
 ### Overview
 
 ```text
-┌ Review Saga ───────────────────────── Overview | Code ─────────────── ⋯ ┐
+┌ Change Saga ───────────────────────── Overview | Code ─────────────── ⋯ ┐
 │                                                                        │
 │  Safer attachment handling                                            │
 │  Short overview narrative: intent, boundaries, and review order.      │
@@ -109,7 +109,7 @@ action. Thread counts appear only when nonzero and actionable.
 ### Chapter
 
 ```text
-┌ Review Saga  ‹ Overview / Reviewer experience ─── In progress [Review] ┐
+┌ Change Saga  ‹ Overview / Reviewer experience ─── In progress [Review] ┐
 │                                                                        │
 │  Reviewer experience                                                   │
 │  Chapter narrative                                                     │
@@ -140,7 +140,7 @@ on wide screens and a modal drawer on narrow screens, grouped by file with a
 ### Code diff
 
 ```text
-┌ Review Saga  ‹ Overview / Code ─ appjs.go ─── [Viewed ✓] [Review ▾] ┐
+┌ Change Saga  ‹ Overview / Code ─ appjs.go ─── [Viewed ✓] [Review ▾] ┐
 ├ Files (41) ───────────┬──────────────────────────────┬ Related (4) ┤
 │ [Filter paths…] [⋯]   │ internal/server/appjs.go     │ Chapter     │
 │ ▾ internal            │ Split | Inline  −18 +34     │  Reviewer…  │

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SAGA_SIGN_HOOK entry point for the trusted macOS release job.
+# CHANGE_SAGA_SIGN_HOOK entry point for the trusted macOS release job.
 #
 # scripts/build-release.sh calls this with the freshly built binary, before it
 # is archived, so the artifact users download is the signed one. Notarization

@@ -3,9 +3,9 @@ package coverage
 import (
 	"testing"
 
-	"github.com/review-saga/review-saga/internal/diffuri"
-	"github.com/review-saga/review-saga/internal/gitdiff"
-	"github.com/review-saga/review-saga/internal/saga"
+	"github.com/change-saga/change-saga/internal/diffuri"
+	"github.com/change-saga/change-saga/internal/gitdiff"
+	"github.com/change-saga/change-saga/internal/saga"
 )
 
 const (
@@ -24,10 +24,10 @@ func TestEvaluateFindsUncoveredOverlapAndOrphan(t *testing.T) {
 	missing := buildURI(t, diffuri.Reference{Repository: testRepository, Base: testBase, Head: testHead, Kind: "line", Path: "missing.go", Side: "old", Start: 1, End: 1})
 	rename := buildURI(t, diffuri.Reference{Repository: testRepository, Base: testBase, Head: testHead, Kind: "event", Event: "rename", OldPath: "old.go", NewPath: "new.go"})
 	document := &saga.Saga{Section: &saga.Section{
-		Target: "urn:review-saga:test:saga",
+		Target: "urn:change-saga:test:saga",
 		Diffs:  []saga.DiffFile{{Path: "___diffs/root.json", Diffs: []saga.DiffReference{{URI: rootLine}}}},
 		Fragments: []*saga.Fragment{{
-			Target: "urn:review-saga:test:fragment:flow",
+			Target: "urn:change-saga:test:fragment:flow",
 			Diffs: []saga.DiffFile{{Path: "flow.fragment/___diffs/flow.json", Diffs: []saga.DiffReference{
 				{URI: rootLine}, {URI: missing}, {URI: rename},
 			}}},
@@ -51,7 +51,7 @@ func TestEvaluateFindsUncoveredOverlapAndOrphan(t *testing.T) {
 func TestEvaluateComplete(t *testing.T) {
 	atom := lineAtom(t, "app.go", "old", 8)
 	document := &saga.Saga{Section: &saga.Section{
-		Target: "urn:review-saga:test:saga",
+		Target: "urn:change-saga:test:saga",
 		Diffs:  []saga.DiffFile{{Diffs: []saga.DiffReference{{URI: atom.URI}}}},
 	}}
 	report := Evaluate(document, saga.Validation{Valid: true}, gitdiff.ChangeSet{Atoms: []gitdiff.Atom{atom}})

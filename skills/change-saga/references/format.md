@@ -1,4 +1,4 @@
-# Review Saga v2 quick reference
+# Change Saga v2 quick reference
 
 ## Layout
 
@@ -67,20 +67,20 @@ that places hover controls over the illustrated item.
 ## Commands
 
 ```sh
-review-saga install-skill
-review-saga init --repo <source-checkout> --base <rev> --head <rev-or-WORKTREE> --title "Title" <name>.saga
-review-saga add-chapter --title "Title" <name>.saga backend
-review-saga add-section --title "Title" <name>.saga backend.chapter/path/to/section
-review-saga add-fragment --section path/to/section --type markdown --title "Context" <name>.saga
-review-saga add-fragment --section path/to/section --type html --source ./demo-package --entrypoint index.html <name>.saga
-review-saga cover --repo <source-checkout> --target path/to/demo.fragment --path file.go --side new --lines 4-9,12 --note "Adds request validation so malformed input fails before persistence." <name>.saga
-review-saga cover --target path/to/demo.fragment --uri 'saga-diff://v1/line?...' --note "Implements the behavior explained by this fragment." <name>.saga
-review-saga cover --target path/to/demo.fragment/___landmarks/submit-action.landmark --uri 'saga-diff://v1/line?...' --note "Connects the diagram action to its exact submit handler." <name>.saga
-review-saga validate --json <name>.saga
-review-saga status --json --repo <source-checkout> <name>.saga
-review-saga open --repo <source-checkout> <name>.saga
-review-saga review --target path/to/demo.fragment --state approved <name>.saga
-review-saga reply --thread <id> --state withdrawn <name>.saga
+change-saga install-skill
+change-saga init --repo <source-checkout> --base <rev> --head <rev-or-WORKTREE> --title "Title" <name>.saga
+change-saga add-chapter --title "Title" <name>.saga backend
+change-saga add-section --title "Title" <name>.saga backend.chapter/path/to/section
+change-saga add-fragment --section path/to/section --type markdown --title "Context" <name>.saga
+change-saga add-fragment --section path/to/section --type html --source ./demo-package --entrypoint index.html <name>.saga
+change-saga cover --repo <source-checkout> --target path/to/demo.fragment --path file.go --side new --lines 4-9,12 --note "Adds request validation so malformed input fails before persistence." <name>.saga
+change-saga cover --target path/to/demo.fragment --uri 'saga-diff://v1/line?...' --note "Implements the behavior explained by this fragment." <name>.saga
+change-saga cover --target path/to/demo.fragment/___landmarks/submit-action.landmark --uri 'saga-diff://v1/line?...' --note "Connects the diagram action to its exact submit handler." <name>.saga
+change-saga validate --json <name>.saga
+change-saga status --json --repo <source-checkout> <name>.saga
+change-saga open --repo <source-checkout> <name>.saga
+change-saga review --target path/to/demo.fragment --state approved <name>.saga
+change-saga reply --thread <id> --state withdrawn <name>.saga
 ```
 
 `--repo` may be omitted when the saga is inside the source checkout. Flags
@@ -92,11 +92,11 @@ incomplete.
 Targets are stable URNs:
 
 ```text
-urn:review-saga:<saga-id>:saga
-urn:review-saga:<saga-id>:chapter:<chapter-id>
-urn:review-saga:<saga-id>:section:<section-id>
-urn:review-saga:<saga-id>:fragment:<fragment-id>
-urn:review-saga:<saga-id>:fragment:<fragment-id>:landmark:<landmark-id>
+urn:change-saga:<saga-id>:saga
+urn:change-saga:<saga-id>:chapter:<chapter-id>
+urn:change-saga:<saga-id>:section:<section-id>
+urn:change-saga:<saga-id>:fragment:<fragment-id>
+urn:change-saga:<saga-id>:fragment:<fragment-id>:landmark:<landmark-id>
 ```
 
 Evidence contains absolute `saga-diff://v1/line?...` or

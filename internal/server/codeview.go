@@ -14,10 +14,10 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/review-saga/review-saga/internal/coverage"
-	"github.com/review-saga/review-saga/internal/diffuri"
-	"github.com/review-saga/review-saga/internal/gitdiff"
-	"github.com/review-saga/review-saga/internal/saga"
+	"github.com/change-saga/change-saga/internal/coverage"
+	"github.com/change-saga/change-saga/internal/diffuri"
+	"github.com/change-saga/change-saga/internal/gitdiff"
+	"github.com/change-saga/change-saga/internal/saga"
 )
 
 // CodeReviewView is the complete template contract for the focused code view.

@@ -1,6 +1,6 @@
-# Review Saga
+# Change Saga
 
-Review Saga is an experimental, Git-native way to author changes that are too
+Change Saga is an experimental, Git-native way to author changes that are too
 large to explain in one flat pull-request description and diff. A saga is the
 change proposal submitted for review: it organizes the work into a big-picture
 overview and independently reviewable chapters—roughly the PRs that might have
@@ -40,13 +40,13 @@ attributable through Git.
 macOS and Linux, from the latest release:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/review-saga/review-saga/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/change-saga/change-saga/main/scripts/install.sh | sh
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/review-saga/review-saga/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/change-saga/change-saga/main/scripts/install.ps1 | iex
 ```
 
 Both installers detect the operating system architecture, download the matching
@@ -64,32 +64,32 @@ curl -fsSL .../install.sh | sh -s -- --version v0.3.0 --dir ~/bin
 For a pinned Windows version, download the script before invoking it:
 
 ```powershell
-irm https://raw.githubusercontent.com/review-saga/review-saga/main/scripts/install.ps1 -OutFile install.ps1
+irm https://raw.githubusercontent.com/change-saga/change-saga/main/scripts/install.ps1 -OutFile install.ps1
 .\install.ps1 -Version v0.3.0
 ```
 
 Prefer to do it by hand? Download the archive for your platform from the
-[releases page](https://github.com/review-saga/review-saga/releases), then
+[releases page](https://github.com/change-saga/change-saga/releases), then
 verify it before unpacking:
 
 ```sh
 sha256sum -c SHA256SUMS --ignore-missing
-gh attestation verify review-saga_0.3.0_linux_amd64.tar.gz --repo review-saga/review-saga
+gh attestation verify change-saga_0.3.0_linux_amd64.tar.gz --repo change-saga/change-saga
 ```
 
 From source, with Go 1.26 or newer:
 
 ```sh
-go build -o ./bin/review-saga ./cmd/review-saga
+go build -o ./bin/change-saga ./cmd/change-saga
 ```
 
 After the project is published at its provisional module path, installation can
-use `go install github.com/review-saga/review-saga/cmd/review-saga@latest`.
+use `go install github.com/change-saga/change-saga/cmd/change-saga@latest`.
 
 During local development:
 
 ```sh
-go run ./cmd/review-saga help
+go run ./cmd/change-saga help
 ```
 
 ## A first saga
@@ -97,19 +97,19 @@ go run ./cmd/review-saga help
 Create a saga for a branch compared with the merge base of `main` and `HEAD`:
 
 ```sh
-review-saga init --base main --head HEAD --title "Checkout rewrite" pr-1234.saga
-review-saga add-chapter --title "Backend behavior" pr-1234.saga backend
-review-saga add-section --title "Request flow" pr-1234.saga backend.chapter/request-flow
-review-saga add-fragment --section backend.chapter/request-flow --type html \
+change-saga init --base main --head HEAD --title "Checkout rewrite" pr-1234.saga
+change-saga add-chapter --title "Backend behavior" pr-1234.saga backend
+change-saga add-section --title "Request flow" pr-1234.saga backend.chapter/request-flow
+change-saga add-fragment --section backend.chapter/request-flow --type html \
   --title "Try the request flow" pr-1234.saga
-review-saga status --json pr-1234.saga
+change-saga status --json pr-1234.saga
 ```
 
 To import a complete interactive package, pass its directory; `index.html` is
 the default HTML entrypoint and can be overridden with `--entrypoint`:
 
 ```sh
-review-saga add-fragment --section backend.chapter/request-flow --type html \
+change-saga add-fragment --section backend.chapter/request-flow --type html \
   --source ./review-demos/request-flow --entrypoint index.html pr-1234.saga
 ```
 
@@ -117,7 +117,7 @@ The JSON status lists every uncovered diff atom. An author or AI agent can group
 those atoms into coherent sections and attach evidence:
 
 ```sh
-review-saga cover \
+change-saga cover \
   --target backend.chapter/request-flow/try-the-request-flow.fragment \
   --path internal/checkout/handler.go \
   --side new \
@@ -138,8 +138,8 @@ a separate repository, add `--repo /path/to/source-checkout` to `cover`,
 Continue until the check succeeds, then open the local review:
 
 ```sh
-review-saga status pr-1234.saga
-review-saga open pr-1234.saga
+change-saga status pr-1234.saga
+change-saga open pr-1234.saga
 ```
 
 `status` exits with code 3 while coverage is incomplete, which makes it suitable
@@ -152,18 +152,18 @@ Print a portable prompt that asks the active coding agent to install the
 project-local authoring skill using its own native mechanism:
 
 ```sh
-review-saga install-skill
+change-saga install-skill
 ```
 
 The command does not write files or assume Codex, Claude Code, OpenCode, or any
 other agent layout. Copy its output into the agent working in the target
 repository. The installed skill preserves that repository's normal PR-drafting
-process while expressing the result as a visual, coverage-complete Review Saga.
+process while expressing the result as a visual, coverage-complete Change Saga.
 It explicitly authors the thing submitted for review; it does not conduct the
 review or create review feedback.
 
 This repository also keeps the full reference
-[`review-saga` skill](skills/review-saga/SKILL.md) used to develop that portable
+[`change-saga` skill](skills/change-saga/SKILL.md) used to develop that portable
 contract.
 
 ## Directory shape
@@ -245,7 +245,7 @@ releases are built, signed, and verified.
 
 ## Design boundaries
 
-Review Saga intentionally does not replace Git hosting, enforce review policy,
+Change Saga intentionally does not replace Git hosting, enforce review policy,
 or decide whether an explanation is good. Its core job is narrower: let authors
 draft a durable, visual change proposal and make omissions mechanically
 visible. The local

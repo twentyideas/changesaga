@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/review-saga/review-saga/internal/coverage"
+	"github.com/change-saga/change-saga/internal/coverage"
 )
 
 func TestCoverageManifestProvesBothMappingDirections(t *testing.T) {

@@ -3,7 +3,7 @@
 #
 # Usage: scripts/build-release.sh <version> <goos> <goarch> [dist-dir]
 #
-# Produces <dist-dir>/review-saga_<version>_<goos>_<goarch>.{tar.gz,zip} containing the
+# Produces <dist-dir>/change-saga_<version>_<goos>_<goarch>.{tar.gz,zip} containing the
 # binary plus LICENSE and README.md, and writes a matching .sha256 sidecar.
 # The build is static (CGO disabled) so a release artifact has no runtime
 # dependency on the toolchain or libc of the machine that built it.
@@ -31,29 +31,29 @@ else
 	build_date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 fi
 
-name="review-saga_${version}_${goos}_${goarch}"
+name="change-saga_${version}_${goos}_${goarch}"
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 
-binary="review-saga"
+binary="change-saga"
 if [ "$goos" = "windows" ]; then
-	binary="review-saga.exe"
+	binary="change-saga.exe"
 fi
 
 ldflags="-s -w"
-ldflags="$ldflags -X github.com/review-saga/review-saga/internal/cli.Version=${version}"
-ldflags="$ldflags -X github.com/review-saga/review-saga/internal/cli.Commit=${commit}"
-ldflags="$ldflags -X github.com/review-saga/review-saga/internal/cli.BuildDate=${build_date}"
+ldflags="$ldflags -X github.com/change-saga/change-saga/internal/cli.Version=${version}"
+ldflags="$ldflags -X github.com/change-saga/change-saga/internal/cli.Commit=${commit}"
+ldflags="$ldflags -X github.com/change-saga/change-saga/internal/cli.BuildDate=${build_date}"
 
 echo "building ${name}"
 CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
-	go build -trimpath -ldflags "$ldflags" -o "$stage/$binary" ./cmd/review-saga
+	go build -trimpath -ldflags "$ldflags" -o "$stage/$binary" ./cmd/change-saga
 
-# Signing runs against the staged binary before it is archived. SAGA_SIGN_HOOK
+# Signing runs against the staged binary before it is archived. CHANGE_SAGA_SIGN_HOOK
 # is set by the trusted macOS release job; it is empty everywhere else.
-if [ -n "${SAGA_SIGN_HOOK:-}" ]; then
+if [ -n "${CHANGE_SAGA_SIGN_HOOK:-}" ]; then
 	echo "running sign hook for ${name}"
-	"$SAGA_SIGN_HOOK" "$stage/$binary"
+	"$CHANGE_SAGA_SIGN_HOOK" "$stage/$binary"
 fi
 
 cp LICENSE README.md "$stage/"

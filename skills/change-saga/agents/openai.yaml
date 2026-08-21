@@ -1,0 +1,4 @@
+interface:
+  display_name: "Change Saga"
+  short_description: "Author visual PRs for large code changes"
+  default_prompt: "Use $change-saga to author the visual, coverage-complete change proposal that will be submitted for review."

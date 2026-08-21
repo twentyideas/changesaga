@@ -123,7 +123,7 @@ jobs:
         run: ./scripts/build-release.sh "${{ needs.meta.outputs.version }}" "${{ matrix.goos }}" "${{ matrix.goarch }}" dist
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: release-review-saga-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: release-change-saga-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/*
           if-no-files-found: error
 
@@ -182,7 +182,7 @@ jobs:
       - name: build (signed and notarized)
         if: steps.signing.outputs.available == 'true'
         env:
-          SAGA_SIGN_HOOK: ${{ github.workspace }}/scripts/macos-sign-hook.sh
+          CHANGE_SAGA_SIGN_HOOK: ${{ github.workspace }}/scripts/macos-sign-hook.sh
           MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
@@ -197,24 +197,24 @@ jobs:
         if: steps.signing.outputs.available == 'true'
         run: |
           set -euo pipefail
-          archive="dist/review-saga_${{ needs.meta.outputs.version }}_darwin_${{ matrix.goarch }}.tar.gz"
+          archive="dist/change-saga_${{ needs.meta.outputs.version }}_darwin_${{ matrix.goarch }}.tar.gz"
           check="$RUNNER_TEMP/verify"
           mkdir -p "$check"
           tar -xzf "$archive" -C "$check"
-          codesign --verify --strict --verbose=2 "$check/review-saga"
-          codesign --display --verbose=4 "$check/review-saga" 2>&1 | grep -E '^(Authority|TeamIdentifier|Timestamp)' || true
+          codesign --verify --strict --verbose=2 "$check/change-saga"
+          codesign --display --verbose=4 "$check/change-saga" 2>&1 | grep -E '^(Authority|TeamIdentifier|Timestamp)' || true
 
       - name: delete the signing keychain
         if: always()
         run: |
-          if [ -n "${SAGA_KEYCHAIN:-}" ] && [ -f "$SAGA_KEYCHAIN" ]; then
-            security delete-keychain "$SAGA_KEYCHAIN" || true
+          if [ -n "${CHANGE_SAGA_KEYCHAIN:-}" ] && [ -f "$CHANGE_SAGA_KEYCHAIN" ]; then
+            security delete-keychain "$CHANGE_SAGA_KEYCHAIN" || true
           fi
           rm -f "$RUNNER_TEMP/saga-signing.p12" || true
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: release-review-saga-darwin-${{ matrix.goarch }}
+          name: release-change-saga-darwin-${{ matrix.goarch }}
           path: dist/*
           if-no-files-found: error
 
@@ -234,7 +234,7 @@ jobs:
 
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: release-review-saga-*
+          pattern: release-change-saga-*
           merge-multiple: true
           path: dist
 
@@ -249,7 +249,7 @@ jobs:
             sha256sum -c "$sidecar"
           done
           rm -f SHA256SUMS
-          sha256sum review-saga_*.tar.gz review-saga_*.zip | sort -k2 > SHA256SUMS
+          sha256sum change-saga_*.tar.gz change-saga_*.zip | sort -k2 > SHA256SUMS
           expected=6
           actual="$(grep -c . SHA256SUMS)"
           if [ "$actual" -ne "$expected" ]; then
@@ -271,8 +271,8 @@ jobs:
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
-            dist/review-saga_*.tar.gz
-            dist/review-saga_*.zip
+            dist/change-saga_*.tar.gz
+            dist/change-saga_*.zip
 
       - name: write release notes
         env:
@@ -300,7 +300,7 @@ jobs:
             echo
             echo '```sh'
             echo "sha256sum -c SHA256SUMS --ignore-missing"
-            echo "gh attestation verify review-saga_${VERSION}_linux_amd64.tar.gz --repo $GITHUB_REPOSITORY"
+            echo "gh attestation verify change-saga_${VERSION}_linux_amd64.tar.gz --repo $GITHUB_REPOSITORY"
             echo '```'
             echo
             echo "## macOS"
@@ -334,8 +334,8 @@ jobs:
           fi
           gh release create "$TAG" "${flags[@]}" \
             dist/SHA256SUMS \
-            dist/review-saga_*.tar.gz \
-            dist/review-saga_*.zip
+            dist/change-saga_*.tar.gz \
+            dist/change-saga_*.zip
 
       - name: dry run summary
         if: needs.meta.outputs.publish != 'true'

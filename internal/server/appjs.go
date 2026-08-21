@@ -223,7 +223,7 @@ const appJavaScript = `(() => {
     buttons.forEach(button => button.disabled = true);
     try {
       const values = new URLSearchParams({target:control.dataset.reviewTarget, state, body, return_to:location.pathname + location.search + location.hash});
-      const response = await fetch('/api/review', {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-Review-Saga-Async':'true'},body:values,credentials:'same-origin'});
+      const response = await fetch('/api/review', {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-Change-Saga-Async':'true'},body:values,credentials:'same-origin'});
       if (!response.ok) throw new Error((await response.text()).trim() || 'review could not be saved');
       control.dataset.reviewAuthor = 'Local / uncommitted';
       control.dataset.reviewDetail = 'This review event has not been committed yet.';

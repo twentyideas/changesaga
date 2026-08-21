@@ -4,7 +4,7 @@ import "time"
 
 const (
 	CurrentVersion = 2
-	SchemaURL      = "https://reviewsaga.dev/schema/v2/saga.schema.json"
+	SchemaURL      = "https://changesaga.dev/schema/v2/saga.schema.json"
 )
 
 type Manifest struct {
@@ -265,19 +265,19 @@ type Validation struct {
 }
 
 func SagaTarget(sagaID string) string {
-	return "urn:review-saga:" + sagaID + ":saga"
+	return "urn:change-saga:" + sagaID + ":saga"
 }
 
 func SectionTarget(sagaID, sectionID string) string {
-	return "urn:review-saga:" + sagaID + ":section:" + sectionID
+	return "urn:change-saga:" + sagaID + ":section:" + sectionID
 }
 
 func ChapterTarget(sagaID, chapterID string) string {
-	return "urn:review-saga:" + sagaID + ":chapter:" + chapterID
+	return "urn:change-saga:" + sagaID + ":chapter:" + chapterID
 }
 
 func FragmentTarget(sagaID, fragmentID string) string {
-	return "urn:review-saga:" + sagaID + ":fragment:" + fragmentID
+	return "urn:change-saga:" + sagaID + ":fragment:" + fragmentID
 }
 
 func LandmarkTarget(sagaID, fragmentID, landmarkID string) string {

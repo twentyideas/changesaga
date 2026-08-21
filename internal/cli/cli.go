@@ -15,13 +15,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/review-saga/review-saga/internal/coverage"
-	"github.com/review-saga/review-saga/internal/diffuri"
-	"github.com/review-saga/review-saga/internal/gitdiff"
-	"github.com/review-saga/review-saga/internal/reviewstore"
-	"github.com/review-saga/review-saga/internal/saga"
-	reviewserver "github.com/review-saga/review-saga/internal/server"
-	"github.com/review-saga/review-saga/internal/store"
+	"github.com/change-saga/change-saga/internal/coverage"
+	"github.com/change-saga/change-saga/internal/diffuri"
+	"github.com/change-saga/change-saga/internal/gitdiff"
+	"github.com/change-saga/change-saga/internal/reviewstore"
+	"github.com/change-saga/change-saga/internal/saga"
+	reviewserver "github.com/change-saga/change-saga/internal/server"
+	"github.com/change-saga/change-saga/internal/store"
 )
 
 // Version, Commit, and BuildDate describe the running binary. Release builds
@@ -49,25 +49,25 @@ type StatusError struct{ Code int }
 func (e *StatusError) Error() string { return "command reported a non-success status" }
 
 func PrintHelp(out io.Writer) {
-	fmt.Fprint(out, `Review Saga — make every part of a large change reviewable
+	fmt.Fprint(out, `Change Saga — make every part of a large change reviewable
 
 Usage:
-  review-saga init [flags] <name.saga>
-  review-saga add-chapter [flags] <saga> <name>
-  review-saga add-section [flags] <saga> <section/path>
-  review-saga add-fragment [flags] <saga>
-  review-saga cover [flags] <saga>
-  review-saga thread [flags] <saga>
-  review-saga reply [flags] <saga>
-  review-saga review [flags] <saga>
-  review-saga validate [--json] <saga>
-  review-saga status [--json] [--repo PATH] <saga>
-  review-saga serve [--addr ADDR] [--repo PATH] [--open] <saga>
-  review-saga open [--addr ADDR] [--repo PATH] <saga>
-  review-saga install-skill
-  review-saga spec [--json]
+  change-saga init [flags] <name.saga>
+  change-saga add-chapter [flags] <saga> <name>
+  change-saga add-section [flags] <saga> <section/path>
+  change-saga add-fragment [flags] <saga>
+  change-saga cover [flags] <saga>
+  change-saga thread [flags] <saga>
+  change-saga reply [flags] <saga>
+  change-saga review [flags] <saga>
+  change-saga validate [--json] <saga>
+  change-saga status [--json] [--repo PATH] <saga>
+  change-saga serve [--addr ADDR] [--repo PATH] [--open] <saga>
+  change-saga open [--addr ADDR] [--repo PATH] <saga>
+  change-saga install-skill
+  change-saga spec [--json]
 
-Run "review-saga <command> -h" for command-specific options.
+Run "change-saga <command> -h" for command-specific options.
 `)
 }
 
@@ -86,7 +86,7 @@ func Init(ctx context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: review-saga init [flags] <name.saga>")
+		return fmt.Errorf("usage: change-saga init [flags] <name.saga>")
 	}
 	root := flags.Arg(0)
 	if !strings.HasSuffix(filepath.Base(root), ".saga") {
@@ -128,7 +128,7 @@ func Init(ctx context.Context, args []string, out io.Writer) error {
 	if err := createFragment(filepath.Join(root, "overview.fragment"), saga.FragmentManifest{Version: saga.CurrentVersion, ID: *id + "-overview", Title: "Overview", MediaType: "text/markdown", Entrypoint: "content.md"}, "", []byte("Explain the change as a whole. Lead with the context that makes the rest of the saga easier to navigate.\n")); err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "Created %s\nNext: review-saga add-chapter --title \"Architecture\" %s architecture\n", root, root)
+	fmt.Fprintf(out, "Created %s\nNext: change-saga add-chapter --title \"Architecture\" %s architecture\n", root, root)
 	return nil
 }
 
@@ -142,7 +142,7 @@ func AddChapter(_ context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 2 {
-		return fmt.Errorf("usage: review-saga add-chapter [flags] <saga> <name>")
+		return fmt.Errorf("usage: change-saga add-chapter [flags] <saga> <name>")
 	}
 	document, _, err := saga.Load(flags.Arg(0))
 	if err != nil {
@@ -196,7 +196,7 @@ func AddSection(_ context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 2 {
-		return fmt.Errorf("usage: review-saga add-section [flags] <saga> <section/path>")
+		return fmt.Errorf("usage: change-saga add-section [flags] <saga> <section/path>")
 	}
 	document, _, err := saga.Load(flags.Arg(0))
 	if err != nil {
@@ -255,7 +255,7 @@ func AddFragment(_ context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: review-saga add-fragment [flags] <saga>")
+		return fmt.Errorf("usage: change-saga add-fragment [flags] <saga>")
 	}
 	document, _, err := saga.Load(flags.Arg(0))
 	if err != nil {
@@ -330,7 +330,7 @@ func Cover(ctx context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: review-saga cover [flags] <saga>")
+		return fmt.Errorf("usage: change-saga cover [flags] <saga>")
 	}
 	document, _, err := saga.Load(flags.Arg(0))
 	if err != nil {
@@ -411,7 +411,7 @@ func Thread(_ context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: review-saga thread [flags] <saga>")
+		return fmt.Errorf("usage: change-saga thread [flags] <saga>")
 	}
 	document, _, err := saga.Load(flags.Arg(0))
 	if err != nil {
@@ -445,7 +445,7 @@ func Reply(_ context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: review-saga reply [flags] <saga>")
+		return fmt.Errorf("usage: change-saga reply [flags] <saga>")
 	}
 	document, _, err := saga.Load(flags.Arg(0))
 	if err != nil {
@@ -478,7 +478,7 @@ func Review(_ context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: review-saga review [flags] <saga>")
+		return fmt.Errorf("usage: change-saga review [flags] <saga>")
 	}
 	document, _, err := saga.Load(flags.Arg(0))
 	if err != nil {
@@ -503,7 +503,7 @@ func Validate(_ context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: review-saga validate [--json] <saga>")
+		return fmt.Errorf("usage: change-saga validate [--json] <saga>")
 	}
 	_, validation, err := saga.Load(flags.Arg(0))
 	if err != nil {
@@ -535,7 +535,7 @@ func Status(ctx context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: review-saga status [--json] [--repo PATH] <saga>")
+		return fmt.Errorf("usage: change-saga status [--json] [--repo PATH] <saga>")
 	}
 	report, err := buildReport(ctx, flags.Arg(0), *repoDir)
 	if err != nil {
@@ -611,7 +611,7 @@ func Serve(ctx context.Context, args []string, out io.Writer, openByDefault ...b
 		return err
 	}
 	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: review-saga serve [--addr ADDR] [--repo PATH] [--open] <saga>")
+		return fmt.Errorf("usage: change-saga serve [--addr ADDR] [--repo PATH] [--open] <saga>")
 	}
 	return reviewserver.Listen(ctx, flags.Arg(0), *repoDir, *addr, *openBrowser, out)
 }
@@ -624,14 +624,14 @@ func Spec(args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 0 {
-		return fmt.Errorf("usage: review-saga spec [--json]")
+		return fmt.Errorf("usage: change-saga spec [--json]")
 	}
 	if *jsonOutput {
 		return writeJSON(out, map[string]any{
 			"version": 2, "chapter_suffix": ".chapter", "chapter_manifest": "chapter.json", "fragment_suffix": ".fragment", "fragment_manifest": "fragment.json",
 			"hierarchy":     []string{"overview", "chapter", "section", "fragment"},
 			"media_types":   []string{"text/markdown", "text/html", "text/plain", "image/svg+xml", "image/*"},
-			"target_scheme": "urn:review-saga", "diff_scheme": "saga-diff://v1",
+			"target_scheme": "urn:change-saga", "diff_scheme": "saga-diff://v1",
 			"anchors":              []string{"target", "region", "drawing", "text", "note", "diff"},
 			"thread_kinds":         []string{"comment", "suggestion"},
 			"reserved_directories": []string{"___diffs", "___approvals", "___review"},
@@ -652,7 +652,7 @@ func InstallSkill(args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 0 {
-		return fmt.Errorf("usage: review-saga install-skill")
+		return fmt.Errorf("usage: change-saga install-skill")
 	}
 	_, err := io.WriteString(out, installSkillPrompt)
 	return err
@@ -728,7 +728,7 @@ func normalizeRepositoryURI(value, root string) string {
 }
 
 func resolveTarget(document *saga.Saga, value string, allowFragment bool) (string, string, error) {
-	if strings.HasPrefix(value, "urn:review-saga:") {
+	if strings.HasPrefix(value, "urn:change-saga:") {
 		var foundDir string
 		walkTargets(document.Root, document.Section, func(target, dir string, fragment bool) {
 			if target == value && (allowFragment || !fragment) {
@@ -946,18 +946,18 @@ const defaultHTMLFragment = `<!doctype html>
 <body><h1>Interactive fragment</h1><p>Bundle JavaScript, CSS, images, and data beside this file.</p><button id="demo">Clicks: 0</button><script>let n=0;document.querySelector('#demo').onclick=e=>e.target.textContent='Clicks: '+(++n)</script></body></html>
 `
 
-const installSkillPrompt = `Install or update a project-local agent skill named "review-saga" using this coding agent's native skill mechanism. Do not create a Review Saga as part of installation. Preserve the following behavior in the installed skill:
+const installSkillPrompt = `Install or update a project-local agent skill named "change-saga" using this coding agent's native skill mechanism. Do not create a Change Saga as part of installation. Preserve the following behavior in the installed skill:
 
-# Review Saga authoring
+# Change Saga authoring
 
-A Review Saga is the authored change proposal submitted for review: a visual,
+A Change Saga is the authored change proposal submitted for review: a visual,
 executable successor to a flat pull-request title and description. It is the
 thing to be reviewed, not the review itself.
 
 When a user asks to draft, prepare, or create a pull request or otherwise make a
 large change ready for review, use the repository's existing PR-authoring
 processes, templates, issue context, conventions, and checks, but express the
-result as a Review Saga. Do not replace useful existing authoring discipline;
+result as a Change Saga. Do not replace useful existing authoring discipline;
 extend it into this format.
 
 During authoring, speak as the change author and guide. Do not create review
@@ -965,20 +965,20 @@ comments, findings, approvals, rejections, or other review-overlay records.
 Only perform those actions when the user explicitly asks to conduct a review of
 an already-authored saga.
 
-Use the installed "review-saga" CLI as the source of truth. Begin with
-"review-saga --help" and "review-saga spec" when necessary. Resolve the exact PR, branch, commit range, or
+Use the installed "change-saga" CLI as the source of truth. Begin with
+"change-saga --help" and "change-saga spec" when necessary. Resolve the exact PR, branch, commit range, or
 working-tree comparison; inspect the full change and its existing PR context;
 then initialize and author the .saga directory.
 
 Use this authoring loop, consulting each command's "-h" output for exact flags:
 
-1. "review-saga init" records the exact repository, base, head, title, and PR identity.
-2. "review-saga status --json" lists the uncovered product changes.
-3. "review-saga add-chapter", "review-saga add-section", and "review-saga add-fragment" build the
+1. "change-saga init" records the exact repository, base, head, title, and PR identity.
+2. "change-saga status --json" lists the uncovered product changes.
+3. "change-saga add-chapter", "change-saga add-section", and "change-saga add-fragment" build the
    reviewer-oriented narrative and its Markdown, SVG, image, or HTML packages.
-4. "review-saga cover" connects a focused fragment or landmark to the exact diff atoms
+4. "change-saga cover" connects a focused fragment or landmark to the exact diff atoms
    it explains and includes a concise what-and-why note.
-5. Repeat status, then run "review-saga validate --json" before "review-saga open" presents
+5. Repeat status, then run "change-saga validate --json" before "change-saga open" presents
    the authored proposal for review.
 
 Lead with pictures and show by example. The root should establish the goal,
@@ -995,11 +995,11 @@ risk, architecture, or reviewer intent rather than file type. Use Markdown to
 orient and connect visual artifacts, not as the default container for the whole
 explanation.
 
-Run "review-saga status --json <name>.saga" as the coverage work queue. Attach only
+Run "change-saga status --json <name>.saga" as the coverage work queue. Attach only
 the exact diff atoms a fragment or landmark explains, with concise notes saying
 what changed and why that content owns it. Never widen mappings only to reach
 100 percent. Iterate until every product change is accounted for and no mapping
-is stale, then run "review-saga validate --json" and "review-saga status --json" before
+is stale, then run "change-saga validate --json" and "change-saga status --json" before
 handoff.
 
 Opening the saga presents the authored proposal for a human to review. It does
@@ -1011,7 +1011,7 @@ const defaultSVGFragment = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
 </svg>
 `
 
-const specText = `Review Saga format v2 (experimental)
+const specText = `Change Saga format v2 (experimental)
 
 A saga begins with its overview and direct *.chapter directories. Chapters are
 independently reviewable boundaries roughly corresponding to the PRs one might
@@ -1025,7 +1025,7 @@ evidence entry is an absolute saga-diff://v1 URI containing repository URI, immu
 base/head identities, and a line range or file event.
 
 Review threads live under ___review/threads. They target stable
-urn:review-saga:* identifiers and anchor to a whole fragment, normalized shapes,
+urn:change-saga:* identifiers and anchor to a whole fragment, normalized shapes,
 freehand drawings, quoted text, a placed sticky note, or an absolute diff URI.
 A sticky note carries its visible text, a normalized centre point, and an
 optional color; moving, rewording, or recoloring it appends an anchor event. Thread messages contain
@@ -1035,5 +1035,5 @@ state, and approvals may target the saga, a chapter, a section, or a fragment.
 Every comment owns a thread directory, every reply owns a message directory, and
 each state transition is a new file; review operations never update shared arrays.
 
-The authoritative specification is SPEC.md in the Review Saga repository.
+The authoritative specification is SPEC.md in the Change Saga repository.
 `

@@ -14,7 +14,7 @@ if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
 fi
 
 archive="$1"
-output="${2:-dist/Review-Saga.command}"
+output="${2:-dist/Change-Saga.command}"
 
 case "$(basename "$archive")" in
 *_darwin_arm64.tar.gz) ;;
@@ -40,14 +40,14 @@ archive_name="$(basename "$archive_abs")"
 
 cat >"$output_abs" <<INSTALLER
 #!/bin/sh
-# Self-contained Review Saga installer for Apple Silicon macOS.
+# Self-contained Change Saga installer for Apple Silicon macOS.
 set -eu
 
 saga_archive_name='$archive_name'
 saga_expected_sha='$archive_sha'
 
 saga_fail() {
-	printf 'Review Saga installation failed: %s\n' "\$*" >&2
+	printf 'Change Saga installation failed: %s\n' "\$*" >&2
 	exit 1
 }
 
@@ -59,11 +59,11 @@ command -v shasum >/dev/null 2>&1 || saga_fail 'shasum is unavailable'
 command -v tar >/dev/null 2>&1 || saga_fail 'tar is unavailable'
 command -v install >/dev/null 2>&1 || saga_fail 'install is unavailable'
 
-saga_work_dir="\$(mktemp -d -t review-saga-install)" || saga_fail 'could not create temporary directory'
+saga_work_dir="\$(mktemp -d -t change-saga-install)" || saga_fail 'could not create temporary directory'
 saga_cleanup() { rm -rf "\$saga_work_dir"; }
 trap saga_cleanup EXIT INT TERM HUP
 
-saga_payload_line="\$(awk '/^__REVIEW_SAGA_PAYLOAD_BELOW__\$/{print NR + 1; exit}' "\$0")"
+saga_payload_line="\$(awk '/^__CHANGE_SAGA_PAYLOAD_BELOW__\$/{print NR + 1; exit}' "\$0")"
 [ -n "\$saga_payload_line" ] || saga_fail 'embedded payload marker is missing'
 
 tail -n "+\$saga_payload_line" "\$0" | base64 -D >"\$saga_work_dir/\$saga_archive_name" ||
@@ -74,10 +74,10 @@ saga_actual_sha="\$(shasum -a 256 "\$saga_work_dir/\$saga_archive_name" | awk '{
 
 tar -xzf "\$saga_work_dir/\$saga_archive_name" -C "\$saga_work_dir" ||
 	saga_fail 'could not unpack the embedded archive'
-[ -f "\$saga_work_dir/review-saga" ] || saga_fail 'archive does not contain the review-saga binary'
+[ -f "\$saga_work_dir/change-saga" ] || saga_fail 'archive does not contain the change-saga binary'
 
-if [ -n "\${SAGA_INSTALL_DIR:-}" ]; then
-	saga_install_dir="\$SAGA_INSTALL_DIR"
+if [ -n "\${CHANGE_SAGA_INSTALL_DIR:-}" ]; then
+	saga_install_dir="\$CHANGE_SAGA_INSTALL_DIR"
 elif [ -d /usr/local/bin ] && [ -w /usr/local/bin ]; then
 	saga_install_dir=/usr/local/bin
 else
@@ -85,12 +85,12 @@ else
 fi
 
 mkdir -p "\$saga_install_dir" || saga_fail "could not create \$saga_install_dir"
-install -m 0755 "\$saga_work_dir/review-saga" "\$saga_install_dir/review-saga" ||
-	saga_fail "could not install to \$saga_install_dir/review-saga"
+install -m 0755 "\$saga_work_dir/change-saga" "\$saga_install_dir/change-saga" ||
+	saga_fail "could not install to \$saga_install_dir/change-saga"
 
-printf '\nReview Saga installed successfully.\n'
-"\$saga_install_dir/review-saga" version
-printf 'Command: %s\n' "\$saga_install_dir/review-saga"
+printf '\nChange Saga installed successfully.\n'
+"\$saga_install_dir/change-saga" version
+printf 'Command: %s\n' "\$saga_install_dir/change-saga"
 
 case ":\$PATH:" in
 *":\$saga_install_dir:"*) ;;
@@ -101,7 +101,7 @@ case ":\$PATH:" in
 esac
 
 exit 0
-__REVIEW_SAGA_PAYLOAD_BELOW__
+__CHANGE_SAGA_PAYLOAD_BELOW__
 INSTALLER
 
 base64 <"$archive_abs" >>"$output_abs"

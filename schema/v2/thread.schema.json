@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reviewsaga.dev/schema/v2/thread.schema.json",
-  "title": "Review Saga anchored thread",
+  "$id": "https://changesaga.dev/schema/v2/thread.schema.json",
+  "title": "Change Saga anchored thread",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "id", "target", "anchor", "created_at"],
   "properties": {
     "version": { "const": 2 },
     "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
-    "target": { "type": "string", "pattern": "^urn:review-saga:" },
+    "target": { "type": "string", "pattern": "^urn:change-saga:" },
     "created_by": { "type": "string", "minLength": 1 },
     "created_at": { "type": "string", "format": "date-time" },
     "kind": { "enum": ["comment", "suggestion"] },

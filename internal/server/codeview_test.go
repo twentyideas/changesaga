@@ -10,10 +10,10 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/review-saga/review-saga/internal/coverage"
-	"github.com/review-saga/review-saga/internal/diffuri"
-	"github.com/review-saga/review-saga/internal/gitdiff"
-	"github.com/review-saga/review-saga/internal/saga"
+	"github.com/change-saga/change-saga/internal/coverage"
+	"github.com/change-saga/change-saga/internal/diffuri"
+	"github.com/change-saga/change-saga/internal/gitdiff"
+	"github.com/change-saga/change-saga/internal/saga"
 )
 
 func TestCodeDiffURLPreservesPathAndQualifiedDiffURI(t *testing.T) {
@@ -176,7 +176,7 @@ func TestFileViewsAttachRendererContextWithoutChangingAtoms(t *testing.T) {
 			{Kind: "new", Path: "app.go", NewLine: 2, Content: "new", AtomKey: added.Key},
 		},
 	}
-	files := makeFileViews(changes, "urn:review-saga:test:saga", nil, nil)
+	files := makeFileViews(changes, "urn:change-saga:test:saga", nil, nil)
 	if len(files) != 1 || len(files[0].Atoms) != 2 || len(files[0].Lines) != 3 {
 		if len(files) == 0 {
 			t.Fatal("focused file was not built")

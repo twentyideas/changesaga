@@ -150,7 +150,7 @@ for raster media, divide pixel coordinates by the intrinsic image dimensions.
 For example: `"hotspot":{"x":0.68,"y":0.72,"width":0.2,"height":0.12}`.
 
 When a landmark is realized by code, put each focused diff association in its
-own `<landmark>/___diffs/*.json` file. Run `review-saga cover --target` with the
+own `<landmark>/___diffs/*.json` file. Run `change-saga cover --target` with the
 landmark target URN; do not duplicate the same atom at fragment scope merely to
 make it visible. This is the literate-programming bridge: prose and diagrams
 explain intent, while the landmark opens the exact implementation. The fragment

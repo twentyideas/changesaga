@@ -1,10 +1,10 @@
-# Review Saga format v2
+# Change Saga format v2
 
 Status: experimental. Version 2 supersedes the unpublished v1 draft.
 
 ## 1. Model
 
-A Review Saga is a Git-native review document with five layers:
+A Change Saga is a Git-native review document with five layers:
 
 1. **Overview** explains the change as a whole.
 2. **Chapters** divide the change into independently reviewable units—roughly
@@ -26,7 +26,7 @@ A saga root ends in `.saga` and contains `saga.json` conforming to
 
 ```json
 {
-  "$schema": "https://reviewsaga.dev/schema/v2/saga.schema.json",
+  "$schema": "https://changesaga.dev/schema/v2/saga.schema.json",
   "version": 2,
   "id": "checkout-rewrite",
   "title": "Checkout rewrite",
@@ -44,7 +44,7 @@ comparison to evaluate. Commit comparisons use their merge base, matching pull
 request behavior. `WORKTREE` is allowed as `head`; untracked files are excluded.
 
 When a saga is stored separately, readers provide a local source checkout with
-`review-saga status --repo PATH` or `review-saga open --repo PATH`. Local checkout paths are
+`change-saga status --repo PATH` or `change-saga open --repo PATH`. Local checkout paths are
 runtime configuration and are never committed into the portable format.
 
 ## 3. Chapters, sections, and fragments
@@ -167,11 +167,11 @@ they must not insert fragment HTML directly into trusted application markup.
 Review and engine data use stable identifiers rather than filesystem paths:
 
 ```text
-urn:review-saga:<saga-id>:saga
-urn:review-saga:<saga-id>:chapter:<chapter-id>
-urn:review-saga:<saga-id>:section:<section-id>
-urn:review-saga:<saga-id>:fragment:<fragment-id>
-urn:review-saga:<saga-id>:fragment:<fragment-id>:landmark:<landmark-id>
+urn:change-saga:<saga-id>:saga
+urn:change-saga:<saga-id>:chapter:<chapter-id>
+urn:change-saga:<saga-id>:section:<section-id>
+urn:change-saga:<saga-id>:fragment:<fragment-id>
+urn:change-saga:<saga-id>:fragment:<fragment-id>:landmark:<landmark-id>
 ```
 
 IDs are 1–128 characters from `A-Z`, `a-z`, `0-9`, `.`, `_`, and `-`, beginning
@@ -371,26 +371,26 @@ real directories, not symlinks. Other names beginning with `___` are invalid.
 
 ## 10. CLI behavior
 
-- `review-saga install-skill` prints an agent-agnostic prompt for installing the
-  project-local Review Saga authoring skill. It MUST NOT mutate the repository
+- `change-saga install-skill` prints an agent-agnostic prompt for installing the
+  project-local Change Saga authoring skill. It MUST NOT mutate the repository
   or assume an agent-specific skill path.
-- `review-saga add-fragment` creates Markdown, HTML, SVG, text, or image fragments.
-- `review-saga add-chapter` creates a top-level independently reviewable chapter and
+- `change-saga add-fragment` creates Markdown, HTML, SVG, text, or image fragments.
+- `change-saga add-chapter` creates a top-level independently reviewable chapter and
   its overview fragment.
-- `review-saga cover --target ...` attaches an absolute diff URI to any target.
-- `review-saga status --json` emits uncovered atoms including ready-to-use absolute
+- `change-saga cover --target ...` attaches an absolute diff URI to any target.
+- `change-saga status --json` emits uncovered atoms including ready-to-use absolute
   URIs, stale links, overlap, target totals, and saga-only changes.
-- `review-saga thread` and `review-saga reply` edit the review overlay without modifying
+- `change-saga thread` and `change-saga reply` edit the review overlay without modifying
   authored fragment content.
-- `review-saga review` appends a saga-, chapter-, section-, or fragment-level decision.
-- `review-saga open` serves a Saga view with attached-diff drawers, a Code Diff view
+- `change-saga review` appends a saga-, chapter-, section-, or fragment-level decision.
+- `change-saga open` serves a Saga view with attached-diff drawers, a Code Diff view
   with a changed-file tree, and a bidirectional Coverage Manifest. The Manifest
   must derive both code-to-narrative and narrative-to-code projections from the
   same atom assignments. Attached code is grouped by collapsed source file, and
   evidence `note` values provide the reviewer-facing what-and-why summary before
   linked ranges are expanded. Review surfaces support diff comments and
   suggestions; the full diff view also records reviewed/unreviewed file events.
-- `review-saga validate` checks structure, identifiers, URIs, anchors, entrypoints, and
+- `change-saga validate` checks structure, identifiers, URIs, anchors, entrypoints, and
   review history independently from coverage completeness.
 
 `status` exits 0 when complete and 3 when incomplete. `validate` exits 1 for

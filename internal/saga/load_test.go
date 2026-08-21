@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/review-saga/review-saga/internal/diffuri"
+	"github.com/change-saga/change-saga/internal/diffuri"
 )
 
 func TestLoadRecursiveFragmentsAndReviewOverlay(t *testing.T) {
@@ -26,7 +26,7 @@ func TestLoadRecursiveFragmentsAndReviewOverlay(t *testing.T) {
 	}
 	writeTestFile(t, filepath.Join(root, "backend.chapter", "request-flow", "flow.fragment", "___diffs", "api.json"), fmt.Sprintf(`{"version":2,"diffs":[{"uri":%q}]}`, diff))
 	writeTestFile(t, filepath.Join(root, "backend.chapter", "request-flow", "flow.fragment", "___landmarks", "try-flow.landmark", "___diffs", "api.json"), fmt.Sprintf(`{"version":2,"diffs":[{"uri":%q}]}`, diff))
-	writeTestFile(t, filepath.Join(root, "___review", "threads", "thread-1.thread", "thread.json"), `{"version":2,"id":"thread-1","target":"urn:review-saga:test:fragment:flow","anchor":{"type":"region","coordinate_space":"normalized","shapes":[{"type":"rect","x":0.1,"y":0.2,"width":0.3,"height":0.4}]},"created_by":"Ada","created_at":"2026-08-19T12:00:00Z"}`)
+	writeTestFile(t, filepath.Join(root, "___review", "threads", "thread-1.thread", "thread.json"), `{"version":2,"id":"thread-1","target":"urn:change-saga:test:fragment:flow","anchor":{"type":"region","coordinate_space":"normalized","shapes":[{"type":"rect","x":0.1,"y":0.2,"width":0.3,"height":0.4}]},"created_by":"Ada","created_at":"2026-08-19T12:00:00Z"}`)
 	writeTestFile(t, filepath.Join(root, "___review", "threads", "thread-1.thread", "messages", "message-1.message", "message.json"), `{"version":2,"id":"message-1","author":"Ada","created_at":"2026-08-19T12:00:00Z"}`)
 	writeTestFile(t, filepath.Join(root, "___review", "threads", "thread-1.thread", "messages", "message-1.message", "body.fragment", "fragment.json"), `{"version":2,"id":"message-body","media_type":"text/markdown","entrypoint":"content.md"}`)
 	writeTestFile(t, filepath.Join(root, "___review", "threads", "thread-1.thread", "messages", "message-1.message", "body.fragment", "content.md"), "Please explain this transition.\n")

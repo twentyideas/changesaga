@@ -14,18 +14,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/review-saga/review-saga/internal/diffuri"
-	"github.com/review-saga/review-saga/internal/gitattribution"
-	"github.com/review-saga/review-saga/internal/gitdiff"
-	"github.com/review-saga/review-saga/internal/reviewstore"
-	"github.com/review-saga/review-saga/internal/saga"
+	"github.com/change-saga/change-saga/internal/diffuri"
+	"github.com/change-saga/change-saga/internal/gitattribution"
+	"github.com/change-saga/change-saga/internal/gitdiff"
+	"github.com/change-saga/change-saga/internal/reviewstore"
+	"github.com/change-saga/change-saga/internal/saga"
 )
 
 func TestCreateAnchoredThreadWritesOverlayRecords(t *testing.T) {
 	root := validServerSaga(t)
 	application := &app{root: root}
 	fields := map[string]string{
-		"target":    "urn:review-saga:test:fragment:overview",
+		"target":    "urn:change-saga:test:fragment:overview",
 		"body":      "Check this edge case.",
 		"anchor":    `{"type":"region","coordinate_space":"normalized","shapes":[{"type":"rect","x":0.1,"y":0.2,"width":0.3,"height":0.4,"color":"#336699"}]}`,
 		"return_to": "/chapters/backend#target-overview",
@@ -52,7 +52,7 @@ func TestCreateTextHighlightPersistsChosenColor(t *testing.T) {
 	root := validServerSaga(t)
 	application := &app{root: root}
 	request := multipartRequest(t, "/api/thread", map[string]string{
-		"target": "urn:review-saga:test:fragment:overview",
+		"target": "urn:change-saga:test:fragment:overview",
 		"body":   "This phrase matters.",
 		"anchor": `{"type":"text","text":{"exact":"Story","start":0,"end":5,"color":"#aa22cc"}}`,
 	})
@@ -72,7 +72,7 @@ func TestCreateTextHighlightPersistsChosenColor(t *testing.T) {
 
 func TestWithdrawnThreadIsHiddenUntilReopened(t *testing.T) {
 	root := validServerSaga(t)
-	threadID, err := reviewstore.AddThread(root, "urn:review-saga:test:fragment:overview", "Temporarily hidden", saga.Anchor{Type: "target"}, "comment", "", nil)
+	threadID, err := reviewstore.AddThread(root, "urn:change-saga:test:fragment:overview", "Temporarily hidden", saga.Anchor{Type: "target"}, "comment", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func TestWithdrawnThreadIsHiddenUntilReopened(t *testing.T) {
 
 func TestThreadAnchorEditPersistsWithoutChangingState(t *testing.T) {
 	root := validServerSaga(t)
-	threadID, err := reviewstore.AddThread(root, "urn:review-saga:test:fragment:overview", "Move this", saga.Anchor{Type: "region", Coordinate: "normalized", Shapes: []saga.Shape{{Type: "rect", X: .1, Y: .1, Width: .2, Height: .2}}}, "comment", "", nil)
+	threadID, err := reviewstore.AddThread(root, "urn:change-saga:test:fragment:overview", "Move this", saga.Anchor{Type: "region", Coordinate: "normalized", Shapes: []saga.Shape{{Type: "rect", X: .1, Y: .1, Width: .2, Height: .2}}}, "comment", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +132,7 @@ func TestStickyNoteThreadCommitsPlacementAndAppendsEdits(t *testing.T) {
 	application := &app{root: root}
 	const noteText = "Rename <this> helper"
 	request := multipartRequest(t, "/api/thread", map[string]string{
-		"target": "urn:review-saga:test:fragment:overview",
+		"target": "urn:change-saga:test:fragment:overview",
 		"body":   noteText,
 		"anchor": `{"type":"note","coordinate_space":"normalized","note":{"text":"Rename <this> helper","x":0.25,"y":0.5,"color":"#f2bd4b"}}`,
 	})
@@ -188,7 +188,7 @@ func TestStickyNoteThreadCommitsPlacementAndAppendsEdits(t *testing.T) {
 func TestStickyNoteThreadRejectsUnplaceableNote(t *testing.T) {
 	root := validServerSaga(t)
 	request := multipartRequest(t, "/api/thread", map[string]string{
-		"target": "urn:review-saga:test:fragment:overview",
+		"target": "urn:change-saga:test:fragment:overview",
 		"body":   "Off canvas",
 		"anchor": `{"type":"note","coordinate_space":"normalized","note":{"text":"Off canvas","x":1.4,"y":0.5}}`,
 	})
@@ -203,8 +203,8 @@ func TestStickyNoteOverlayRendersSafelyAndDeepLinks(t *testing.T) {
 	tmpl := serverTemplate(t)
 	fragmentDir := t.TempDir()
 	writeServerFile(t, filepath.Join(fragmentDir, "content.md"), "# Story {#story}\n")
-	fragment := &saga.Fragment{ID: "overview", Title: "Overview", Target: "urn:review-saga:test:fragment:overview", Directory: fragmentDir, MediaType: "text/markdown", Entrypoint: "content.md"}
-	section := &saga.Section{Kind: "chapter", ID: "root", Title: "Test", Target: "urn:review-saga:test:saga", Path: "private/root.chapter", Fragments: []*saga.Fragment{fragment}}
+	fragment := &saga.Fragment{ID: "overview", Title: "Overview", Target: "urn:change-saga:test:fragment:overview", Directory: fragmentDir, MediaType: "text/markdown", Entrypoint: "content.md"}
+	section := &saga.Section{Kind: "chapter", ID: "root", Title: "Test", Target: "urn:change-saga:test:saga", Path: "private/root.chapter", Fragments: []*saga.Fragment{fragment}}
 	created := time.Date(2026, 8, 19, 12, 0, 0, 0, time.UTC)
 	sticky := &saga.Thread{ID: "sticky", Target: fragment.Target, CreatedBy: "Ada Lovelace", State: "open", CreatedAt: created,
 		Anchor:   saga.Anchor{Type: "note", Coordinate: "normalized", Note: &saga.NoteSelector{Text: "Rename <this> helper", X: .25, Y: .5, Color: "#f2bd4b"}},
@@ -251,7 +251,7 @@ func TestCreateDiffSuggestionAndMarkFileReviewed(t *testing.T) {
 	}
 	application := &app{root: root}
 	request := multipartRequest(t, "/api/thread", map[string]string{
-		"target":      "urn:review-saga:test:fragment:overview",
+		"target":      "urn:change-saga:test:fragment:overview",
 		"body":        "Prefer the guarded form.",
 		"kind":        "suggestion",
 		"replacement": "if ready { return nil }",
@@ -290,7 +290,7 @@ func TestReviewDecisionPersistsAndReturnsToChapter(t *testing.T) {
 	root := validServerSaga(t)
 	application := &app{root: root}
 	values := url.Values{
-		"target":    {"urn:review-saga:test:fragment:overview"},
+		"target":    {"urn:change-saga:test:fragment:overview"},
 		"state":     {"approved"},
 		"body":      {"Ready to merge."},
 		"return_to": {"/chapters/backend#target-overview"},
@@ -316,13 +316,13 @@ func TestAsyncReviewDecisionPersistsWithoutRedirect(t *testing.T) {
 	root := validServerSaga(t)
 	application := &app{root: root}
 	values := url.Values{
-		"target": {"urn:review-saga:test:fragment:overview"},
+		"target": {"urn:change-saga:test:fragment:overview"},
 		"state":  {"rejected"},
 		"body":   {"Please cover the failure path."},
 	}
 	request := httptest.NewRequest(http.MethodPost, "/api/review", strings.NewReader(values.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	request.Header.Set("X-Review-Saga-Async", "true")
+	request.Header.Set("X-Change-Saga-Async", "true")
 	recorder := httptest.NewRecorder()
 	application.review(recorder, request)
 	if recorder.Code != http.StatusNoContent || recorder.Header().Get("Location") != "" {
@@ -435,10 +435,10 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	fragmentDir := t.TempDir()
 	writeServerFile(t, filepath.Join(fragmentDir, "content.md"), "# Story {#story}\n")
 	landmarkTarget := saga.LandmarkTarget("test", "overview", "story-text")
-	fragment := &saga.Fragment{ID: "overview", Title: "Overview", Target: "urn:review-saga:test:fragment:overview", Directory: fragmentDir, MediaType: "text/markdown", Entrypoint: "content.md", Landmarks: []saga.Landmark{{Version: 2, ID: "story-text", Label: "Story text", Target: landmarkTarget, Selector: saga.LandmarkSelector{Type: "text", Exact: "Story"}}}}
+	fragment := &saga.Fragment{ID: "overview", Title: "Overview", Target: "urn:change-saga:test:fragment:overview", Directory: fragmentDir, MediaType: "text/markdown", Entrypoint: "content.md", Landmarks: []saga.Landmark{{Version: 2, ID: "story-text", Label: "Story text", Target: landmarkTarget, Selector: saga.LandmarkSelector{Type: "text", Exact: "Story"}}}}
 	fragment.Reviews = []saga.Review{{State: "approved", Author: "Ada", AttributionDetail: "ada@example.test · committed abc123", Body: "Ready to merge.", CreatedAt: time.Date(2026, 8, 19, 12, 0, 0, 0, time.UTC)}}
-	emptyFragment := &saga.Fragment{ID: "empty", Title: "No changes", Target: "urn:review-saga:test:fragment:empty", Directory: fragmentDir, MediaType: "text/plain", Entrypoint: "missing.txt"}
-	section := &saga.Section{Kind: "chapter", ID: "root", Title: "Test", Target: "urn:review-saga:test:saga", Path: "private/root.chapter", Fragments: []*saga.Fragment{fragment, emptyFragment}}
+	emptyFragment := &saga.Fragment{ID: "empty", Title: "No changes", Target: "urn:change-saga:test:fragment:empty", Directory: fragmentDir, MediaType: "text/plain", Entrypoint: "missing.txt"}
+	section := &saga.Section{Kind: "chapter", ID: "root", Title: "Test", Target: "urn:change-saga:test:saga", Path: "private/root.chapter", Fragments: []*saga.Fragment{fragment, emptyFragment}}
 	thread := &saga.Thread{ID: "thread", Target: fragment.Target, Anchor: saga.Anchor{Type: "region", Coordinate: "normalized", Shapes: []saga.Shape{{Type: "rect", X: .1, Y: .2, Width: .3, Height: .4, Color: "#336699"}}}, State: "open", Messages: []*saga.Message{{ID: "message", CreatedAt: time.Date(2026, 8, 19, 12, 0, 0, 0, time.UTC)}}}
 	lineURI := "saga-diff://v1/line?base=aaa&end=1&head=product-bbb&path=app.go&repository=https%3A%2F%2Fexample.test%2Fa.git&side=new&start=1"
 	fragment.Diffs = []saga.DiffFile{{Version: 2, Diffs: []saga.DiffReference{{URI: lineURI, Note: "Adds the package entrypoint so the example compiles."}}}}
@@ -648,18 +648,18 @@ func TestChapterResumeState(t *testing.T) {
 
 func TestReviewDecisionProgressCountsTheWholeSaga(t *testing.T) {
 	root := &sectionView{
-		Section:     &saga.Section{Kind: "saga", ID: "root", Title: "Root", Target: "urn:review-saga:test:saga"},
+		Section:     &saga.Section{Kind: "saga", ID: "root", Title: "Root", Target: "urn:change-saga:test:saga"},
 		DOMID:       "root-target",
 		ReviewState: "approved",
 		FragmentViews: []*fragmentView{
-			{Fragment: &saga.Fragment{ID: "one", Title: "One", Target: "urn:review-saga:test:fragment:one"}, DOMID: "one-target", ReviewState: "rejected"},
-			{Fragment: &saga.Fragment{ID: "two", Title: "Two", Target: "urn:review-saga:test:fragment:two"}, DOMID: "two-target", ReviewState: "open"},
+			{Fragment: &saga.Fragment{ID: "one", Title: "One", Target: "urn:change-saga:test:fragment:one"}, DOMID: "one-target", ReviewState: "rejected"},
+			{Fragment: &saga.Fragment{ID: "two", Title: "Two", Target: "urn:change-saga:test:fragment:two"}, DOMID: "two-target", ReviewState: "open"},
 		},
 		ChildViews: []*sectionView{{
-			Section: &saga.Section{Kind: "chapter", ID: "chapter", Title: "Chapter", Target: "urn:review-saga:test:chapter:chapter"},
+			Section: &saga.Section{Kind: "chapter", ID: "chapter", Title: "Chapter", Target: "urn:change-saga:test:chapter:chapter"},
 			DOMID:   "chapter-target",
 			FragmentViews: []*fragmentView{
-				{Fragment: &saga.Fragment{ID: "three", Title: "Three", Target: "urn:review-saga:test:fragment:three"}, DOMID: "three-target", ReviewState: "approved"},
+				{Fragment: &saga.Fragment{ID: "three", Title: "Three", Target: "urn:change-saga:test:fragment:three"}, DOMID: "three-target", ReviewState: "approved"},
 			},
 		}},
 	}
@@ -727,7 +727,7 @@ func TestNavigationTreeReadsAsCollapsedDocumentationOutline(t *testing.T) {
 }
 
 func TestDOMIDIsStableAndCollisionResistantAfterReadablePrefix(t *testing.T) {
-	prefix := "urn:review-saga:test:fragment:" + strings.Repeat("shared-prefix", 10)
+	prefix := "urn:change-saga:test:fragment:" + strings.Repeat("shared-prefix", 10)
 	first := domID(prefix + "-one")
 	second := domID(prefix + "-two")
 	if first == second || first != domID(prefix+"-one") {
@@ -745,7 +745,7 @@ func TestFileViewsGroupRenameAndUseDistinctAnchors(t *testing.T) {
 			{Kind: "line", Path: "another.go", Side: "new", Line: 1, Content: "new"},
 		},
 	}
-	files := makeFileViews(changes, "urn:review-saga:test:saga", nil, nil)
+	files := makeFileViews(changes, "urn:change-saga:test:saga", nil, nil)
 	if len(files) != 2 {
 		t.Fatalf("files = %d, want renamed file plus another file", len(files))
 	}

@@ -1,7 +1,7 @@
 #!/bin/sh
-# Review Saga installer for macOS and Linux.
+# Change Saga installer for macOS and Linux.
 #
-#   curl -fsSL https://raw.githubusercontent.com/review-saga/review-saga/main/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/change-saga/change-saga/main/scripts/install.sh | sh
 #
 # With options, pass them after `-s --`:
 #
@@ -22,10 +22,10 @@
 #     directory; a system-wide install is an explicit, informed choice.
 set -eu
 
-REPO="${SAGA_REPO:-review-saga/review-saga}"
-BIN_NAME="review-saga"
-VERSION="${SAGA_VERSION:-latest}"
-INSTALL_DIR="${SAGA_INSTALL_DIR:-}"
+REPO="${CHANGE_SAGA_REPO:-change-saga/change-saga}"
+BIN_NAME="change-saga"
+VERSION="${CHANGE_SAGA_VERSION:-latest}"
+INSTALL_DIR="${CHANGE_SAGA_INSTALL_DIR:-}"
 DRY_RUN=0
 VERIFY_ATTESTATION=0
 
@@ -34,7 +34,7 @@ die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
 usage() {
 	cat >&2 <<'USAGE'
-Install the Review Saga CLI.
+Install the Change Saga CLI.
 
 Options:
   --version <tag>   release tag to install (default: latest, e.g. v0.3.0)
@@ -45,7 +45,7 @@ Options:
   --dry-run         download and verify, but do not install
   --help            show this message
 
-Environment: SAGA_VERSION, SAGA_INSTALL_DIR, SAGA_REPO
+Environment: CHANGE_SAGA_VERSION, CHANGE_SAGA_INSTALL_DIR, CHANGE_SAGA_REPO
 USAGE
 }
 
@@ -182,7 +182,7 @@ TMPDIR_SAGA="$(mktemp -d 2>/dev/null || mktemp -d -t saga-install)"
 cleanup() { rm -rf "$TMPDIR_SAGA"; }
 trap cleanup EXIT INT TERM HUP
 
-log "review-saga $TAG for $OS/$ARCH"
+log "change-saga $TAG for $OS/$ARCH"
 log "downloading $ARCHIVE"
 fetch "$BASE_URL/$ARCHIVE" "$TMPDIR_SAGA/$ARCHIVE" ||
 	die "no release archive for $OS/$ARCH in $TAG (looked for $ARCHIVE)"
@@ -270,7 +270,7 @@ for you."
 fi
 
 # Install through a temporary name in the destination directory so the swap is
-# atomic and a running `review-saga` process is never overwritten in place.
+# atomic and a running `change-saga` process is never overwritten in place.
 staged="$INSTALL_DIR/.$BIN_NAME.install.$$"
 cp "$TMPDIR_SAGA/$BIN_NAME" "$staged"
 chmod 0755 "$staged"

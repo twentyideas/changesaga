@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reviewsaga.dev/schema/v2/diff.schema.json",
-  "title": "Review Saga diff links",
+  "$id": "https://changesaga.dev/schema/v2/diff.schema.json",
+  "title": "Change Saga diff links",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "diffs"],

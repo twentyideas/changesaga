@@ -1,6 +1,6 @@
 # Contributing
 
-Review Saga is a small standard plus a reference Go implementation. Changes to
+Change Saga is a small standard plus a reference Go implementation. Changes to
 the on-disk format should include a specification update, schema update, and
 compatibility discussion in the pull request.
 
@@ -8,7 +8,7 @@ compatibility discussion in the pull request.
 gofmt -w cmd internal
 go test ./...
 go vet ./...
-go build ./cmd/review-saga
+go build ./cmd/change-saga
 ```
 
 Keep the core deterministic and dependency-light. UI work should preserve the

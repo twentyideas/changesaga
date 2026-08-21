@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/review-saga/review-saga/internal/diffuri"
+	"github.com/change-saga/change-saga/internal/diffuri"
 )
 
 func Load(root string) (*Saga, Validation, error) {

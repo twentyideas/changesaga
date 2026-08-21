@@ -1,9 +1,9 @@
 ---
-name: review-saga
-description: 'Author, update, validate, and open a Git-native, visual successor to the pull-request description for a large PR number, URL, branch, commit range, or working-tree change. Use for requests like "make a review saga for PR 123" or "draft this change for review": explain the complete changeset through chapters, workflows, data-flow and data-model diagrams, interactive HTML, worked examples, and fully accounted diff URIs. The primary purpose is to create the artifact submitted for human review, not to perform the review; only conduct review actions when explicitly requested.'
+name: change-saga
+description: 'Author, update, validate, and open a Git-native, visual successor to the pull-request description for a large PR number, URL, branch, commit range, or working-tree change. Use for requests like "make a change saga for PR 123" or "draft this change for review": explain the complete changeset through chapters, workflows, data-flow and data-model diagrams, interactive HTML, worked examples, and fully accounted diff URIs. The primary purpose is to create the artifact submitted for human review, not to perform the review; only conduct review actions when explicitly requested.'
 ---
 
-# Review Saga
+# Change Saga
 
 ## Purpose and role boundary
 
@@ -23,20 +23,20 @@ During authoring:
 Only enter reviewer mode when the user explicitly asks to review, approve,
 reject, annotate, or comment on an already-authored saga.
 
-Use the `review-saga` CLI as the source of truth for format validity and diff coverage.
+Use the `change-saga` CLI as the source of truth for format validity and diff coverage.
 Treat completeness as an omission check, not proof that the authored proposal
 is good. Prefer showing behavior and relationships over describing them in
 dense prose.
 
 ## Locate the CLI
 
-Prefer an installed `saga` executable. In the Review Saga source repository, use
-`go run ./cmd/review-saga` when the executable is unavailable. Keep one invocation form
+Prefer an installed `change-saga` executable. In the Change Saga source repository, use
+`go run ./cmd/change-saga` when the executable is unavailable. Keep one invocation form
 for the whole task.
 
 Read [references/format.md](references/format.md) before changing saga files.
 When authoring a new saga, also read
-[references/authoring.md](references/authoring.md). Run `review-saga spec` if the
+[references/authoring.md](references/authoring.md). Run `change-saga spec` if the
 installed CLI disagrees with the references; follow the CLI and report the
 mismatch.
 
@@ -51,13 +51,13 @@ mismatch.
 3. Initialize the saga when none exists:
 
    ```sh
-   review-saga init --base <base> --head <head> --title "<title>" \
+   change-saga init --base <base> --head <head> --title "<title>" \
      [--pr <number> --pr-url <url>] <name>.saga
    ```
 
    Use `WORKTREE` as the head only for tracked in-progress changes. Warn that the
    current engine does not account for untracked files.
-4. Run `review-saga status --json <name>.saga`. Treat its uncovered atoms as the work
+4. Run `change-saga status --json <name>.saga`. Treat its uncovered atoms as the work
    queue and its stale diff URIs as reconciliation work.
 5. Read the relevant code and diff context. Identify the affected end-to-end
    workflows, data flows, data models, state transitions, and concrete
@@ -67,7 +67,7 @@ mismatch.
    operational risk, or tests. Do not group solely by file extension or assign a
    broad range before understanding it.
 6. Divide the change into a small set of independently reviewable chapters with
-   `review-saga add-chapter`. Treat each chapter like a PR that could be assigned and
+   `change-saga add-chapter`. Treat each chapter like a PR that could be assigned and
    approved on its own. Use recursive sections inside a chapter only when they
    improve a reviewer's path through that unit.
 7. Replace the root and chapter overview placeholders with the visual-first
@@ -77,7 +77,7 @@ mismatch.
    stable flows. Use sandboxed HTML with bundled JavaScript for alternate paths,
    state transitions, before/after comparisons, and explorable examples. Use
    Markdown to orient and connect those artifacts, not as the default container
-   for everything. Build focused fragments with `review-saga add-fragment`. Make every
+   for everything. Build focused fragments with `change-saga add-fragment`. Make every
    meaningful subpart addressable using the landmark
    contract in `references/authoring.md`: annotate Markdown headings directly
    and add one `___landmarks/<id>.landmark/` package per addressable heading,
@@ -85,17 +85,17 @@ mismatch.
    that package when code realizes the landmark. Keep one review idea per
    fragment and avoid decorative media.
 8. Attach only the atoms actually explained or demonstrated by a fragment (or a
-   deliberately higher target) with `review-saga cover --target`. Always pass `--note`
+   deliberately higher target) with `change-saga cover --target`. Always pass `--note`
    with a concise, reviewer-facing explanation of what changed in that source
    file and why it belongs to this narrative target. Make the note useful before
    code is expanded; do not restate the path or say only “implementation” or
    “tests.” Use `old` for deletions and `new` for additions. Cover rename, mode,
    and binary events explicitly. Prefer the absolute URIs emitted by `status
    --json` when source and saga live in different repositories.
-9. Repeat `review-saga status --json` until every product atom is covered and no stale
+9. Repeat `change-saga status --json` until every product atom is covered and no stale
    selector remains. Inspect overlaps and keep them only when multiple reviewer
    journeys genuinely need the same change.
-10. Run both `review-saga validate --json` and `review-saga status --json`, then perform the
+10. Run both `change-saga validate --json` and `change-saga status --json`, then perform the
     visual and reviewer-readiness checks in `references/authoring.md`. Replace
     walls of text with diagrams or concrete examples before handoff. Summarize the
     chapter structure, coverage result, saga-only changes, and limitations.
@@ -120,7 +120,7 @@ Run status against the new head, then handle both sides of drift:
 
 ## Open the authored saga for review
 
-Run `review-saga open <name>.saga` when asked to present the authored change for
+Run `change-saga open <name>.saga` when asked to present the authored change for
 review. Opening the UI does not authorize the AI to review it. The local UI can
 anchor threads to whole fragments, selected text, rectangles, freehand paths, or
 placed sticky notes.

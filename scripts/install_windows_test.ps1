@@ -4,11 +4,11 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version 2.0
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-$WorkDir = Join-Path ([IO.Path]::GetTempPath()) ("review-saga-windows-test-" + [guid]::NewGuid().ToString("N"))
+$WorkDir = Join-Path ([IO.Path]::GetTempPath()) ("change-saga-windows-test-" + [guid]::NewGuid().ToString("N"))
 $ReleaseDir = Join-Path $WorkDir "release"
 $StageDir = Join-Path $WorkDir "stage"
 $Version = "9.9.9"
-$ArchiveName = "review-saga_${Version}_windows_amd64.zip"
+$ArchiveName = "change-saga_${Version}_windows_amd64.zip"
 $Installer = Join-Path $PSScriptRoot "install.ps1"
 $Pass = 0
 $Fail = 0
@@ -41,8 +41,8 @@ try {
     $env:CGO_ENABLED = "0"
     $env:GOOS = "windows"
     $env:GOARCH = "amd64"
-    $Binary = Join-Path $StageDir "review-saga.exe"
-    & go build -trimpath -o $Binary ./cmd/review-saga
+    $Binary = Join-Path $StageDir "change-saga.exe"
+    & go build -trimpath -o $Binary ./cmd/change-saga
     if ($LASTEXITCODE -ne 0) { throw "go build failed" }
     Copy-Item (Join-Path $RepoRoot "LICENSE"), (Join-Path $RepoRoot "README.md") -Destination $StageDir
     $Archive = Join-Path $ReleaseDir $ArchiveName
@@ -68,23 +68,23 @@ try {
     Write-Host "== happy path"
     $BinDir = Join-Path $WorkDir "bin"
     & $Installer -Version "v$Version" -InstallDir $BinDir -NoPathUpdate
-    Record "installed review-saga.exe" (Test-Path -LiteralPath (Join-Path $BinDir "review-saga.exe") -PathType Leaf)
-    $InstalledVersion = & (Join-Path $BinDir "review-saga.exe") version
+    Record "installed change-saga.exe" (Test-Path -LiteralPath (Join-Path $BinDir "change-saga.exe") -PathType Leaf)
+    $InstalledVersion = & (Join-Path $BinDir "change-saga.exe") version
     Record "installed binary runs" ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($InstalledVersion))
 
     Write-Host "== reinstall"
     & $Installer -Version "v$Version" -InstallDir $BinDir -NoPathUpdate
-    Record "reinstall succeeds" (Test-Path -LiteralPath (Join-Path $BinDir "review-saga.exe") -PathType Leaf)
+    Record "reinstall succeeds" (Test-Path -LiteralPath (Join-Path $BinDir "change-saga.exe") -PathType Leaf)
 
     Write-Host "== latest resolution"
     $LatestDir = Join-Path $WorkDir "latest"
     & $Installer -Version latest -InstallDir $LatestDir -NoPathUpdate
-    Record "latest release installed" (Test-Path -LiteralPath (Join-Path $LatestDir "review-saga.exe") -PathType Leaf)
+    Record "latest release installed" (Test-Path -LiteralPath (Join-Path $LatestDir "change-saga.exe") -PathType Leaf)
 
     Write-Host "== dry run"
     $DryDir = Join-Path $WorkDir "dry"
     & $Installer -Version "v$Version" -InstallDir $DryDir -DryRun -NoPathUpdate
-    Record "dry run installs nothing" (-not (Test-Path -LiteralPath (Join-Path $DryDir "review-saga.exe")))
+    Record "dry run installs nothing" (-not (Test-Path -LiteralPath (Join-Path $DryDir "change-saga.exe")))
 
     Write-Host "== tampered archive"
     $TamperedDir = Join-Path $WorkDir "tampered"
@@ -95,7 +95,7 @@ try {
     Expect-Failure "checksum mismatch is rejected" {
         & $Installer -Version "v$Version" -InstallDir $BadDir -NoPathUpdate
     } "checksum mismatch"
-    Record "tampered binary was not installed" (-not (Test-Path -LiteralPath (Join-Path $BadDir "review-saga.exe")))
+    Record "tampered binary was not installed" (-not (Test-Path -LiteralPath (Join-Path $BadDir "change-saga.exe")))
 
     Write-Host ""
     Write-Host "$Pass passed, $Fail failed"

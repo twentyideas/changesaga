@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/review-saga/review-saga/internal/diffuri"
-	"github.com/review-saga/review-saga/internal/saga"
+	"github.com/change-saga/change-saga/internal/diffuri"
+	"github.com/change-saga/change-saga/internal/saga"
 )
 
 func TestReviewRecordsAreAppendOnlyAndFileGranular(t *testing.T) {
@@ -16,7 +16,7 @@ func TestReviewRecordsAreAppendOnlyAndFileGranular(t *testing.T) {
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	target := "urn:review-saga:test:fragment:overview"
+	target := "urn:change-saga:test:fragment:overview"
 	first, err := AddThread(root, target, "First comment", saga.Anchor{Type: "target"}, "comment", "", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -97,7 +97,7 @@ func TestThreadUndoAndRedoAppendStateEvents(t *testing.T) {
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	threadID, err := AddThread(root, "urn:review-saga:test:fragment:overview", "Keep this history", saga.Anchor{Type: "target"}, "comment", "", nil)
+	threadID, err := AddThread(root, "urn:change-saga:test:fragment:overview", "Keep this history", saga.Anchor{Type: "target"}, "comment", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestConcurrentStickyNotesStayFileGranular(t *testing.T) {
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	target := "urn:review-saga:test:fragment:overview"
+	target := "urn:change-saga:test:fragment:overview"
 	note := func(text string, x, y float64) saga.Anchor {
 		return saga.Anchor{Type: "note", Coordinate: "normalized", Note: &saga.NoteSelector{Text: text, X: x, Y: y, Color: "#f2bd4b"}}
 	}

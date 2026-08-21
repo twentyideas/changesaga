@@ -1,6 +1,6 @@
 # Releasing
 
-Review Saga ships as a single static binary for macOS, Linux, and Windows.
+Change Saga ships as a single static binary for macOS, Linux, and Windows.
 Everything below is driven by two workflows and four scripts, so a release is a
 tag push and nothing else.
 
@@ -42,31 +42,31 @@ runs; only the release creation is skipped.
 ## Artifacts
 
 ```text
-review-saga_<version>_darwin_arm64.tar.gz
-review-saga_<version>_darwin_amd64.tar.gz
-review-saga_<version>_linux_amd64.tar.gz
-review-saga_<version>_linux_arm64.tar.gz
-review-saga_<version>_windows_amd64.zip
-review-saga_<version>_windows_arm64.zip
+change-saga_<version>_darwin_arm64.tar.gz
+change-saga_<version>_darwin_amd64.tar.gz
+change-saga_<version>_linux_amd64.tar.gz
+change-saga_<version>_linux_arm64.tar.gz
+change-saga_<version>_windows_amd64.zip
+change-saga_<version>_windows_arm64.zip
 SHA256SUMS
 ```
 
 Each archive contains the binary, `LICENSE`, and `README.md`. Builds are
 `CGO_ENABLED=0 -trimpath`, so the binary has no libc or toolchain dependency and
 build paths do not leak into it. `internal/cli.Version`, `.Commit`, and
-`.BuildDate` are injected with `-ldflags -X`; `review-saga version` prints all three.
+`.BuildDate` are injected with `-ldflags -X`; `change-saga version` prints all three.
 
 For a direct Apple Silicon handoff, wrap the archive in a single installer:
 
 ```sh
 ./scripts/build-macos-standalone-installer.sh \
-  dist/review-saga_0.3.0_darwin_arm64.tar.gz \
-  dist/Review-Saga.command
+  dist/change-saga_0.3.0_darwin_arm64.tar.gz \
+  dist/Change-Saga.command
 ```
 
 The resulting `.command` file contains the archive and its expected checksum.
 It verifies the payload, refuses non-macOS and non-arm64 machines, and installs
-without `sudo`. It installs the `review-saga` command. Zip the one file when
+without `sudo`. It installs the `change-saga` command. Zip the one file when
 sending it through a service that does not preserve executable permissions.
 
 `SHA256SUMS` is generated in the publish job from the artifacts as downloaded,
@@ -77,7 +77,7 @@ Users can verify a download two ways:
 
 ```sh
 sha256sum -c SHA256SUMS --ignore-missing
-gh attestation verify review-saga_0.3.0_linux_amd64.tar.gz --repo review-saga/review-saga
+gh attestation verify change-saga_0.3.0_linux_amd64.tar.gz --repo change-saga/change-saga
 ```
 
 The second command checks the Sigstore build provenance attestation, which ties
@@ -89,17 +89,17 @@ from.
 macOS and Linux:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/review-saga/review-saga/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/change-saga/change-saga/main/scripts/install.sh | sh
 curl -fsSL .../install.sh | sh -s -- --version v0.3.0 --dir ~/bin
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/review-saga/review-saga/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/change-saga/change-saga/main/scripts/install.ps1 | iex
 ```
 
-The PowerShell installer downloads `review-saga_<version>_windows_<arch>.zip`,
+The PowerShell installer downloads `change-saga_<version>_windows_<arch>.zip`,
 verifies it against `SHA256SUMS`, installs to the current user's local
 application directory, and adds that directory to the user `PATH`. It never
 requests elevation or changes execution policy. CI exercises the complete
@@ -125,7 +125,7 @@ What the macOS/Linux shell installer does, and what it refuses to do:
   that is already writable by the current user) and tells you what to do if the
   target is not writable.
 - Installs atomically: the binary is copied into the destination directory under
-  a temporary name and moved into place, so an in-flight `review-saga` process is never
+  a temporary name and moved into place, so an in-flight `change-saga` process is never
   overwritten.
 
 `scripts/install_test.sh` exercises all of this locally by staging a real
@@ -254,7 +254,7 @@ the certificate expires, because the notarization timestamp is what is checked.
 Windows artifacts are unsigned. Authenticode signing needs an OV or EV code
 signing certificate; SmartScreen reputation also takes time to build. When that
 is worth doing, it slots into `build-release.sh` the same way macOS does, via
-`SAGA_SIGN_HOOK`, in a job that names the same protected environment.
+`CHANGE_SAGA_SIGN_HOOK`, in a job that names the same protected environment.
 
 Linux artifacts rely on `SHA256SUMS` plus the provenance attestation.
 
@@ -262,12 +262,12 @@ Linux artifacts rely on `SHA256SUMS` plus the provenance attestation.
 
 ```sh
 ./scripts/build-release.sh 0.3.0 darwin arm64 dist   # one target
-./scripts/build-macos-standalone-installer.sh dist/review-saga_0.3.0_darwin_arm64.tar.gz
+./scripts/build-macos-standalone-installer.sh dist/change-saga_0.3.0_darwin_arm64.tar.gz
 ./scripts/install_test.sh                            # installer, end to end
 shellcheck scripts/*.sh
 actionlint                                           # workflow syntax
 ```
 
 `build-release.sh` honours `SOURCE_DATE_EPOCH` for the build timestamp and
-`SAGA_SIGN_HOOK` for signing, so a local rehearsal produces artifacts byte-close
+`CHANGE_SAGA_SIGN_HOOK` for signing, so a local rehearsal produces artifacts byte-close
 to CI's.

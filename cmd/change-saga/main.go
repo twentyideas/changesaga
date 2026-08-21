@@ -11,7 +11,7 @@ import (
 	"os/signal"
 	"strings"
 
-	"github.com/review-saga/review-saga/internal/cli"
+	"github.com/change-saga/change-saga/internal/cli"
 )
 
 func main() {

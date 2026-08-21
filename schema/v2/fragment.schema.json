@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reviewsaga.dev/schema/v2/fragment.schema.json",
-  "title": "Review Saga fragment",
+  "$id": "https://changesaga.dev/schema/v2/fragment.schema.json",
+  "title": "Change Saga fragment",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "id", "media_type", "entrypoint"],
