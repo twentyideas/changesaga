@@ -162,7 +162,7 @@ func queryWithOpener(ctx context.Context, args []string, out io.Writer, open que
 		return writeQueryFailure(out, &queryError{
 			Code:    "invalid_argument",
 			Message: fmt.Sprintf("unknown query operation %q", operation),
-			Details: map[string]any{"operation": operation, "allowed": queryOperations},
+			Details: map[string]any{"allowed": queryOperations},
 		})
 	}
 

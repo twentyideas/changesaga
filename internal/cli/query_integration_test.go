@@ -141,6 +141,17 @@ func TestQueryCLIInvalidAndAmbiguousSagasUseStableEnvelope(t *testing.T) {
 	if status != 5 || envelope.Error == nil || envelope.Error.Code != "not_found" || strings.Contains(body, missing) {
 		t.Fatalf("missing saga status=%d envelope=%#v body=%s", status, envelope, body)
 	}
+
+	t.Run("source unavailable", func(t *testing.T) {
+		fixture := querytest.New(t)
+		before := fixture.State()
+		envelope, status, body := runRealQuery(t, []string{"overview", "--saga", fixture.SagaRoot, "--repo", fixture.SourceDir + "-missing"})
+		if status != 7 || envelope.Error == nil || envelope.Error.Code != "source_unavailable" || !envelope.Error.Retryable {
+			t.Fatalf("source error status=%d envelope=%#v body=%s", status, envelope, body)
+		}
+		fixture.AssertNoAbsolutePaths(body)
+		fixture.AssertUnchanged(before)
+	})
 }
 
 func runRealQuery(t *testing.T, args []string) (queryEnvelope, int, string) {

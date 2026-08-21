@@ -248,6 +248,21 @@ func TestQueryRedactsUnexpectedApplicationErrors(t *testing.T) {
 	}
 }
 
+func TestQueryUnknownOperationDetailsDoNotEchoPathShapedInput(t *testing.T) {
+	var out bytes.Buffer
+	err := queryWithOpener(context.Background(), []string{"/private/path"}, &out, failIfOpened(t))
+	assertStatus(t, err, 2)
+	var envelope queryEnvelope
+	decodeOneJSONValue(t, out.Bytes(), &envelope)
+	details, ok := envelope.Error.Details.(map[string]any)
+	if !ok {
+		t.Fatalf("details = %#v", envelope.Error.Details)
+	}
+	if _, leaked := details["operation"]; leaked {
+		t.Fatalf("raw operation leaked through details: %#v", details)
+	}
+}
+
 func openFake(session querySession) querySessionOpener {
 	return func(context.Context, queryOpenOptions) (querySession, error) { return session, nil }
 }
