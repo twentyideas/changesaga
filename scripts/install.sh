@@ -249,7 +249,10 @@ log "checksum ok: $actual"
 if [ "$VERIFY_ATTESTATION" -eq 1 ]; then
 	command -v gh >/dev/null 2>&1 ||
 		die "--attestation needs the GitHub CLI (gh) on PATH"
-	gh attestation verify "$TMPDIR_SAGA/$ARCHIVE" --repo "$REPO" ||
+	gh attestation verify "$TMPDIR_SAGA/$ARCHIVE" \
+		--repo "$REPO" \
+		--signer-workflow "$REPO/.github/workflows/release.yml" \
+		--source-ref "refs/tags/$TAG" ||
 		die "build provenance verification failed for $ARCHIVE"
 	log "build provenance ok"
 fi

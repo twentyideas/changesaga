@@ -34,8 +34,10 @@ go build ./cmd/change-saga
 go run ./cmd/change-saga help
 ```
 
-`GOTOOLCHAIN=local` is set in CI so a mismatched toolchain fails loudly instead
-of silently downloading one. Setting it locally is a good idea too.
+`.go-version` pins the exact CI and release toolchain patch; update it
+deliberately when changing build inputs. `GOTOOLCHAIN=local` is set in CI so a
+mismatched toolchain fails loudly instead of silently downloading one. Setting
+it locally is a good idea too.
 
 ## Before you push
 

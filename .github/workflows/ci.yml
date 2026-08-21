@@ -54,7 +54,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
+          go-version-file: .go-version
           cache: true
       - name: go vet
         run: go vet ./...
@@ -74,7 +74,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
+          go-version-file: .go-version
           cache: true
       - name: gofmt
         run: |
@@ -115,7 +115,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
+          go-version-file: .go-version
           cache: true
       - name: install.sh end-to-end
         run: ./scripts/install_test.sh
@@ -130,7 +130,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
+          go-version-file: .go-version
           cache: true
       - name: install.ps1 end-to-end
         shell: pwsh
@@ -156,7 +156,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
+          go-version-file: .go-version
           cache: true
       # Same script the release uses, so a packaging break shows up on the pull
       # request rather than on the tag. These artifacts are unsigned by

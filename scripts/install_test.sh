@@ -63,7 +63,16 @@ exit 0
 STUB
 chmod +x "$stub/curl"
 
+# Stub gh while preserving the exact attestation policy arguments for checks.
+cat > "$stub/gh" <<'STUB'
+#!/usr/bin/env sh
+set -eu
+printf '%s\n' "$@" > "$CHANGE_SAGA_TEST_GH_LOG"
+STUB
+chmod +x "$stub/gh"
+
 export CHANGE_SAGA_TEST_RELEASE="$release" CHANGE_SAGA_TEST_TAG="$tag"
+export CHANGE_SAGA_TEST_GH_LOG="$work/gh-arguments"
 export PATH="$stub:$PATH"
 install_sh="$repo_root/scripts/install.sh"
 pass=0
@@ -149,6 +158,23 @@ if "$bindir/change-saga" version | grep -q "^$version"; then
 else
 	record "installed binary reports the injected version" 1
 fi
+
+echo "== provenance policy"
+attested="$work/attested"
+check "attestation verification succeeds" 0 sh "$install_sh" \
+	--version "$tag" --dir "$attested" --attestation --dry-run
+expect_log "reports attestation verification" "build provenance ok"
+if grep -Fxq -- '--repo' "$CHANGE_SAGA_TEST_GH_LOG" &&
+	grep -Fxq -- 'change-saga/change-saga' "$CHANGE_SAGA_TEST_GH_LOG" &&
+	grep -Fxq -- '--signer-workflow' "$CHANGE_SAGA_TEST_GH_LOG" &&
+	grep -Fxq -- 'change-saga/change-saga/.github/workflows/release.yml' "$CHANGE_SAGA_TEST_GH_LOG" &&
+	grep -Fxq -- '--source-ref' "$CHANGE_SAGA_TEST_GH_LOG" &&
+	grep -Fxq -- "refs/tags/$tag" "$CHANGE_SAGA_TEST_GH_LOG"; then
+	record "pins attestation to the release workflow and tag" 0
+else
+	record "pins attestation to the release workflow and tag" 1
+fi
+assert_absent "attestation dry run installs nothing" "$attested/change-saga"
 
 echo "== latest resolution"
 rm -rf "$bindir"
