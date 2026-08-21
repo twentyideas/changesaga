@@ -15,7 +15,11 @@
         "additionalProperties": false,
         "required": ["uri"],
         "properties": {
-          "uri": { "type": "string", "pattern": "^saga-diff://v1/(line|event)\\?" },
+          "uri": {
+            "type": "string",
+            "pattern": "^saga-diff://v1/(line|event)\\?",
+            "description": "Canonical absolute line or event URI. Events are add, delete, type-change, rename, mode, binary, or modify."
+          },
           "note": { "type": "string" }
         }
       }

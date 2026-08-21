@@ -79,7 +79,9 @@ func Init(ctx context.Context, args []string, out io.Writer) error {
 	title := flags.String("title", "", "saga title")
 	id := flags.String("id", "", "stable saga identifier")
 	repoDir := flags.String("repo", ".", "source repository checkout")
-	repository := flags.String("repository", "", "absolute source repository URI; defaults to origin")
+	repository := flags.String("repository", "", "portable absolute source repository URI; defaults to origin")
+	allowLocalRepository := flags.Bool("allow-local-repository", false, "persist a local file:// repository identity when origin is unavailable")
+	allowRepositoryMismatch := flags.Bool("allow-repository-mismatch", false, "accept an explicitly declared repository that differs from origin")
 	prNumber := flags.Int("pr", 0, "pull request number")
 	prURL := flags.String("pr-url", "", "pull request URL")
 	if err := flags.Parse(args); err != nil {
@@ -109,7 +111,7 @@ func Init(ctx context.Context, args []string, out io.Writer) error {
 	if *prNumber < 0 {
 		return fmt.Errorf("--pr cannot be negative")
 	}
-	repositoryURI, _, err := discoverRepository(ctx, *repoDir, *repository)
+	repositoryURI, _, err := discoverRepository(ctx, *repoDir, *repository, *allowLocalRepository, *allowRepositoryMismatch)
 	if err != nil {
 		return err
 	}
@@ -319,11 +321,12 @@ func Cover(ctx context.Context, args []string, out io.Writer) error {
 	path := flags.String("path", "", "changed repository path")
 	side := flags.String("side", "", "line side: old or new")
 	lines := flags.String("lines", "", "line ranges, for example 4-9,12")
-	event := flags.String("event", "", "file event: rename, mode, or binary")
+	event := flags.String("event", "", "file event: add, delete, type-change, rename, mode, binary, or modify")
 	oldPath := flags.String("old-path", "", "old path for a rename event")
 	newPath := flags.String("new-path", "", "new path for a rename event")
 	note := flags.String("note", "", "optional explanation for report authors")
 	name := flags.String("name", "", "coverage filename without .json")
+	allowRepositoryMismatch := flags.Bool("allow-repository-mismatch", false, "use a checkout whose origin differs from the declared repository")
 	var uris stringList
 	flags.Var(&uris, "uri", "absolute saga-diff URI; repeatable")
 	if err := flags.Parse(args); err != nil {
@@ -341,13 +344,21 @@ func Cover(ctx context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	for _, value := range uris {
-		if _, err := diffuri.Parse(value); err != nil {
+		reference, err := diffuri.Parse(value)
+		if err != nil {
 			return fmt.Errorf("invalid --uri: %w", err)
+		}
+		repository, err := diffuri.CanonicalRepository(document.Manifest.Source.Repository)
+		if err != nil {
+			return fmt.Errorf("invalid declared source repository: %w", err)
+		}
+		if reference.Repository != repository {
+			return fmt.Errorf("invalid --uri: repository %q does not match saga source repository %q", reference.Repository, repository)
 		}
 	}
 	if *path != "" || *event != "" {
 		checkout := firstNonEmpty(*repoDir, document.Root)
-		changes, err := gitdiff.Read(ctx, checkout, document.Manifest.Source.Repository, document.Manifest.Source.Base, document.Manifest.Source.Head)
+		changes, err := gitdiff.ReadWithOptions(ctx, checkout, document.Manifest.Source.Repository, document.Manifest.Source.Base, document.Manifest.Source.Head, gitdiff.ReadOptions{AllowRepositoryMismatch: *allowRepositoryMismatch})
 		if err != nil {
 			return fmt.Errorf("read source diff (use --repo for a separate saga repository): %w", err)
 		}
@@ -531,13 +542,14 @@ func Status(ctx context.Context, args []string, out io.Writer) error {
 	jsonOutput := flags.Bool("json", false, "emit machine-readable JSON")
 	maxItems := flags.Int("max", 100, "maximum uncovered items in text mode; 0 means all")
 	repoDir := flags.String("repo", "", "source repository checkout; required when separate")
+	allowRepositoryMismatch := flags.Bool("allow-repository-mismatch", false, "use a checkout whose origin differs from the declared repository")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() != 1 {
 		return fmt.Errorf("usage: change-saga status [--json] [--repo PATH] <saga>")
 	}
-	report, err := buildReport(ctx, flags.Arg(0), *repoDir)
+	report, err := buildReport(ctx, flags.Arg(0), *repoDir, *allowRepositoryMismatch)
 	if err != nil {
 		return err
 	}
@@ -554,13 +566,14 @@ func Status(ctx context.Context, args []string, out io.Writer) error {
 	return nil
 }
 
-func buildReport(ctx context.Context, root, repoDir string) (coverage.Report, error) {
+func buildReport(ctx context.Context, root, repoDir string, allowRepositoryMismatch ...bool) (coverage.Report, error) {
 	document, validation, err := saga.Load(root)
 	if err != nil {
 		return coverage.Report{}, err
 	}
 	checkout := firstNonEmpty(repoDir, document.Root)
-	changes, err := gitdiff.Read(ctx, checkout, document.Manifest.Source.Repository, document.Manifest.Source.Base, document.Manifest.Source.Head)
+	allowMismatch := len(allowRepositoryMismatch) > 0 && allowRepositoryMismatch[0]
+	changes, err := gitdiff.ReadWithOptions(ctx, checkout, document.Manifest.Source.Repository, document.Manifest.Source.Base, document.Manifest.Source.Head, gitdiff.ReadOptions{AllowRepositoryMismatch: allowMismatch})
 	if err != nil {
 		return coverage.Report{}, fmt.Errorf("read source diff (use --repo for a separate saga repository): %w", err)
 	}
@@ -690,41 +703,69 @@ func parseRanges(value string) ([]lineRange, error) {
 	return ranges, nil
 }
 
-func discoverRepository(ctx context.Context, repoDir, explicit string) (string, string, error) {
+func discoverRepository(ctx context.Context, repoDir, explicit string, options ...bool) (string, string, error) {
+	allowLocal := len(options) > 0 && options[0]
+	allowMismatch := len(options) > 1 && options[1]
 	rootOutput, err := exec.CommandContext(ctx, "git", "-C", repoDir, "rev-parse", "--show-toplevel").CombinedOutput()
 	if err != nil {
 		return "", "", fmt.Errorf("locate source repository: %s", strings.TrimSpace(string(rootOutput)))
 	}
 	root := strings.TrimSpace(string(rootOutput))
 	if explicit != "" {
-		parsed, err := url.Parse(explicit)
-		if err != nil || !parsed.IsAbs() {
-			return "", "", fmt.Errorf("--repository must be an absolute URI")
+		canonical, err := diffuri.CanonicalRepository(explicit)
+		if err != nil {
+			return "", "", fmt.Errorf("--repository: %w", err)
 		}
-		return explicit, root, nil
+		parsed, _ := url.Parse(canonical)
+		if !allowMismatch && (parsed.Scheme == "file" || repositoryOriginAvailable(ctx, root)) {
+			if err := gitdiff.VerifyRepository(ctx, root, canonical); err != nil {
+				return "", "", err
+			}
+		}
+		return canonical, root, nil
 	}
 	remoteOutput, remoteErr := exec.CommandContext(ctx, "git", "-C", root, "remote", "get-url", "origin").CombinedOutput()
 	if remoteErr == nil && strings.TrimSpace(string(remoteOutput)) != "" {
-		return normalizeRepositoryURI(strings.TrimSpace(string(remoteOutput)), root), root, nil
+		canonical, err := normalizeRepositoryURI(strings.TrimSpace(string(remoteOutput)), root)
+		if err != nil {
+			return "", "", fmt.Errorf("canonicalize origin repository: %w", err)
+		}
+		parsed, _ := url.Parse(canonical)
+		if parsed.Scheme == "file" && !allowLocal {
+			return "", "", fmt.Errorf("origin resolves to a local file repository; provide a portable --repository URI or explicitly opt in with --allow-local-repository")
+		}
+		return canonical, root, nil
 	}
-	return (&url.URL{Scheme: "file", Path: filepath.ToSlash(root)}).String(), root, nil
+	if !allowLocal {
+		return "", "", fmt.Errorf("origin is unavailable; provide a portable --repository URI or explicitly opt in with --allow-local-repository")
+	}
+	canonical, err := diffuri.FileRepository(root)
+	return canonical, root, err
 }
 
-func normalizeRepositoryURI(value, root string) string {
+func repositoryOriginAvailable(ctx context.Context, root string) bool {
+	output, err := exec.CommandContext(ctx, "git", "-C", root, "remote", "get-url", "origin").Output()
+	return err == nil && strings.TrimSpace(string(output)) != ""
+}
+
+func normalizeRepositoryURI(value, root string) (string, error) {
 	if parsed, err := url.Parse(value); err == nil && parsed.IsAbs() {
-		return parsed.String()
+		return diffuri.CanonicalRepository(parsed.String())
 	}
-	if at := strings.Index(value, "@"); at > 0 {
+	if at := strings.LastIndex(value, "@"); at >= 0 {
 		if colon := strings.Index(value[at:], ":"); colon > 0 {
 			colon += at
-			return "ssh://" + value[:colon] + "/" + value[colon+1:]
+			return diffuri.CanonicalRepository("ssh://" + value[at+1:colon] + "/" + value[colon+1:])
 		}
 	}
 	if !filepath.IsAbs(value) {
 		value = filepath.Join(root, value)
 	}
-	abs, _ := filepath.Abs(value)
-	return (&url.URL{Scheme: "file", Path: filepath.ToSlash(abs)}).String()
+	abs, err := filepath.Abs(value)
+	if err != nil {
+		return "", err
+	}
+	return diffuri.FileRepository(abs)
 }
 
 func resolveTarget(document *saga.Saga, value string, allowFragment bool) (string, string, error) {

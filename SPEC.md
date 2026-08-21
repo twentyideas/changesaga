@@ -38,14 +38,28 @@ A saga root ends in `.saga` and contains `saga.json` conforming to
 }
 ```
 
-`source.repository` is an absolute URI and identifies the source repository,
-not necessarily the repository containing the saga. `base` and `head` select the
-comparison to evaluate. Commit comparisons use their merge base, matching pull
-request behavior. `WORKTREE` is allowed as `head`; untracked files are excluded.
+`source.repository` is a canonical absolute URI and identifies the source
+repository, not necessarily the repository containing the saga. Repository
+identities never contain URL userinfo; credentials in a remote URL are removed
+before the identity is persisted. `base` and `head` select the comparison to
+evaluate. Commit comparisons resolve both revisions and record their actual Git
+merge base. `WORKTREE` is allowed as `head`; engines resolve the merge base of
+the configured base and current `HEAD`, then compare that tree to the tracked
+worktree. Untracked files are excluded.
 
-When a saga is stored separately, readers provide a local source checkout with
-`change-saga status --repo PATH` or `change-saga open --repo PATH`. Local checkout paths are
-runtime configuration and are never committed into the portable format.
+`change-saga init` uses the canonical portable `origin` identity when available.
+Without an origin, or when origin is itself a local path, the author must provide
+a portable `--repository` URI or explicitly opt in to a local `file://` identity
+with `--allow-local-repository`; a local home-directory path is never selected
+silently. When a saga is stored
+separately, readers provide a local source checkout with `change-saga status
+--repo PATH` or `change-saga open --repo PATH`. Local checkout paths are runtime
+configuration and are never committed into the portable format. Readers verify
+a declared file identity or checkout origin against the declared repository; a
+checkout without origin is unverifiable and fails closed. CLI authoring and
+status commands expose
+`--allow-repository-mismatch` for the exceptional case where a known-equivalent
+checkout cannot be identified from its origin.
 
 ## 3. Chapters, sections, and fragments
 
@@ -218,11 +232,23 @@ saga-diff://v1/file
 
 Required common parameters are `repository`, `base`, and `head`. Line URIs also
 require `path`, `side` (`old` or `new`), `start`, and `end`. Event URIs use
-`event=rename|mode|binary`; rename requires both paths, while mode and binary
-require `path`. File URIs identify the complete changed file for review-progress
-events; they are not valid coverage links.
+`event=add|delete|type-change|rename|mode|binary|modify`. Rename carries exactly
+`old_path` and `new_path`; every other event carries exactly `path`. `add` and
+`delete` record file lifecycle independently of any changed-line atoms, so
+empty-file changes remain coverable. `type-change` records transitions among
+regular files, symlinks, and Gitlinks; `mode` records permission-only changes;
+`binary` records content Git cannot express as lines. `modify` is the defensive
+event for any other Git-reported file record that yields no more specific atom.
+File URIs identify the complete changed file for review-progress events; they
+are not valid coverage links.
 
-The base identity is its resolved commit OID. The head identity is
+The query parameter set is closed and every parameter occurs exactly once.
+Canonical builders sort and escape the query and canonicalize the embedded
+repository identity. Parsers reject duplicate or unknown parameters and reject
+alternate encodings, ordering, userinfo, fragments, or other noncanonical
+spellings rather than assigning them an ambiguous meaning.
+
+The base identity is the comparison's resolved merge-base commit OID. The head identity is
 `product-<sha256-of-binary-patch>` where the patch excludes paths beneath any
 `.saga` directory. Product edits therefore make links stale, while committing
 comments, replies, approvals, or other saga-only changes does not invalidate
@@ -250,8 +276,10 @@ The root, a section, or a fragment can contain `___diffs/*.json` conforming to
 
 The containing object is the target of the evidence. One link may select a line
 range; one evidence file may hold multiple links. Coverage is complete when
-every changed line and supported file event is selected and every committed link
+every changed line and file event is selected and every committed link
 matches the current source comparison. Overlap is reported but permitted.
+Every Git-reported product file has at least one event or line atom, so an
+unrepresentable file record cannot make a nonempty comparison appear complete.
 
 Changes under a `.saga` path in the source repository are classified separately
 as saga-only changes. When source and saga are different repositories, all saga
