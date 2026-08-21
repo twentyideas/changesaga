@@ -138,7 +138,7 @@ var queryUsage = map[string]string{
 	"overview":       "change-saga query overview --saga PATH [--repo PATH]",
 	"children":       "change-saga query children --saga PATH --parent TARGET [--cursor TOKEN] [--limit N] [--repo PATH]",
 	"fragment":       "change-saga query fragment --saga PATH --target FRAGMENT [--offset N] [--limit N] [--repo PATH]",
-	"fragment-diffs": "change-saga query fragment-diffs --saga PATH --target FRAGMENT [--cursor TOKEN] [--limit N] [--repo PATH]",
+	"fragment-diffs": "change-saga query fragment-diffs --saga PATH --target TARGET [--cursor TOKEN] [--limit N] [--repo PATH]",
 	"diff-owners":    "change-saga query diff-owners --saga PATH --diff URI [--cursor TOKEN] [--limit N] [--repo PATH]",
 	"reviews":        "change-saga query reviews --saga PATH [--target TARGET] [--thread ID] [--state STATE] [--cursor TOKEN] [--limit N] [--repo PATH]",
 	"gaps":           "change-saga query gaps --saga PATH [--kind uncovered|stale|overlap] [--cursor TOKEN] [--limit N] [--repo PATH]",
@@ -161,7 +161,7 @@ func queryWithOpener(ctx context.Context, args []string, out io.Writer, open que
 	if _, ok := queryUsage[operation]; !ok {
 		return writeQueryFailure(out, &queryError{
 			Code:    "invalid_argument",
-			Message: fmt.Sprintf("unknown query operation %q", operation),
+			Message: "unknown query operation",
 			Details: map[string]any{"allowed": queryOperations},
 		})
 	}
@@ -234,7 +234,7 @@ func parseQuery(operation string, args []string) (any, queryOpenOptions, bool, e
 		flags.Int64Var(&offset, "offset", 0, "content byte offset")
 		flags.Var(&limit, "limit", "content byte limit")
 	case "fragment-diffs":
-		flags.StringVar(&target, "target", "", "fragment target URN")
+		flags.StringVar(&target, "target", "", "saga target URN")
 		flags.StringVar(&cursor, "cursor", "", "pagination cursor")
 		flags.Var(&limit, "limit", "page size")
 	case "diff-owners":

@@ -80,6 +80,16 @@ func TestSessionReadOperations(t *testing.T) {
 				t.Fatalf("unexpected fragment diffs: %#v", value)
 			}
 		}},
+		{name: "higher-level target diffs", run: func(t *testing.T) {
+			target := saga.SagaTarget("query-test")
+			value, err := fixture.session.FragmentDiffs(ctx, FragmentDiffQuery{Target: target})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if value.Target != target || len(value.Selectors) != 1 || len(value.Atoms) != 1 || len(value.Stale) != 0 {
+				t.Fatalf("unexpected saga-level diffs: %#v", value)
+			}
+		}},
 		{name: "atom owners are bidirectional", run: func(t *testing.T) {
 			value, err := fixture.session.DiffOwners(ctx, DiffOwnerQuery{Diff: fixture.atomURI})
 			if err != nil {

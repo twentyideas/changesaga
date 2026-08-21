@@ -261,6 +261,9 @@ func TestQueryUnknownOperationDetailsDoNotEchoPathShapedInput(t *testing.T) {
 	if _, leaked := details["operation"]; leaked {
 		t.Fatalf("raw operation leaked through details: %#v", details)
 	}
+	if strings.Contains(envelope.Error.Message, "/private/path") {
+		t.Fatalf("raw operation leaked through message: %#v", envelope.Error)
+	}
 }
 
 func openFake(session querySession) querySessionOpener {

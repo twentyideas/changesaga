@@ -184,7 +184,7 @@ The operations are:
 change-saga query overview       --saga PATH [--repo PATH]
 change-saga query children       --saga PATH --parent TARGET [--cursor TOKEN] [--limit N]
 change-saga query fragment       --saga PATH --target FRAGMENT [--offset N] [--limit N]
-change-saga query fragment-diffs --saga PATH --target FRAGMENT [--cursor TOKEN] [--limit N]
+change-saga query fragment-diffs --saga PATH --target TARGET [--cursor TOKEN] [--limit N]
 change-saga query diff-owners    --saga PATH --diff URI [--cursor TOKEN] [--limit N]
 change-saga query reviews        --saga PATH [--target TARGET] [--thread ID] [--state STATE]
 change-saga query gaps           --saga PATH [--kind uncovered|stale|overlap] [--cursor TOKEN] [--limit N]
@@ -225,7 +225,8 @@ Text is UTF-8; binary data is base64. Reads are chunked and capped. An
 `asset` operation can be added with the same offset contract when clients need
 supporting HTML/SVG assets. The AI read path never executes active content.
 
-`fragment-diffs` returns both the committed selectors and their resolution:
+`fragment-diffs` returns both the committed selectors and their resolution for
+any saga, chapter, section, fragment, or landmark target:
 
 ```json
 {

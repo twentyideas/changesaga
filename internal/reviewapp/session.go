@@ -378,12 +378,8 @@ func (s *session) FragmentDiffs(ctx context.Context, query FragmentDiffQuery) (F
 	if err := s.validateTargetArgument(query.Target); err != nil {
 		return FragmentDiffs{}, err
 	}
-	entry := s.targets[query.Target]
-	if entry == nil {
-		return FragmentDiffs{}, notFound("fragment", query.Target)
-	}
-	if entry.fragment == nil {
-		return FragmentDiffs{}, invalidArgument("target must identify a fragment")
+	if s.targets[query.Target] == nil {
+		return FragmentDiffs{}, notFound("target", query.Target)
 	}
 	selectors := s.selectors[query.Target]
 	start, end, page, err := s.page("fragment-diffs", query.Target, query.Cursor, query.Limit, len(selectors))
