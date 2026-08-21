@@ -130,12 +130,9 @@ func benchmarkCoverageFixture() (*saga.Saga, gitdiff.ChangeSet, coverage.Report,
 			path := fmt.Sprintf("internal/area-%02d/file-%02d.go", fileIndex/8, fileIndex)
 			start := fileTargetIndex*benchmarkCoverageLinesPerFragment + 1
 			end := start + benchmarkCoverageLinesPerFragment - 1
-			rangeURI := benchmarkDiffURI(diffuri.Reference{
-				Repository: repository, Base: base, Head: head, Kind: "line", Path: path, Side: "new", Start: start, End: end,
-			})
 			fragment := &saga.Fragment{
 				ID: fragmentID, Title: "Fragment " + fragmentID, Target: target, MediaType: "text/html", Entrypoint: "index.html",
-				Diffs: []saga.DiffFile{{Diffs: []saga.DiffReference{{URI: rangeURI, Note: "Explains " + fragmentID}}}},
+				Diffs: []saga.DiffFile{{}},
 			}
 			chapter.Fragments = append(chapter.Fragments, fragment)
 			for line := start; line <= end; line++ {
@@ -147,6 +144,7 @@ func benchmarkCoverageFixture() (*saga.Saga, gitdiff.ChangeSet, coverage.Report,
 				changes.Atoms = append(changes.Atoms, atom)
 				changesByTarget[target] = append(changesByTarget[target], atom)
 				report.Ownership[atom.Key] = []coverage.Assignment{{Target: target}}
+				fragment.Diffs[0].Diffs = append(fragment.Diffs[0].Diffs, saga.DiffReference{URI: uri, Note: "Explains " + fragmentID})
 			}
 			targetIndex++
 		}

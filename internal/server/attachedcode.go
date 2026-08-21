@@ -55,6 +55,12 @@ func makeAttachedCodeView(title, target string, atoms []gitdiff.Atom, evidence [
 	}
 
 	notes := map[string][]string{}
+	type noteCandidate struct {
+		atom      gitdiff.Atom
+		reference diffuri.Reference
+	}
+	var candidates []noteCandidate
+	candidatesReady := false
 	for _, diffFile := range evidence {
 		for _, reference := range diffFile.Diffs {
 			note := strings.TrimSpace(reference.Note)
@@ -65,12 +71,24 @@ func makeAttachedCodeView(title, target string, atoms []gitdiff.Atom, evidence [
 			if err != nil {
 				continue
 			}
-			for _, atom := range atoms {
-				candidate, err := diffuri.Parse(atom.URI)
-				if err != nil || !diffuri.Matches(selector, candidate) {
+			// Large targets commonly contain one exact reference per changed
+			// atom. Parse candidates once, but keep the index lazy so evidence
+			// without authored notes retains its zero-parse fast path.
+			if !candidatesReady {
+				candidates = make([]noteCandidate, 0, len(atoms))
+				for _, atom := range atoms {
+					candidate, err := diffuri.Parse(atom.URI)
+					if err == nil {
+						candidates = append(candidates, noteCandidate{atom: atom, reference: candidate})
+					}
+				}
+				candidatesReady = true
+			}
+			for _, candidate := range candidates {
+				if !diffuri.Matches(selector, candidate.reference) {
 					continue
 				}
-				path := effectiveAtomPath(atom)
+				path := effectiveAtomPath(candidate.atom)
 				if !contains(notes[path], note) {
 					notes[path] = append(notes[path], note)
 				}
