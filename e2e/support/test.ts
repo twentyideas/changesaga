@@ -71,17 +71,3 @@ export async function expectNoSeriousAccessibilityViolations(page: Page, include
     `serious or critical axe violations${include ? ` in ${include}` : " on the whole page"}`
   ).toEqual([]);
 }
-
-/**
- * Pins the serious/critical rules a surface is still known to fail. Nothing is
- * excluded from the scan and no rule is disabled: the full result is compared
- * against an exact list, so a new violation, a new rule, or a fixed rule all
- * fail this assertion and force the list to be revisited.
- */
-export async function expectOnlyKnownAccessibilityGaps(page: Page, expectedRuleIDs: string[]): Promise<void> {
-  const violations = await seriousAccessibilityViolations(page);
-  expect(
-    violations.map((violation) => violation.id),
-    `serious or critical axe rules on the whole page (details: ${JSON.stringify(violations)})`
-  ).toEqual([...expectedRuleIDs].sort());
-}

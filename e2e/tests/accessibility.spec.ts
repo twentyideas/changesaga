@@ -1,4 +1,4 @@
-import { expectNoSeriousAccessibilityViolations, expectOnlyKnownAccessibilityGaps, expect, test } from "../support/test.js";
+import { expectNoSeriousAccessibilityViolations, expect, test } from "../support/test.js";
 
 const focusableSelector = 'a[href], area[href], button, input, select, textarea, iframe, summary, [tabindex], [contenteditable="true"]';
 
@@ -114,16 +114,11 @@ test("@critical has no serious or critical axe violations on any workspace view"
 
   await page.getByRole("tab", { name: "Code Diff" }).click();
   await expect(page.locator("article.file-diff").first()).toBeVisible();
-  // Known remaining gap, tracked and reported rather than hidden: the muted
-  // counts and metrics in the code chrome do not reach 4.5:1 against the page
-  // background. Nothing is excluded from this scan and no rule is disabled, so
-  // any additional or changed serious violation fails here.
-  await expectOnlyKnownAccessibilityGaps(page, ["color-contrast"]);
+  await expectNoSeriousAccessibilityViolations(page);
 
   await page.getByRole("tab", { name: "Coverage" }).click();
   await expect(page.getByRole("button", { name: "Code → Saga" })).toHaveAttribute("aria-pressed", "true");
-  // The same muted-palette gap as the code view, and nothing else.
-  await expectOnlyKnownAccessibilityGaps(page, ["color-contrast"]);
+  await expectNoSeriousAccessibilityViolations(page);
 
   await page.getByRole("tab", { name: "Saga" }).click();
   await page.goto(`${saga.baseURL}/chapters/architecture`);

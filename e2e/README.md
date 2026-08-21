@@ -72,9 +72,5 @@ partial write, a stray lock file, or a rewritten record all fail the test.
 `expectNoSeriousAccessibilityViolations(page)` scans the whole page — chrome
 included — for serious and critical axe violations.
 
-The code and coverage views still fail `color-contrast` on their muted counts
-and metrics. That gap is pinned with `expectOnlyKnownAccessibilityGaps(page,
-["color-contrast"])`, which disables no rule and excludes no node: it compares
-the complete serious/critical result against an exact rule list, so a new
-violation, a new rule, or a fixed rule all fail and force the list to be
-revisited.
+Every workspace view is scanned without exclusions or disabled rules and must
+have no serious or critical axe violations.

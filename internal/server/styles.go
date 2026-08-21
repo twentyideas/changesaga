@@ -6,9 +6,9 @@ package server
 // invisible until the reviewer hovers or focuses the thing they belong to.
 const pageStyles = `
 :root{
---bg:#ffffff;--bg-subtle:#f6f8fa;--bg-inset:#eef1f4;--ink:#1f2328;--muted:#59636e;--faint:#818b98;
+--bg:#ffffff;--bg-subtle:#f6f8fa;--bg-inset:#eef1f4;--ink:#1f2328;--muted:#59636e;--faint:#59636e;
 --line:#d1d9e0;--line-soft:#e7ebef;--accent:#0969da;--accent-soft:#ddf4ff;--accent-line:#54aeff;
---green:#1a7f37;--red:#cf222e;--amber:#9a6700;--sel:#eaf3fe;
+--green:#116329;--red:#a40e26;--amber:#9a6700;--sel:#eaf3fe;
 --add-bg:#e6ffec;--add-line:#2da44e;--del-bg:#ffebe9;--del-line:#cf222e;--code-bg:#ffffff;--code-gutter:#f6f8fa;
 --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,"Helvetica Neue",Arial,sans-serif;
 --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
