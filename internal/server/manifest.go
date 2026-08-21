@@ -306,10 +306,7 @@ func makeManifestChunks(atoms []gitdiff.Atom, ownership map[string][]coverage.As
 			ownerKey = strings.Join(ownerTargets, "\x00")
 		}
 		if len(result) > 0 && canExtendManifestChunk(result[len(result)-1], atom, ownerKey) {
-			chunk := result[len(result)-1]
-			chunk.AtomCount++
-			chunk.Label = manifestRangeLabel(atom.Side, chunk.startLine, atom.Line)
-			chunk.Href = manifestRangeHref(chunk.Href, atom.Line)
+			result[len(result)-1].AtomCount++
 			continue
 		}
 		chunk := &ManifestChunkView{
@@ -318,10 +315,21 @@ func makeManifestChunks(atoms []gitdiff.Atom, ownership map[string][]coverage.As
 		}
 		if atom.Kind == "event" {
 			chunk.Label = manifestEventLabel(atom.Event)
-		} else {
-			chunk.Label = manifestRangeLabel(atom.Side, atom.Line, atom.Line)
 		}
 		result = append(result, chunk)
+	}
+	// Range grouping only needs the first atom's exact URI while the scan is in
+	// progress. Finalizing once per chunk avoids reparsing and rebuilding the
+	// same deep link for every line in a long contiguous range.
+	for _, chunk := range result {
+		if chunk.Kind != "line" {
+			continue
+		}
+		endLine := chunk.startLine + chunk.AtomCount - 1
+		chunk.Label = manifestRangeLabel(chunk.Side, chunk.startLine, endLine)
+		if endLine != chunk.startLine {
+			chunk.Href = manifestRangeHref(chunk.Href, endLine)
+		}
 	}
 	return result
 }
