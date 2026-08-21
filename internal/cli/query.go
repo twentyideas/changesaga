@@ -133,6 +133,20 @@ var queryOperations = []string{
 	"gaps",
 }
 
+// queryPurpose says what each operation answers. It is keyed by the same
+// operation names the dispatcher uses so documentation generated from it — the
+// install-skill prompt in particular — cannot describe an operation the CLI
+// does not have, or omit one it does.
+var queryPurpose = map[string]string{
+	"overview":       "saga identity, source comparison, coverage summary, and the top of the hierarchy",
+	"children":       "one level of children under a target; a fragment's children are its landmarks",
+	"fragment":       "bounded fragment content by byte range, without reading files directly",
+	"fragment-diffs": "the diff atoms a saga, chapter, section, fragment, or landmark owns",
+	"diff-owners":    "the narrative targets that own a given diff atom, event, or file",
+	"reviews":        "the normalized review overlay: threads, messages, events, and approvals",
+	"gaps":           "uncovered atoms, stale selectors, and overlapping coverage",
+}
+
 var queryUsage = map[string]string{
 	"":               "change-saga query <operation> --saga PATH [--repo PATH] [operation flags]",
 	"overview":       "change-saga query overview --saga PATH [--repo PATH]",

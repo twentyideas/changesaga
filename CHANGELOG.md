@@ -10,6 +10,59 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+### Added
+
+- `change-saga cover --batch FILE|-` attaches many coverage records in one
+  invocation. Records are newline-delimited JSON objects, or a single JSON
+  array, with per-record `target`, `path`, `side`, `lines`, `event`,
+  `old_path`, `new_path`, `note`, `name`, and `uris`; `--target` and `--note`
+  supply batch-wide defaults. The source comparison is read once, the whole
+  batch is resolved before anything is written, and a failing record leaves the
+  saga untouched. Unknown record fields are rejected rather than silently
+  dropped. Each record still maps the exact atoms it names — batching changes
+  delivery, not coverage precision.
+- `change-saga cover --dry-run` reports the records and exact selectors an
+  invocation would write, resolving targets and names, without writing.
+- `change-saga cover --target` accepts a `<fragment-path>#<landmark-id>`
+  shorthand, so a landmark can be addressed without spelling out its full URN.
+- `change-saga validate --fix` adds a stable `{#anchor}` to Markdown headings
+  that lack one, in narrative fragments only. Existing anchors, fenced code,
+  indentation, and line endings are preserved, review history is never touched,
+  and the result is deterministic and idempotent. `validate --json` now also
+  reports a `fixes` array, always present.
+
+### Changed
+
+- **Contract:** `change-saga status --json` always emits its collections, and
+  never as `null`. A complete saga reports `"uncovered": []`, and `overlaps`,
+  `orphans`, `targets`, `saga_changes`, and `schema_issues` are likewise always
+  present. Diff atoms always carry `content`, including for an empty changed
+  line, so a consumer can read it without first testing for the key.
+- `change-saga install-skill` now instructs agents to read an existing saga
+  through the versioned `change-saga query` API and names every operation with
+  its purpose and usage. The operation list is generated from the CLI's own
+  dispatch table, so it cannot drift from the shipped commands.
+
+### Fixed
+
+- `change-saga open -h` described `serve`, a command the user did not type and
+  whose `--open` default differs. Every command's `-h` now leads with its own
+  usage line, and a flagless command such as `install-skill` explains what it
+  does instead of printing an empty banner.
+- A generated coverage record name was slugged as a whole and truncated to 60
+  characters, which discarded the uniquifying event ID for any realistic path
+  and made repeated coverage of one file collide. Generated names now keep the
+  uniquifier intact and are uniquified deterministically when a name is already
+  taken.
+- Reusing an explicit `--name`, including two long names that truncate to the
+  same file, now fails with an error naming the stored file instead of a raw
+  link error. Two batch records that resolve to the same name are reported
+  before anything is written.
+- An unresolvable `--target` now names the known targets and points at
+  `change-saga query children`, instead of failing without a way forward. An
+  unknown landmark lists the landmarks its fragment declares, or says where to
+  create one.
+
 ## [0.0.1] - 2026-08-21
 
 The first public release of Change Saga. The v2 format and CLI are experimental;

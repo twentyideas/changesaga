@@ -1,6 +1,8 @@
 package coverage
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -188,4 +190,78 @@ func buildURI(t *testing.T, reference diffuri.Reference) string {
 		t.Fatal(err)
 	}
 	return value
+}
+
+// The report is consumed by agents that index straight into its arrays. A nil
+// slice encodes as JSON null, so a complete saga used to answer "uncovered":
+// null and a saga with no schema issues omitted the key entirely. Every
+// collection must encode as [] instead.
+func TestReportCollectionsAreNeverNullInJSON(t *testing.T) {
+	uri, err := diffuri.Build(diffuri.Reference{Repository: testRepository, Base: testBase, Head: testHead, Kind: "line", Path: "app.go", Side: "new", Start: 1, End: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	covered := &saga.Saga{Section: &saga.Section{
+		Target: "urn:change-saga:contract:saga",
+		Diffs:  []saga.DiffFile{{Path: "___diffs/all.json", Diffs: []saga.DiffReference{{URI: uri}}}},
+	}}
+	empty := &saga.Saga{Section: &saga.Section{Target: "urn:change-saga:contract:saga"}}
+
+	for _, test := range []struct {
+		name     string
+		document *saga.Saga
+		changes  gitdiff.ChangeSet
+		fields   []string
+	}{
+		{
+			"fully covered comparison",
+			covered,
+			gitdiff.ChangeSet{Repository: testRepository, BaseOID: testBase, HeadOID: testHead, Atoms: []gitdiff.Atom{lineAtom(t, "app.go", "new", 1)}},
+			[]string{"uncovered", "overlaps", "orphans", "saga_changes", "schema_issues"},
+		},
+		{
+			"empty comparison",
+			empty,
+			gitdiff.ChangeSet{Repository: testRepository, BaseOID: testBase, HeadOID: testHead},
+			[]string{"uncovered", "overlaps", "orphans", "targets", "saga_changes", "schema_issues"},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			report := Evaluate(test.document, saga.Validation{Valid: true}, test.changes)
+			if !report.Complete {
+				t.Fatalf("expected a complete report: %#v", report.Summary)
+			}
+			encoded, err := json.Marshal(report)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var decoded map[string]json.RawMessage
+			if err := json.Unmarshal(encoded, &decoded); err != nil {
+				t.Fatal(err)
+			}
+			for _, field := range test.fields {
+				value, present := decoded[field]
+				if !present {
+					t.Fatalf("%q is missing from a successful report: %s", field, encoded)
+				}
+				if string(value) != "[]" {
+					t.Fatalf("%q encoded as %s, want []", field, value)
+				}
+			}
+		})
+	}
+}
+
+// An empty changed line has no content, and omitting the field made a consumer
+// that reads atom["content"] unconditionally fail on exactly those atoms.
+func TestAtomAlwaysCarriesContent(t *testing.T) {
+	atom := lineAtom(t, "app.go", "new", 1)
+	atom.Content = ""
+	encoded, err := json.Marshal(atom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(encoded, []byte(`"content":""`)) {
+		t.Fatalf("a blank changed line dropped its content field: %s", encoded)
+	}
 }

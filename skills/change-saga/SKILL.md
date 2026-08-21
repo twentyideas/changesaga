@@ -40,6 +40,29 @@ When authoring a new saga, also read
 installed CLI disagrees with the references; follow the CLI and report the
 mismatch.
 
+## Read a saga through the query API
+
+Never glob, grep, or read saga metadata files to learn what a saga contains.
+The on-disk layout is an implementation detail with no compatibility promise.
+Use `change-saga query`, the versioned read API, for every read of an existing
+saga during both authoring and review. It is deterministic and paginated, never
+starts the server, and never mutates either repository.
+
+The operations are `overview`, `children`, `fragment`, `fragment-diffs`,
+`diff-owners`, `reviews`, and `gaps`. Start at `query overview`, walk one level
+at a time with `query children`, read narrative content through `query
+fragment`, navigate evidence in both directions with `query fragment-diffs` and
+`query diff-owners`, read the review overlay with `query reviews`, and page
+completeness problems with `query gaps --kind uncovered|stale|overlap`.
+
+Pass `--saga <path>` to every query, and `--repo <source-checkout>` when the
+source repository is separate. Each invocation writes exactly one JSON envelope
+with `schema`, `ok`, `snapshot`, `data`, `page.next_cursor`, and on failure
+`error.code`. Branch on `ok` and `error.code`; never parse message text. Follow
+`page.next_cursor` until it is null rather than raising `--limit`. `query
+children` on a fragment lists its landmarks with the target URNs to pass to
+`change-saga cover --target`.
+
 ## Author a saga
 
 1. Resolve the request to an exact source comparison. For a PR number or URL,
@@ -58,7 +81,9 @@ mismatch.
    Use `WORKTREE` as the head only for tracked in-progress changes. Warn that the
    current engine does not account for untracked files.
 4. Run `change-saga status --json <name>.saga`. Treat its uncovered atoms as the work
-   queue and its stale diff URIs as reconciliation work.
+   queue and its stale diff URIs as reconciliation work. Its `uncovered`,
+   `overlaps`, `orphans`, `targets`, `saga_changes`, and `schema_issues` arrays
+   are always present, so an empty `uncovered` array is the completion signal.
 5. Read the relevant code and diff context. Identify the affected end-to-end
    workflows, data flows, data models, state transitions, and concrete
    before/after examples. Use those to draft the overview and chapter map before
@@ -85,20 +110,35 @@ mismatch.
    that package when code realizes the landmark. Keep one review idea per
    fragment and avoid decorative media.
 8. Attach only the atoms actually explained or demonstrated by a fragment (or a
-   deliberately higher target) with `change-saga cover --target`. Always pass `--note`
+   deliberately higher target) with `change-saga cover --target`. `--target`
+   accepts a section or fragment path, a target URN, or the
+   `<fragment-path>#<landmark-id>` shorthand. Always pass `--note`
    with a concise, reviewer-facing explanation of what changed in that source
    file and why it belongs to this narrative target. Make the note useful before
    code is expanded; do not restate the path or say only “implementation” or
    “tests.” Use `old` for deletions and `new` for additions. Cover rename, mode,
    and binary events explicitly. Prefer the absolute URIs emitted by `status
-   --json` when source and saga live in different repositories.
-9. Repeat `change-saga status --json` until every product atom is covered and no stale
-   selector remains. Inspect overlaps and keep them only when multiple reviewer
-   journeys genuinely need the same change.
-10. Run both `change-saga validate --json` and `change-saga status --json`, then perform the
+   --json` when source and saga live in different repositories. Use `--dry-run`
+   to see exactly which records an invocation would write before writing them.
+9. When attaching many selectors, pipe newline-delimited JSON records (or one
+   JSON array) to `change-saga cover --batch -`. Each record carries its own
+   `target`, `path`, `side`, `lines`, `event`, `old_path`, `new_path`, `note`,
+   and `name`; `--target` and `--note` supply batch-wide defaults. The whole
+   batch is resolved before anything is written and a failing record leaves the
+   saga untouched. A batch is a delivery optimization only: every record still
+   maps the exact atoms it explains, never a widened range. Give a record an
+   explicit `name` only when you want a stable handle; a reused name is an
+   error, not an overwrite.
+10. Repeat `change-saga status --json` until every product atom is covered and no stale
+    selector remains. Inspect overlaps and keep them only when multiple reviewer
+    journeys genuinely need the same change.
+11. Run both `change-saga validate --json` and `change-saga status --json`, then perform the
     visual and reviewer-readiness checks in `references/authoring.md`. Replace
-    walls of text with diagrams or concrete examples before handoff. Summarize the
-    chapter structure, coverage result, saga-only changes, and limitations.
+    walls of text with diagrams or concrete examples before handoff.
+    `change-saga validate --fix` adds missing stable anchors to Markdown
+    headings in narrative fragments and changes nothing else; it never touches
+    review history. Summarize the chapter structure, coverage result, saga-only
+    changes, and limitations.
 
 Never make a selector wider merely to reach 100%. If an atom does not fit the
 current story, improve the structure or call out the unexplained change.
@@ -139,14 +179,6 @@ events; never rewrite or delete the original thread or message.
 Do not create comments or findings, or resolve, reopen, approve, or reject on a
 person's behalf without an explicit request to conduct those review actions.
 
-When reviewing without the UI, use `change-saga query` rather than searching
-for or reading saga metadata files directly. Start with `query overview`, walk
-one level at a time with `query children`, and read narrative content through
-`query fragment`. Use `query fragment-diffs` and `query diff-owners` for both
-directions of evidence navigation, `query reviews` for the normalized review
-overlay, and `query gaps --kind uncovered|stale|overlap` for completeness
-issues. Pass `--saga <path>` to every query and `--repo <source-checkout>` when
-the source lives separately. Each invocation returns exactly one structured
-JSON envelope; branch on its `ok` and `error.code` fields rather than parsing
-messages. Treat uncovered results as a hard warning that the review narrative
-is incomplete.
+When reviewing without the UI, read the saga through the query API described
+above rather than searching for or reading saga metadata files directly. Treat
+uncovered results as a hard warning that the review narrative is incomplete.

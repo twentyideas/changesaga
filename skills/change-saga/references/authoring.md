@@ -107,7 +107,10 @@ End every Markdown heading with a stable, fragment-local anchor:
 ```
 
 Use lowercase letters, digits, and hyphens; begin with a letter; keep the value
-unique within the fragment. Treat the anchor as an identifier: preserve it when
+unique within the fragment. `change-saga validate --fix` adds a stable anchor to
+any heading that lacks one, leaving existing anchors, fenced code, and review
+history untouched; it is a safe way to bring a draft up to this rule, not a
+substitute for choosing meaningful anchors on headings you intend to link to. Treat the anchor as an identifier: preserve it when
 rewriting or renaming the visible heading. The renderer namespaces it with the
 fragment target, so the same anchor may be reused in another fragment. Do not
 rely on an automatically generated heading slug for authored saga content.
@@ -150,9 +153,12 @@ for raster media, divide pixel coordinates by the intrinsic image dimensions.
 For example: `"hotspot":{"x":0.68,"y":0.72,"width":0.2,"height":0.12}`.
 
 When a landmark is realized by code, put each focused diff association in its
-own `<landmark>/___diffs/*.json` file. Run `change-saga cover --target` with the
-landmark target URN; do not duplicate the same atom at fragment scope merely to
-make it visible. This is the literate-programming bridge: prose and diagrams
+own `<landmark>/___diffs/*.json` file. Run `change-saga cover --target` with
+either the landmark target URN or the `<fragment-path>#<landmark-id>` shorthand,
+for example `change-saga cover --target
+"api.chapter/flow.fragment#submit-action"`. `change-saga query children` on the
+fragment lists its landmarks and their target URNs. Do not duplicate the same
+atom at fragment scope merely to make it visible. This is the literate-programming bridge: prose and diagrams
 explain intent, while the landmark opens the exact implementation. The fragment
 is always addressable even when it has no inner landmarks.
 
@@ -176,7 +182,11 @@ is always addressable even when it has no inner landmarks.
 - Keep deletions visible and explain behavior that disappeared.
 - Treat overlaps as intentional only when the same code is necessary in two
   distinct reviewer journeys.
-- Never widen a selector solely to achieve complete coverage.
+- Never widen a selector solely to achieve complete coverage. This applies
+  unchanged to `change-saga cover --batch`: a batch delivers many exact records
+  in one call and is never a reason to merge them into one broad range.
+- Use `change-saga cover --dry-run` to confirm which records an invocation would
+  write, and the exact selectors in each, before writing them.
 
 ## Reviewer-readiness check
 
