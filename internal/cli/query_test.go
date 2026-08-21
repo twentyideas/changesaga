@@ -102,6 +102,9 @@ func TestQueryGoldenEnvelopes(t *testing.T) {
 			if readErr != nil {
 				t.Fatal(readErr)
 			}
+			// Git may check text fixtures out with CRLF on Windows. The query
+			// protocol itself deliberately emits canonical LF-delimited JSON.
+			want = bytes.ReplaceAll(want, []byte("\r\n"), []byte("\n"))
 			if !bytes.Equal(out.Bytes(), want) {
 				t.Fatalf("envelope mismatch\n got: %s\nwant: %s", out.Bytes(), want)
 			}

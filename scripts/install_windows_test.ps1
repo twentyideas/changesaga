@@ -78,12 +78,12 @@ try {
     Compress-Archive -Path (Join-Path $StageDir "*") -DestinationPath $Archive
     Write-ReleaseChecksum $ReleaseDir $ArchiveName
 
-    $script:MockReleaseDir = $ReleaseDir
-    $script:MockLatestTag = "v$Version"
+    $global:ChangeSagaMockReleaseDir = $ReleaseDir
+    $global:ChangeSagaMockLatestTag = "v$Version"
     function global:Invoke-WebRequest {
         param([switch]$UseBasicParsing, [string]$Uri, [string]$OutFile)
         $Leaf = [IO.Path]::GetFileName(([Uri]$Uri).AbsolutePath)
-        $Source = Join-Path $script:MockReleaseDir $Leaf
+        $Source = Join-Path $global:ChangeSagaMockReleaseDir $Leaf
         if (-not (Test-Path -LiteralPath $Source -PathType Leaf)) {
             throw "mock download missing: $Leaf"
         }
@@ -91,7 +91,7 @@ try {
     }
     function global:Invoke-RestMethod {
         param([string]$Uri, [hashtable]$Headers)
-        return [pscustomobject]@{ tag_name = $script:MockLatestTag }
+        return [pscustomobject]@{ tag_name = $global:ChangeSagaMockLatestTag }
     }
 
     Write-Host "== happy path"
@@ -119,7 +119,7 @@ try {
     $TamperedDir = Join-Path $WorkDir "tampered"
     Copy-Item -Recurse $ReleaseDir $TamperedDir
     Add-Content -LiteralPath (Join-Path $TamperedDir $ArchiveName) -Value "tampered"
-    $script:MockReleaseDir = $TamperedDir
+    $global:ChangeSagaMockReleaseDir = $TamperedDir
     $BadDir = Join-Path $WorkDir "bad"
     New-Item -ItemType Directory -Path $BadDir | Out-Null
     Set-Content -LiteralPath (Join-Path $BadDir "change-saga.exe") -Value "existing install" -Encoding ascii
@@ -134,7 +134,7 @@ try {
     Copy-Item -Recurse $ReleaseDir $DuplicateDir
     $ChecksumLine = Get-Content -LiteralPath (Join-Path $DuplicateDir "SHA256SUMS") -Raw
     Add-Content -LiteralPath (Join-Path $DuplicateDir "SHA256SUMS") -Value $ChecksumLine -Encoding ascii
-    $script:MockReleaseDir = $DuplicateDir
+    $global:ChangeSagaMockReleaseDir = $DuplicateDir
     Expect-Failure "duplicate checksum entry is rejected" {
         & $Installer -Version "v$Version" -InstallDir (Join-Path $WorkDir "duplicate-install") -NoPathUpdate
     } "exactly one well-formed entry"
@@ -142,7 +142,7 @@ try {
     $MalformedDir = Join-Path $WorkDir "malformed-checksum"
     Copy-Item -Recurse $ReleaseDir $MalformedDir
     Set-Content -LiteralPath (Join-Path $MalformedDir "SHA256SUMS") -Value "deadbeef  $ArchiveName" -Encoding ascii
-    $script:MockReleaseDir = $MalformedDir
+    $global:ChangeSagaMockReleaseDir = $MalformedDir
     Expect-Failure "malformed checksum entry is rejected" {
         & $Installer -Version "v$Version" -InstallDir (Join-Path $WorkDir "malformed-install") -NoPathUpdate
     } "exactly one well-formed entry"
@@ -158,7 +158,7 @@ try {
         @{ Source = (Join-Path $StageDir "README.md"); Name = "../escaped.exe" }
     )
     Write-ReleaseChecksum $TraversalDir $ArchiveName
-    $script:MockReleaseDir = $TraversalDir
+    $global:ChangeSagaMockReleaseDir = $TraversalDir
     $TraversalInstall = Join-Path $WorkDir "traversal-install"
     Expect-Failure "path-traversing ZIP entry is rejected" {
         & $Installer -Version "v$Version" -InstallDir $TraversalInstall -NoPathUpdate
@@ -176,7 +176,7 @@ try {
         @{ Source = (Join-Path $StageDir "README.md"); Name = "README.md" }
     )
     Write-ReleaseChecksum $DuplicateZipDir $ArchiveName
-    $script:MockReleaseDir = $DuplicateZipDir
+    $global:ChangeSagaMockReleaseDir = $DuplicateZipDir
     Expect-Failure "duplicate binary ZIP entry is rejected" {
         & $Installer -Version "v$Version" -InstallDir (Join-Path $WorkDir "duplicate-zip-install") -NoPathUpdate
     } "duplicate entry"
@@ -188,13 +188,13 @@ try {
     New-Item -ItemType Directory -Path $WrongVersionDir | Out-Null
     Copy-Item -LiteralPath $Archive -Destination (Join-Path $WrongVersionDir $WrongArchiveName)
     Write-ReleaseChecksum $WrongVersionDir $WrongArchiveName
-    $script:MockReleaseDir = $WrongVersionDir
+    $global:ChangeSagaMockReleaseDir = $WrongVersionDir
     Expect-Failure "mismatched binary version is rejected" {
         & $Installer -Version $WrongVersion -InstallDir (Join-Path $WorkDir "wrong-version-install") -NoPathUpdate
     } "unexpected version"
 
     Write-Host "== untrusted inputs fail before download"
-    $script:MockReleaseDir = $ReleaseDir
+    $global:ChangeSagaMockReleaseDir = $ReleaseDir
     Expect-Failure "path-traversing version is rejected" {
         & $Installer -Version "9.9.9/../../escape" -InstallDir (Join-Path $WorkDir "bad-version") -NoPathUpdate
     } "invalid release tag"
@@ -213,14 +213,14 @@ try {
     Expect-Failure "PATH-delimiting install directory is rejected" {
         & $Installer -Version "v$Version" -InstallDir ((Join-Path $WorkDir "bad-path") + ";injected") -NoPathUpdate
     } "cannot contain"
-    $script:MockLatestTag = "v09.9.9"
+    $global:ChangeSagaMockLatestTag = "v09.9.9"
     Expect-Failure "untrusted latest tag is rejected" {
         & $Installer -Version latest -InstallDir (Join-Path $WorkDir "bad-latest") -NoPathUpdate
     } "invalid release tag"
-    $script:MockLatestTag = "v$Version"
+    $global:ChangeSagaMockLatestTag = "v$Version"
 
     Write-Host "== failed atomic swap preserves the existing install"
-    $script:MockReleaseDir = $ReleaseDir
+    $global:ChangeSagaMockReleaseDir = $ReleaseDir
     $InstalledPath = Join-Path $BinDir "change-saga.exe"
     $LockedBinary = [IO.File]::Open($InstalledPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
     try {
@@ -241,5 +241,7 @@ try {
 } finally {
     Remove-Item function:global:Invoke-WebRequest -ErrorAction SilentlyContinue
     Remove-Item function:global:Invoke-RestMethod -ErrorAction SilentlyContinue
+    Remove-Variable ChangeSagaMockReleaseDir -Scope Global -ErrorAction SilentlyContinue
+    Remove-Variable ChangeSagaMockLatestTag -Scope Global -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $WorkDir -Recurse -Force -ErrorAction SilentlyContinue
 }

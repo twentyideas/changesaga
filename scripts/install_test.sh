@@ -135,7 +135,11 @@ refresh_checksum() { # refresh_checksum <release-dir> <archive>
 }
 
 installed_mode() { # installed_mode <path>
-	stat -f '%Lp' "$1" 2>/dev/null || stat -c '%a' "$1"
+	case "$(uname -s)" in
+	Darwin) stat -f '%Lp' "$1" ;;
+	Linux) stat -c '%a' "$1" ;;
+	*) return 1 ;;
+	esac
 }
 
 echo "== happy path"

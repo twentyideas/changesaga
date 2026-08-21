@@ -141,7 +141,7 @@ tar -tvzf "$host_dist/$host_archive" > "$work/tar-listing"
 
 assert_eq "host archive holds exactly the documented members" \
 	"LICENSE README.md change-saga" \
-	"$(sort "$work/tar-names" | tr '\n' ' ' | sed 's/ $//')"
+	"$(LC_ALL=C sort "$work/tar-names" | tr '\n' ' ' | sed 's/ $//')"
 assert_flat "host archive" "$work/tar-names"
 assert_entry "host archive" "$work/tar-listing" change-saga 755
 assert_entry "host archive" "$work/tar-listing" LICENSE 644
@@ -188,7 +188,7 @@ unzip -Z "$win_dist/$win_archive" > "$work/zip-listing"
 
 assert_eq "windows archive holds exactly the documented members" \
 	"LICENSE README.md change-saga.exe" \
-	"$(sort "$work/zip-names" | tr '\n' ' ' | sed 's/ $//')"
+	"$(LC_ALL=C sort "$work/zip-names" | tr '\n' ' ' | sed 's/ $//')"
 assert_flat "windows archive" "$work/zip-names"
 # The zip records unix modes, so an archive unpacked on WSL or macOS still
 # yields a runnable binary rather than one the user has to chmod.

@@ -841,6 +841,11 @@ func repositoryOriginAvailable(ctx context.Context, root string) bool {
 }
 
 func normalizeRepositoryURI(value, root string) (string, error) {
+	// On Windows, url.Parse interprets the drive letter in C:\repo as a URI
+	// scheme. Recognize native absolute paths before parsing portable URIs.
+	if filepath.IsAbs(value) {
+		return diffuri.FileRepository(value)
+	}
 	if parsed, err := url.Parse(value); err == nil && parsed.IsAbs() {
 		return diffuri.CanonicalRepository(parsed.String())
 	}
