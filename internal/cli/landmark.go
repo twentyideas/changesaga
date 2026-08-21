@@ -23,6 +23,7 @@ func AddLandmark(_ context.Context, args []string, out io.Writer) error {
 	target := flags.String("target", "", "containing .fragment directory or fragment URN")
 	id := flags.String("id", "", "stable landmark identifier")
 	label := flags.String("label", "", "reviewer-facing landmark label")
+	description := flags.String("description", "", "semantic explanation for AI and non-visual consumers")
 	elementID := flags.String("element-id", "", "id of an element in an HTML or SVG fragment")
 	headingID := flags.String("heading-id", "", "explicit Markdown heading anchor")
 	exact := flags.String("text", "", "exact text to mark in a Markdown or text fragment")
@@ -112,12 +113,15 @@ func AddLandmark(_ context.Context, args []string, out io.Writer) error {
 		if err := validateLandmarkSelector(fragment, selector, hotspotRegion); err != nil {
 			return err
 		}
+		if (fragment.MediaType == "text/html" || strings.HasPrefix(fragment.MediaType, "image/")) && strings.TrimSpace(*description) == "" {
+			return fmt.Errorf("--description is required for a visual landmark so non-visual consumers can understand its meaning")
+		}
 		landmarksDir, err := store.EnsureDirWithin(document.Root, filepath.Join(fragment.Directory, "___landmarks"))
 		if err != nil {
 			return err
 		}
 		dir := filepath.Join(landmarksDir, *id+".landmark")
-		manifest := saga.Landmark{Version: saga.CurrentVersion, ID: *id, Label: *label, Selector: selector, Hotspot: hotspotRegion}
+		manifest := saga.Landmark{Version: saga.CurrentVersion, ID: *id, Label: *label, Description: strings.TrimSpace(*description), Selector: selector, Hotspot: hotspotRegion}
 		err = store.CommitDir(document.Root, dir, func(stage string) error {
 			if err := os.Chmod(stage, 0o755); err != nil {
 				return err

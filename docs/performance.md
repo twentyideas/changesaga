@@ -13,7 +13,7 @@ saga. The default disk fixture models a mega pull request with:
 
 `TestGenerateLargeSagaIsDeterministicAndValid` compares independent generated
 trees byte for byte, loads the result through normal validation, and proves that
-coverage is complete with no overlaps or stale references. The in-memory server
+every atom is mapped with no overlaps or stale references. The in-memory server
 fixtures use 4,096 atoms when isolating Code Diff, Coverage, rendering, and
 linked-drawer construction.
 

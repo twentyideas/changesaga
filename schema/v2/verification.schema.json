@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://changesaga.dev/schema/v2/verification.schema.json",
+  "title": "Change Saga claim verification event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "id", "claim", "status", "summary", "created_at"],
+  "properties": {
+    "version": { "const": 2 },
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "claim": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "status": { "enum": ["unverified", "verified", "failed", "inconclusive"] },
+    "method": { "enum": ["test", "command", "measurement", "inspection", "analysis"] },
+    "summary": { "type": "string", "minLength": 1 },
+    "command": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "not": { "const": "unverified" } } } },
+      "then": { "required": ["method"] }
+    }
+  ]
+}

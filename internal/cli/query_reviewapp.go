@@ -52,3 +52,18 @@ func (s *reviewAppQuerySession) Gaps(ctx context.Context, query gapQuery) (query
 	value, err := s.session.Gaps(ctx, reviewapp.GapQuery{Kind: query.Kind, Cursor: query.Cursor, Limit: query.Limit})
 	return queryPage{Data: value, NextCursor: value.Page.NextCursor}, err
 }
+
+func (s *reviewAppQuerySession) Mappings(ctx context.Context, query mappingQuery) (queryPage, error) {
+	value, err := s.session.Mappings(ctx, reviewapp.MappingQuery{Target: query.Target, Sort: query.Sort, MinimumScore: query.MinimumScore, Cursor: query.Cursor, Limit: query.Limit})
+	return queryPage{Data: value, NextCursor: value.Page.NextCursor}, err
+}
+
+func (s *reviewAppQuerySession) Claims(ctx context.Context, query claimQuery) (queryPage, error) {
+	value, err := s.session.Claims(ctx, reviewapp.ClaimQuery{Target: query.Target, Status: query.Status, Cursor: query.Cursor, Limit: query.Limit})
+	return queryPage{Data: value, NextCursor: value.Page.NextCursor}, err
+}
+
+func (s *reviewAppQuerySession) Verifications(ctx context.Context, query verificationQuery) (queryPage, error) {
+	value, err := s.session.Verifications(ctx, reviewapp.VerificationQuery{Claim: query.Claim, Status: query.Status, Cursor: query.Cursor, Limit: query.Limit})
+	return queryPage{Data: value, NextCursor: value.Page.NextCursor}, err
+}

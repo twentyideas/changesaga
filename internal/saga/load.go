@@ -44,6 +44,18 @@ func Load(root string) (*Saga, Validation, error) {
 		return nil, validation, err
 	}
 	document := &Saga{Root: abs, Manifest: manifest, Section: section}
+	if metadataDirectorySafe(abs, abs, "___claims", &validation) {
+		document.Claims, err = loadClaims(abs, &validation)
+		if err != nil {
+			return nil, validation, err
+		}
+	}
+	if metadataDirectorySafe(abs, abs, "___verifications", &validation) {
+		document.Verifications, err = loadVerifications(abs, &validation)
+		if err != nil {
+			return nil, validation, err
+		}
+	}
 	if metadataDirectorySafe(abs, abs, "___review", &validation) {
 		reviewDir := filepath.Join(abs, "___review")
 		if metadataDirectorySafe(abs, reviewDir, "threads", &validation) {
@@ -344,6 +356,68 @@ func loadReviews(root, dir string, validation *Validation) ([]Review, error) {
 	return result, err
 }
 
+func loadClaims(root string, validation *Validation) ([]Claim, error) {
+	var claims []Claim
+	err := loadFlatRecords(root, filepath.Join(root, "___claims"), "claim", validation, func(path string) {
+		var value Claim
+		if err := readJSON(path, &value); err != nil {
+			addIssue(validation, "error", relativePath(root, path), err.Error())
+			return
+		}
+		value.Path = path
+		if strings.TrimSuffix(filepath.Base(path), ".json") != value.ID {
+			addIssue(validation, "error", relativePath(root, path), fmt.Sprintf("claim id %q must match filename %q", value.ID, filepath.Base(path)))
+		}
+		validateClaim(value, relativePath(root, path), validation)
+		claims = append(claims, value)
+	})
+	sort.Slice(claims, func(i, j int) bool {
+		return earlierRecord(claims[i].CreatedAt, claims[i].ID, claims[j].CreatedAt, claims[j].ID)
+	})
+	return claims, err
+}
+
+func loadVerifications(root string, validation *Validation) ([]Verification, error) {
+	var verifications []Verification
+	err := loadFlatRecords(root, filepath.Join(root, "___verifications"), "verification", validation, func(path string) {
+		var value Verification
+		if err := readJSON(path, &value); err != nil {
+			addIssue(validation, "error", relativePath(root, path), err.Error())
+			return
+		}
+		value.Path = path
+		if strings.TrimSuffix(filepath.Base(path), ".json") != value.ID {
+			addIssue(validation, "error", relativePath(root, path), fmt.Sprintf("verification id %q must match filename %q", value.ID, filepath.Base(path)))
+		}
+		validateVerification(value, relativePath(root, path), validation)
+		verifications = append(verifications, value)
+	})
+	sort.Slice(verifications, func(i, j int) bool {
+		return earlierRecord(verifications[i].CreatedAt, verifications[i].ID, verifications[j].CreatedAt, verifications[j].ID)
+	})
+	return verifications, err
+}
+
+func loadFlatRecords(root, dir, kind string, validation *Validation, fn func(string)) error {
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		path := filepath.Join(dir, entry.Name())
+		info, statErr := os.Lstat(path)
+		if statErr != nil || entry.IsDir() || filepath.Ext(entry.Name()) != ".json" || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+			addIssue(validation, "error", relativePath(root, path), kind+" records must be regular .json files, not directories or symlinks")
+			continue
+		}
+		fn(path)
+	}
+	return nil
+}
+
 func loadThreads(root, sagaID string, validation *Validation) ([]*Thread, error) {
 	threadsDir := filepath.Join(root, "___review", "threads")
 	entries, err := os.ReadDir(threadsDir)
@@ -595,7 +669,7 @@ func structuralEntry(entry fs.DirEntry, suffix string) (matches bool, problem st
 }
 
 func knownReservedDirectory(name string, root bool) bool {
-	return name == "___diffs" || name == "___approvals" || root && name == "___review"
+	return name == "___diffs" || name == "___approvals" || root && (name == "___review" || name == "___claims" || name == "___verifications")
 }
 
 func metadataDirectorySafe(root, sectionDir, name string, validation *Validation) bool {

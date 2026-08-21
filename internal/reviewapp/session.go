@@ -198,7 +198,7 @@ func (s *session) indexSection(section *saga.Section, parent string) {
 			landmark := &fragment.Landmarks[i]
 			landmarkEntry := &targetEntry{node: Node{
 				Kind: "landmark", Target: landmark.Target, Parent: fragment.Target, ID: landmark.ID, Title: landmark.Label,
-				Selector: landmarkValue(landmark.Selector),
+				Description: landmark.Description, Selector: landmarkValue(landmark.Selector),
 			}, diffs: landmark.Diffs}
 			s.targets[landmark.Target] = landmarkEntry
 			s.indexDiffs(landmark.Target, landmark.Diffs)
@@ -270,7 +270,7 @@ func (s *session) Overview(ctx context.Context, _ OverviewQuery) (Overview, erro
 		Root:              s.finishNode(root.Target, false),
 		OverviewFragments: []Node{},
 		Chapters:          []ChapterSummary{},
-		Coverage: CoverageSummary{Complete: s.report.Complete, Total: s.report.Summary.Total, Covered: s.report.Summary.Covered,
+		Coverage: CoverageSummary{Complete: s.report.Complete, Scope: "mapping_only", Total: s.report.Summary.Total, Covered: s.report.Summary.Covered,
 			Uncovered: s.report.Summary.Uncovered, Overlapping: s.report.Summary.Overlapping, Stale: s.report.Summary.Orphaned},
 	}
 	for _, fragment := range root.Fragments {
@@ -368,7 +368,19 @@ func (s *session) ReadFragment(ctx context.Context, query FragmentQuery) (Fragme
 		next := end
 		chunk.NextOffset = &next
 	}
-	return FragmentContent{Target: query.Target, ID: entry.fragment.ID, Title: entry.node.Title, MediaType: entry.fragment.MediaType, Content: chunk, Assets: append([]AssetSummary{}, value.assets...)}, nil
+	landmarks := []SemanticLandmark{}
+	for _, child := range entry.children {
+		landmark := s.targets[child]
+		if landmark == nil || landmark.node.Kind != "landmark" {
+			continue
+		}
+		finished := s.finishNode(child, false)
+		landmarks = append(landmarks, SemanticLandmark{
+			Target: child, ID: finished.ID, Label: finished.Title, Description: finished.Description,
+			Selector: finished.Selector, Diffs: finished.Diffs,
+		})
+	}
+	return FragmentContent{Target: query.Target, ID: entry.fragment.ID, Title: entry.node.Title, MediaType: entry.fragment.MediaType, Content: chunk, Assets: append([]AssetSummary{}, value.assets...), Landmarks: landmarks}, nil
 }
 
 func (s *session) FragmentDiffs(ctx context.Context, query FragmentDiffQuery) (FragmentDiffs, error) {
@@ -434,8 +446,16 @@ func (s *session) DiffOwners(ctx context.Context, query DiffOwnerQuery) (DiffOwn
 		return DiffOwnership{}, pageErr
 	}
 	result := DiffOwnership{Diff: query.Diff, Kind: reference.Kind, Atoms: []OwnedAtom{}, Page: page}
+	signals := s.mappingSignalIndex()
 	for _, atom := range atoms[start:end] {
-		owned := OwnedAtom{Atom: atom, Owners: append([]DiffOwner{}, s.selectorsByAtom[atom.URI]...), Threads: append([]ReviewThread{}, s.threadsByDiff[atom.URI]...)}
+		owners := append([]DiffOwner{}, s.selectorsByAtom[atom.URI]...)
+		for index := range owners {
+			if signal, ok := signals[owners[index].Target+"\x00"+owners[index].EvidenceFile]; ok {
+				copy := signal
+				owners[index].Mapping = &copy
+			}
+		}
+		owned := OwnedAtom{Atom: atom, Owners: owners, Threads: append([]ReviewThread{}, s.threadsByDiff[atom.URI]...)}
 		result.Atoms = append(result.Atoms, owned)
 	}
 	return result, nil

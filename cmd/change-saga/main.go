@@ -47,6 +47,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		err = cli.AddLandmark(ctx, args[1:], stdout)
 	case "cover":
 		err = cli.Cover(ctx, args[1:], stdout)
+	case "add-claim":
+		err = cli.AddClaim(ctx, args[1:], stdout)
+	case "verify-claim":
+		err = cli.VerifyClaim(ctx, args[1:], stdout)
 	case "thread":
 		err = cli.Thread(ctx, args[1:], stdout)
 	case "reply":

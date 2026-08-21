@@ -57,6 +57,21 @@ func (s *fakeQuerySession) Gaps(_ context.Context, request gapQuery) (queryPage,
 	return fakePage(s.called), s.err
 }
 
+func (s *fakeQuerySession) Mappings(_ context.Context, request mappingQuery) (queryPage, error) {
+	s.called, s.request = "mappings", request
+	return fakePage(s.called), s.err
+}
+
+func (s *fakeQuerySession) Claims(_ context.Context, request claimQuery) (queryPage, error) {
+	s.called, s.request = "claims", request
+	return fakePage(s.called), s.err
+}
+
+func (s *fakeQuerySession) Verifications(_ context.Context, request verificationQuery) (queryPage, error) {
+	s.called, s.request = "verifications", request
+	return fakePage(s.called), s.err
+}
+
 func fakePage(operation string) queryPage {
 	next := "next-page"
 	return queryPage{Data: map[string]any{"operation": operation}, NextCursor: &next}
@@ -125,6 +140,9 @@ func TestQueryDispatchesEveryOperationAndPreservesArguments(t *testing.T) {
 		{"diff-owners", []string{"--diff", "saga-diff://v1/file?x", "--cursor", "c3", "--limit", "19"}, diffOwnerQuery{Diff: "saga-diff://v1/file?x", Cursor: "c3", Limit: 19}},
 		{"reviews", []string{"--target", "urn:target", "--thread", "thread-1", "--state", "open", "--cursor", "c4", "--limit", "20"}, reviewQuery{Target: "urn:target", Thread: "thread-1", State: "open", Cursor: "c4", Limit: 20}},
 		{"gaps", []string{"--kind", "stale", "--cursor", "c5", "--limit", "21"}, gapQuery{Kind: "stale", Cursor: "c5", Limit: 21}},
+		{"mappings", []string{"--target", "urn:target", "--sort", "path", "--minimum-score", "25", "--cursor", "c6", "--limit", "22"}, mappingQuery{Target: "urn:target", Sort: "path", MinimumScore: 25, Cursor: "c6", Limit: 22}},
+		{"claims", []string{"--target", "urn:target", "--status", "failed", "--cursor", "c7", "--limit", "23"}, claimQuery{Target: "urn:target", Status: "failed", Cursor: "c7", Limit: 23}},
+		{"verifications", []string{"--claim", "claim-1", "--status", "verified", "--cursor", "c8", "--limit", "24"}, verificationQuery{Claim: "claim-1", Status: "verified", Cursor: "c8", Limit: 24}},
 	}
 
 	for _, test := range tests {
@@ -206,6 +224,10 @@ func TestQueryRejectsAdversarialArgumentsBeforeOpening(t *testing.T) {
 		{"huge fragment chunk", []string{"fragment", "--saga", "x", "--target", "urn:x", "--limit", "1048577"}},
 		{"nonnumeric limit", []string{"gaps", "--saga", "x", "--limit", "NaN"}},
 		{"bad gap kind", []string{"gaps", "--saga", "x", "--kind", "orphan"}},
+		{"bad mapping sort", []string{"mappings", "--saga", "x", "--sort", "correctness"}},
+		{"bad mapping score", []string{"mappings", "--saga", "x", "--minimum-score", "101"}},
+		{"bad claim status", []string{"claims", "--saga", "x", "--status", "trusted"}},
+		{"bad verification status", []string{"verifications", "--saga", "x", "--status", "approved"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

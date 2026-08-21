@@ -31,6 +31,9 @@ type Session interface {
 	DiffOwners(context.Context, DiffOwnerQuery) (DiffOwnership, error)
 	Reviews(context.Context, ReviewQuery) (ReviewPage, error)
 	Gaps(context.Context, GapQuery) (GapPage, error)
+	Mappings(context.Context, MappingQuery) (MappingPage, error)
+	Claims(context.Context, ClaimQuery) (ClaimPage, error)
+	Verifications(context.Context, VerificationQuery) (VerificationPage, error)
 }
 
 type OverviewQuery struct{}
@@ -73,6 +76,28 @@ type GapQuery struct {
 	Limit  int    `json:"limit,omitempty"`
 }
 
+type MappingQuery struct {
+	Target       string `json:"target,omitempty"`
+	Sort         string `json:"sort,omitempty"`
+	MinimumScore int    `json:"minimum_score,omitempty"`
+	Cursor       string `json:"cursor,omitempty"`
+	Limit        int    `json:"limit,omitempty"`
+}
+
+type ClaimQuery struct {
+	Target string `json:"target,omitempty"`
+	Status string `json:"status,omitempty"`
+	Cursor string `json:"cursor,omitempty"`
+	Limit  int    `json:"limit,omitempty"`
+}
+
+type VerificationQuery struct {
+	Claim  string `json:"claim,omitempty"`
+	Status string `json:"status,omitempty"`
+	Cursor string `json:"cursor,omitempty"`
+	Limit  int    `json:"limit,omitempty"`
+}
+
 type Page struct {
 	NextCursor *string `json:"next_cursor"`
 }
@@ -107,6 +132,7 @@ type Node struct {
 	Parent      string         `json:"parent,omitempty"`
 	ID          string         `json:"id"`
 	Title       string         `json:"title"`
+	Description string         `json:"description,omitempty"`
 	Order       int            `json:"order,omitempty"`
 	HasChildren bool           `json:"has_children"`
 	Review      CompactReview  `json:"review"`
@@ -147,12 +173,13 @@ type ChapterSummary struct {
 }
 
 type CoverageSummary struct {
-	Complete    bool `json:"complete"`
-	Total       int  `json:"total"`
-	Covered     int  `json:"covered"`
-	Uncovered   int  `json:"uncovered"`
-	Overlapping int  `json:"overlapping"`
-	Stale       int  `json:"stale"`
+	Complete    bool   `json:"complete"`
+	Scope       string `json:"scope"`
+	Total       int    `json:"total"`
+	Covered     int    `json:"covered"`
+	Uncovered   int    `json:"uncovered"`
+	Overlapping int    `json:"overlapping"`
+	Stale       int    `json:"stale"`
 }
 
 type ChildrenPage struct {
@@ -177,12 +204,22 @@ type AssetSummary struct {
 }
 
 type FragmentContent struct {
-	Target    string         `json:"target"`
-	ID        string         `json:"id"`
-	Title     string         `json:"title"`
-	MediaType string         `json:"media_type"`
-	Content   FragmentChunk  `json:"content"`
-	Assets    []AssetSummary `json:"assets"`
+	Target    string             `json:"target"`
+	ID        string             `json:"id"`
+	Title     string             `json:"title"`
+	MediaType string             `json:"media_type"`
+	Content   FragmentChunk      `json:"content"`
+	Assets    []AssetSummary     `json:"assets"`
+	Landmarks []SemanticLandmark `json:"landmarks"`
+}
+
+type SemanticLandmark struct {
+	Target      string         `json:"target"`
+	ID          string         `json:"id"`
+	Label       string         `json:"label"`
+	Description string         `json:"description,omitempty"`
+	Selector    *LandmarkValue `json:"selector"`
+	Diffs       CompactDiffs   `json:"diffs"`
 }
 
 type ResolvedSelector struct {
@@ -211,10 +248,93 @@ type FragmentDiffs struct {
 }
 
 type DiffOwner struct {
-	Target       string `json:"target"`
-	Selector     string `json:"selector"`
-	Note         string `json:"note,omitempty"`
-	EvidenceFile string `json:"evidence_file,omitempty"`
+	Target       string         `json:"target"`
+	Selector     string         `json:"selector"`
+	Note         string         `json:"note,omitempty"`
+	EvidenceFile string         `json:"evidence_file,omitempty"`
+	Mapping      *MappingSignal `json:"mapping,omitempty"`
+}
+
+type MappingReason struct {
+	Code    string `json:"code"`
+	Weight  int    `json:"weight"`
+	Message string `json:"message"`
+}
+
+// MappingSignal deliberately describes breadth and justification risk, not
+// correctness. A high score tells an AI where to scrutinize first; it never
+// turns a narrow mapping into proof that the explanation is true.
+type MappingSignal struct {
+	ScrutinyScore      int             `json:"scrutiny_score"`
+	AtomCount          int             `json:"atom_count"`
+	AtomsPerNote       float64         `json:"atoms_per_note"`
+	FileCount          int             `json:"file_count"`
+	TargetAtomCount    int             `json:"target_atom_count"`
+	TargetFileCount    int             `json:"target_file_count"`
+	StaleSelectorCount int             `json:"stale_selector_count"`
+	Reasons            []MappingReason `json:"reasons"`
+}
+
+type MappingAssessment struct {
+	Target             string          `json:"target"`
+	TargetKind         string          `json:"target_kind"`
+	EvidenceFile       string          `json:"evidence_file,omitempty"`
+	Notes              []string        `json:"notes"`
+	SelectorCount      int             `json:"selector_count"`
+	StaleSelectorCount int             `json:"stale_selector_count"`
+	AtomCount          int             `json:"atom_count"`
+	AtomsPerNote       float64         `json:"atoms_per_note"`
+	FileCount          int             `json:"file_count"`
+	TargetAtomCount    int             `json:"target_atom_count"`
+	TargetFileCount    int             `json:"target_file_count"`
+	ChangesetShare     float64         `json:"changeset_share"`
+	ScrutinyScore      int             `json:"scrutiny_score"`
+	Reasons            []MappingReason `json:"reasons"`
+}
+
+type MappingPage struct {
+	Mappings []MappingAssessment `json:"mappings"`
+	Page     Page                `json:"-"`
+}
+
+type ClaimEvidence struct {
+	URI            string         `json:"uri"`
+	Status         string         `json:"status"`
+	MappedToTarget bool           `json:"mapped_to_target"`
+	Atoms          []gitdiff.Atom `json:"atoms"`
+}
+
+type VerificationRecord struct {
+	ID          string      `json:"id"`
+	Claim       string      `json:"claim"`
+	Status      string      `json:"status"`
+	Method      string      `json:"method,omitempty"`
+	Summary     string      `json:"summary"`
+	Command     string      `json:"command,omitempty"`
+	CreatedAt   time.Time   `json:"created_at"`
+	Attribution Attribution `json:"attribution"`
+}
+
+type ClaimRecord struct {
+	ID                 string              `json:"id"`
+	Target             string              `json:"target"`
+	Kind               string              `json:"kind"`
+	Statement          string              `json:"statement"`
+	CreatedAt          time.Time           `json:"created_at"`
+	Attribution        Attribution         `json:"attribution"`
+	Evidence           []ClaimEvidence     `json:"evidence"`
+	VerificationStatus string              `json:"verification_status"`
+	LatestVerification *VerificationRecord `json:"latest_verification,omitempty"`
+}
+
+type ClaimPage struct {
+	Claims []ClaimRecord `json:"claims"`
+	Page   Page          `json:"-"`
+}
+
+type VerificationPage struct {
+	Verifications []VerificationRecord `json:"verifications"`
+	Page          Page                 `json:"-"`
 }
 
 type OwnedAtom struct {

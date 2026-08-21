@@ -36,6 +36,16 @@ tool, and what they have to do about it.
   indentation, and line endings are preserved, review history is never touched,
   and the result is deterministic and idempotent. `validate --json` now also
   reports a `fixes` array, always present.
+- `change-saga add-claim` records a falsifiable author assertion, its narrative
+  target, and exact supporting diff evidence without changing coverage.
+  `change-saga verify-claim` appends an independent `unverified`, `verified`,
+  `failed`, or `inconclusive` result with a reproducible method.
+- The query API adds `mappings`, `claims`, and `verifications`. Mapping results
+  rank broad, stale, or thinly justified evidence for scrutiny; claim results
+  resolve evidence against current atoms and prove whether it is mapped to the
+  asserted target; verification results retain Git-derived attribution.
+- Landmark records accept semantic descriptions, and fragment queries return a
+  non-visual landmark outline alongside the original media.
 
 ### Changed
 
@@ -51,6 +61,9 @@ tool, and what they have to do about it.
   through the versioned `change-saga query` API and names every operation with
   its purpose and usage. The operation list is generated from the CLI's own
   dispatch table, so it cannot drift from the shipped commands.
+- Human-readable status now says `ALL ATOMS MAPPED` rather than `COMPLETE`, and
+  structured coverage reports declare `mapping_only` scope. Mapping detects
+  omissions; it is not presented as correctness or explanation quality.
 
 ### Fixed
 

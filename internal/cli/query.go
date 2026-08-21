@@ -68,6 +68,28 @@ type gapQuery struct {
 	Limit  int
 }
 
+type mappingQuery struct {
+	Target       string
+	Sort         string
+	MinimumScore int
+	Cursor       string
+	Limit        int
+}
+
+type claimQuery struct {
+	Target string
+	Status string
+	Cursor string
+	Limit  int
+}
+
+type verificationQuery struct {
+	Claim  string
+	Status string
+	Cursor string
+	Limit  int
+}
+
 type queryPage struct {
 	Data       any
 	NextCursor *string
@@ -82,6 +104,9 @@ type querySession interface {
 	DiffOwners(context.Context, diffOwnerQuery) (queryPage, error)
 	Reviews(context.Context, reviewQuery) (queryPage, error)
 	Gaps(context.Context, gapQuery) (queryPage, error)
+	Mappings(context.Context, mappingQuery) (queryPage, error)
+	Claims(context.Context, claimQuery) (queryPage, error)
+	Verifications(context.Context, verificationQuery) (queryPage, error)
 }
 
 type querySessionOpener func(context.Context, queryOpenOptions) (querySession, error)
@@ -131,6 +156,9 @@ var queryOperations = []string{
 	"diff-owners",
 	"reviews",
 	"gaps",
+	"mappings",
+	"claims",
+	"verifications",
 }
 
 // queryPurpose says what each operation answers. It is keyed by the same
@@ -145,6 +173,9 @@ var queryPurpose = map[string]string{
 	"diff-owners":    "the narrative targets that own a given diff atom, event, or file",
 	"reviews":        "the normalized review overlay: threads, messages, events, and approvals",
 	"gaps":           "uncovered atoms, stale selectors, and overlapping coverage",
+	"mappings":       "coverage records ranked by breadth and justification signals so scrutiny starts at the weakest mappings",
+	"claims":         "falsifiable author assertions, exact evidence, current mapping state, and latest verification result",
+	"verifications":  "append-only verification history for author claims",
 }
 
 var queryUsage = map[string]string{
@@ -156,6 +187,9 @@ var queryUsage = map[string]string{
 	"diff-owners":    "change-saga query diff-owners --saga PATH --diff URI [--cursor TOKEN] [--limit N] [--repo PATH]",
 	"reviews":        "change-saga query reviews --saga PATH [--target TARGET] [--thread ID] [--state STATE] [--cursor TOKEN] [--limit N] [--repo PATH]",
 	"gaps":           "change-saga query gaps --saga PATH [--kind uncovered|stale|overlap] [--cursor TOKEN] [--limit N] [--repo PATH]",
+	"mappings":       "change-saga query mappings --saga PATH [--target TARGET] [--sort scrutiny|target|path] [--minimum-score N] [--cursor TOKEN] [--limit N] [--repo PATH]",
+	"claims":         "change-saga query claims --saga PATH [--target TARGET] [--status unverified|verified|failed|inconclusive] [--cursor TOKEN] [--limit N] [--repo PATH]",
+	"verifications":  "change-saga query verifications --saga PATH [--claim ID] [--status unverified|verified|failed|inconclusive] [--cursor TOKEN] [--limit N] [--repo PATH]",
 }
 
 // Query executes one read-only application query and writes exactly one JSON
@@ -220,6 +254,18 @@ func queryWithOpener(ctx context.Context, args []string, out io.Writer, open que
 		var page queryPage
 		page, err = session.Gaps(ctx, request)
 		result, nextCursor = page.Data, page.NextCursor
+	case mappingQuery:
+		var page queryPage
+		page, err = session.Mappings(ctx, request)
+		result, nextCursor = page.Data, page.NextCursor
+	case claimQuery:
+		var page queryPage
+		page, err = session.Claims(ctx, request)
+		result, nextCursor = page.Data, page.NextCursor
+	case verificationQuery:
+		var page queryPage
+		page, err = session.Verifications(ctx, request)
+		result, nextCursor = page.Data, page.NextCursor
 	default:
 		err = errors.New("unsupported query request")
 	}
@@ -235,9 +281,10 @@ func parseQuery(operation string, args []string) (any, queryOpenOptions, bool, e
 	sagaRoot := flags.String("saga", "", "saga root")
 	sourceDir := flags.String("repo", "", "source repository checkout")
 
-	var parent, target, diff, cursor, thread, state, kind string
+	var parent, target, diff, cursor, thread, state, kind, sortOrder, claim string
 	var offset int64
 	var limit optionalInt
+	var minimumScore optionalInt
 	switch operation {
 	case "children":
 		flags.StringVar(&parent, "parent", "", "parent target URN")
@@ -263,6 +310,22 @@ func parseQuery(operation string, args []string) (any, queryOpenOptions, bool, e
 		flags.Var(&limit, "limit", "page size")
 	case "gaps":
 		flags.StringVar(&kind, "kind", "", "uncovered, stale, or overlap")
+		flags.StringVar(&cursor, "cursor", "", "pagination cursor")
+		flags.Var(&limit, "limit", "page size")
+	case "mappings":
+		flags.StringVar(&target, "target", "", "optional narrative target URN")
+		flags.StringVar(&sortOrder, "sort", "scrutiny", "scrutiny, target, or path")
+		flags.Var(&minimumScore, "minimum-score", "minimum scrutiny score from 0 to 100")
+		flags.StringVar(&cursor, "cursor", "", "pagination cursor")
+		flags.Var(&limit, "limit", "page size")
+	case "claims":
+		flags.StringVar(&target, "target", "", "optional narrative target URN")
+		flags.StringVar(&state, "status", "", "unverified, verified, failed, or inconclusive")
+		flags.StringVar(&cursor, "cursor", "", "pagination cursor")
+		flags.Var(&limit, "limit", "page size")
+	case "verifications":
+		flags.StringVar(&claim, "claim", "", "optional claim id")
+		flags.StringVar(&state, "status", "", "unverified, verified, failed, or inconclusive")
 		flags.StringVar(&cursor, "cursor", "", "pagination cursor")
 		flags.Var(&limit, "limit", "page size")
 	}
@@ -298,6 +361,9 @@ func parseQuery(operation string, args []string) (any, queryOpenOptions, bool, e
 	if offset < 0 {
 		return nil, queryOpenOptions{}, false, errors.New("--offset cannot be negative")
 	}
+	if minimumScore.set && (minimumScore.value < 0 || minimumScore.value > 100) {
+		return nil, queryOpenOptions{}, false, errors.New("--minimum-score must be between 0 and 100")
+	}
 	if operation == "children" && strings.TrimSpace(parent) == "" {
 		return nil, queryOpenOptions{}, false, errors.New("--parent is required")
 	}
@@ -309,6 +375,12 @@ func parseQuery(operation string, args []string) (any, queryOpenOptions, bool, e
 	}
 	if operation == "gaps" && kind != "" && kind != "uncovered" && kind != "stale" && kind != "overlap" {
 		return nil, queryOpenOptions{}, false, errors.New("--kind must be uncovered, stale, or overlap")
+	}
+	if operation == "mappings" && sortOrder != "scrutiny" && sortOrder != "target" && sortOrder != "path" {
+		return nil, queryOpenOptions{}, false, errors.New("--sort must be scrutiny, target, or path")
+	}
+	if (operation == "claims" || operation == "verifications") && state != "" && state != "unverified" && state != "verified" && state != "failed" && state != "inconclusive" {
+		return nil, queryOpenOptions{}, false, errors.New("--status must be unverified, verified, failed, or inconclusive")
 	}
 
 	options := queryOpenOptions{SagaRoot: *sagaRoot, SourceDir: *sourceDir}
@@ -327,6 +399,12 @@ func parseQuery(operation string, args []string) (any, queryOpenOptions, bool, e
 		return reviewQuery{Target: target, Thread: thread, State: state, Cursor: cursor, Limit: limit.value}, options, false, nil
 	case "gaps":
 		return gapQuery{Kind: kind, Cursor: cursor, Limit: limit.value}, options, false, nil
+	case "mappings":
+		return mappingQuery{Target: target, Sort: sortOrder, MinimumScore: minimumScore.value, Cursor: cursor, Limit: limit.value}, options, false, nil
+	case "claims":
+		return claimQuery{Target: target, Status: state, Cursor: cursor, Limit: limit.value}, options, false, nil
+	case "verifications":
+		return verificationQuery{Claim: claim, Status: state, Cursor: cursor, Limit: limit.value}, options, false, nil
 	default:
 		return nil, queryOpenOptions{}, false, fmt.Errorf("unknown query operation %q", operation)
 	}

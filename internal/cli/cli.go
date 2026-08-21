@@ -84,7 +84,7 @@ func (e *StatusError) Error() string { return "command reported a non-success st
 // commandUsage is the single source of each command's usage line so the
 // overview, the per-command -h banner, and argument errors cannot drift apart.
 var commandOrder = []string{
-	"init", "add-chapter", "add-section", "add-fragment", "add-landmark", "cover",
+	"init", "add-chapter", "add-section", "add-fragment", "add-landmark", "cover", "add-claim", "verify-claim",
 	"thread", "reply", "review", "validate", "status", "query",
 	"serve", "open", "install-skill", "spec",
 }
@@ -96,6 +96,8 @@ var commandUsage = map[string]string{
 	"add-fragment":  "change-saga add-fragment [flags] <saga>",
 	"add-landmark":  "change-saga add-landmark [flags] <saga>",
 	"cover":         "change-saga cover [flags] [--batch FILE|-] [--dry-run] <saga>",
+	"add-claim":     "change-saga add-claim --target TARGET --kind KIND --statement TEXT --diff URI [--diff URI...] <saga>",
+	"verify-claim":  "change-saga verify-claim --claim ID --status STATUS --summary TEXT [flags] <saga>",
 	"thread":        "change-saga thread [flags] <saga>",
 	"reply":         "change-saga reply [flags] <saga>",
 	"review":        "change-saga review [flags] <saga>",
@@ -139,13 +141,15 @@ func commandFlags(name, usage string, out io.Writer) *flag.FlagSet {
 }
 
 var commandDescription = map[string]string{
-	"add-landmark": "Create a coverable target for one Markdown heading, exact text span, HTML/SVG\nelement, or normalized image region inside a fragment.",
+	"add-landmark": "Create a coverable target for one Markdown heading, exact text span, HTML/SVG\nelement, or normalized image region inside a fragment. Visual landmarks require\na semantic --description for non-visual consumers.",
 	"cover": `Attach the exact diff atoms a narrative target explains. --target accepts a
 section or fragment path, a target URN, or <fragment-path>#<landmark-id>.
 --batch reads newline-delimited JSON records (or one JSON array) with the
 per-record fields target, path, side, lines, event, old_path, new_path, note,
 name, and uris; the whole batch is resolved before anything is written, and a
 failing record leaves the saga untouched.`,
+	"add-claim":     "Record one falsifiable author assertion and its exact supporting diff evidence.\nClaims do not count toward coverage and are independently verified.",
+	"verify-claim":  "Append an independent verification result without rewriting the claim or prior results.",
 	"open":          "Serve the saga on loopback and open it in a browser.",
 	"serve":         "Serve the saga on loopback for review.",
 	"install-skill": "Print the agent-agnostic prompt that installs the change-saga authoring skill.\nPipe it to a coding agent; it neither writes to this repository nor creates a saga.",
@@ -240,7 +244,7 @@ func Init(ctx context.Context, args []string, out io.Writer) error {
 		if err := os.Chmod(stage, 0o755); err != nil {
 			return err
 		}
-		for _, dir := range []string{"___diffs", "___approvals", filepath.Join("___review", "threads"), filepath.Join("___review", "diffs")} {
+		for _, dir := range []string{"___diffs", "___approvals", "___claims", "___verifications", filepath.Join("___review", "threads"), filepath.Join("___review", "diffs")} {
 			if err := os.MkdirAll(filepath.Join(stage, dir), 0o755); err != nil {
 				return err
 			}
@@ -705,11 +709,12 @@ func buildReport(ctx context.Context, root, repoDir string, allowRepositoryMisma
 }
 
 func printReport(out io.Writer, report coverage.Report, maxItems int) {
-	state := "INCOMPLETE"
+	state := "MAPPING GAPS"
 	if report.Complete {
-		state = "COMPLETE"
+		state = "ALL ATOMS MAPPED"
 	}
-	fmt.Fprintf(out, "%s — %d/%d product changes accounted for\n", state, report.Summary.Covered, report.Summary.Total)
+	fmt.Fprintf(out, "%s — %d/%d product changes mapped\n", state, report.Summary.Covered, report.Summary.Total)
+	fmt.Fprintln(out, "Mapping detects omissions; it does not establish explanation quality or correctness.")
 	fmt.Fprintf(out, "Uncovered: %d  Overlapping: %d  Stale URIs: %d  Saga-only changes: %d\n", report.Summary.Uncovered, report.Summary.Overlapping, report.Summary.Orphaned, report.Summary.SagaChanges)
 	if len(report.SchemaIssues) > 0 {
 		fmt.Fprintln(out, "\nSchema issues:")
@@ -778,7 +783,8 @@ func Spec(args []string, out io.Writer) error {
 			"anchors":              []string{"target", "region", "drawing", "text", "note", "diff"},
 			"thread_kinds":         []string{"comment", "suggestion"},
 			"reviewer_bootstrap":   "README.md",
-			"reserved_directories": []string{"___diffs", "___approvals", "___review"},
+			"reserved_directories": []string{"___diffs", "___approvals", "___claims", "___verifications", "___review"},
+			"author_assertions":    "one claim per ___claims/*.json; one append-only result per ___verifications/*.json",
 			"review_storage":       "append-only; one thread, message, or event record per path",
 		})
 	}
@@ -1314,7 +1320,9 @@ Use this authoring loop, consulting each command's "-h" output for exact flags:
 3. "change-saga add-chapter", "change-saga add-section", and "change-saga add-fragment" build the
    reviewer-oriented narrative and its Markdown, SVG, image, or HTML packages.
 4. "change-saga add-landmark" makes a Markdown heading, HTML/SVG element, exact
-   text, or image region independently addressable.
+   text, or image region independently addressable. Give every meaningful
+   visual landmark a semantic "--description" that explains its role without
+   relying on geometry, color, or position.
 5. "change-saga cover" connects a focused fragment or landmark to the exact diff atoms
    it explains and includes a concise what-and-why note. "--target" accepts a
    path, a target URN, or the "<fragment-path>#<landmark-id>" shorthand. Use
@@ -1326,7 +1334,15 @@ Use this authoring loop, consulting each command's "-h" output for exact flags:
    whole batch is resolved before anything is written and a failing record
    leaves the saga untouched, so a batch is a delivery optimization only: every
    record still maps the exact atoms it explains, never a widened range.
-7. Repeat status, then run "change-saga validate --json" before "change-saga open" presents
+7. Run "change-saga query mappings --sort scrutiny" and split broad evidence
+   records, replace thin notes, and prefer landmark-level ownership when the
+   score explains that a mapping deserves more skepticism. The score is a work
+   queue, not a correctness grade.
+8. Record falsifiable assertions with "change-saga add-claim" and append an
+   explicit result with "change-saga verify-claim". Claims never contribute to
+   coverage. Use "unverified" when an assertion has not actually been checked;
+   otherwise record the reproducible method and command when applicable.
+9. Repeat status, then run "change-saga validate --json" before "change-saga open" presents
    the authored proposal for review. "change-saga validate --fix" adds missing
    stable anchors to Markdown headings and changes nothing else.
 
@@ -1351,7 +1367,9 @@ Run "change-saga query gaps --kind uncovered --saga <name>.saga" as the coverage
 work queue. Attach only the exact diff atoms a fragment or landmark explains, with
 concise notes saying what changed and why that content owns it. Never widen
 mappings only to reach 100 percent. Iterate until every product change is
-accounted for and no mapping is stale, then run "change-saga validate --json"
+mapped and no mapping is stale, then inspect "query mappings --sort scrutiny".
+All-atoms-mapped is an omission invariant, not proof of explanation quality or
+correctness. Then run "change-saga validate --json"
 and "change-saga status --json" before handoff.
 
 Never leave generated instructions, blank scaffold fragments, or example
@@ -1362,7 +1380,11 @@ checkout; never guess a PR number, and omit PR metadata rather than recording
 an unverified identity.
 
 Opening the saga presents the authored proposal for a human to review. It does
-not authorize the agent to conduct that review.
+not authorize the agent to conduct that review. When explicitly asked to review
+one, first read the code diff independently and record provisional findings;
+then inspect mappings, claims, verifications, and narrative intent; finally
+reconcile contradictions and independently test author claims. Do not let the
+author's explanation anchor the first correctness pass.
 `
 
 const defaultSVGFragment = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300" role="img" aria-label="Diagram placeholder">
@@ -1391,6 +1413,13 @@ Addressable Markdown headings, exact text, HTML/SVG elements, and image regions
 live in independent ___landmarks/<id>.landmark packages beneath a fragment.
 Create them with change-saga add-landmark, then pass the printed path or URN to
 change-saga cover so a reviewer can move directly from a visual node to code.
+Meaningful visual landmarks include a semantic description so query clients can
+understand their role without interpreting SVG or HTML geometry.
+
+Falsifiable author assertions live as independent ___claims/<id>.json records.
+Append-only ___verifications/<id>.json records mark them unverified, verified,
+failed, or inconclusive and preserve the method and reproducible command. Claim
+evidence never contributes to diff coverage. Git history supplies attribution.
 
 Review threads live under ___review/threads. They target stable
 urn:change-saga:* identifiers and anchor to a whole fragment, normalized shapes,
@@ -1402,6 +1431,11 @@ threads include replacement code. Append-only file URI events track reviewed
 state, and approvals may target the saga, a chapter, a section, or a fragment.
 Every comment owns a thread directory, every reply owns a message directory, and
 each state transition is a new file; review operations never update shared arrays.
+
+All-atoms-mapped is an omission invariant, not a correctness or explanation-
+quality verdict. Use query mappings --sort scrutiny to inspect broad or thin
+coverage records, and query claims/verifications to independently test author
+assertions.
 
 The authoritative specification is SPEC.md in the Change Saga repository.
 `

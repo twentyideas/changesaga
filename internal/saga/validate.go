@@ -283,6 +283,83 @@ func validateLandmark(value Landmark, fragment *Fragment, result *Validation) {
 	}
 }
 
+func validateClaim(value Claim, path string, result *Validation) {
+	if value.Version != CurrentVersion || !ValidID(value.ID) || value.CreatedAt.IsZero() {
+		addIssue(result, "error", path, "claim requires version 2, a stable id, and created_at")
+	}
+	if strings.TrimSpace(value.Target) == "" {
+		addIssue(result, "error", path, "claim target is required")
+	}
+	if !ValidClaimKind(value.Kind) {
+		addIssue(result, "error", path, "claim kind must be behavior, invariant, performance, compatibility, security, data, ux, or test")
+	}
+	if strings.TrimSpace(value.Statement) == "" {
+		addIssue(result, "error", path, "claim statement is required")
+	}
+	if len(value.Evidence) == 0 {
+		addIssue(result, "error", path, "claim must cite at least one exact line or event diff URI")
+	}
+	seen := map[string]bool{}
+	for index, uri := range value.Evidence {
+		reference, err := diffuri.Parse(uri)
+		if err != nil || reference.Kind == "file" {
+			addIssue(result, "error", path, fmt.Sprintf("claim evidence %d must be a canonical line or event diff URI", index+1))
+		}
+		if seen[uri] {
+			addIssue(result, "error", path, fmt.Sprintf("claim evidence %d duplicates an earlier URI", index+1))
+		}
+		seen[uri] = true
+	}
+}
+
+func validateVerification(value Verification, path string, result *Validation) {
+	if value.Version != CurrentVersion || !ValidID(value.ID) || value.CreatedAt.IsZero() {
+		addIssue(result, "error", path, "verification requires version 2, a stable id, and created_at")
+	}
+	if !ValidID(value.Claim) {
+		addIssue(result, "error", path, "verification claim must be a stable claim id")
+	}
+	if !ValidVerificationStatus(value.Status) {
+		addIssue(result, "error", path, "verification status must be unverified, verified, failed, or inconclusive")
+	}
+	if value.Status != "unverified" && !ValidVerificationMethod(value.Method) {
+		addIssue(result, "error", path, "a verification result requires method test, command, measurement, inspection, or analysis")
+	}
+	if value.Status == "unverified" && value.Method != "" && !ValidVerificationMethod(value.Method) {
+		addIssue(result, "error", path, "verification method must be test, command, measurement, inspection, or analysis")
+	}
+	if strings.TrimSpace(value.Summary) == "" {
+		addIssue(result, "error", path, "verification summary is required")
+	}
+}
+
+func ValidClaimKind(value string) bool {
+	switch value {
+	case "behavior", "invariant", "performance", "compatibility", "security", "data", "ux", "test":
+		return true
+	default:
+		return false
+	}
+}
+
+func ValidVerificationStatus(value string) bool {
+	switch value {
+	case "unverified", "verified", "failed", "inconclusive":
+		return true
+	default:
+		return false
+	}
+}
+
+func ValidVerificationMethod(value string) bool {
+	switch value {
+	case "test", "command", "measurement", "inspection", "analysis":
+		return true
+	default:
+		return false
+	}
+}
+
 func validNormalizedRegion(x, y, width, height float64) bool {
 	if math.IsNaN(x) || math.IsNaN(y) || math.IsNaN(width) || math.IsNaN(height) {
 		return false
@@ -486,6 +563,44 @@ func validateDocument(document *Saga, result *Validation) {
 			addIssue(result, "error", relativePath(document.Root, filepath.Join(thread.Directory, "thread.json")), "thread target does not exist")
 		}
 	}
+	claimIDs := map[string]string{}
+	for _, claim := range document.Claims {
+		path := relativePath(document.Root, claim.Path)
+		if previous, exists := claimIDs[claim.ID]; exists {
+			addIssue(result, "error", path, fmt.Sprintf("claim id %q is duplicated; first used by %s", claim.ID, previous))
+		} else {
+			claimIDs[claim.ID] = path
+		}
+		if !targets[claim.Target] {
+			addIssue(result, "error", path, "claim target does not exist")
+		}
+		repository, _ := diffuri.CanonicalRepository(document.Manifest.Source.Repository)
+		for index, uri := range claim.Evidence {
+			if reference, err := diffuri.Parse(uri); err == nil && reference.Repository != repository {
+				addIssue(result, "error", path, fmt.Sprintf("claim evidence %d belongs to a different source repository", index+1))
+			}
+		}
+	}
+	verificationIDs := map[string]string{}
+	verifiedClaims := map[string]bool{}
+	for _, verification := range document.Verifications {
+		path := relativePath(document.Root, verification.Path)
+		if previous, exists := verificationIDs[verification.ID]; exists {
+			addIssue(result, "error", path, fmt.Sprintf("verification id %q is duplicated; first used by %s", verification.ID, previous))
+		} else {
+			verificationIDs[verification.ID] = path
+		}
+		if _, exists := claimIDs[verification.Claim]; !exists {
+			addIssue(result, "error", path, fmt.Sprintf("verification references unknown claim %q", verification.Claim))
+		} else {
+			verifiedClaims[verification.Claim] = true
+		}
+	}
+	for _, claim := range document.Claims {
+		if !verifiedClaims[claim.ID] {
+			addIssue(result, "warning", relativePath(document.Root, claim.Path), "claim has no explicit verification record; append an unverified result when it has not been checked")
+		}
+	}
 }
 
 func validateVisualMappings(fragment *Fragment, result *Validation) {
@@ -498,6 +613,9 @@ func validateVisualMappings(fragment *Fragment, result *Validation) {
 	}
 	mapped := len(fragment.Diffs) > 0
 	for _, landmark := range fragment.Landmarks {
+		if strings.TrimSpace(landmark.Description) == "" {
+			addIssue(result, "warning", landmark.Path, "visual landmark has no semantic description; add what this element means so non-visual consumers do not have to parse its geometry")
+		}
 		if len(landmark.Diffs) > 0 {
 			mapped = true
 		}

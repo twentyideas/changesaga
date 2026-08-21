@@ -65,9 +65,14 @@ query interface instead of reconstructing relationships by grepping metadata:
 change-saga query overview --saga path/to/change.saga
 change-saga query children --saga path/to/change.saga
 change-saga query gaps --saga path/to/change.saga
+change-saga query mappings --saga path/to/change.saga --sort scrutiny
+change-saga query claims --saga path/to/change.saga --status unverified
 ~~~
 
 Use "change-saga query --help" for the remaining operations. The saga is
 the material to be reviewed; its presence is not an approval and does not ask
-an AI assistant to invent a review verdict.
+an AI assistant to invent a review verdict. For a correctness review, inspect
+the code diff independently before reading the author's conclusions. Then use
+the saga to test claims, understand design intent, and reconcile contradictions.
+All-atoms-mapped detects omissions only; it is not proof of correctness.
 `

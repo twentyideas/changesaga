@@ -56,6 +56,58 @@ test("@critical refuses malformed, non-canonical, and cross-repository coverage 
   expect(reviewFiles(sagaRepositories, /___diffs\/accepted-evidence\.json$/)).toHaveLength(1);
 });
 
+test("@critical exposes mapping scrutiny, claims, and verification as an AI review harness", async ({ sagaRepositories }) => {
+  const { identity, sagaRepo, sagaRoot, sourceRepo } = sagaRepositories;
+  const evidence = canonicalLineURI(identity, "src/app.go", "new", 3, 3);
+  const returnEvidence = canonicalLineURI(identity, "src/app.go", "new", 4, 4);
+
+  const claim = runCLI(sagaRepositories, [
+    "add-claim", "--id", "greeting-behavior", "--target", "overview.fragment", "--kind", "behavior",
+    "--statement", "Greeting accepts a name and includes it in the result.", "--diff", evidence, "--diff", returnEvidence, sagaRoot
+  ]);
+  expect(claim.status, claim.stderr).toBe(0);
+  const verification = runCLI(sagaRepositories, [
+    "verify-claim", "--id", "greeting-inspection", "--claim", "greeting-behavior", "--status", "verified",
+    "--method", "inspection", "--summary", "The changed function signature and return expression were inspected.", sagaRoot
+  ]);
+  expect(verification.status, verification.stderr).toBe(0);
+  expect(reviewFiles(sagaRepositories, /___claims\/greeting-behavior\.json$/)).toHaveLength(1);
+  expect(reviewFiles(sagaRepositories, /___verifications\/greeting-inspection\.json$/)).toHaveLength(1);
+
+  git(sagaRepo, "add", ".");
+  git(sagaRepo, "commit", "-m", "record author claim and verification");
+
+  const mappings = runCLI(sagaRepositories, ["query", "mappings", "--saga", sagaRoot, "--repo", sourceRepo, "--sort", "scrutiny"]);
+  expect(mappings.status, mappings.stderr).toBe(0);
+  const mappingEnvelope = JSON.parse(mappings.stdout) as { data: { mappings: Array<{ scrutiny_score: number; atoms_per_note: number; target_file_count: number; reasons: unknown[] }> } };
+  expect(mappingEnvelope.data.mappings.length).toBeGreaterThan(0);
+  expect(mappingEnvelope.data.mappings[0]).toEqual(expect.objectContaining({ scrutiny_score: expect.any(Number), atoms_per_note: expect.any(Number), target_file_count: expect.any(Number), reasons: expect.any(Array) }));
+
+  const claims = runCLI(sagaRepositories, ["query", "claims", "--saga", sagaRoot, "--repo", sourceRepo, "--status", "verified"]);
+  expect(claims.status, claims.stderr).toBe(0);
+  const claimEnvelope = JSON.parse(claims.stdout) as { data: { claims: Array<{ id: string; verification_status: string; attribution: { status: string }; evidence: Array<{ mapped_to_target: boolean }> }> } };
+  expect(claimEnvelope.data.claims).toHaveLength(1);
+  expect(claimEnvelope.data.claims[0]).toEqual(expect.objectContaining({ id: "greeting-behavior", verification_status: "verified", attribution: expect.objectContaining({ status: "committed" }) }));
+  expect(claimEnvelope.data.claims[0].evidence.every((item) => item.mapped_to_target)).toBe(true);
+
+  const verifications = runCLI(sagaRepositories, ["query", "verifications", "--saga", sagaRoot, "--repo", sourceRepo, "--claim", "greeting-behavior"]);
+  expect(verifications.status, verifications.stderr).toBe(0);
+  const verificationEnvelope = JSON.parse(verifications.stdout) as { data: { verifications: Array<{ id: string; status: string; attribution: { status: string } }> } };
+  expect(verificationEnvelope.data.verifications).toEqual([
+    expect.objectContaining({ id: "greeting-inspection", status: "verified", attribution: expect.objectContaining({ status: "committed" }) })
+  ]);
+
+  const owners = runCLI(sagaRepositories, ["query", "diff-owners", "--saga", sagaRoot, "--repo", sourceRepo, "--diff", evidence]);
+  expect(owners.status, owners.stderr).toBe(0);
+  const ownerEnvelope = JSON.parse(owners.stdout) as { data: { atoms: Array<{ owners: Array<{ mapping?: { scrutiny_score: number } }> }> } };
+  expect(ownerEnvelope.data.atoms.flatMap((atom) => atom.owners).some((owner) => typeof owner.mapping?.scrutiny_score === "number")).toBe(true);
+
+  const status = runCLI(sagaRepositories, ["status", "--repo", sourceRepo, sagaRoot]);
+  expect(status.status, status.stderr).toBe(0);
+  expect(status.stdout).toContain("ALL ATOMS MAPPED");
+  expect(status.stdout).toContain("does not establish explanation quality or correctness");
+});
+
 test("@critical refuses to mutate or serve a structurally invalid saga with zero side effects", async ({ sagaRepositories }) => {
   const { sagaRoot, sourceRepo } = sagaRepositories;
   const manifestPath = join(sagaRoot, "saga.json");

@@ -101,6 +101,9 @@ func TestEvaluateComplete(t *testing.T) {
 	if !report.Complete {
 		t.Fatalf("report should be complete: %#v", report)
 	}
+	if report.CoverageScope != "mapping_only" {
+		t.Fatalf("coverage scope = %q, want mapping_only", report.CoverageScope)
+	}
 }
 
 func TestLifecycleAtomCannotYieldFalseCompleteCoverage(t *testing.T) {

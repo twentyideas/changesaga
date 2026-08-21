@@ -141,6 +141,8 @@ func TestStableIDGrammarMatchesEverySchema(t *testing.T) {
 		"thread.schema.json":       {"properties", "id", "pattern"},
 		"thread-event.schema.json": {"properties", "id", "pattern"},
 		"diff-review.schema.json":  {"properties", "id", "pattern"},
+		"claim.schema.json":        {"properties", "id", "pattern"},
+		"verification.schema.json": {"properties", "id", "pattern"},
 	}
 	for name, path := range files {
 		schema := loadSchema(t, name)

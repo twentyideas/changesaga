@@ -6,7 +6,46 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/twentyideas/changesaga/internal/diffuri"
 )
+
+func claimTestURI(t *testing.T, kind string) string {
+	t.Helper()
+	reference := diffuri.Reference{Repository: "https://example.test/acme/app.git", Base: "aaa", Head: "bbb", Kind: kind, Path: "app.go"}
+	if kind == "line" {
+		reference.Side, reference.Start, reference.End = "new", 1, 1
+	}
+	uri, err := diffuri.Build(reference)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return uri
+}
+
+func TestClaimAndVerificationRecordsFailClosed(t *testing.T) {
+	lineURI := claimTestURI(t, "line")
+	fileURI := claimTestURI(t, "file")
+	tests := []struct {
+		name  string
+		files map[string]string
+		want  string
+	}{
+		{name: "claim filename mismatch", files: map[string]string{"___claims/wrong.json": fmt.Sprintf(`{"version":2,"id":"claim-1","target":"urn:change-saga:test:fragment:overview","kind":"behavior","statement":"Ready is true.","evidence":[%q],"created_at":"2026-08-21T12:00:00Z"}`, lineURI)}, want: "must match filename"},
+		{name: "claim target missing", files: map[string]string{"___claims/claim-1.json": fmt.Sprintf(`{"version":2,"id":"claim-1","target":"urn:change-saga:test:fragment:missing","kind":"behavior","statement":"Ready is true.","evidence":[%q],"created_at":"2026-08-21T12:00:00Z"}`, lineURI)}, want: "claim target does not exist"},
+		{name: "claim uses file URI", files: map[string]string{"___claims/claim-1.json": fmt.Sprintf(`{"version":2,"id":"claim-1","target":"urn:change-saga:test:fragment:overview","kind":"behavior","statement":"Ready is true.","evidence":[%q],"created_at":"2026-08-21T12:00:00Z"}`, fileURI)}, want: "line or event"},
+		{name: "verification claim missing", files: map[string]string{"___verifications/check-1.json": `{"version":2,"id":"check-1","claim":"missing","status":"unverified","summary":"Not checked.","created_at":"2026-08-21T12:00:00Z"}`}, want: "unknown claim"},
+		{name: "reserved record is directory", files: map[string]string{"___claims/not-json.txt/file": "hidden"}, want: "regular .json files"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			validation, report := loadIssues(t, buildSaga(t, test.files))
+			if validation.Valid || !strings.Contains(report, test.want) {
+				t.Fatalf("issues:\n%s", report)
+			}
+		})
+	}
+}
 
 const validSagaJSON = `{"version":2,"id":"test","title":"A saga","source":{"repository":"https://example.test/acme/app.git","base":"main","head":"HEAD"}}`
 

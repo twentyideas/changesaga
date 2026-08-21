@@ -43,7 +43,7 @@ func TestSessionReadOperations(t *testing.T) {
 			if value.Saga.ID != "query-test" || value.Source.BaseOID == "" || value.Source.HeadOID == "" || len(value.OverviewFragments) != 1 || len(value.Chapters) != 1 {
 				t.Fatalf("unexpected overview: %#v", value)
 			}
-			if value.Coverage.Uncovered == 0 || value.Coverage.Overlapping != 1 || value.Coverage.Stale != 1 || value.Coverage.Complete {
+			if value.Coverage.Scope != "mapping_only" || value.Coverage.Uncovered == 0 || value.Coverage.Overlapping != 1 || value.Coverage.Stale != 1 || value.Coverage.Complete {
 				t.Fatalf("unexpected coverage summary: %#v", value.Coverage)
 			}
 		}},
@@ -63,7 +63,7 @@ func TestSessionReadOperations(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if value.Content.Encoding != "utf-8" || value.Content.NextOffset == nil || !strings.HasPrefix(value.Content.SHA256, "sha256:") || len(value.Assets) != 1 || value.Assets[0].Name != "diagram.png" {
+			if value.Content.Encoding != "utf-8" || value.Content.NextOffset == nil || !strings.HasPrefix(value.Content.SHA256, "sha256:") || len(value.Assets) != 1 || value.Assets[0].Name != "diagram.png" || len(value.Landmarks) != 1 || value.Landmarks[0].Description != "The readiness statement summarized by this fragment." {
 				t.Fatalf("unexpected fragment: %#v", value)
 			}
 			next, err := fixture.session.ReadFragment(ctx, FragmentQuery{Target: fixture.fragment, Offset: *value.Content.NextOffset, Limit: 64})
@@ -95,7 +95,7 @@ func TestSessionReadOperations(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if value.Kind != "line" || len(value.Atoms) != 1 || len(value.Atoms[0].Owners) != 2 || len(value.Atoms[0].Threads) != 1 {
+			if value.Kind != "line" || len(value.Atoms) != 1 || len(value.Atoms[0].Owners) != 2 || len(value.Atoms[0].Threads) != 1 || value.Atoms[0].Owners[0].Mapping == nil {
 				t.Fatalf("unexpected atom ownership: %#v", value)
 			}
 		}},
@@ -129,6 +129,33 @@ func TestSessionReadOperations(t *testing.T) {
 						t.Fatalf("%s query returned %q", kind, gap.Kind)
 					}
 				}
+			}
+		}},
+		{name: "mapping scrutiny is distinct from coverage", run: func(t *testing.T) {
+			value, err := fixture.session.Mappings(ctx, MappingQuery{Sort: "scrutiny"})
+			if err != nil || len(value.Mappings) != 2 {
+				t.Fatalf("mappings = %#v, err=%v", value, err)
+			}
+			if value.Mappings[0].StaleSelectorCount != 1 || value.Mappings[0].ScrutinyScore <= value.Mappings[1].ScrutinyScore {
+				t.Fatalf("weakest mapping was not ranked first: %#v", value.Mappings)
+			}
+		}},
+		{name: "claims expose exact mapped evidence and latest verification", run: func(t *testing.T) {
+			value, err := fixture.session.Claims(ctx, ClaimQuery{Status: "verified"})
+			if err != nil || len(value.Claims) != 1 {
+				t.Fatalf("claims = %#v, err=%v", value, err)
+			}
+			claim := value.Claims[0]
+			if claim.VerificationStatus != "verified" || claim.LatestVerification == nil || claim.Attribution.Status != "committed" || len(claim.Evidence) != 1 || claim.Evidence[0].Status != "current" || !claim.Evidence[0].MappedToTarget {
+				t.Fatalf("claim projection = %#v", claim)
+			}
+			verifications, err := fixture.session.Verifications(ctx, VerificationQuery{Claim: claim.ID})
+			if err != nil || len(verifications.Verifications) != 1 || verifications.Verifications[0].Attribution.Status != "committed" {
+				t.Fatalf("verifications = %#v, err=%v", verifications, err)
+			}
+			unverified, err := fixture.session.Claims(ctx, ClaimQuery{Status: "unverified"})
+			if err != nil || len(unverified.Claims) != 1 || len(unverified.Claims[0].Evidence) != 1 || unverified.Claims[0].Evidence[0].MappedToTarget {
+				t.Fatalf("unverified claim should expose current but unmapped evidence: %#v, err=%v", unverified, err)
 			}
 		}},
 	}
@@ -256,6 +283,10 @@ func newServiceFixture(t *testing.T) serviceFixture {
 	writeJSON(t, filepath.Join(root, "___diffs", "root.json"), saga.DiffFile{Version: 2, Diffs: []saga.DiffReference{{URI: current.URI, Note: "root ownership"}}})
 	writeJSON(t, filepath.Join(root, "overview.fragment", "fragment.json"), saga.FragmentManifest{Version: 2, ID: "overview", Title: "Overview", MediaType: "text/markdown", Entrypoint: "content.md", Order: 1})
 	writeFile(t, filepath.Join(root, "overview.fragment", "content.md"), "A café explains the change.\n")
+	writeJSON(t, filepath.Join(root, "overview.fragment", "___landmarks", "readiness.landmark", "landmark.json"), saga.Landmark{
+		Version: 2, ID: "readiness", Label: "Readiness", Description: "The readiness statement summarized by this fragment.",
+		Selector: saga.LandmarkSelector{Type: "text", Exact: "café"},
+	})
 	asset := filepath.Join(root, "overview.fragment", "diagram.png")
 	writeFile(t, asset, "not-executed-image-bytes")
 	writeJSON(t, filepath.Join(root, "overview.fragment", "___diffs", "coverage.json"), saga.DiffFile{Version: 2, Diffs: []saga.DiffReference{{URI: current.URI, Note: "fragment ownership"}, {URI: stale, Note: "needs repair"}}})
@@ -270,6 +301,18 @@ func newServiceFixture(t *testing.T) serviceFixture {
 	writeJSON(t, filepath.Join(messageDir, "body.fragment", "fragment.json"), saga.FragmentManifest{Version: 2, ID: "message-body", MediaType: "text/markdown", Entrypoint: "content.md"})
 	writeFile(t, filepath.Join(messageDir, "body.fragment", "content.md"), "Please clarify.\n")
 	writeJSON(t, filepath.Join(root, "___review", "diffs", "file-review.json"), saga.DiffReview{Version: 2, ID: "file-review-1", URI: fileURI, State: "reviewed", CreatedAt: mustTime("2026-08-20T10:03:00Z")})
+	writeJSON(t, filepath.Join(root, "___claims", "ready-claim.json"), saga.Claim{
+		Version: 2, ID: "ready-claim", Target: fragmentTarget, Kind: "behavior", Statement: "The readiness constant becomes true.",
+		Evidence: []string{current.URI}, CreatedAt: mustTime("2026-08-20T10:04:00Z"),
+	})
+	writeJSON(t, filepath.Join(root, "___claims", "mode-claim.json"), saga.Claim{
+		Version: 2, ID: "mode-claim", Target: fragmentTarget, Kind: "behavior", Statement: "The query mode is reported.",
+		Evidence: []string{comparison.Atoms[1].URI}, CreatedAt: mustTime("2026-08-20T10:04:30Z"),
+	})
+	writeJSON(t, filepath.Join(root, "___verifications", "ready-check.json"), saga.Verification{
+		Version: 2, ID: "ready-check", Claim: "ready-claim", Status: "verified", Method: "inspection",
+		Summary: "The changed constant was independently inspected.", CreatedAt: mustTime("2026-08-20T10:05:00Z"),
+	})
 	git(t, repo, "add", "review.saga")
 	git(t, repo, "commit", "-m", "add saga")
 

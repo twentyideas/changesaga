@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/twentyideas/changesaga/internal/diffuri"
 	"github.com/twentyideas/changesaga/internal/gitdiff"
@@ -29,6 +30,22 @@ func TestQueryCLIRealSeparateRepositoriesAllOperations(t *testing.T) {
 		t.Fatal(err)
 	}
 	fixture.WriteSaga("overview.fragment/___diffs/coverage.json", string(evidence))
+	claim, err := json.Marshal(saga.Claim{
+		Version: saga.CurrentVersion, ID: "secure-default", Target: querytest.OverviewTarget, Kind: "security",
+		Statement: "The secure default is enabled.", Evidence: []string{changes.Atoms[0].URI}, CreatedAt: time.Date(2026, 8, 21, 10, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.WriteSaga("___claims/secure-default.json", string(claim))
+	verification, err := json.Marshal(saga.Verification{
+		Version: saga.CurrentVersion, ID: "secure-default-check", Claim: "secure-default", Status: "verified", Method: "inspection",
+		Summary: "The changed default was inspected.", CreatedAt: time.Date(2026, 8, 21, 10, 1, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.WriteSaga("___verifications/secure-default-check.json", string(verification))
 	fileURI, err := diffuri.Build(diffuri.Reference{
 		Repository: changes.Repository, Base: changes.BaseOID, Head: changes.HeadOID,
 		Kind: "file", Path: changes.Atoms[0].Path,
@@ -51,6 +68,9 @@ func TestQueryCLIRealSeparateRepositoriesAllOperations(t *testing.T) {
 		{name: "diff-owners-file", args: []string{"diff-owners", "--diff", fileURI}},
 		{name: "reviews", args: []string{"reviews"}},
 		{name: "gaps", args: []string{"gaps", "--kind", "uncovered"}},
+		{name: "mappings", args: []string{"mappings", "--sort", "scrutiny"}},
+		{name: "claims", args: []string{"claims", "--status", "verified"}},
+		{name: "verifications", args: []string{"verifications", "--claim", "secure-default"}},
 	}
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {

@@ -126,7 +126,8 @@ package per item with the CLI. For example:
 
 ```sh
 change-saga add-landmark --target path/to/map.fragment \
-  --element-id submit-action --label "Submit action" <name>.saga
+  --element-id submit-action --label "Submit action" \
+  --description "The validated request crosses into the persistence boundary." <name>.saga
 ```
 
 This creates `___landmarks/<stable-id>.landmark/landmark.json` with the shape:
@@ -136,6 +137,7 @@ This creates `___landmarks/<stable-id>.landmark/landmark.json` with the shape:
   "version": 2,
   "id": "submit-action",
   "label": "Submit action",
+  "description": "The validated request crosses into the persistence boundary.",
   "selector": { "type": "element", "element_id": "submit-action" }
 }
 ```
@@ -159,7 +161,10 @@ Create landmarks for independently discussable concepts, states, controls, and
 diagram nodes—not decorative shapes or every sentence. Keep IDs stable when
 labels or visuals change, keep them unique within the fragment, and use a
 separate package for each landmark so parallel edits do not touch a shared
-array. For static SVGs and images, add a normalized `hotspot` rectangle when the
+array. Give every meaningful visual landmark a concise semantic `description`
+that explains its role without referring to SVG geometry, color, or screen
+position. This is the non-visual representation returned to AI clients. For
+static SVGs and images, add a normalized `hotspot` rectangle when the
 renderer should reveal permalink and code controls over the item on hover.
 For SVG, divide the item's viewBox coordinates by the viewBox width and height;
 for raster media, divide pixel coordinates by the intrinsic image dimensions.
@@ -196,11 +201,33 @@ is always addressable even when it has no inner landmarks.
 - Keep deletions visible and explain behavior that disappeared.
 - Treat overlaps as intentional only when the same code is necessary in two
   distinct reviewer journeys.
-- Never widen a selector solely to achieve complete coverage. This applies
+- Never widen a selector solely to make every atom mapped. This applies
   unchanged to `change-saga cover --batch`: a batch delivers many exact records
   in one call and is never a reason to merge them into one broad range.
 - Use `change-saga cover --dry-run` to confirm which records an invocation would
   write, and the exact selectors in each, before writing them.
+- Run `change-saga query mappings --sort scrutiny` after coverage. Treat the
+  score as a work queue, not a grade: split records that span unrelated files
+  or hundreds of atoms, replace thin notes, and move broad visual ownership to
+  semantic landmarks where that better matches the explanation.
+
+## Claims and verification
+
+Record falsifiable assertions—not design opinions—with `change-saga
+add-claim`. A claim targets the narrative element making the assertion and
+cites exact line or event diff URIs. Claim evidence is deliberately separate
+from coverage and never makes an uncovered atom covered.
+
+Examples include behavioral invariants, compatibility promises, measured
+performance changes, security properties, and test outcomes. Avoid assertions
+like “the design is clean”; prefer statements another reviewer can disprove,
+such as “at most one sampler may be active for a process.”
+
+Append a result with `change-saga verify-claim`. Use `verified`, `failed`, or
+`inconclusive` only after performing the named test, command, measurement,
+inspection, or analysis. Use an explicit `unverified` result when the author
+has not checked the claim. Each claim and each verification result is its own
+file, and later results never rewrite earlier history.
 
 ## Reviewer-readiness check
 
@@ -225,6 +252,11 @@ Before handing off:
   mapping warning.
 - Confirm every product atom is covered, no URI is stale, and every overlap is
   defensible.
+- Confirm `query mappings --sort scrutiny` has no unjustifiably broad evidence
+  records and that its warnings were addressed rather than merely accepted.
+- Confirm important behavioral and quantitative assertions are structured
+  claims, every claim has an explicit verification state, and commands or
+  measurements are reproducible. “All atoms mapped” is not verification.
 - Open linked code from representative fragments and confirm every collapsed
   file has a useful what-and-why summary before its ranges are expanded.
 - Confirm tests, migrations, generated artifacts, and removed behavior are not

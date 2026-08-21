@@ -129,7 +129,7 @@ func TestValidateVisualMappingsReportsMissingLandmarksAndEvidence(t *testing.T) 
 	if len(result.Issues) != 2 || result.Issues[0].Severity != "warning" || result.Issues[1].Severity != "warning" {
 		t.Fatalf("visual mapping issues = %#v", result.Issues)
 	}
-	fragment.Landmarks = []Landmark{{ID: "worker", Diffs: []DiffFile{{Version: 2}}}}
+	fragment.Landmarks = []Landmark{{ID: "worker", Description: "The worker executes one queued job.", Diffs: []DiffFile{{Version: 2}}}}
 	result = Validation{}
 	validateVisualMappings(fragment, &result)
 	if len(result.Issues) != 0 {

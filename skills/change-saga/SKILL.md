@@ -49,11 +49,15 @@ saga during both authoring and review. It is deterministic and paginated, never
 starts the server, and never mutates either repository.
 
 The operations are `overview`, `children`, `fragment`, `fragment-diffs`,
-`diff-owners`, `reviews`, and `gaps`. Start at `query overview`, walk one level
+`diff-owners`, `reviews`, `gaps`, `mappings`, `claims`, and `verifications`. Start at `query overview`, walk one level
 at a time with `query children`, read narrative content through `query
 fragment`, navigate evidence in both directions with `query fragment-diffs` and
 `query diff-owners`, read the review overlay with `query reviews`, and page
 completeness problems with `query gaps --kind uncovered|stale|overlap`.
+Use `query mappings --sort scrutiny` to find coverage records whose breadth or
+thin justification deserves the most skepticism. Use `query claims` and
+`query verifications` to inspect falsifiable author assertions and their
+append-only verification history.
 
 Pass `--saga <path>` to every query, and `--repo <source-checkout>` when the
 source repository is separate. Each invocation writes exactly one JSON envelope
@@ -109,7 +113,7 @@ children` on a fragment lists its landmarks with the target URNs to pass to
    for everything. Build focused fragments with `change-saga add-fragment`. Make every
    meaningful subpart addressable using the landmark
    contract in `references/authoring.md`: annotate Markdown headings directly,
-   then use `change-saga add-landmark` for each addressable heading, HTML/SVG
+   then use `change-saga add-landmark --description "<semantic meaning>"` for each addressable heading, HTML/SVG
    element, exact text, or image region. Attach exact diff atoms to the returned
    landmark target when code realizes it. Before moving on from a visual,
    enumerate its meaningful nodes and confirm each code-bearing node has a
@@ -135,10 +139,22 @@ children` on a fragment lists its landmarks with the target URNs to pass to
    maps the exact atoms it explains, never a widened range. Give a record an
    explicit `name` only when you want a stable handle; a reused name is an
    error, not an overwrite.
-10. Repeat the three `query gaps` views until no product atom is uncovered, no
+10. Run `change-saga query mappings --sort scrutiny`. Split evidence records
+    that span unrelated files or large numbers of atoms, replace generic notes,
+    and prefer landmark-level ownership for broad visual fragments. A mapping
+    score directs scrutiny; it is not a correctness grade and a low score is
+    not proof that the explanation is true.
+11. Record falsifiable assertions with `change-saga add-claim`. Each claim must
+    target the exact narrative element making it and cite exact supporting diff
+    URIs. Claims never contribute to coverage. Append an explicit result with
+    `change-saga verify-claim`: use `unverified` when the assertion has not
+    actually been checked, and otherwise record the reproducible method,
+    outcome, and command when applicable. Never convert prose confidence into a
+    `verified` result.
+12. Repeat the three `query gaps` views until no product atom is uncovered, no
     selector is stale, and every overlap is defensible because multiple
     reviewer journeys genuinely need the same change.
-11. Run both `change-saga validate --json` and `change-saga status --json`.
+13. Run both `change-saga validate --json` and `change-saga status --json`.
     Treat untouched scaffolds and visual-mapping warnings as unfinished
     authoring, then perform the
     visual and reviewer-readiness checks in `references/authoring.md`. Replace
@@ -188,5 +204,19 @@ Do not create comments or findings, or resolve, reopen, approve, or reject on a
 person's behalf without an explicit request to conduct those review actions.
 
 When reviewing without the UI, read the saga through the query API described
-above rather than searching for or reading saga metadata files directly. Treat
-uncovered results as a hard warning that the review narrative is incomplete.
+above rather than searching for or reading saga metadata files directly.
+Conduct correctness review in three passes:
+
+1. Read the code diff independently before reading the author's conclusions.
+   Record provisional findings so the narrative cannot anchor the first pass.
+2. Run `query mappings --sort scrutiny`, `query claims`, and `query
+   verifications`; use `query diff-owners` while inspecting atoms to see the
+   relevant target and its mapping-quality signals. Read the saga narrative for
+   architecture, intent, workflows, and tradeoffs, and independently test each
+   claim rather than accepting its latest status.
+3. Reconcile the two passes. Prioritize contradictions, unverified or failed
+   claims, stale evidence, broad mappings, and code the narrative minimizes.
+
+Treat uncovered results as a hard warning that the narrative is incomplete.
+Treat all-atoms-mapped as an omission invariant only, never as approval,
+correctness, or evidence that the explanation is sufficiently precise.

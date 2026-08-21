@@ -45,21 +45,22 @@ type TargetSummary struct {
 // for a missing key: a complete saga reports "uncovered": [] rather than
 // omitting the field or emitting null.
 type Report struct {
-	Complete     bool                    `json:"complete"`
-	Summary      Summary                 `json:"summary"`
-	Uncovered    []gitdiff.Atom          `json:"uncovered"`
-	Overlaps     []Overlap               `json:"overlaps"`
-	Orphans      []Orphan                `json:"orphans"`
-	Targets      []TargetSummary         `json:"targets"`
-	SagaChanges  []gitdiff.Atom          `json:"saga_changes"`
-	Repository   string                  `json:"repository"`
-	Base         string                  `json:"base"`
-	Head         string                  `json:"head"`
-	BaseOID      string                  `json:"base_oid"`
-	HeadOID      string                  `json:"head_oid"`
-	SchemaValid  bool                    `json:"schema_valid"`
-	SchemaIssues []saga.Issue            `json:"schema_issues"`
-	Ownership    map[string][]Assignment `json:"-"`
+	Complete      bool                    `json:"complete"`
+	CoverageScope string                  `json:"coverage_scope"`
+	Summary       Summary                 `json:"summary"`
+	Uncovered     []gitdiff.Atom          `json:"uncovered"`
+	Overlaps      []Overlap               `json:"overlaps"`
+	Orphans       []Orphan                `json:"orphans"`
+	Targets       []TargetSummary         `json:"targets"`
+	SagaChanges   []gitdiff.Atom          `json:"saga_changes"`
+	Repository    string                  `json:"repository"`
+	Base          string                  `json:"base"`
+	Head          string                  `json:"head"`
+	BaseOID       string                  `json:"base_oid"`
+	HeadOID       string                  `json:"head_oid"`
+	SchemaValid   bool                    `json:"schema_valid"`
+	SchemaIssues  []saga.Issue            `json:"schema_issues"`
+	Ownership     map[string][]Assignment `json:"-"`
 }
 
 type indexedAtom struct {
@@ -75,7 +76,8 @@ type atomIndex struct {
 
 func Evaluate(document *saga.Saga, validation saga.Validation, changes gitdiff.ChangeSet) Report {
 	report := Report{
-		Repository: changes.Repository, Base: changes.Base, Head: changes.Head, BaseOID: changes.BaseOID, HeadOID: changes.HeadOID,
+		CoverageScope: "mapping_only",
+		Repository:    changes.Repository, Base: changes.Base, Head: changes.Head, BaseOID: changes.BaseOID, HeadOID: changes.HeadOID,
 		SchemaValid: validation.Valid, SchemaIssues: nonNil(validation.Issues), SagaChanges: nonNil(changes.SagaChanges),
 		Uncovered: []gitdiff.Atom{}, Overlaps: []Overlap{}, Orphans: []Orphan{}, Targets: []TargetSummary{},
 		Ownership: make(map[string][]Assignment),

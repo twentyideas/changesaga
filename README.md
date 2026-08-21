@@ -3,8 +3,9 @@
 Change Saga turns a large code change into a reviewable document. It gives the
 change an overview, chapters, diagrams, examples, and links to the exact code
 behind each explanation. Critically, it validates that every change in the diff
-is covered somewhere in the document. The result lives in Git beside the code
-and can be reviewed a chapter at a time.
+is mapped somewhere in the document. Mapping catches omissions; it is not a
+claim that the explanation or code is correct. The result lives in Git beside
+the code and can be reviewed a chapter at a time.
 
 ## Install
 
@@ -131,12 +132,20 @@ the record.
 
 Agents do not need to crawl the saga's files. The CLI exposes a bounded,
 read-only JSON interface for the overview, hierarchy, content, reviews,
-coverage gaps, and diff ownership:
+coverage gaps, diff ownership, mapping quality, author claims, and verification:
 
 ```sh
 change-saga query overview --saga checkout.saga
 change-saga query gaps --saga checkout.saga --kind uncovered
+change-saga query mappings --saga checkout.saga --sort scrutiny
+change-saga query claims --saga checkout.saga --status unverified
 ```
+
+`mappings` ranks broad or thin evidence so an AI can start with the weakest
+justification. Claims are falsifiable assertions tied to exact code;
+verification results are append-only and attributed through Git. An AI review
+can inspect the diff cold first, then reconcile its findings against this
+structured author account.
 
 Authoring is batchable in the same spirit. `change-saga cover --batch -` reads
 newline-delimited JSON records from standard input, resolves the whole batch

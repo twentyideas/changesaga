@@ -4,7 +4,7 @@ Status: experimental. Version 2 supersedes the unpublished v1 draft.
 
 ## 1. Model
 
-A Change Saga is a Git-native review document with five layers:
+A Change Saga is a Git-native review document with six layers:
 
 1. **Overview** explains the change as a whole.
 2. **Chapters** divide the change into independently reviewable units—roughly
@@ -13,7 +13,9 @@ A Change Saga is a Git-native review document with five layers:
    the smallest units of authored content.
 4. **Diff links** connect a saga, chapter, section, or fragment to immutable source
    changes, including changes in another repository.
-5. **Review overlays** add anchored discussions without modifying the authored
+5. **Claims and verification** make falsifiable author assertions and their
+   independently recorded verification state machine-readable.
+6. **Review overlays** add anchored discussions without modifying the authored
    fragments.
 
 Every persistent object is an ordinary file. Content and review data can be
@@ -172,6 +174,7 @@ stable fragment-local ID, a reviewer-facing label, and one selector:
   "version": 2,
   "id": "submit-action",
   "label": "Submit action",
+  "description": "The validated request crosses into persistence.",
   "selector": { "type": "element", "element_id": "submit-action" }
 }
 ```
@@ -182,6 +185,10 @@ enriches. Engines combine the fragment target and landmark ID into a portable
 page anchor and assign the landmark its own target URN. Each `___diffs/*.json`
 inside the landmark package associates fully qualified diff atoms with that
 exact narrative element; each association remains an independent file.
+Meaningful visual landmarks should carry a concise semantic `description` that
+explains their role without relying on geometry, color, or position. Query
+clients return this description so non-visual consumers do not need to infer
+meaning from SVG or HTML source.
 
 Static SVG and image landmarks may include a normalized `hotspot` rectangle.
 The renderer uses it to reveal permalink and related-code controls directly on
@@ -295,9 +302,11 @@ The root, a section, or a fragment can contain `___diffs/*.json` conforming to
 ```
 
 The containing object is the target of the evidence. One link may select a line
-range; one evidence file may hold multiple links and must hold at least one. Coverage is complete when
-every changed line and file event is selected and every committed link
-matches the current source comparison. Overlap is reported but permitted.
+range; one evidence file may hold multiple links and must hold at least one. All
+atoms are mapped when every changed line and file event is selected and every
+committed link matches the current source comparison. This is an omission
+invariant only; it does not establish explanation quality, claim truth, review
+completion, or correctness. Overlap is reported but permitted.
 Every Git-reported product file has at least one event or line atom, so an
 unrepresentable file record cannot make a nonempty comparison appear complete.
 
@@ -305,7 +314,28 @@ Changes under a `.saga` path in the source repository are classified separately
 as saga-only changes. When source and saga are different repositories, all saga
 history is naturally outside the source comparison.
 
-## 7. Review overlay
+## 7. Claims and verification
+
+Author claims are independent `___claims/<id>.json` records conforming to
+[`schema/v2/claim.schema.json`](schema/v2/claim.schema.json). A claim contains a
+falsifiable `statement`, a `kind`, one existing narrative `target`, at least one
+exact line/event diff URI in `evidence`, and `created_at`. Claim evidence never
+contributes to coverage; readers independently report whether it is current and
+whether every matching atom is already mapped to the claim's target.
+
+Verification results are independent append-only
+`___verifications/<id>.json` records conforming to
+[`schema/v2/verification.schema.json`](schema/v2/verification.schema.json).
+Each references a claim and records `unverified`, `verified`, `failed`, or
+`inconclusive`, a human-readable summary, and—except for an unverified result—a
+method: `test`, `command`, `measurement`, `inspection`, or `analysis`. An
+optional command makes a check reproducible. The latest result is convenient
+navigation state; every earlier result remains part of the audit history.
+
+Claims and results never accept an author name. Readers derive attribution from
+the Git commit that first introduced each file.
+
+## 8. Review overlay
 
 Review data lives separately from authored content:
 
@@ -369,7 +399,7 @@ is authoritative, while positions and surrounding text help engines re-anchor
 after modest content edits. An engine must report an unanchored selector rather
 than attaching it to different text silently.
 
-## 8. Thread messages and state
+## 9. Thread messages and state
 
 Each message has `message.json` and one or more fragment packages. Comments are
 therefore not limited to plain text: a reply may contain Markdown, images, SVG,
@@ -417,18 +447,18 @@ use state `approved`, `rejected`, `closed`, or `open` as defined by
 displayed state; repository policy, not this format, decides whether an approval
 permits merging.
 
-## 9. Reserved names
+## 10. Reserved names
 
 `___diffs` and `___approvals` are reserved on saga/chapter/section/fragment targets.
 `___landmarks` is reserved inside fragments.
-`___review` is reserved at the saga root. Reserved metadata directories must be
+`___review`, `___claims`, and `___verifications` are reserved at the saga root. Reserved metadata directories must be
 real directories, not symlinks. So must every entity package: a `.chapter`,
 `.fragment`, `.landmark`, `.thread`, or `.message` entry that is a symlink or a
 regular file is invalid rather than ignored, because silently skipping it would
 hide authored content behind a valid-looking saga. Other names beginning with
 `___` are invalid.
 
-## 10. CLI behavior
+## 11. CLI behavior
 
 - `change-saga install-skill` prints an agent-agnostic prompt for installing the
   project-local Change Saga authoring skill. It MUST NOT mutate the repository
@@ -437,11 +467,18 @@ hide authored content behind a valid-looking saga. Other names beginning with
 - `change-saga add-landmark` creates and validates a separately addressable
   Markdown heading, exact text span, HTML/SVG element, or normalized image
   region. It prints the target accepted by `change-saga cover`.
+- `change-saga add-claim` creates one falsifiable assertion file without
+  changing coverage. `change-saga verify-claim` appends one independent result.
 - `change-saga add-chapter` creates a top-level independently reviewable chapter and
   its overview fragment.
 - `change-saga cover --target ...` attaches an absolute diff URI to any target.
 - `change-saga status --json` emits uncovered atoms including ready-to-use absolute
-  URIs, stale links, overlap, target totals, and saga-only changes.
+  URIs, stale links, overlap, target totals, saga-only changes, and
+  `coverage_scope: "mapping_only"`.
+- `change-saga query mappings --sort scrutiny` ranks broad or thin evidence
+  records without claiming that a low score proves correctness. `query claims`
+  and `query verifications` expose assertions, exact evidence, attribution, and
+  result history.
 - `change-saga thread` and `change-saga reply` edit the review overlay without modifying
   authored fragment content.
 - `change-saga review` appends a saga-, chapter-, section-, or fragment-level decision.
@@ -455,5 +492,6 @@ hide authored content behind a valid-looking saga. Other names beginning with
 - `change-saga validate` checks structure, identifiers, URIs, anchors, entrypoints, and
   review history independently from coverage completeness.
 
-`status` exits 0 when complete and 3 when incomplete. `validate` exits 1 for
-structural errors. Unknown v2 JSON fields are rejected.
+`status` exits 0 when every atom is mapped with no stale selector and 3 when
+mapping gaps remain. The status is not a correctness verdict. `validate` exits
+1 for structural errors. Unknown v2 JSON fields are rejected.

@@ -240,7 +240,7 @@ dialogs, and actions may not require horizontal scrolling.
 Remove from normal review pages:
 
 - [ ] Coverage percentage/bar, uncovered/orphaned counters, and “complete”
-  celebration; incomplete coverage routes to a blocking diagnostics experience.
+  celebration; mapping gaps route to a blocking diagnostics experience.
 - [ ] Repository URL, full base/head hashes, internal display paths, diff URIs,
   media types, schema version, and generation timestamp.
 - [ ] Literal “Chapter:” labels and repeated card borders where heading hierarchy

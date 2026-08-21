@@ -6,6 +6,10 @@
 <name>.saga/
   saga.json
   ___diffs/
+  ___claims/
+    <claim-id>.json
+  ___verifications/
+    <verification-id>.json
   ___review/
     diffs/
     threads/
@@ -53,6 +57,7 @@ Addressable subparts use independent landmark packages:
   "version": 2,
   "id": "submit-action",
   "label": "Submit action",
+  "description": "The validated request crosses into persistence.",
   "selector": { "type": "element", "element_id": "submit-action" }
 }
 ```
@@ -63,6 +68,8 @@ ID, `text` for an exact Markdown/plain-text quote, and `region` for normalized
 image coordinates. Put each code association in its own `___diffs/*.json`
 inside the package. Static SVG/image records may include a normalized `hotspot`
 that places hover controls over the illustrated item.
+Meaningful visual landmarks should include a semantic `description`; query
+clients receive it so they do not need to interpret raw SVG or HTML geometry.
 
 ## Commands
 
@@ -73,11 +80,15 @@ change-saga add-chapter --title "Title" <name>.saga backend
 change-saga add-section --title "Title" <name>.saga backend.chapter/path/to/section
 change-saga add-fragment --section path/to/section --type markdown --title "Context" <name>.saga
 change-saga add-fragment --section path/to/section --type html --source ./demo-package --entrypoint index.html <name>.saga
-change-saga add-landmark --target path/to/demo.fragment --element-id submit-action --label "Submit action" --hotspot 0.68,0.72,0.2,0.12 <name>.saga
+change-saga add-landmark --target path/to/demo.fragment --element-id submit-action --label "Submit action" --description "The validated request crosses into persistence." --hotspot 0.68,0.72,0.2,0.12 <name>.saga
 change-saga add-landmark --target path/to/context.fragment --heading-id request-validation --label "Request validation" <name>.saga
 change-saga cover --repo <source-checkout> --target path/to/demo.fragment --path file.go --side new --lines 4-9,12 --note "Adds request validation so malformed input fails before persistence." <name>.saga
 change-saga cover --target path/to/demo.fragment --uri 'saga-diff://v1/line?...' --note "Implements the behavior explained by this fragment." <name>.saga
 change-saga cover --target path/to/demo.fragment/___landmarks/submit-action.landmark --uri 'saga-diff://v1/line?...' --note "Connects the diagram action to its exact submit handler." <name>.saga
+change-saga add-claim --target path/to/demo.fragment#submit-action --kind invariant --statement "Only one request can enter persistence for this key." --diff 'saga-diff://v1/line?...' <name>.saga
+change-saga verify-claim --claim <claim-id> --status verified --method test --summary "The concurrent request test passed." --command "go test ./..." <name>.saga
+change-saga query mappings --saga <name>.saga --repo <source-checkout> --sort scrutiny
+change-saga query claims --saga <name>.saga --status unverified
 change-saga validate --json <name>.saga
 change-saga status --json --repo <source-checkout> <name>.saga
 change-saga open --repo <source-checkout> <name>.saga
@@ -86,8 +97,18 @@ change-saga reply --thread <id> --state withdrawn <name>.saga
 ```
 
 `--repo` may be omitted when the saga is inside the source checkout. Flags
-precede positional arguments. `status` exits 0 when complete and 3 when
-incomplete.
+precede positional arguments. `status` exits 0 when every current product atom
+is mapped and 3 when mapping gaps or stale selectors remain. That exit status
+describes omission coverage only, not correctness or explanation quality.
+
+## Claims and verification
+
+`___claims/<id>.json` stores one falsifiable author assertion, its narrative
+target, and exact supporting line/event URIs. Claims never contribute to
+coverage. `___verifications/<id>.json` stores one append-only result for a
+claim: `unverified`, `verified`, `failed`, or `inconclusive`, plus the method,
+summary, and optional reproducible command. Git attribution identifies who
+committed each independent record.
 
 ## Portable identities
 

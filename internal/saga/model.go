@@ -81,15 +81,16 @@ type Fragment struct {
 }
 
 type Landmark struct {
-	Path      string           `json:"-"`
-	Directory string           `json:"-"`
-	Version   int              `json:"version"`
-	ID        string           `json:"id"`
-	Label     string           `json:"label"`
-	Selector  LandmarkSelector `json:"selector"`
-	Hotspot   *LandmarkRegion  `json:"hotspot,omitempty"`
-	Target    string           `json:"target"`
-	Diffs     []DiffFile       `json:"diffs,omitempty"`
+	Path        string           `json:"-"`
+	Directory   string           `json:"-"`
+	Version     int              `json:"version"`
+	ID          string           `json:"id"`
+	Label       string           `json:"label"`
+	Description string           `json:"description,omitempty"`
+	Selector    LandmarkSelector `json:"selector"`
+	Hotspot     *LandmarkRegion  `json:"hotspot,omitempty"`
+	Target      string           `json:"target"`
+	Diffs       []DiffFile       `json:"diffs,omitempty"`
 }
 
 type LandmarkSelector struct {
@@ -121,6 +122,37 @@ type DiffFile struct {
 type DiffReference struct {
 	URI  string `json:"uri"`
 	Note string `json:"note,omitempty"`
+}
+
+// Claim is one falsifiable assertion made by the change author. Claims are
+// deliberately independent records: adding a second claim never rewrites the
+// first record and two authors do not contend on one aggregate manifest.
+// Evidence here does not contribute to coverage; it points at exact code that
+// an independent reviewer can inspect when testing the assertion.
+type Claim struct {
+	Path      string    `json:"-"`
+	Version   int       `json:"version"`
+	ID        string    `json:"id"`
+	Target    string    `json:"target"`
+	Kind      string    `json:"kind"`
+	Statement string    `json:"statement"`
+	Evidence  []string  `json:"evidence"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// Verification is an append-only result for one claim. The latest result is
+// useful for navigation, but the complete history remains committed as
+// separate files so a later result never erases the earlier one.
+type Verification struct {
+	Path      string    `json:"-"`
+	Version   int       `json:"version"`
+	ID        string    `json:"id"`
+	Claim     string    `json:"claim"`
+	Status    string    `json:"status"`
+	Method    string    `json:"method,omitempty"`
+	Summary   string    `json:"summary"`
+	Command   string    `json:"command,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type Review struct {
@@ -249,11 +281,13 @@ type DiffReview struct {
 }
 
 type Saga struct {
-	Root        string       `json:"root"`
-	Manifest    Manifest     `json:"manifest"`
-	Section     *Section     `json:"section"`
-	Threads     []*Thread    `json:"threads,omitempty"`
-	DiffReviews []DiffReview `json:"diff_reviews,omitempty"`
+	Root          string         `json:"root"`
+	Manifest      Manifest       `json:"manifest"`
+	Section       *Section       `json:"section"`
+	Threads       []*Thread      `json:"threads,omitempty"`
+	DiffReviews   []DiffReview   `json:"diff_reviews,omitempty"`
+	Claims        []Claim        `json:"claims,omitempty"`
+	Verifications []Verification `json:"verifications,omitempty"`
 }
 
 type Issue struct {

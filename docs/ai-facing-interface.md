@@ -5,8 +5,10 @@ Status: **accepted for incremental implementation**
 Date: 2026-08-19
 
 Implementation: the read application core and structured `change-saga query`
-CLI (incremental delivery steps 1 and 2) are available. Writes, the UI HTTP
-adapter, and MCP remain gated as described below.
+CLI are available, including mapping scrutiny, claims, and verification
+history. Authoring commands create claims and append verification results.
+General review-overlay writes, the UI HTTP adapter, and MCP remain gated as
+described below.
 
 ## Context
 
@@ -57,6 +59,9 @@ type Session interface {
     DiffOwners(context.Context, DiffOwnerQuery) (DiffOwnership, error)
     Reviews(context.Context, ReviewQuery) (ReviewPage, error)
     Gaps(context.Context, GapQuery) (GapPage, error)
+    Mappings(context.Context, MappingQuery) (MappingPage, error)
+    Claims(context.Context, ClaimQuery) (ClaimPage, error)
+    Verifications(context.Context, VerificationQuery) (VerificationPage, error)
 
     CreateThread(context.Context, CreateThread) (MutationResult, error)
     Reply(context.Context, Reply) (MutationResult, error)
@@ -188,6 +193,9 @@ change-saga query fragment-diffs --saga PATH --target TARGET [--cursor TOKEN] [-
 change-saga query diff-owners    --saga PATH --diff URI [--cursor TOKEN] [--limit N]
 change-saga query reviews        --saga PATH [--target TARGET] [--thread ID] [--state STATE]
 change-saga query gaps           --saga PATH [--kind uncovered|stale|overlap] [--cursor TOKEN] [--limit N]
+change-saga query mappings       --saga PATH [--target TARGET] [--sort scrutiny|target|path] [--minimum-score N]
+change-saga query claims         --saga PATH [--target TARGET] [--status unverified|verified|failed|inconclusive]
+change-saga query verifications  --saga PATH [--claim ID] [--status unverified|verified|failed|inconclusive]
 ```
 
 `overview` returns saga identity, source snapshot, the root overview fragment
@@ -217,6 +225,16 @@ review/diff counts. Fragments are nodes with a media type and byte size.
   },
   "assets": [
     {"name": "diagram.png", "media_type": "image/png", "bytes": 18342}
+  ],
+  "landmarks": [
+    {
+      "target": "urn:change-saga:checkout:fragment:request-flow:landmark:submit",
+      "id": "submit",
+      "label": "Submit request",
+      "description": "The validated request crosses into persistence.",
+      "selector": {"type": "element", "element_id": "submit"},
+      "diffs": {"current": 12, "stale": 0}
+    }
   ]
 }
 ```
@@ -242,6 +260,10 @@ the atom, every owning target, evidence note and selector, and threads anchored
 to that diff. A file response groups all current atoms and owners in stable
 path/side/line order. Thus fragment-to-diff and diff-to-fragment navigation use
 the same coverage index rather than separately reinterpreting metadata.
+Each owner also carries a mapping signal with atom/file breadth, target breadth,
+stale-selector count, a 0–100 scrutiny score, and stable reason codes. The score
+ranks where independent inspection should begin; it is not a quality or
+correctness grade.
 
 `reviews` returns normalized threads, messages, anchors, latest state, target
 review events, and file-review events. Each review event has attribution:
@@ -271,7 +293,7 @@ discriminates atom shape: a `line` atom always has `path`, `side`, `line`, and
 `content`; an `event` atom always has `event`. `change-saga status --json`
 follows the same rule for its collections — `uncovered`, `overlaps`, `orphans`,
 `targets`, `saga_changes`, and `schema_issues` are always present and encode as
-`[]` when empty, so a complete saga reports `"uncovered": []` rather than
+`[]` when empty, so a fully mapped saga reports `"uncovered": []` rather than
 `null` or a missing key.
 
 `gaps` exposes uncovered atoms, stale selectors (the current `Orphans`), and
@@ -279,6 +301,25 @@ overlaps as separate typed records. `stale` is the public term; `orphan` remains
 an internal compatibility name. Results include enough selector, target, and
 evidence-file diagnostic data to repair a link through a later authoring API,
 without requiring metadata searches.
+
+`mappings` groups selectors by target and independent evidence file, then
+reports atom count, source-file count, target concentration, notes, stale
+selectors, and explicit scrutiny reasons. The default ordering puts the
+highest score first. Thresholds deliberately produce warnings rather than
+validation errors because some cross-cutting mappings are legitimate.
+
+`claims` returns falsifiable author assertions with Git attribution, exact
+evidence selectors, current resolved atoms, whether those atoms are actually
+mapped to the claim's target, and the latest verification result. Claims never
+contribute to coverage. A claim with no result is reported as `unverified`.
+`verifications` returns the full append-only history, including method,
+summary, optional reproducible command, timestamp, and committer attribution.
+
+An AI correctness review should use three passes: inspect the diff before
+reading the author's conclusions; then query mappings, claims, verifications,
+and narrative intent; finally reconcile contradictions and independently test
+the claims. `coverage.scope` and `status.coverage_scope` are `mapping_only` to
+make explicit that all-atoms-mapped detects omissions rather than correctness.
 
 Common write form:
 

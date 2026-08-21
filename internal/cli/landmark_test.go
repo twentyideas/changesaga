@@ -23,7 +23,7 @@ func TestAddLandmarkMakesDiagramElementsCoverable(t *testing.T) {
 		t.Fatal(err)
 	}
 	output.Reset()
-	if err := AddLandmark(context.Background(), []string{"--target", "system-map.fragment", "--element-id", "worker-pool", "--label", "Worker pool", root}, &output); err != nil {
+	if err := AddLandmark(context.Background(), []string{"--target", "system-map.fragment", "--element-id", "worker-pool", "--label", "Worker pool", "--description", "Workers pull one job at a time from the shared queue.", root}, &output); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(output.String(), "Target: urn:change-saga:") || !strings.Contains(output.String(), "change-saga cover --target") {
@@ -56,7 +56,7 @@ func TestAddLandmarkMakesDiagramElementsCoverable(t *testing.T) {
 	if fragment.ID != "atomic-system-map" {
 		fragment = document.Section.Fragments[0]
 	}
-	if len(fragment.Landmarks) != 1 || fragment.Landmarks[0].Selector.ElementID != "worker-pool" || len(fragment.Landmarks[0].Diffs) != 1 {
+	if len(fragment.Landmarks) != 1 || fragment.Landmarks[0].Selector.ElementID != "worker-pool" || fragment.Landmarks[0].Description == "" || len(fragment.Landmarks[0].Diffs) != 1 {
 		t.Fatalf("landmark was not addressable coverage: %#v", fragment.Landmarks)
 	}
 }
@@ -76,6 +76,25 @@ func TestAddLandmarkRejectsMissingElementsWithoutPartialMetadata(t *testing.T) {
 		t.Fatalf("missing element error = %v", err)
 	}
 	if _, statErr := os.Stat(filepath.Join(root, "system-map.fragment", "___landmarks", "missing.landmark")); !os.IsNotExist(statErr) {
+		t.Fatalf("failed landmark left partial metadata: %v", statErr)
+	}
+}
+
+func TestAddLandmarkRequiresSemanticDescriptionForVisuals(t *testing.T) {
+	root := newAuthoredSaga(t)
+	source := filepath.Join(t.TempDir(), "map.svg")
+	if err := os.WriteFile(source, []byte(`<svg xmlns="http://www.w3.org/2000/svg"><g id="worker-pool"/></svg>`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	if err := AddFragment(context.Background(), []string{"--type", "svg", "--title", "System map", "--source", source, root}, &output); err != nil {
+		t.Fatal(err)
+	}
+	err := AddLandmark(context.Background(), []string{"--target", "system-map.fragment", "--element-id", "worker-pool", root}, &output)
+	if err == nil || !strings.Contains(err.Error(), "--description is required") {
+		t.Fatalf("missing semantic description error = %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(root, "system-map.fragment", "___landmarks", "worker-pool.landmark")); !os.IsNotExist(statErr) {
 		t.Fatalf("failed landmark left partial metadata: %v", statErr)
 	}
 }

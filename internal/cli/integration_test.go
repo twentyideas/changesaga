@@ -37,7 +37,16 @@ func TestAuthoringLoopAgainstGitDiff(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read reviewer bootstrap: %v", err)
 	}
-	for _, expected := range []string{"Review this Change Saga", "change-saga open", "ask the user", "change-saga query overview"} {
+	for _, expected := range []string{
+		"Review this Change Saga",
+		"change-saga open",
+		"ask the user",
+		"change-saga query overview",
+		"change-saga query mappings",
+		"change-saga query claims",
+		"code diff independently",
+		"All-atoms-mapped detects omissions only",
+	} {
 		if !strings.Contains(string(bootstrap), expected) {
 			t.Errorf("reviewer bootstrap omitted %q", expected)
 		}
@@ -144,6 +153,8 @@ func TestInstallSkillPrintsPortableAuthoringContract(t *testing.T) {
 		"project-local agent skill", "existing PR-authoring", "thing to be reviewed, not the review itself",
 		"Do not create review", "change-saga --help", "change-saga status --json", "change-saga add-landmark", "SVG diagram",
 		"interactive HTML", "data flows", "data models", "exact diff atoms",
+		"change-saga query mappings --sort scrutiny", "change-saga add-claim", "change-saga verify-claim",
+		"read the code diff independently", "All-atoms-mapped is an omission invariant",
 	} {
 		if !strings.Contains(text, expected) {
 			t.Errorf("install-skill output omitted %q", expected)
