@@ -94,6 +94,7 @@ Usage:
   change-saga review [flags] <saga>
   change-saga validate [--json] <saga>
   change-saga status [--json] [--repo PATH] <saga>
+  change-saga query <operation> --saga PATH [--repo PATH] [operation flags]
   change-saga serve [--addr ADDR] [--repo PATH] [--open] <saga>
   change-saga open [--addr ADDR] [--repo PATH] <saga>
   change-saga install-skill

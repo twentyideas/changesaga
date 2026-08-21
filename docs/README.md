@@ -29,7 +29,8 @@ not a contract — where they disagree with the code, the code is current.
 | [renderer-ui.md](renderer-ui.md) | Conventions the reviewer UI holds to, including the vocabulary boundary between reviewer chrome and format terms. Read before touching `internal/server/`. |
 | [ux-reframe.md](ux-reframe.md) | Why review is structured as a sequence of finishable chapter sessions. |
 | [review-experience-audit.md](review-experience-audit.md) | The audit behind that reframe, with the session and resumption contract. |
-| [ai-facing-interface.md](ai-facing-interface.md) | The application boundary an AI author uses instead of walking `*.chapter` and `___review` paths directly. |
+| [ai-facing-interface.md](ai-facing-interface.md) | The application boundary an AI client uses instead of walking `*.chapter` and `___review` paths directly. |
+| [ai-query-security-test-plan.md](ai-query-security-test-plan.md) | Adversarial acceptance cases and reusable fixture contract for the AI query boundary. |
 
 ## Working on the project
 

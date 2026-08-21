@@ -19,13 +19,21 @@ Until then, the honest summary of what exists:
 
 - A `change-saga` CLI covering `init`, `add-chapter`, `add-section`,
   `add-fragment`, `cover`, `thread`, `reply`, `review`, `validate`, `status`,
-  `serve`/`open`, `install-skill`, and `spec`.
+  structured read-only `query`, `serve`/`open`, `install-skill`, and `spec`.
 - The v2 on-disk format specified in [SPEC.md](SPEC.md) with JSON Schemas in
   [`schema/`](schema).
 - A local, loopback-only reviewer with Saga, Code Diff, and Manifest surfaces.
 - Release automation for six platform archives, with a checksum manifest and
   build-provenance attestations on published releases. macOS Developer ID
   signing and Apple notarization are optional, separately configured steps.
+
+### Added
+
+- A transport-independent read application layer and deterministic
+  `change-saga query` JSON commands for overview, hierarchy, bounded fragment
+  content, bidirectional diff ownership, reviews, and coverage gaps. Queries
+  use stable errors and cursors, accept separate saga/source repositories, and
+  never start the server or mutate either repository.
 
 ### Changed
 

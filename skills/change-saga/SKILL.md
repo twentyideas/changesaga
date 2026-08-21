@@ -139,6 +139,14 @@ events; never rewrite or delete the original thread or message.
 Do not create comments or findings, or resolve, reopen, approve, or reject on a
 person's behalf without an explicit request to conduct those review actions.
 
-When reviewing without the UI, inspect assets and prose first, then use coverage
-evidence to dive into the relevant code. Use uncovered status as a hard warning:
-the review narrative is incomplete.
+When reviewing without the UI, use `change-saga query` rather than searching
+for or reading saga metadata files directly. Start with `query overview`, walk
+one level at a time with `query children`, and read narrative content through
+`query fragment`. Use `query fragment-diffs` and `query diff-owners` for both
+directions of evidence navigation, `query reviews` for the normalized review
+overlay, and `query gaps --kind uncovered|stale|overlap` for completeness
+issues. Pass `--saga <path>` to every query and `--repo <source-checkout>` when
+the source lives separately. Each invocation returns exactly one structured
+JSON envelope; branch on its `ok` and `error.code` fields rather than parsing
+messages. Treat uncovered results as a hard warning that the review narrative
+is incomplete.
