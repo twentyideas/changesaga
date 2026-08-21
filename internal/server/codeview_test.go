@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -15,6 +16,21 @@ import (
 	"github.com/change-saga/change-saga/internal/gitdiff"
 	"github.com/change-saga/change-saga/internal/saga"
 )
+
+func BenchmarkMakeCodeReviewViewLargeSaga(b *testing.B) {
+	document, changes, report, selection := largeCodeViewFixture(b, 120, 20)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		view, selectionErr := makeCodeReviewView(document, changes, report, nil, selection)
+		if selectionErr != nil {
+			b.Fatal(selectionErr)
+		}
+		if view.SelectedFile == nil || len(view.Files) != 120 || len(view.NarrativeOwnership) != 120 {
+			b.Fatalf("incomplete code view: %#v", view)
+		}
+	}
+}
 
 func TestCodeDiffURLPreservesPathAndQualifiedDiffURI(t *testing.T) {
 	diffURI := mustDiffURI(t, diffuri.Reference{
@@ -90,6 +106,13 @@ func TestCodeReviewViewScopesReverseOwnershipAndKeepsForwardLinks(t *testing.T) 
 	}
 	if flowOwnership == nil || len(flowOwnership.Diffs) != 2 || !flowOwnership.Diffs[0].Available || len(flowOwnership.Diffs[0].MatchedURIs) != 2 {
 		t.Fatalf("missing forward available ownership: %#v", flowOwnership)
+	}
+	forwardURL, err := url.Parse(flowOwnership.Diffs[0].Href)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if forwardURL.Query().Get("file") != "src/api/handler.go" || forwardURL.Query().Get("diff") != flowOwnership.Diffs[0].URI {
+		t.Fatalf("forward ownership deep link lost its exact selection: %s", flowOwnership.Diffs[0].Href)
 	}
 	if flowOwnership.Diffs[1].Available || flowOwnership.Diffs[1].URI != staleURI || flowOwnership.Diffs[1].Reason != "diff URI does not match the current source comparison" {
 		t.Fatalf("missing fully-qualified stale ownership: %#v", flowOwnership.Diffs[1])
@@ -287,6 +310,60 @@ func codeViewFixture(t *testing.T) (*saga.Saga, gitdiff.ChangeSet, coverage.Repo
 		Repository: changes.Repository, Base: changes.BaseOID, Head: changes.HeadOID, Kind: "file", Path: "src/api/handler.go",
 	}), Author: "Ada", State: "reviewed", CreatedAt: time.Now()}}
 	return document, changes, report, secondURI, staleURI
+}
+
+func largeCodeViewFixture(tb testing.TB, fileCount, linesPerFile int) (*saga.Saga, gitdiff.ChangeSet, coverage.Report, codeSelection) {
+	tb.Helper()
+	const (
+		repository = "https://example.test/org/large.git"
+		base       = "base-oid"
+		head       = "product-head-oid"
+	)
+	document := &saga.Saga{
+		Manifest: saga.Manifest{ID: "large"},
+		Section:  &saga.Section{Kind: "saga", ID: "large", Title: "Large", Target: saga.SagaTarget("large")},
+	}
+	chapter := &saga.Section{Kind: "chapter", ID: "implementation", Title: "Implementation", Target: saga.ChapterTarget("large", "implementation")}
+	document.Section.Children = []*saga.Section{chapter}
+	changes := gitdiff.ChangeSet{Repository: repository, BaseOID: base, HeadOID: head}
+	report := coverage.Report{Ownership: make(map[string][]coverage.Assignment, fileCount*linesPerFile)}
+
+	for fileIndex := range fileCount {
+		filePath := fmt.Sprintf("internal/component%03d/handler.go", fileIndex)
+		fragmentID := fmt.Sprintf("component-%03d", fileIndex)
+		fragment := &saga.Fragment{
+			ID: fragmentID, Title: fmt.Sprintf("Component %03d", fileIndex),
+			Target: saga.FragmentTarget("large", fragmentID), MediaType: "application/octet-stream",
+		}
+		diffPath := fmt.Sprintf("implementation.chapter/%s.fragment/___diffs/implementation.json", fragmentID)
+		rangeURI := mustDiffURIForTB(tb, diffuri.Reference{
+			Repository: repository, Base: base, Head: head, Kind: "line", Path: filePath,
+			Side: "new", Start: 1, End: linesPerFile,
+		})
+		fragment.Diffs = []saga.DiffFile{{Path: diffPath, Diffs: []saga.DiffReference{{URI: rangeURI, Note: "Implements the component."}}}}
+		chapter.Fragments = append(chapter.Fragments, fragment)
+		for line := 1; line <= linesPerFile; line++ {
+			atom := gitdiff.Atom{Kind: "line", Path: filePath, Side: "new", Line: line, Content: "changed line"}
+			atom.Key = gitdiff.Key(atom)
+			atom.URI = mustDiffURIForTB(tb, diffuri.Reference{
+				Repository: repository, Base: base, Head: head, Kind: "line", Path: filePath,
+				Side: "new", Start: line, End: line,
+			})
+			changes.Atoms = append(changes.Atoms, atom)
+			report.Ownership[atom.Key] = []coverage.Assignment{{Target: fragment.Target, DiffFile: diffPath, Diff: 1}}
+		}
+	}
+	selectedPath := fmt.Sprintf("internal/component%03d/handler.go", fileCount-1)
+	return document, changes, report, codeSelection{filePath: selectedPath}
+}
+
+func mustDiffURIForTB(tb testing.TB, reference diffuri.Reference) string {
+	tb.Helper()
+	uri, err := diffuri.Build(reference)
+	if err != nil {
+		tb.Fatal(err)
+	}
+	return uri
 }
 
 func mustDiffURI(t *testing.T, reference diffuri.Reference) string {
