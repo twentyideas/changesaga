@@ -346,7 +346,9 @@ func AddFragment(_ context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if *entrypointFlag != "" {
-		entrypoint = filepath.ToSlash(*entrypointFlag)
+		// Entrypoints use the format's portable slash-path grammar. Do not
+		// normalize a Windows backslash into a different, accepted path.
+		entrypoint = *entrypointFlag
 	}
 	if reason := saga.EntrypointError(entrypoint); reason != "" {
 		return fmt.Errorf("%s", reason)

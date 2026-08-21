@@ -784,7 +784,10 @@ func TestPageHandlerRendersRealGitComparison(t *testing.T) {
 	serverGit(t, repo, "add", "web/view.js")
 	serverGit(t, repo, "commit", "-m", "feature")
 	root := filepath.Join(repo, "pr-1.saga")
-	repository := (&url.URL{Scheme: "file", Path: filepath.ToSlash(repo)}).String()
+	repository, err := diffuri.FileRepository(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
 	writeServerFile(t, filepath.Join(root, "saga.json"), `{"version":2,"id":"test","title":"Test","source":{"repository":"`+repository+`","base":"`+base+`","head":"HEAD"}}`)
 	writeServerFile(t, filepath.Join(root, "overview.fragment", "fragment.json"), `{"version":2,"id":"overview","media_type":"text/markdown","entrypoint":"content.md"}`)
 	writeServerFile(t, filepath.Join(root, "overview.fragment", "content.md"), "# Story\n")
