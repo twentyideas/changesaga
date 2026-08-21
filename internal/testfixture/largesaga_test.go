@@ -10,6 +10,8 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/change-saga/change-saga/internal/coverage"
+	"github.com/change-saga/change-saga/internal/gitdiff"
 	"github.com/change-saga/change-saga/internal/saga"
 )
 
@@ -50,6 +52,12 @@ func TestGenerateLargeSagaIsDeterministicAndValid(t *testing.T) {
 	if first.Mappings != first.Atoms {
 		t.Fatalf("mappings = %d, want one per atom (%d)", first.Mappings, first.Atoms)
 	}
+	if got, want := first.References, first.Atoms/coverageRangeWidth; got != want {
+		t.Fatalf("range references = %d, want %d", got, want)
+	}
+	if first.DiffFiles > first.Fragments-1 {
+		t.Fatalf("diff files = %d, want at most one per section fragment", first.DiffFiles)
+	}
 	if got, want := first.Fragments, 1+options.Chapters*options.SectionsPerChapter*options.FragmentsPerSection; got != want {
 		t.Fatalf("fragments = %d, want %d", got, want)
 	}
@@ -62,6 +70,14 @@ func TestGenerateLargeSagaIsDeterministicAndValid(t *testing.T) {
 	if len(document.Threads) != options.Threads || len(document.DiffReviews) != options.DiffReviews {
 		t.Fatalf("review overlay counts differ: threads=%d diff reviews=%d", len(document.Threads), len(document.DiffReviews))
 	}
+	changes, err := gitdiff.Read(context.Background(), first.Repository, document.Manifest.Source.Repository, first.Base, first.Head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := coverage.Evaluate(document, validation, changes)
+	if !report.Complete || report.Summary.Covered != first.Atoms || report.Summary.Overlapping != 0 || report.Summary.Orphaned != 0 {
+		t.Fatalf("ranged mappings do not cover the fixture exactly once: %#v", report.Summary)
+	}
 }
 
 func TestDefaultLargeSagaScaleBudget(t *testing.T) {
@@ -70,6 +86,9 @@ func TestDefaultLargeSagaScaleBudget(t *testing.T) {
 	fragments := options.Chapters * options.SectionsPerChapter * options.FragmentsPerSection
 	if atoms < 4_000 {
 		t.Fatalf("default fixture has only %d atoms; keep the benchmark workload in the thousands", atoms)
+	}
+	if references := atoms / coverageRangeWidth; references < 1_000 {
+		t.Fatalf("default fixture has only %d ranged references; keep URI matching representative", references)
 	}
 	if fragments < 100 {
 		t.Fatalf("default fixture has only %d section fragments; keep hierarchy traversal representative", fragments)

@@ -19,6 +19,8 @@ import (
 
 const largeSagaRepository = "https://example.test/bench/large-saga.git"
 
+const coverageRangeWidth = 4
+
 // LargeSagaOptions controls the scale of a generated source comparison and
 // saga. Zero-valued fields are rejected so benchmarks cannot silently shrink.
 type LargeSagaOptions struct {
@@ -61,6 +63,8 @@ type LargeSaga struct {
 	HTML        int
 	Atoms       int
 	Mappings    int
+	References  int
+	DiffFiles   int
 	Reviews     int
 	Threads     int
 	DiffReviews int
@@ -112,10 +116,13 @@ func GenerateLargeSaga(ctx context.Context, parent string, options LargeSagaOpti
 	if err != nil {
 		return LargeSaga{}, err
 	}
-	if err := writeCoverageMappings(fragments, changes.Atoms); err != nil {
+	mappings, references, diffFiles, err := writeCoverageMappings(fragments, changes.Atoms)
+	if err != nil {
 		return LargeSaga{}, err
 	}
-	fixture.Mappings = len(changes.Atoms)
+	fixture.Mappings = mappings
+	fixture.References = references
+	fixture.DiffFiles = diffFiles
 	if err := writeThreads(root, fragments, options.Threads); err != nil {
 		return LargeSaga{}, err
 	}
@@ -310,11 +317,21 @@ func writeApproval(fragmentDir, fragmentID string, index int) error {
 	return writeJSON(filepath.Join(fragmentDir, "___approvals", fmt.Sprintf("review-%02d.json", index)), review)
 }
 
-func writeCoverageMappings(fragments []generatedFragment, atoms []gitdiff.Atom) error {
+type rangedMapping struct {
+	reference saga.DiffReference
+	atoms     int
+}
+
+func writeCoverageMappings(fragments []generatedFragment, atoms []gitdiff.Atom) (mappings, references, diffFiles int, err error) {
+	ranges, err := coverageRanges(atoms)
+	if err != nil {
+		return 0, 0, 0, err
+	}
 	grouped := make([][]saga.DiffReference, len(fragments))
-	for index, atom := range atoms {
+	for index, mapping := range ranges {
 		target := index % len(fragments)
-		grouped[target] = append(grouped[target], saga.DiffReference{URI: atom.URI, Note: fmt.Sprintf("atom-%05d", index)})
+		grouped[target] = append(grouped[target], mapping.reference)
+		mappings += mapping.atoms
 	}
 	for index, fragment := range fragments {
 		if len(grouped[index]) == 0 {
@@ -322,10 +339,52 @@ func writeCoverageMappings(fragments []generatedFragment, atoms []gitdiff.Atom) 
 		}
 		value := saga.DiffFile{Version: saga.CurrentVersion, Diffs: grouped[index]}
 		if err := writeJSON(filepath.Join(fragment.dir, "___diffs", "coverage.json"), value); err != nil {
-			return err
+			return 0, 0, 0, err
 		}
+		diffFiles++
 	}
-	return nil
+	return mappings, len(ranges), diffFiles, nil
+}
+
+func coverageRanges(atoms []gitdiff.Atom) ([]rangedMapping, error) {
+	result := make([]rangedMapping, 0, (len(atoms)+coverageRangeWidth-1)/coverageRangeWidth)
+	for start := 0; start < len(atoms); {
+		first, err := diffuri.Parse(atoms[start].URI)
+		if err != nil {
+			return nil, err
+		}
+		end := start + 1
+		for end < len(atoms) && end-start < coverageRangeWidth {
+			next, err := diffuri.Parse(atoms[end].URI)
+			if err != nil {
+				return nil, err
+			}
+			if !consecutiveLine(first, next, end-start) {
+				break
+			}
+			end++
+		}
+		uri := atoms[start].URI
+		if first.Kind == "line" && end-start > 1 {
+			first.End = first.Start + end - start - 1
+			uri, err = diffuri.Build(first)
+			if err != nil {
+				return nil, err
+			}
+		}
+		result = append(result, rangedMapping{
+			reference: saga.DiffReference{URI: uri, Note: fmt.Sprintf("atoms-%05d-%05d", start, end-1)},
+			atoms:     end - start,
+		})
+		start = end
+	}
+	return result, nil
+}
+
+func consecutiveLine(first, next diffuri.Reference, offset int) bool {
+	return first.Kind == "line" && next.Kind == "line" &&
+		first.Repository == next.Repository && first.Base == next.Base && first.Head == next.Head &&
+		first.Path == next.Path && first.Side == next.Side && next.Start == first.Start+offset && next.End == next.Start
 }
 
 func writeThreads(root string, fragments []generatedFragment, count int) error {

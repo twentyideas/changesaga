@@ -13,13 +13,13 @@ import (
 const (
 	largeSagaMinimumAtomBudget    = 4_000
 	largeSagaValidateTimeBudgetNS = 200_000_000
-	largeSagaValidateAllocBudget  = 36 << 20
+	largeSagaValidateAllocBudget  = 24 << 20
 	largeSagaStatusTimeBudgetNS   = 500_000_000
-	largeSagaStatusAllocBudget    = 90 << 20
+	largeSagaStatusAllocBudget    = 64 << 20
 )
 
 // Initial Apple M3 Pro / Go 1.26 measurements for the default fixture were
-// 88-96 ms and 28.5 MB/op for validate, and 177-185 ms and 71.2 MB/op for
+// 61-73 ms and 14.5 MB/op for validate, and 158-195 ms and 49.4 MB/op for
 // status. The reported budgets leave headroom for CI and slower filesystems;
 // they are metrics rather than assertions because benchmark hosts vary.
 
@@ -37,6 +37,8 @@ func BenchmarkValidateLargeSaga(b *testing.B) {
 	}
 	b.ReportMetric(float64(fixture.Atoms), "atoms/op")
 	b.ReportMetric(float64(fixture.Mappings), "mappings/op")
+	b.ReportMetric(float64(fixture.References), "references/op")
+	b.ReportMetric(float64(fixture.DiffFiles), "diff-files/op")
 	b.ReportMetric(float64(size), "saga-B/op")
 	b.ReportMetric(largeSagaValidateTimeBudgetNS, "time-budget-ns/op")
 	b.ReportMetric(largeSagaValidateAllocBudget, "alloc-budget-B/op")
@@ -56,6 +58,8 @@ func BenchmarkStatusLargeSaga(b *testing.B) {
 	}
 	b.ReportMetric(float64(fixture.Atoms), "atoms/op")
 	b.ReportMetric(float64(fixture.Mappings), "mappings/op")
+	b.ReportMetric(float64(fixture.References), "references/op")
+	b.ReportMetric(float64(fixture.DiffFiles), "diff-files/op")
 	b.ReportMetric(float64(size), "saga-B/op")
 	b.ReportMetric(largeSagaStatusTimeBudgetNS, "time-budget-ns/op")
 	b.ReportMetric(largeSagaStatusAllocBudget, "alloc-budget-B/op")
@@ -67,8 +71,8 @@ func largeSagaBenchmarkFixture(b *testing.B) (testfixture.LargeSaga, int64) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	if fixture.Atoms < largeSagaMinimumAtomBudget || fixture.Mappings != fixture.Atoms {
-		b.Fatalf("fixture scale regressed: atoms=%d mappings=%d", fixture.Atoms, fixture.Mappings)
+	if fixture.Atoms < largeSagaMinimumAtomBudget || fixture.Mappings != fixture.Atoms || fixture.References >= fixture.Mappings {
+		b.Fatalf("fixture scale regressed: atoms=%d mappings=%d references=%d", fixture.Atoms, fixture.Mappings, fixture.References)
 	}
 	size, err := treeSize(fixture.Root)
 	if err != nil {
