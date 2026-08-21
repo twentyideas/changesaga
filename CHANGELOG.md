@@ -10,12 +10,10 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
-Change Saga has not been released yet. The current source is version
-`0.2.0-dev`, the v2 format is experimental, and no compatibility promise is in
-effect. The first tagged release will move the shipped entries into a dated
-version section and reset this section for subsequent work.
+## [0.0.1] - 2026-08-21
 
-Until then, the honest summary of what exists:
+The first public release of Change Saga. The v2 format and CLI are experimental;
+there is no compatibility promise before 1.0.
 
 - A `change-saga` CLI covering `init`, `add-chapter`, `add-section`,
   `add-fragment`, `cover`, `thread`, `reply`, `review`, `validate`, `status`,
@@ -74,4 +72,5 @@ bottom. Group entries under Added / Changed / Deprecated / Removed / Fixed /
 Security, and mark anything that changes the on-disk format as **Format**.
 -->
 
-[Unreleased]: https://github.com/twentyideas/changesaga/commits/main
+[Unreleased]: https://github.com/twentyideas/changesaga/compare/v0.0.1...HEAD
+[0.0.1]: https://github.com/twentyideas/changesaga/releases/tag/v0.0.1
