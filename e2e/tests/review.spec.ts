@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { git, readJSON, relativeToSaga, reviewFiles } from "../support/fixture-builder.js";
+import { canonicalLineURI, git, readJSON, relativeToSaga, reviewFiles } from "../support/fixture-builder.js";
 import { expect, test } from "../support/test.js";
 
 async function submitWithNavigation(page: import("@playwright/test").Page, action: () => Promise<void>): Promise<void> {
@@ -84,7 +84,7 @@ test("approves, rejects, undoes, updates the progress map, and marks a source fi
   await expect(overviewControls.getByRole("button", { name: /Undo request for changes on Overview/ })).toHaveAttribute("aria-pressed", "true");
   await expect(progress.locator('[data-review-progress-note="Cover the rollback path."]')).toHaveCount(1);
 
-  await page.getByRole("button", { name: "Code Diff" }).click();
+  await page.getByRole("tab", { name: "Code Diff" }).click();
   const fileMenu = page.locator('summary[aria-label="Mark this file reviewed"]');
   await fileMenu.click();
   await submitWithNavigation(page, () => page.getByRole("button", { name: "Mark reviewed" }).click());
@@ -127,4 +127,34 @@ test("@critical keeps saga and source repositories separate and reloads Git-deri
   await expect(committedThread.locator(".thread-meta").first().getByTitle(/reviewer@example\.test.*committed/)).toBeVisible();
   await expect(page.locator('[data-review-controls][data-review-title="Overview"]')).toHaveAttribute("data-review-author", "E2E Reviewer");
   await expect(page.locator('[data-review-controls][data-review-title="Overview"]')).toHaveAttribute("data-review-detail", /reviewer@example\.test.*committed/);
+});
+
+test("@critical comments on a selected diff line and stores this saga's exact line identity", async ({ page, saga }) => {
+  await page.goto(`${saga.baseURL}/?view=code&file=${encodeURIComponent("src/app.go")}`);
+  const file = page.locator('article.file-diff[data-file-path="src/app.go"]');
+  const row = file.locator('[data-diff-row][data-side="new"]').first();
+  const line = Number(await row.getAttribute("data-line"));
+  expect(line).toBeGreaterThan(0);
+
+  // The line controls live inside the diff surface; this whole path is dead if
+  // an ancestor of the row swallows the click before the line handlers run.
+  await row.locator("[data-line-select]").click();
+  await expect(row.locator("[data-line-select]")).toHaveAttribute("aria-pressed", "true");
+  const toolbar = page.locator("[data-selection-toolbar]");
+  await expect(toolbar).toHaveClass(/open/);
+  await expect(toolbar.locator("[data-selection-label]")).toHaveText("1 line selected");
+
+  await toolbar.getByRole("button", { name: "Comment on the selected lines" }).click();
+  const composer = page.locator("form.diff-compose");
+  await expect(composer).toHaveClass(/open/);
+  await composer.locator('textarea[name="body"]').fill("This line needs a rollback note.");
+  await submitWithNavigation(page, () => composer.getByRole("button", { name: "Add" }).click());
+  await expect(page.getByText("This line needs a rollback note.")).toBeVisible();
+
+  const threads = reviewFiles(saga, /\/thread\.json$/).map((path) => readJSON<{ anchor: { type: string; diff?: { uri: string } } }>(path));
+  expect(threads).toHaveLength(1);
+  expect(threads[0].anchor.type).toBe("diff");
+  // The stored identity is this saga's declared repository and comparison, in
+  // the one canonical spelling the product accepts back.
+  expect(threads[0].anchor.diff?.uri).toBe(canonicalLineURI(saga.identity, "src/app.go", "new", line, line));
 });

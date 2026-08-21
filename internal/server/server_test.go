@@ -127,6 +127,35 @@ func TestMutationTokensAreRandomAndPlumbedIntoBrowserRequests(t *testing.T) {
 	}
 }
 
+// The browser suite proves the behavior; this pins the markup contract the
+// behavior depends on so a template edit cannot quietly drop it.
+func TestWorkspaceTabsAndClosedDrawerCarryAccessibleSemantics(t *testing.T) {
+	for _, fragment := range []string{
+		`role="tablist"`,
+		`role="tab" id="view-tab-saga"`,
+		`aria-controls="view-saga" aria-selected="true" tabindex="0"`,
+		`aria-controls="view-code" aria-selected="false" tabindex="-1"`,
+		`id="view-saga" role="tabpanel" aria-labelledby="view-tab-saga"`,
+		`id="view-code" role="tabpanel" aria-labelledby="view-tab-code"`,
+		`id="view-manifest" role="tabpanel" aria-labelledby="view-tab-manifest"`,
+		`<aside class="diff-drawer" aria-hidden="true" inert`,
+	} {
+		if !strings.Contains(pageTemplate, fragment) {
+			t.Errorf("page template is missing accessible chrome markup %q", fragment)
+		}
+	}
+	for _, fragment := range []string{
+		"tab.setAttribute('aria-selected', String(selected))",
+		"tab.tabIndex = selected ? 0 : -1",
+		"drawer.setAttribute('inert', '')",
+		"removeAttribute('inert')",
+	} {
+		if !strings.Contains(appJavaScript, fragment) {
+			t.Errorf("browser script no longer maintains %q", fragment)
+		}
+	}
+}
+
 func TestListenRefusesNonLoopbackAddressBeforeServing(t *testing.T) {
 	err := Listen(context.Background(), filepath.Join(t.TempDir(), "missing.saga"), "", "0.0.0.0:0", false, &bytes.Buffer{})
 	if err == nil || !strings.Contains(err.Error(), "non-loopback") {

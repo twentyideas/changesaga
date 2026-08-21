@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -65,7 +66,7 @@ func TestReviewRecordsAreAppendOnlyAndFileGranular(t *testing.T) {
 		t.Fatalf("each of five comments/replies should have its own content file: files=%d err=%v", commentFiles, err)
 	}
 
-	fileURI, err := diffuri.Build(diffuri.Reference{Repository: "https://example.test/a.git", Base: "aaa", Head: "bbb", Kind: "file", Path: "app.go"})
+	fileURI, err := diffuri.Build(diffuri.Reference{Repository: testRepository, Base: "aaa", Head: "bbb", Kind: "file", Path: "app.go"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,6 +216,41 @@ func TestFailedThreadAndReplyLeaveNoPartialEntity(t *testing.T) {
 	}
 }
 
+func TestMutationRefusesForeignRepositoryDiffIdentityWithoutSideEffect(t *testing.T) {
+	root := newTestSaga(t)
+	target := "urn:change-saga:test:fragment:overview"
+	foreign := func(kind, path string, line int) string {
+		reference := diffuri.Reference{Repository: "https://example.test/other.git", Base: "aaa", Head: "bbb", Kind: kind, Path: path}
+		if kind == "line" {
+			reference.Side, reference.Start, reference.End = "new", line, line
+		}
+		uri, err := diffuri.Build(reference)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return uri
+	}
+	own, err := AddThread(root, target, "Anchor me", saga.Anchor{Type: "target"}, "comment", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := treeSnapshot(t, root)
+
+	foreignAnchor := saga.Anchor{Type: "diff", Diff: &saga.DiffSelector{URI: foreign("line", "app.go", 4)}}
+	if err := AddDiffReview(root, foreign("file", "app.go", 0), "reviewed"); err == nil || !strings.Contains(err.Error(), "does not match the saga source repository") {
+		t.Fatalf("foreign diff review error = %v, want repository mismatch", err)
+	}
+	if _, err := AddThread(root, target, "Foreign anchor", foreignAnchor, "comment", "", nil); err == nil {
+		t.Fatal("thread anchored to a foreign repository was accepted")
+	}
+	if err := SetAnchor(root, own, foreignAnchor); err == nil {
+		t.Fatal("re-anchoring a thread to a foreign repository was accepted")
+	}
+	if after := treeSnapshot(t, root); after != before {
+		t.Fatalf("rejected foreign diff identity changed the saga:\nbefore:\n%s\nafter:\n%s", before, after)
+	}
+}
+
 func TestMutationRefusesStructurallyInvalidSagaWithoutSideEffect(t *testing.T) {
 	root := newTestSaga(t)
 	manifest := saga.Manifest{Schema: saga.SchemaURL, Version: 999, ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/repo.git", Base: "main", Head: "HEAD"}}
@@ -310,6 +346,42 @@ func assertNoCommittedOrTemporaryEntries(t *testing.T, path string) {
 	}
 }
 
+// testRepository is the source repository every test saga declares, so diff
+// identities in these tests are the saga's own unless a test deliberately
+// crosses repositories.
+const testRepository = "https://example.test/repo.git"
+
+// treeSnapshot renders every path and file size under root so a test can prove a
+// rejected mutation created, removed, or rewrote nothing at all.
+func treeSnapshot(t *testing.T, root string) string {
+	t.Helper()
+	var lines []string
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, relErr := filepath.Rel(root, path)
+		if relErr != nil {
+			return relErr
+		}
+		if entry.IsDir() {
+			lines = append(lines, rel+"/")
+			return nil
+		}
+		info, infoErr := entry.Info()
+		if infoErr != nil {
+			return infoErr
+		}
+		lines = append(lines, fmt.Sprintf("%s %d", rel, info.Size()))
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sort.Strings(lines)
+	return strings.Join(lines, "\n")
+}
+
 func newTestSaga(t *testing.T) string {
 	t.Helper()
 	root := filepath.Join(t.TempDir(), "test.saga")
@@ -317,7 +389,7 @@ func newTestSaga(t *testing.T) string {
 	if err := os.MkdirAll(fragmentDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	manifest := saga.Manifest{Schema: saga.SchemaURL, Version: saga.CurrentVersion, ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/repo.git", Base: "main", Head: "HEAD"}}
+	manifest := saga.Manifest{Schema: saga.SchemaURL, Version: saga.CurrentVersion, ID: "test", Title: "Test", Source: saga.Source{Repository: testRepository, Base: "main", Head: "HEAD"}}
 	if err := store.WriteJSON(filepath.Join(root, "saga.json"), manifest, true); err != nil {
 		t.Fatal(err)
 	}

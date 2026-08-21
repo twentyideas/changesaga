@@ -4,9 +4,9 @@ test("@critical navigates the saga, linked code, code tree, and coverage in both
   await expect(page).toHaveTitle("Wave One Review · Change Saga");
   await expect(page.getByRole("heading", { name: "Wave One Review" })).toBeVisible();
   await expect(page.getByText("Wave 1 connects the story to the exact source changes.")).toBeVisible();
-  // The authored review surface is checked independently of the persistent
-  // application chrome, whose two known ARIA defects are tracked separately.
-  await expectNoSeriousAccessibilityViolations(page, "main.content");
+  // The whole page, chrome included: the workspace tablist and the closed
+  // linked-code drawer are now correct, so nothing is scoped out of this scan.
+  await expectNoSeriousAccessibilityViolations(page);
 
   const contents = page.getByRole("navigation", { name: "Contents" });
   const architectureToggle = contents.getByRole("button", { name: "Toggle Architecture" });
@@ -33,7 +33,7 @@ test("@critical navigates the saga, linked code, code tree, and coverage in both
   await drawer.locator("details.attached-file").filter({ hasText: "src/app.go" }).locator("summary").click();
   await drawer.getByRole("link", { name: "Open full file in Code Diff" }).click();
 
-  await expect(page.getByRole("button", { name: "Code Diff" })).toHaveClass(/active/);
+  await expect(page.getByRole("tab", { name: "Code Diff" })).toHaveAttribute("aria-selected", "true");
   await expect(page.locator('[data-file-path="src/app.go"].file-diff')).toBeVisible();
   const changedFiles = page.getByRole("tree", { name: "Changed files" });
   const docsFile = changedFiles.locator('[role="treeitem"][data-tree-path="docs/guide.md"]');
@@ -48,25 +48,25 @@ test("@critical navigates the saga, linked code, code tree, and coverage in both
   await expect(page.locator('[data-file-path="docs/guide.md"].file-diff')).toBeVisible();
   const related = page.getByRole("complementary", { name: "Explanations for this file" });
   await related.getByRole("link", { name: "Overview", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Saga" })).toHaveClass(/active/);
+  await expect(page.getByRole("tab", { name: "Saga" })).toHaveAttribute("aria-selected", "true");
   await expect(overview).toBeVisible();
 
-  await page.getByRole("button", { name: "Coverage" }).click();
+  await page.getByRole("tab", { name: "Coverage" }).click();
   await expect(page.getByRole("button", { name: "Code → Saga" })).toHaveAttribute("aria-pressed", "true");
   const appCoverage = page.locator('details.manifest-file[data-manifest-search="src/app.go"]');
   await appCoverage.locator("summary").click();
   await appCoverage.getByRole("link", { name: /^Overview/ }).first().click();
-  await expect(page.getByRole("button", { name: "Saga" })).toHaveClass(/active/);
+  await expect(page.getByRole("tab", { name: "Saga" })).toHaveAttribute("aria-selected", "true");
   await expect(overview).toBeVisible();
 
-  await page.getByRole("button", { name: "Coverage" }).click();
+  await page.getByRole("tab", { name: "Coverage" }).click();
   await page.getByRole("button", { name: "Saga → Code" }).click();
   const overviewTarget = page.locator("details.manifest-target").filter({ hasText: "Overview" }).first();
   await overviewTarget.locator(":scope > summary").click();
   const targetFile = overviewTarget.locator("details.manifest-target-file").filter({ hasText: "src/app.go" });
   await targetFile.locator("summary").click();
   await targetFile.getByRole("link", { name: /Open in Code Diff/ }).click();
-  await expect(page.getByRole("button", { name: "Code Diff" })).toHaveClass(/active/);
+  await expect(page.getByRole("tab", { name: "Code Diff" })).toHaveAttribute("aria-selected", "true");
   await expect(page.locator('[data-file-path="src/app.go"].file-diff')).toBeVisible();
   expect(saga.sourceRepo).not.toBe(saga.sagaRepo);
 });

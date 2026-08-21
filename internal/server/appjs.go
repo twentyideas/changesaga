@@ -16,6 +16,7 @@ const appJavaScript = `(() => {
   let annotationDrag = null;
   let noteNudge = null;
   let annotationColorTouched = false;
+  let drawerOpener = null;
   const noteDefaultColor = '#f2bd4b';
 
   const languageKeywords = {
@@ -549,7 +550,9 @@ const appJavaScript = `(() => {
         gridRow += count;
       }
     });
-    qa('[data-layout]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.layout === diffLayout)));
+    // Scoped to the toolbar buttons: the diff surface also carries data-layout,
+    // and aria-pressed is not a valid attribute on that container.
+    qa('button[data-layout]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.layout === diffLayout)));
   }
 
   function setTreeVisible(visible) {
@@ -641,7 +644,13 @@ const appJavaScript = `(() => {
   function setView(name, updateURL = true) {
     if (!q('[data-view="'+name+'"]')) name = 'saga';
     qa('[data-view]').forEach(view => view.classList.toggle('active', view.dataset.view === name));
-    qa('[data-view-tab]').forEach(tab => tab.classList.toggle('active', tab.dataset.viewTab === name));
+    qa('[data-view-tab]').forEach(tab => {
+      const selected = tab.dataset.viewTab === name;
+      tab.classList.toggle('active', selected);
+      tab.setAttribute('aria-selected', String(selected));
+      // Roving focus: only the selected tab is in the sequential tab order.
+      tab.tabIndex = selected ? 0 : -1;
+    });
     const sagaSide = q('.saga-side');
     const codeSide = q('.code-side');
     const toolbox = q('.annotation-toolbox');
@@ -715,6 +724,7 @@ const appJavaScript = `(() => {
   function openDrawer(templateID) {
     const source = document.getElementById(templateID);
     if (!source) return;
+    drawerOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const body = q('.drawer-body');
     body.innerHTML = source.innerHTML;
     const attached = q('[data-attached-title]', body);
@@ -722,6 +732,7 @@ const appJavaScript = `(() => {
     if (heading) heading.textContent = attached?.dataset.attachedTitle ? 'Linked code · ' + attached.dataset.attachedTitle : 'Linked code';
     highlightCode(body);
     q('.diff-drawer').classList.add('open');
+    q('.diff-drawer').removeAttribute('inert');
     q('.diff-drawer').setAttribute('aria-hidden', 'false');
     q('.drawer-backdrop').classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -731,8 +742,14 @@ const appJavaScript = `(() => {
   function closeDrawer() {
     const drawer = q('.diff-drawer');
     if (!drawer) return;
+    const wasOpen = drawer.classList.contains('open');
     drawer.classList.remove('open');
     drawer.setAttribute('aria-hidden', 'true');
+    // Return focus before the drawer becomes inert, otherwise the browser drops
+    // the reviewer's focus to the document body.
+    if (wasOpen && drawer.contains(document.activeElement) && drawerOpener?.isConnected) drawerOpener.focus();
+    drawer.setAttribute('inert', '');
+    drawerOpener = null;
     q('.drawer-backdrop').classList.remove('open');
     document.body.style.overflow = '';
   }
@@ -1445,7 +1462,9 @@ const appJavaScript = `(() => {
       if (!hidden) q('.code-toolbar [data-toggle-related]')?.focus();
       return;
     }
-    const layout = event.target.closest('[data-layout]');
+    // Scoped to the toolbar buttons, otherwise every click inside a diff surface
+    // matches its data-layout container and never reaches the line handlers below.
+    const layout = event.target.closest('button[data-layout]');
     if (layout) { applyDiffLayout(layout.dataset.layout); return; }
     const lineSelect = event.target.closest('[data-line-select]');
     if (lineSelect) { selectDiffLine(lineSelect, event.shiftKey); return; }
@@ -1552,6 +1571,19 @@ const appJavaScript = `(() => {
         event.preventDefault();
         performHistoryAction(direction);
       }
+      return;
+    }
+    const workspaceTab = event.target.closest?.('[data-view-tab]');
+    if (workspaceTab && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+      const tabs = qa('[data-view-tab]');
+      const index = tabs.indexOf(workspaceTab);
+      const step = event.key === 'ArrowLeft' ? -1 : 1;
+      const next = event.key === 'Home' ? tabs[0]
+        : event.key === 'End' ? tabs[tabs.length - 1]
+        : tabs[(index + step + tabs.length) % tabs.length];
+      event.preventDefault();
+      setView(next.dataset.viewTab);
+      next.focus();
       return;
     }
     const treeItem = event.target.closest('.file-tree [role=treeitem]');

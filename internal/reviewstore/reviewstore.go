@@ -43,6 +43,9 @@ func AddThread(root, target, body string, anchor saga.Anchor, kind, replacement 
 	now := time.Now().UTC()
 	id = store.EventID(now)
 	err = mutate(root, func() error {
+		if err := verifyAnchorRepository(root, anchor); err != nil {
+			return err
+		}
 		threadsDir, err := store.EnsureDirWithin(root, filepath.Join(root, "___review", "threads"))
 		if err != nil {
 			return err
@@ -78,6 +81,9 @@ func AddDiffReview(root, uri, state string) error {
 		return fmt.Errorf("diff review requires reviewed or unreviewed state")
 	}
 	return mutate(root, func() error {
+		if err := verifySagaRepository(root, reference); err != nil {
+			return err
+		}
 		dir, err := store.EnsureDirWithin(root, filepath.Join(root, "___review", "diffs"))
 		if err != nil {
 			return err
@@ -146,6 +152,9 @@ func SetAnchor(root, threadID string, anchor saga.Anchor) error {
 		return err
 	}
 	return mutate(root, func() error {
+		if err := verifyAnchorRepository(root, anchor); err != nil {
+			return err
+		}
 		threadDir, err := existingThreadDir(root, threadID)
 		if err != nil {
 			return err
@@ -175,6 +184,37 @@ func AddReview(root, targetDir, state, body string) error {
 		review := saga.Review{Version: saga.CurrentVersion, ID: id, State: state, Body: strings.TrimSpace(body), CreatedAt: now}
 		return store.WriteJSON(filepath.Join(dir, id+"-"+state+".json"), review, true)
 	})
+}
+
+// verifySagaRepository refuses review records whose diff identity belongs to a
+// different source repository than the saga declares. Diff URIs carry their own
+// repository, base, and head, so without this check a review decision could be
+// filed against a comparison this saga never describes. It runs inside the
+// writer lock and before any write, so a rejected mutation leaves nothing behind.
+func verifySagaRepository(root string, reference diffuri.Reference) error {
+	document, _, err := saga.Load(root)
+	if err != nil {
+		return fmt.Errorf("cannot read the saga source repository: %w", err)
+	}
+	repository, err := diffuri.CanonicalRepository(document.Manifest.Source.Repository)
+	if err != nil {
+		return fmt.Errorf("saga declares an invalid source repository: %w", err)
+	}
+	if reference.Repository != repository {
+		return fmt.Errorf("diff URI repository %q does not match the saga source repository %q", reference.Repository, repository)
+	}
+	return nil
+}
+
+func verifyAnchorRepository(root string, anchor saga.Anchor) error {
+	if anchor.Type != "diff" || anchor.Diff == nil {
+		return nil
+	}
+	reference, err := diffuri.Parse(anchor.Diff.URI)
+	if err != nil {
+		return fmt.Errorf("diff anchor requires a valid diff URI: %w", err)
+	}
+	return verifySagaRepository(root, reference)
 }
 
 func mutate(root string, operation func() error) error {
