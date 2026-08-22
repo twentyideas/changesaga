@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -36,7 +37,7 @@ func TestManagedServerStatusAndStopLifecycle(t *testing.T) {
 		t.Fatalf("managed server did not publish active state: %#v, %v", state, err)
 	}
 	info, statErr := os.Stat(statePath)
-	if statErr != nil || info.Mode().Perm()&0o077 != 0 {
+	if statErr != nil || runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
 		t.Fatalf("runtime state must be private: info=%v err=%v", info, statErr)
 	}
 

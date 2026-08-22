@@ -51,6 +51,13 @@ tool, and what they have to do about it.
   PID and URL. `change-saga serve status` and `serve stop` discover and stop
   managed instances using private per-user runtime state.
 
+### Fixed
+
+- Windows writers now serialize with a kernel-held, no-sharing lock handle,
+  avoiding transient access-denied failures during concurrent saga mutations.
+- Runtime-state permission tests now use platform-appropriate guarantees
+  instead of interpreting Windows mode bits as POSIX permissions.
+
 ## [0.0.3] - 2026-08-21
 
 ### Added
