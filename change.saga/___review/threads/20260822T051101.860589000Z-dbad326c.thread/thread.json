@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "id": "20260822T051101.860589000Z-dbad326c",
+  "target": "urn:change-saga:changesaga-codebase:fragment:changesaga-codebase-overview",
+  "anchor": {
+    "type": "note",
+    "note": {
+      "text": "Leave a sticky somewhere too",
+      "x": 0.7651654411764706,
+      "y": 0.45486389493376095,
+      "color": "#f2bd4b"
+    },
+    "coordinate_space": "normalized"
+  },
+  "kind": "comment",
+  "created_at": "2026-08-22T05:11:01.860589Z"
+}
