@@ -10,6 +10,29 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-08-22
+
+### Added
+
+- Deterministic server and browser performance budgets now guard large-Saga
+  payload size, DOM size, diff-row count, and on-demand request behavior.
+- Large-Saga benchmarks exercise a fully covered comparison instead of a
+  coverage-free approximation, while wall-clock and allocation measurements
+  remain diagnostic to avoid flaky CI thresholds.
+
+### Changed
+
+- Coverage files and linked-code drawers now fetch diff bodies only when a
+  reviewer opens them. A representative 38,209-atom Saga drops from roughly
+  115 MB to 3 MB of initial HTML and from 2.5 million to about 30,000 DOM
+  elements without changing chapter links or review workflows.
+- The server reuses a review snapshot while both the Saga tree and resolved Git
+  comparison remain unchanged. Working-tree comparisons are never cached, and
+  review mutations invalidate the snapshot.
+- Diff rows carry one canonical diff URI, and authored file notes are matched
+  against changed lines grouped by kind and path instead of scanning every note
+  against every line.
+
 ## [0.0.6] - 2026-08-21
 
 ### Added
