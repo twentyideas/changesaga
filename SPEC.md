@@ -328,6 +328,37 @@ Changes under a `.saga` path in the source repository are classified separately
 as saga-only changes. When source and saga are different repositories, all saga
 history is naturally outside the source comparison.
 
+### 6.1 Diff-based maintenance impact
+
+`change-saga compare` is a read-only evidence projection for maintaining a Saga
+as its source evolves. It MUST NOT compare fragment bytes, rendered prose,
+diagram geometry, review comments, or other authored content.
+
+The first Saga is the maintained document. An incoming Git comparison may be
+provided directly or through another Saga's `source` declaration. The engine
+reconstructs the maintained Saga's comparison at the incoming comparison's
+resolved base and evaluates its committed evidence there. It then classifies
+incoming source atoms as:
+
+- `conflicting_intersection` when a removed line or destructive file event
+  intersects source evidence already owned by a Saga target;
+- `additive_near_owned_code` when a new line belongs to the same replacement
+  block or is immediately adjacent to owned baseline code; or
+- `new_content_required` when no existing evidence owner can be derived.
+
+The result identifies stable target URNs, target kinds, content locations,
+evidence files, and exact incoming atoms. A direct intersection means the
+target MUST be revisited. An adjacent addition is a prompt for consideration,
+not proof that narrative content is stale. An ownerless change requires a new
+or newly expanded narrative target. If the maintained Saga is incomplete or
+stale at the incoming base, the result carries a `baseline_incomplete`
+diagnostic and the command exits 3; an implementation MUST NOT claim exhaustive
+impact in that state.
+
+This projection does not rewrite evidence or advance the Saga's declared head.
+Its purpose is to produce the formal maintenance work queue before content and
+coverage are reconciled against the new source state.
+
 ## 7. Claims and verification
 
 Author claims are independent `___claims/<id>.json` records conforming to
@@ -489,6 +520,9 @@ hide authored content behind a valid-looking saga. Other names beginning with
 - `change-saga status --json` emits uncovered atoms including ready-to-use absolute
   URIs, stale links, overlap, target totals, saga-only changes, and
   `coverage_scope: "mapping_only"`.
+- `change-saga compare` projects a direct Git range or another Saga's source
+  comparison onto a maintained Saga's evidence owners. It compares source
+  diffs only and emits stable update locations plus ownerless changes.
 - `change-saga query mappings --sort scrutiny` ranks broad or thin evidence
   records without claiming that a low score proves correctness. `query claims`
   and `query verifications` expose assertions, exact evidence, attribution, and

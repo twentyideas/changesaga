@@ -10,6 +10,21 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+### Added
+
+- `change-saga compare` projects a PR's Git range or another Saga's source
+  comparison onto a maintained codebase Saga. Its diff-only impact report names
+  directly intersected targets, nearby additive work, ownerless changes,
+  content paths, and evidence files without comparing authored prose or media.
+- Browser coverage now proves that an SVG landmark linked only to a file
+  lifecycle event can still expand the complete source patch in place.
+
+### Changed
+
+- Linked-code files load their complete diff lazily and highlight the exact
+  evidence owned by the selected narrative element. Event-only mappings no
+  longer strand reviewers on a metadata row with no source code.
+
 ## [0.0.5] - 2026-08-21
 
 ### Added

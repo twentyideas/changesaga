@@ -870,7 +870,7 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	if strings.Contains(renderedPage, "Attached code") || strings.Contains(renderedPage, "Linked diffs</h2>") || !strings.Contains(renderedPage, `<strong>Linked code</strong>`) {
 		t.Fatal("attached-code drawer retained redundant header chrome")
 	}
-	if !strings.Contains(renderedPage, `class="attached-file"`) || !strings.Contains(renderedPage, "Adds the package entrypoint so the example compiles.") || !strings.Contains(renderedPage, "Open full file in Code Diff") || strings.Contains(renderedPage, `<details class="attached-file" open`) {
+	if !strings.Contains(renderedPage, `class="attached-file" data-full-diff-href=`) || !strings.Contains(renderedPage, "Adds the package entrypoint so the example compiles.") || !strings.Contains(renderedPage, "Open in Code Diff") || strings.Contains(renderedPage, `<details class="attached-file" open`) || strings.Contains(renderedPage, "Linked ranges only") {
 		t.Fatal("attached code was not presented as a collapsed, explained file list")
 	}
 	if !strings.Contains(renderedPage, `data-annotation-color`) || !strings.Contains(renderedPage, `stroke="#336699"`) || !strings.Contains(renderedPage, `data-copy-link="#`+domID("thread:thread")+`"`) || !strings.Contains(renderedPage, `data-copy-link="#`+domID("message:message")+`"`) {

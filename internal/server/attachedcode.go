@@ -21,6 +21,7 @@ type attachedCodeView struct {
 type attachedCodeFileView struct {
 	Path           string
 	Href           string
+	Target         string
 	Summary        string
 	MissingSummary bool
 	Added          int
@@ -39,7 +40,7 @@ func makeAttachedCodeView(title, target string, atoms []gitdiff.Atom, evidence [
 		path := effectiveAtomPath(atom)
 		file := byPath[path]
 		if file == nil {
-			file = &attachedCodeFileView{Path: path, Href: CodeDiffURL(path, "")}
+			file = &attachedCodeFileView{Path: path, Href: CodeDiffURL(path, ""), Target: target}
 			byPath[path] = file
 			view.Files = append(view.Files, file)
 		}

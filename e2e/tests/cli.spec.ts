@@ -164,3 +164,52 @@ test("@critical refuses a checkout whose origin does not match the declared repo
 
   git(sourceRepo, "remote", "set-url", "origin", declaredRepository);
 });
+
+test("@critical projects a PR diff and PR Saga onto the codebase Saga without comparing authored content", async ({ sagaRepositories }) => {
+  const { sagaRepo, sagaRoot, sourceRepo } = sagaRepositories;
+  const incomingBase = git(sourceRepo, "rev-parse", "HEAD");
+  writeFileSync(join(sourceRepo, "src", "app.go"), `package demo\n\nfunc Greeting(name string) string {\n\treturn "welcome, " + name\n}\n\nfunc Ready() bool {\n\treturn true\n}\n\nfunc Audited() bool {\n\treturn true\n}\n`);
+  writeFileSync(join(sourceRepo, "new-capability.go"), "package demo\n\nconst NewCapability = true\n");
+  git(sourceRepo, "add", ".");
+  git(sourceRepo, "commit", "-m", "change greeting and add capability");
+
+  const direct = runCLI(sagaRepositories, [
+    "compare", "--json", "--repo", sourceRepo, "--base", incomingBase, "--head", "HEAD", sagaRoot
+  ]);
+  expect(direct.status, direct.stderr).toBe(0);
+  const directResult = JSON.parse(direct.stdout) as {
+    schema: string;
+    mode: string;
+    basis: string;
+    content_compared: boolean;
+    baseline: { complete: boolean };
+    summary: { direct_intersections: number; contextual_additions: number; new_content_required: number; targets_must_update: number };
+    targets: Array<{ action: string; target: string; content_path?: string; changes: Array<{ relationship: string }> }>;
+    new_content: Array<{ atom: { path: string } }>;
+  };
+  expect(directResult.schema).toBe("change-saga.impact/v1");
+  expect(directResult.mode).toBe("saga_to_diff");
+  expect(directResult.basis).toBe("source_diffs_only");
+  expect(directResult.content_compared).toBe(false);
+  expect(directResult.baseline.complete).toBe(true);
+  expect(directResult.summary.direct_intersections).toBeGreaterThan(0);
+  expect(directResult.summary.contextual_additions).toBeGreaterThan(0);
+  expect(directResult.summary.targets_must_update).toBeGreaterThan(0);
+  expect(directResult.targets.some((target) => target.action === "must_update" && target.content_path?.endsWith("content.md"))).toBe(true);
+  expect(directResult.new_content.some((change) => change.atom.path === "new-capability.go")).toBe(true);
+
+  const prSaga = join(sagaRepo, "incoming-pr.saga");
+  const initialized = runCLI(sagaRepositories, [
+    "init", "--repo", sourceRepo, "--repository", declaredRepository, "--base", incomingBase, "--head", "HEAD",
+    "--id", "incoming-pr", "--title", "Incoming PR", prSaga
+  ]);
+  expect(initialized.status, initialized.stderr).toBe(0);
+  const sagaComparison = runCLI(sagaRepositories, [
+    "compare", "--json", "--repo", sourceRepo, "--against-repo", sourceRepo, "--against-saga", prSaga, sagaRoot
+  ]);
+  expect(sagaComparison.status, sagaComparison.stderr).toBe(0);
+  const sagaResult = JSON.parse(sagaComparison.stdout) as { mode: string; incoming: { saga_id: string }; summary: typeof directResult.summary };
+  expect(sagaResult.mode).toBe("saga_to_saga");
+  expect(sagaResult.incoming.saga_id).toBe("incoming-pr");
+  expect(sagaResult.summary).toEqual(directResult.summary);
+});

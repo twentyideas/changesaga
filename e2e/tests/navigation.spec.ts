@@ -26,7 +26,7 @@ test("@critical navigates the saga, linked code, code tree, and coverage in both
   await expect(drawer.getByText("src/app.go", { exact: true })).toBeVisible();
   await expect(drawer.getByText("docs/guide.md", { exact: true })).toBeVisible();
   await drawer.locator("details.attached-file").filter({ hasText: "src/app.go" }).locator("summary").click();
-  await drawer.getByRole("link", { name: "Open full file in Code Diff" }).click();
+  await drawer.getByRole("link", { name: "Open in Code Diff" }).click();
 
   await expect(page.getByRole("tab", { name: "Code Diff" })).toHaveAttribute("aria-selected", "true");
   await expect(page.locator('[data-file-path="src/app.go"].file-diff')).toBeVisible();
@@ -103,6 +103,13 @@ test("renders Markdown, SVG, raster, and interactive HTML fragments", async ({ p
   const elementDrawer = page.getByRole("complementary", { name: "Linked code" });
   await expect(elementDrawer).toHaveAttribute("aria-hidden", "false");
   await expect(elementDrawer.locator("details.attached-file")).toHaveCount(1);
+  const elementFile = elementDrawer.locator("details.attached-file");
+  await elementFile.locator("summary").click();
+  await expect(elementFile.getByText("Full file diff · linked changes highlighted")).toBeVisible();
+  await expect(elementFile.locator(".diff-row.new")).toHaveCount(3);
+  await expect(elementFile.locator(".diff-row.linked-evidence")).toHaveCount(1);
+  await expect(elementFile).toContainText(".review {");
+  await expect(elementFile).not.toContainText("Linked ranges only");
   await elementDrawer.getByRole("button", { name: "Close linked code" }).click();
   const edgeHotspot = diagramFragment.locator('[data-auto-landmark-hotspot="true"][data-element-id="evidence-handoff"]');
   await expect(edgeHotspot).toBeVisible();

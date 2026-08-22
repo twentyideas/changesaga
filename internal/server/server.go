@@ -260,6 +260,7 @@ func newMux(application *app) *http.ServeMux {
 	mux.HandleFunc("GET /chapters/{chapter}", application.page)
 	mux.HandleFunc("GET /", application.page)
 	mux.HandleFunc("GET /app.js", application.javascript)
+	mux.HandleFunc("GET /api/file-diff", application.fileDiffFragment)
 	mux.HandleFunc("GET /api/runtime", application.runtimeStatus)
 	mux.HandleFunc("POST /api/runtime-stop", application.runtimeStop)
 	mux.HandleFunc("GET /f/{id}/{path...}", application.fragmentFile)
@@ -275,6 +276,47 @@ func newMux(application *app) *http.ServeMux {
 func (a *app) runtimeStatus(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = io.WriteString(w, `{"ok":true}`+"\n")
+}
+
+// fileDiffFragment lazily renders one complete changed file for the linked-code
+// drawer. Keeping this out of every landmark template avoids duplicating large
+// patches throughout the page while still letting a reviewer inspect real code
+// without leaving the Saga.
+func (a *app) fileDiffFragment(w http.ResponseWriter, r *http.Request) {
+	filePath := r.URL.Query().Get("file")
+	if filePath == "" {
+		http.Error(w, "missing changed file", http.StatusBadRequest)
+		return
+	}
+	document, _, err := saga.Load(a.root)
+	if err != nil {
+		http.Error(w, "The saga could not be loaded.", http.StatusInternalServerError)
+		return
+	}
+	applyGitAttribution(r.Context(), gitattribution.New(r.Context(), a.root), document)
+	changes, err := gitdiff.Read(r.Context(), a.sourceDir, document.Manifest.Source.Repository, document.Manifest.Source.Base, document.Manifest.Source.Head)
+	if err != nil {
+		http.Error(w, "The source comparison could not be loaded.", http.StatusInternalServerError)
+		return
+	}
+	threadsByDiff := map[string][]*threadView{}
+	for _, thread := range document.Threads {
+		if thread.State == "withdrawn" || thread.Anchor.Type != "diff" || thread.Anchor.Diff == nil {
+			continue
+		}
+		threadsByDiff[thread.Anchor.Diff.URI] = append(threadsByDiff[thread.Anchor.Diff.URI], makeThreadView(thread))
+	}
+	for _, file := range makeFileViews(changes, saga.SagaTarget(document.Manifest.ID), document.DiffReviews, threadsByDiff) {
+		if file.Path != filePath {
+			continue
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		if err := a.template.ExecuteTemplate(w, "attached-file-context", file); err != nil {
+			http.Error(w, "The file diff could not be rendered.", http.StatusInternalServerError)
+		}
+		return
+	}
+	http.Error(w, "changed file not found", http.StatusNotFound)
 }
 
 func (a *app) runtimeStop(w http.ResponseWriter, r *http.Request) {

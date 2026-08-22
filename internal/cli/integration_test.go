@@ -155,6 +155,7 @@ func TestInstallSkillPrintsPortableAuthoringContract(t *testing.T) {
 		"interactive HTML", "data flows", "data models", "exact diff atoms",
 		"zero citations", "code-bearing SVG/HTML", "node, edge, arrow, transition", "SVG element bounds become on-canvas links automatically",
 		"change-saga query mappings --sort scrutiny", "change-saga add-claim", "change-saga verify-claim",
+		"change-saga compare --json", "must_update", "new_content", "source diffs only",
 		"read the code diff independently", "All-atoms-mapped is an omission invariant",
 	} {
 		if !strings.Contains(text, expected) {

@@ -98,6 +98,8 @@ change-saga remove-coverage --record <evidence_file> <name>.saga
 change-saga query claims --saga <name>.saga --status unverified
 change-saga validate --json <name>.saga
 change-saga status --json --repo <source-checkout> <name>.saga
+change-saga compare --json --repo <source-checkout> --base <incoming-base> --head <incoming-head> <maintained.saga>
+change-saga compare --json --repo <source-checkout> --against-saga <incoming.saga> <maintained.saga>
 change-saga open --detach --repo <source-checkout> <name>.saga
 change-saga serve status <name>.saga
 change-saga serve stop <name>.saga

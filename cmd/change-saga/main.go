@@ -67,6 +67,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		err = cli.Validate(ctx, args[1:], stdout)
 	case "status", "check":
 		err = cli.Status(ctx, args[1:], stdout)
+	case "compare":
+		err = cli.Compare(ctx, args[1:], stdout)
 	case "query":
 		err = cli.Query(ctx, args[1:], stdout)
 	case "serve", "open":

@@ -212,6 +212,26 @@ current story, improve the structure or call out the unexplained change.
 
 ## Reconcile an evolving change
 
+Before editing an existing Saga for a newly merged or proposed change, derive
+the maintenance work queue from source evidence rather than comparing authored
+content:
+
+```sh
+change-saga compare --json --repo <source-checkout> \
+  --base <incoming-base> --head <incoming-head> <maintained.saga>
+change-saga compare --json --repo <source-checkout> \
+  --against-saga <incoming.saga> <maintained.saga>
+```
+
+The first Saga is the maintained document. `must_update` targets have a direct
+conflicting intersection with removed, replaced, renamed, or otherwise
+destructive source evidence. `consider_update` targets neighbor additive code
+in the same implementation area. `new_content` atoms have no existing owner
+and require a new or expanded explanation. Follow the returned target URNs,
+`content_path`, and `evidence_files`; do not compare prose, SVG, HTML, or other
+fragment bytes to infer impact. Stop and repair the baseline first when the
+result reports `baseline_incomplete`, because the work queue is not exhaustive.
+
 Run status against the new head, then handle both sides of drift:
 
 - Remove or revise stale evidence with `remove-coverage` or
@@ -235,7 +255,7 @@ placed sticky notes.
 Thread messages are fragments and may include images, SVG, or HTML attachments.
 Use Saga view to follow the narrative and open attached code in the side
 drawer. Read the collapsed file summaries first, then expand a file to inspect
-its linked ranges. Use Code Diff view for the complete file tree. Diff comments,
+the complete patch with its linked evidence highlighted. Use Code Diff view for the complete file tree. Diff comments,
 suggestions, reviewed-file state, and fragment approvals are committed overlay
 data and remain visible across both views.
 Choose Sticky and click a fragment to place a note, type its text, then Add note

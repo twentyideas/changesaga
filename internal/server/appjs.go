@@ -1028,6 +1028,51 @@ const appJavaScript = `(() => {
     showDrawer(returnOpener);
   }
 
+  const attachedFileCache = new Map();
+
+  async function hydrateAttachedFile(details) {
+    if (!details?.open || details.dataset.fullDiffLoaded === 'true' || details.dataset.fullDiffLoading === 'true') return;
+    const href = details.dataset.fullDiffHref;
+    const surface = q('.attached-file-diff', details);
+    const status = q('[data-full-diff-status]', details);
+    const linkedRows = q('[data-linked-diff-rows]', details);
+    if (!href || !surface || !linkedRows) return;
+    details.dataset.fullDiffLoading = 'true';
+    surface.classList.add('loading');
+    if (status) status.textContent = 'Loading full file diff…';
+    const linkedRefs = new Set(qa('[data-diff-ref]', linkedRows).map(element => element.dataset.diffRef).filter(Boolean));
+    try {
+      let request = attachedFileCache.get(href);
+      if (!request) {
+        request = fetch(href, {headers:{Accept:'text/html'}}).then(async response => {
+          if (!response.ok) throw new Error('diff request failed');
+          return response.text();
+        });
+        attachedFileCache.set(href, request);
+      }
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = await request;
+      const fullDiff = q('[data-attached-full-diff]', wrapper)?.parentElement;
+      if (!fullDiff) throw new Error('diff response was incomplete');
+      const target = details.dataset.attachedTarget || '';
+      qa('[data-target]', fullDiff).forEach(element => { element.dataset.target = target; });
+      qa('.diff-row', fullDiff).forEach(row => {
+        const reference = row.dataset.diffRef || q('[data-diff-ref]', row)?.dataset.diffRef;
+        if (reference && linkedRefs.has(reference)) row.classList.add('linked-evidence');
+      });
+      linkedRows.replaceChildren(...Array.from(fullDiff.childNodes));
+      details.dataset.fullDiffLoaded = 'true';
+      if (status) status.textContent = 'Full file diff · linked changes highlighted';
+      highlightCode(linkedRows);
+    } catch (_) {
+      attachedFileCache.delete(href);
+      if (status) status.textContent = 'Could not load the full file diff · showing linked changes';
+    } finally {
+      delete details.dataset.fullDiffLoading;
+      surface.classList.remove('loading');
+    }
+  }
+
   function openFragmentDrawer(anchor, opener) {
     const destination = document.getElementById(anchor);
     const fragment = destination?.matches('.fragment') ? destination : destination?.closest('.fragment');
@@ -1839,6 +1884,11 @@ const appJavaScript = `(() => {
     selectStickyNote(note);
     beginNoteEdit(note);
   });
+
+  document.addEventListener('toggle', event => {
+    const attachedFile = event.target.closest?.('details[data-full-diff-href]');
+    if (attachedFile?.open) hydrateAttachedFile(attachedFile);
+  }, true);
 
   document.addEventListener('submit', event => {
     const form = event.target;

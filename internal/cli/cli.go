@@ -85,7 +85,7 @@ func (e *StatusError) Error() string { return "command reported a non-success st
 // overview, the per-command -h banner, and argument errors cannot drift apart.
 var commandOrder = []string{
 	"init", "add-chapter", "add-section", "add-fragment", "set-fragment-content", "add-landmark", "cover", "remove-coverage", "replace-coverage", "add-claim", "verify-claim",
-	"thread", "reply", "review", "validate", "status", "query",
+	"thread", "reply", "review", "validate", "status", "compare", "query",
 	"serve", "open", "install-skill", "spec",
 }
 
@@ -106,6 +106,7 @@ var commandUsage = map[string]string{
 	"review":               "change-saga review [flags] <saga>",
 	"validate":             "change-saga validate [--json] [--fix] <saga>",
 	"status":               "change-saga status [--json] [--repo PATH] <saga>",
+	"compare":              "change-saga compare [--json] [--repo PATH] (--against-saga PATH | --base REV [--head REV]) <saga>",
 	"query":                "change-saga query <operation> --saga PATH [--repo PATH] [operation flags]",
 	"serve":                "change-saga serve [--addr ADDR] [--repo PATH] [--open] [--detach] <saga>",
 	"open":                 "change-saga open [--addr ADDR] [--repo PATH] [--detach] <saga>",
@@ -160,6 +161,7 @@ failing record leaves the saga untouched.`,
 	"serve":            "Serve the saga on loopback for review. Detached instances are managed with\nchange-saga serve status [SAGA] and change-saga serve stop [SAGA].",
 	"install-skill":    "Print the agent-agnostic prompt that installs the change-saga authoring skill.\nPipe it to a coding agent; it neither writes to this repository nor creates a saga.",
 	"validate":         "Check the saga against the format. --fix adds missing stable anchors to Markdown\nheadings in narrative fragments and changes nothing else.",
+	"compare":          "Project an incoming Git comparison onto the maintained Saga's source evidence.\nThe command never compares prose or visual content. Direct intersections identify\ntargets that must update; nearby additions identify targets to reconsider; ownerless\nchanges require new Saga content.",
 }
 
 func flagWasSet(flags *flag.FlagSet, name string) bool {
@@ -1467,6 +1469,18 @@ Use this authoring loop, consulting each command's "-h" output for exact flags:
 9. Repeat status, then run "change-saga validate --json" before "change-saga open" presents
    the authored proposal for review. "change-saga validate --fix" adds missing
    stable anchors to Markdown headings and changes nothing else.
+
+## Maintain a codebase Saga
+
+Use "change-saga compare --json --repo <source-checkout> --base <incoming-base>
+--head <incoming-head> <maintained.saga>" or supply "--against-saga
+<incoming.saga>". This compares source diffs only, never authored fragment
+content. Follow "must_update" targets for direct conflicting intersections,
+"consider_update" targets for additions near owned code, and "new_content" for
+ownerless changes. Use the returned target URNs, "content_path", and
+"evidence_files" as the maintenance work queue. If "baseline.complete" is
+false, repair the maintained Saga at the incoming base before treating the
+impact list as exhaustive.
 
 Lead with pictures and show by example. The root should establish the goal,
 system/change map, affected workflows, and chapter path before dense prose.

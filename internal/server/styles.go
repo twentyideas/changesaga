@@ -363,6 +363,9 @@ mark.annotation-revealed{box-shadow:0 0 0 2px var(--ink)}
 .attached-file-actions{display:flex;align-items:center;gap:8px;padding:5px 10px;background:var(--bg-subtle);color:var(--faint);font:11px var(--mono);border-bottom:1px solid var(--line-soft)}
 .attached-file-actions a{display:inline-flex;align-items:center;gap:4px;margin-left:auto;color:var(--accent);text-decoration:none}
 .attached-columns{position:static!important;top:auto!important}
+.attached-file-diff .diff-row.linked-evidence{box-shadow:inset 3px 0 var(--accent)}
+.attached-file-diff .diff-row.linked-evidence .line-no:first-child{color:var(--accent)}
+.attached-file-diff.loading [data-linked-diff-rows]{opacity:.55}
 
 /* Code workspace --------------------------------------------------------- */
 .code-toolbar{position:sticky;top:var(--top);z-index:6;display:flex;align-items:center;gap:2px;padding:5px clamp(8px,1.4vw,14px);background:var(--bg);border-bottom:1px solid var(--line)}

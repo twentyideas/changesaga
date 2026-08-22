@@ -344,6 +344,26 @@ and narrative intent; finally reconcile contradictions and independently test
 the claims. `coverage.scope` and `status.coverage_scope` are `mapping_only` to
 make explicit that all-atoms-mapped detects omissions rather than correctness.
 
+## Diff-only maintenance impact
+
+`change-saga compare --json` is the structured read boundary for maintaining a
+long-lived codebase Saga. It accepts either `--base/--head` for a direct Git
+comparison or `--against-saga` for another Saga's declared comparison. The
+first positional Saga is always the maintained document.
+
+The command does not read fragment content to infer staleness. It reconstructs
+the maintained Saga's evidence at the incoming comparison base and projects
+incoming atoms through that ownership graph. Its `change-saga.impact/v1`
+result contains baseline completeness, exact incoming identity, summary counts,
+`targets` with `must_update` or `consider_update`, and ownerless `new_content`.
+Each target includes its stable URN, kind, content path, evidence files, and
+exact incoming atoms. A baseline that is incomplete or stale produces a
+diagnostic and exit 3, because its impact list is not exhaustive.
+
+This result is intentionally separate from `query`: it compares two source
+snapshots rather than reading one immutable Saga session. It is read-only and
+does not rewrite evidence or advance the maintained Saga's source declaration.
+
 ## Supported authoring mutations
 
 `set-fragment-content` replaces a fragment entrypoint from a named file or

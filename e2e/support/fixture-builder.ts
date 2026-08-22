@@ -98,15 +98,18 @@ function addCoverage(sourceRepo: string, sagaRoot: string): DiffIdentity {
   if (!citation) throw new Error("fixture has no changed line for its prose citation");
   const overviewRemainder = overview.filter((atom) => atom !== citation);
   const architecture = uncovered.filter((atom) => !overview.includes(atom));
-  const diagramAtom = architecture[0];
-  const edgeAtom = architecture[1];
+  // The node deliberately owns only the lifecycle event for an added file.
+  // Its linked-code drawer must still load the real patch as review context;
+  // otherwise it regresses to an unhelpful "add file" row with no code.
+  const diagramAtom = architecture.find((atom) => atom.path === "assets/ui/theme.css" && atom.line === undefined);
+  const edgeAtom = architecture.find((atom) => atom.path === "assets/ui/theme.css" && atom.line !== undefined);
   if (!diagramAtom || !edgeAtom) throw new Error("fixture has too few changed atoms for its SVG landmarks");
   for (const [target, name, atoms] of [
     ["overview.fragment", "overview-linked", overviewRemainder],
     ["overview.fragment/___landmarks/greeting-input.landmark", "greeting-citation", [citation]],
     ["diagram.fragment/___landmarks/render-boundary.landmark", "diagram-node", [diagramAtom]],
     ["diagram.fragment/___landmarks/evidence-handoff.landmark", "diagram-edge", [edgeAtom]],
-    ["architecture.chapter/overview.fragment", "architecture-linked", architecture.slice(2)]
+    ["architecture.chapter/overview.fragment", "architecture-linked", architecture.filter((atom) => atom !== diagramAtom && atom !== edgeAtom)]
   ] as const) {
     if (atoms.length === 0) throw new Error(`fixture has no atoms for ${target}`);
     runSaga([
