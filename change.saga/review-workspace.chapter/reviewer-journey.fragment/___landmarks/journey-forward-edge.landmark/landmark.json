@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "journey-forward-edge",
+  "label": "Open evidence",
+  "description": "Carries a landmark or citation from authored narrative into its exact evidence.",
+  "selector": {
+    "type": "element",
+    "element_id": "journey-forward-edge"
+  },
+  "target": ""
+}

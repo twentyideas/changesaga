@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "foreign-diff-rejected-go-test",
+  "claim": "foreign-diff-rejected-before-write",
+  "status": "verified",
+  "method": "test",
+  "summary": "The reviewstore suite passed its foreign-repository diff identity test and asserted no filesystem side effect.",
+  "command": "go test ./internal/reviewstore",
+  "created_at": "2026-08-22T04:24:49.723188Z"
+}

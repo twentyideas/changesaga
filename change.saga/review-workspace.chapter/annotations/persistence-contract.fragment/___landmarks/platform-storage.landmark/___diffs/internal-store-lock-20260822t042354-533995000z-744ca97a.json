@@ -1,0 +1,97 @@
+{
+  "version": 2,
+  "diffs": [
+    {
+      "uri": "saga-diff://v1/event?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026event=add\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=1\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=1",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=2\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=2",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=3\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=3",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=4\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=4",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=5\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=5",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=6\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=6",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=7\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=7",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=8\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=8",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=9\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=9",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=10\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=10",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=11\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=11",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=12\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=12",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=13\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=13",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=14\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=14",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=15\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=15",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=16\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=16",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=17\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=17",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=18\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=18",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=19\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=19",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=20\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=20",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=21\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=21",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=22\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fstore%2Flock_unix.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=22",
+      "note": "Implements Unix advisory locking on the opened Saga directory descriptor."
+    }
+  ]
+}

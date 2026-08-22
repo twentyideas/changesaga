@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "journey-submit-edge",
+  "label": "Submit mutation",
+  "description": "Moves a validated browser mutation across the local HTTP boundary.",
+  "selector": {
+    "type": "element",
+    "element_id": "journey-submit-edge"
+  },
+  "target": ""
+}

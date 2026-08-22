@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "journey-code-edge",
+  "label": "Expand full file",
+  "description": "Expands linked atoms into the complete file diff while retaining the focused selection.",
+  "selector": {
+    "type": "element",
+    "element_id": "journey-code-edge"
+  },
+  "target": ""
+}

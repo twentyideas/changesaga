@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "linked-evidence",
+  "title": "From explanation to exact evidence",
+  "media_type": "text/markdown",
+  "entrypoint": "content.md",
+  "order": 10
+}

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "drawer-summary",
+  "label": "File-grouped evidence summaries",
+  "selector": {
+    "type": "text",
+    "exact": "Attached-code projection groups exact atoms by file and derives each collapsed summary from matching authored evidence notes."
+  },
+  "target": ""
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "journey-narrative-node",
+  "label": "Authored narrative",
+  "description": "Renders authored fragments and stable landmarks as the reviewer entry point.",
+  "selector": {
+    "type": "element",
+    "element_id": "journey-narrative-node"
+  },
+  "target": ""
+}

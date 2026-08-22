@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "annotation-draft-node",
+  "label": "Draft annotation",
+  "description": "Represents transient note, text, region, and drawing anchors in normalized fragment coordinates.",
+  "selector": {
+    "type": "element",
+    "element_id": "annotation-draft-node"
+  },
+  "target": ""
+}

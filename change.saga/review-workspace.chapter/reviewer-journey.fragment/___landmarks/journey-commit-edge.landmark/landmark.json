@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "journey-commit-edge",
+  "label": "Append record",
+  "description": "Publishes a new independent review entity or event without rewriting prior history.",
+  "selector": {
+    "type": "element",
+    "element_id": "journey-commit-edge"
+  },
+  "target": ""
+}

@@ -1,0 +1,441 @@
+{
+  "version": 2,
+  "diffs": [
+    {
+      "uri": "saga-diff://v1/event?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026event=add\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=1\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=1",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=2\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=2",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=3\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=3",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=4\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=4",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=5\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=5",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=6\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=6",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=7\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=7",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=8\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=8",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=9\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=9",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=10\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=10",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=11\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=11",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=12\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=12",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=13\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=13",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=14\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=14",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=15\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=15",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=16\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=16",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=17\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=17",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=18\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=18",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=19\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=19",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=20\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=20",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=21\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=21",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=22\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=22",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=23\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=23",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=24\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=24",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=25\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=25",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=26\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=26",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=27\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=27",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=28\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=28",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=29\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=29",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=30\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=30",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=31\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=31",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=32\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=32",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=33\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=33",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=34\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=34",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=35\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=35",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=36\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=36",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=37\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=37",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=38\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=38",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=39\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=39",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=40\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=40",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=41\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=41",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=42\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=42",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=43\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=43",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=44\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=44",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=45\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=45",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=46\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=46",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=47\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=47",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=48\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=48",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=49\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=49",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=50\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=50",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=51\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=51",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=52\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=52",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=53\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=53",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=54\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=54",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=55\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=55",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=56\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=56",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=57\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=57",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=58\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=58",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=59\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=59",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=60\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=60",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=61\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=61",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=62\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=62",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=63\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=63",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=64\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=64",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=65\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=65",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=66\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=66",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=67\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=67",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=68\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=68",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=69\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=69",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=70\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=70",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=71\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=71",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=72\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=72",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=73\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=73",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=74\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=74",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=75\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=75",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=76\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=76",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=77\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=77",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=78\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=78",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=79\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=79",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=80\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=80",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=81\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=81",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=82\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=82",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=83\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=83",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=84\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=84",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=85\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=85",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=86\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=86",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=87\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=87",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=88\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=88",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=89\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=89",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=90\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=90",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=91\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=91",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=92\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=92",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=93\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=93",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=94\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=94",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=95\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=95",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=96\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=96",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=97\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=97",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=98\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=98",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=99\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=99",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=100\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=100",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=101\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=101",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=102\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=102",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=103\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=103",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=104\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=104",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=105\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=105",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=106\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=106",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=107\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=107",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=108\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fattachedcode.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=108",
+      "note": "Groups a target’s exact atoms by file and derives collapsed what-and-why summaries from matching evidence notes."
+    }
+  ]
+}

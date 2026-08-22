@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "trust-resolver-node",
+  "label": "Git attribution resolver",
+  "description": "Classifies record paths and batches repository-state queries before bounded history walks.",
+  "selector": {
+    "type": "element",
+    "element_id": "trust-resolver-node"
+  },
+  "target": ""
+}

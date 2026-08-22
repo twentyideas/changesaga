@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "annotation-edit-edge",
+  "label": "Edit draft",
+  "description": "Applies move, resize, recolor, text, or shape changes to the current draft.",
+  "selector": {
+    "type": "element",
+    "element_id": "annotation-edit-edge"
+  },
+  "target": ""
+}

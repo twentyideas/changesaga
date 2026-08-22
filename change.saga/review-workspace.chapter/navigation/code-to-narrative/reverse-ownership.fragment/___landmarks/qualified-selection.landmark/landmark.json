@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "qualified-selection",
+  "label": "Qualified code selection",
+  "selector": {
+    "type": "text",
+    "exact": "Code selection validates the requested file and diff reference against the current comparison before constructing the focused view."
+  },
+  "target": ""
+}

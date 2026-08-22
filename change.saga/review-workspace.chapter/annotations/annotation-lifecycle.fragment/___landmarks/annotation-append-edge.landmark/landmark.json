@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "annotation-append-edge",
+  "label": "Append later mutation",
+  "description": "Creates an independent message directory or event file for a later mutation.",
+  "selector": {
+    "type": "element",
+    "element_id": "annotation-append-edge"
+  },
+  "target": ""
+}

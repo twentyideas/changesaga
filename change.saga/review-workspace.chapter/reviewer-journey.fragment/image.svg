@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
+  <title id="title">Reviewer journey through the local Change Saga workspace</title>
+  <desc id="desc">A reviewer moves from authored narrative to exact code, reverses from code to its narrative owners, adds an annotation, persists append-only records, and sees commit-derived attribution behind guarded local-server boundaries.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#51606f"/></marker>
+    <style>
+      .bg{fill:#f7f5ef}.lane{fill:#fff;stroke:#c9c4b8;stroke-width:2}.node{fill:#fdfcf9;stroke:#263746;stroke-width:2}.boundary{fill:#eef5f4;stroke:#2f6c67;stroke-width:2;stroke-dasharray:8 6}.edge{fill:none;stroke:#51606f;stroke-width:3;marker-end:url(#arrow)}.return{stroke:#8c5e35}.persist{stroke:#2f6c67}.label{font:600 18px system-ui,sans-serif;fill:#17232d}.small{font:14px system-ui,sans-serif;fill:#43515d}.edge-label{font:600 13px system-ui,sans-serif;fill:#43515d}.lane-title{font:700 15px system-ui,sans-serif;fill:#6b6259;letter-spacing:.08em}
+    </style>
+  </defs>
+  <rect class="bg" width="1200" height="720" rx="20"/>
+  <text class="lane-title" x="42" y="42">REVIEWER JOURNEY · SINCE INCEPTION TO v0.0.6</text>
+  <rect class="lane" x="35" y="65" width="1130" height="235" rx="18"/>
+  <rect class="lane" x="35" y="325" width="1130" height="355" rx="18"/>
+  <text class="lane-title" x="58" y="94">READ AND TRACE</text>
+  <text class="lane-title" x="58" y="354">ANNOTATE AND PRESERVE</text>
+
+  <g id="journey-narrative-node"><rect class="node" x="80" y="125" width="225" height="110" rx="14"/><text class="label" x="192" y="164" text-anchor="middle">Authored narrative</text><text class="small" x="192" y="192" text-anchor="middle">Markdown · SVG · HTML</text><text class="small" x="192" y="214" text-anchor="middle">stable landmarks</text></g>
+  <g id="journey-linked-code-node"><rect class="node" x="480" y="125" width="240" height="110" rx="14"/><text class="label" x="600" y="164" text-anchor="middle">Exact linked code</text><text class="small" x="600" y="192" text-anchor="middle">file-grouped drawer</text><text class="small" x="600" y="214" text-anchor="middle">focused diff atoms</text></g>
+  <g id="journey-complete-diff-node"><rect class="node" x="895" y="125" width="225" height="110" rx="14"/><text class="label" x="1007" y="164" text-anchor="middle">Complete comparison</text><text class="small" x="1007" y="192" text-anchor="middle">file tree · ranges</text><text class="small" x="1007" y="214" text-anchor="middle">coverage ownership</text></g>
+  <path id="journey-forward-edge" class="edge" d="M305 180H472"/><text class="edge-label" x="388" y="167" text-anchor="middle">open evidence</text>
+  <path id="journey-reverse-edge" class="edge return" d="M895 205H728"/><text class="edge-label" x="811" y="226" text-anchor="middle">open explanation</text>
+  <path id="journey-code-edge" class="edge" d="M720 180H887"/><text class="edge-label" x="803" y="167" text-anchor="middle">expand full file</text>
+
+  <g id="journey-annotation-node"><rect class="node" x="80" y="410" width="225" height="130" rx="14"/><text class="label" x="192" y="447" text-anchor="middle">Annotation draft</text><text class="small" x="192" y="475" text-anchor="middle">text · region · drawing</text><text class="small" x="192" y="497" text-anchor="middle">sticky note · diff</text><text class="small" x="192" y="519" text-anchor="middle">undo/redo before submit</text></g>
+  <g id="journey-server-node"><rect class="boundary" x="480" y="410" width="240" height="130" rx="14"/><text class="label" x="600" y="447" text-anchor="middle">Loopback server gate</text><text class="small" x="600" y="475" text-anchor="middle">host + fetch-site checks</text><text class="small" x="600" y="497" text-anchor="middle">session mutation token</text><text class="small" x="600" y="519" text-anchor="middle">bounded request bodies</text></g>
+  <g id="journey-history-node"><rect class="node" x="895" y="410" width="225" height="130" rx="14"/><text class="label" x="1007" y="447" text-anchor="middle">Git-native history</text><text class="small" x="1007" y="475" text-anchor="middle">one event per file</text><text class="small" x="1007" y="497" text-anchor="middle">atomic staged publish</text><text class="small" x="1007" y="519" text-anchor="middle">committer attribution</text></g>
+  <path id="journey-submit-edge" class="edge persist" d="M305 475H472"/><text class="edge-label" x="388" y="462" text-anchor="middle">submit mutation</text>
+  <path id="journey-commit-edge" class="edge persist" d="M720 475H887"/><text class="edge-label" x="803" y="462" text-anchor="middle">append record</text>
+  <path id="journey-reload-edge" class="edge return" d="M1007 548C1007 630 192 630 192 548"/><text class="edge-label" x="600" y="617" text-anchor="middle">reload projects persisted state and Git attribution back into the workspace</text>
+</svg>

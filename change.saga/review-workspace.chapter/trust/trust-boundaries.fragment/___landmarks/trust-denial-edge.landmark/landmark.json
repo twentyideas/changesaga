@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "trust-denial-edge",
+  "label": "Fail closed",
+  "description": "Routes rejected hosts, tokens, bodies, anchors, and repositories to an error before persistence.",
+  "selector": {
+    "type": "element",
+    "element_id": "trust-denial-edge"
+  },
+  "target": ""
+}

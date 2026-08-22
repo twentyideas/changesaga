@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "annotation-submit-edge",
+  "label": "Submit annotation",
+  "description": "Serializes the final browser anchor into a local mutation request.",
+  "selector": {
+    "type": "element",
+    "element_id": "annotation-submit-edge"
+  },
+  "target": ""
+}

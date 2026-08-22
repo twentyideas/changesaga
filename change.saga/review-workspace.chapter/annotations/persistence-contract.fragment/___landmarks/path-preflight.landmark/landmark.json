@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "path-preflight",
+  "label": "Metadata path preflight",
+  "selector": {
+    "type": "text",
+    "exact": "Metadata path validation rejects escapes, reserved traversal, and symlinked components before creating missing directories."
+  },
+  "target": ""
+}

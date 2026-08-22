@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "trust-repository-check-node",
+  "label": "Repository identity check",
+  "description": "Requires a diff anchor or file review to identify the same repository declared by the Saga.",
+  "selector": {
+    "type": "element",
+    "element_id": "trust-repository-check-node"
+  },
+  "target": ""
+}

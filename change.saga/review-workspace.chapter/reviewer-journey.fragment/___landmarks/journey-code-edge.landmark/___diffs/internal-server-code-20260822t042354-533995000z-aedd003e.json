@@ -1,0 +1,213 @@
+{
+  "version": 2,
+  "diffs": [
+    {
+      "uri": "saga-diff://v1/event?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026event=add\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=1\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=1",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=2\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=2",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=3\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=3",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=4\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=4",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=5\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=5",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=6\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=6",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=7\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=7",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=8\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=8",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=9\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=9",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=10\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=10",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=11\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=11",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=12\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=12",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=13\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=13",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=14\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=14",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=15\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=15",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=16\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=16",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=17\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=17",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=18\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=18",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=19\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=19",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=20\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=20",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=21\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=21",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=22\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=22",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=23\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=23",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=24\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=24",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=25\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=25",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=26\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=26",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=27\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=27",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=28\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=28",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=29\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=29",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=30\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=30",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=31\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=31",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=32\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=32",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=33\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=33",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=34\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=34",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=35\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=35",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=36\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=36",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=37\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=37",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=38\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=38",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=39\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=39",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=40\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=40",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=41\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=41",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=42\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=42",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=43\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=43",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=44\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=44",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=45\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=45",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=46\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=46",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=47\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=47",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=48\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=48",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=49\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=49",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=50\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=50",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=51\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Fserver%2Fcode_renderer_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=51",
+      "note": "Checks accessible focused diff controls and local code-rendering behavior."
+    }
+  ]
+}

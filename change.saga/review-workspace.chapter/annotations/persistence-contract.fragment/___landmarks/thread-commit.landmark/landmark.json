@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "thread-commit",
+  "label": "Atomic thread creation",
+  "selector": {
+    "type": "text",
+    "exact": "Thread creation publishes the thread manifest and first message as one staged directory entity."
+  },
+  "target": ""
+}

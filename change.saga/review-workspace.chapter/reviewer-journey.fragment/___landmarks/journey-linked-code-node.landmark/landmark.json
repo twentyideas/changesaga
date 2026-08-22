@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "journey-linked-code-node",
+  "label": "Exact linked code",
+  "description": "Groups a narrative target’s exact evidence by file in the linked-code drawer.",
+  "selector": {
+    "type": "element",
+    "element_id": "journey-linked-code-node"
+  },
+  "target": ""
+}
