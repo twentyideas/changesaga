@@ -65,6 +65,10 @@ type DiffLineView struct {
 	OldPath string
 	NewPath string
 	Atom    *diffAtomView
+	// Linked marks a row inside a whole-file diff as evidence for the narrative
+	// target that requested it, so a drawer can distinguish the lines its
+	// explanation covers from the surrounding file it shows for context.
+	Linked bool
 }
 
 type ChangedFileTreeView struct {
@@ -171,9 +175,6 @@ func codeDiffURLAt(basePath, filePath, diffURI string) string {
 func rebaseCodeReviewURLs(view *CodeReviewView, basePath string) {
 	for _, file := range view.Files {
 		file.Href = codeDiffURLAt(basePath, file.Path, "")
-		for _, atom := range file.Atoms {
-			atom.Href = codeDiffURLAt(basePath, file.Path, atom.URI)
-		}
 	}
 	for _, ownership := range view.NarrativeOwnership {
 		for _, diff := range ownership.Diffs {
@@ -190,9 +191,6 @@ func makeCodeReviewView(document *saga.Saga, changes gitdiff.ChangeSet, report c
 	for _, file := range files {
 		file.Name = path.Base(file.Path)
 		file.Href = CodeDiffURL(file.Path, "")
-		for _, atom := range file.Atoms {
-			atom.Href = CodeDiffURL(file.Path, atom.URI)
-		}
 		if file.Reviewed {
 			view.ReviewedFiles++
 		}

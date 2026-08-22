@@ -26,7 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/twentyideas/changesaga/internal/coverage"
 	"github.com/twentyideas/changesaga/internal/diffuri"
 	"github.com/twentyideas/changesaga/internal/gitattribution"
 	"github.com/twentyideas/changesaga/internal/gitdiff"
@@ -42,6 +41,7 @@ type app struct {
 	mutationToken string
 	shutdownToken string
 	shutdown      func()
+	cache         snapshotCache
 }
 
 // ManagedOptions lets the CLI supervise a detached loopback server without
@@ -149,7 +149,6 @@ type diffAtomView struct {
 	gitdiff.Atom
 	Threads  []*threadView
 	Target   string
-	Href     string
 	Selected bool
 }
 
@@ -278,45 +277,89 @@ func (a *app) runtimeStatus(w http.ResponseWriter, _ *http.Request) {
 	_, _ = io.WriteString(w, `{"ok":true}`+"\n")
 }
 
-// fileDiffFragment lazily renders one complete changed file for the linked-code
-// drawer. Keeping this out of every landmark template avoids duplicating large
-// patches throughout the page while still letting a reviewer inspect real code
-// without leaving the Saga.
+// fileDiffFragment renders one complete changed file on demand. It is the only
+// place a diff body is produced: the page ships file summaries, and the linked
+// code drawer and the coverage audit both ask for a body when a reviewer opens
+// one file. Inlining every body instead made the document grow with the whole
+// comparison, twice over, for markup no reviewer had asked to see.
+//
+// `target` scopes the body to one narrative owner, so the rows that target
+// explains are marked as its evidence and any comment written from the drawer
+// is attributed to it. `view=manifest` returns the read-only rows the coverage
+// audit shows, which carry no per-line review actions.
 func (a *app) fileDiffFragment(w http.ResponseWriter, r *http.Request) {
 	filePath := r.URL.Query().Get("file")
 	if filePath == "" {
 		http.Error(w, "missing changed file", http.StatusBadRequest)
 		return
 	}
-	document, _, err := saga.Load(a.root)
-	if err != nil {
+	current := a.snapshot(r.Context())
+	if current == nil {
 		http.Error(w, "The saga could not be loaded.", http.StatusInternalServerError)
 		return
 	}
-	applyGitAttribution(r.Context(), gitattribution.New(r.Context(), a.root), document)
-	changes, err := gitdiff.Read(r.Context(), a.sourceDir, document.Manifest.Source.Repository, document.Manifest.Source.Base, document.Manifest.Source.Head)
-	if err != nil {
+	if current.diffErr != nil {
 		http.Error(w, "The source comparison could not be loaded.", http.StatusInternalServerError)
 		return
 	}
-	threadsByDiff := map[string][]*threadView{}
-	for _, thread := range document.Threads {
-		if thread.State == "withdrawn" || thread.Anchor.Type != "diff" || thread.Anchor.Diff == nil {
-			continue
-		}
-		threadsByDiff[thread.Anchor.Diff.URI] = append(threadsByDiff[thread.Anchor.Diff.URI], makeThreadView(thread))
+	document := current.document
+	manifestView := r.URL.Query().Get("view") == "manifest"
+	target := r.URL.Query().Get("target")
+	if target != "" && !targetExists(document, target) {
+		http.Error(w, "unknown narrative target", http.StatusBadRequest)
+		return
 	}
-	for _, file := range makeFileViews(changes, saga.SagaTarget(document.Manifest.ID), document.DiffReviews, threadsByDiff) {
+	owner := target
+	if owner == "" {
+		owner = saga.SagaTarget(document.Manifest.ID)
+	}
+	threadsByDiff := map[string][]*threadView{}
+	if !manifestView {
+		for _, thread := range document.Threads {
+			if thread.State == "withdrawn" || thread.Anchor.Type != "diff" || thread.Anchor.Diff == nil {
+				continue
+			}
+			threadsByDiff[thread.Anchor.Diff.URI] = append(threadsByDiff[thread.Anchor.Diff.URI], makeThreadView(thread))
+		}
+	}
+	for _, file := range makeFileViews(current.changes, owner, document.DiffReviews, threadsByDiff) {
 		if file.Path != filePath {
 			continue
 		}
+		if target != "" {
+			markLinkedEvidence(file, current.changesByTarget[target])
+		}
+		name := "attached-file-context"
+		if manifestView {
+			name = "manifest-file-diff-context"
+		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := a.template.ExecuteTemplate(w, "attached-file-context", file); err != nil {
+		if err := a.template.ExecuteTemplate(w, name, file); err != nil {
 			http.Error(w, "The file diff could not be rendered.", http.StatusInternalServerError)
 		}
 		return
 	}
 	http.Error(w, "changed file not found", http.StatusNotFound)
+}
+
+// markLinkedEvidence flags the rows of a whole-file diff that a single
+// narrative target actually explains, so the drawer keeps showing the reviewer
+// which lines its explanation is answerable for once the surrounding file
+// arrives. The page used to carry those rows twice — once as the target's
+// evidence and once inside the file — purely so the browser could compare them.
+func markLinkedEvidence(file *FileDiffView, linked []gitdiff.Atom) {
+	if len(linked) == 0 {
+		return
+	}
+	keys := make(map[string]bool, len(linked))
+	for _, atom := range linked {
+		keys[atom.Key] = true
+	}
+	for _, line := range file.Lines {
+		if line.Atom != nil && keys[line.Atom.Key] {
+			line.Linked = true
+		}
+	}
 }
 
 func (a *app) runtimeStop(w http.ResponseWriter, r *http.Request) {
@@ -433,11 +476,12 @@ func templateFuncs() template.FuncMap {
 }
 
 func (a *app) page(w http.ResponseWriter, r *http.Request) {
-	document, validation, err := saga.Load(a.root)
-	if err != nil {
+	current := a.snapshot(r.Context())
+	if current == nil {
 		http.Error(w, "The saga could not be loaded. Run change-saga validate for details.", http.StatusInternalServerError)
 		return
 	}
+	document := current.document
 	chapterID, chapterRoute := requestedChapter(r)
 	if r.URL.Path != "/" {
 		if !chapterRoute {
@@ -453,24 +497,8 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	// Review identity belongs to the repository containing the saga, which can
-	// be different from the source checkout used to evaluate product diffs.
-	applyGitAttribution(r.Context(), gitattribution.New(r.Context(), a.root), document)
-	changes, diffErr := gitdiff.Read(r.Context(), a.sourceDir, document.Manifest.Source.Repository, document.Manifest.Source.Base, document.Manifest.Source.Head)
-	var report coverage.Report
-	if diffErr == nil {
-		report = coverage.Evaluate(document, validation, changes)
-	}
-	changesByTarget := map[string][]gitdiff.Atom{}
-	for _, atom := range changes.Atoms {
-		seen := map[string]bool{}
-		for _, owner := range report.Ownership[atom.Key] {
-			if !seen[owner.Target] {
-				changesByTarget[owner.Target] = append(changesByTarget[owner.Target], atom)
-				seen[owner.Target] = true
-			}
-		}
-	}
+	changes, report, diffErr := current.changes, current.report, current.diffErr
+	changesByTarget := current.changesByTarget
 	threadsByTarget := map[string][]*threadView{}
 	threadsByDiff := map[string][]*threadView{}
 	for _, thread := range document.Threads {
@@ -794,7 +822,7 @@ func makeAnnotationThreadView(thread *threadView) *annotationThreadView {
 func makeSectionView(section *saga.Section, changes map[string][]gitdiff.Atom, threads map[string][]*threadView, diffThreads map[string][]*threadView) *sectionView {
 	view := &sectionView{
 		Section: section, DOMID: domID(section.Target), Changes: makeAtomViews(changes[section.Target], section.Target, diffThreads),
-		Attached: makeAttachedCodeView(section.Title, section.Target, changes[section.Target], section.Diffs, diffThreads), Threads: threads[section.Target],
+		Attached: makeAttachedCodeView(section.Title, section.Target, changes[section.Target], section.Diffs), Threads: threads[section.Target],
 	}
 	view.ReviewState, view.ReviewAuthor, view.ReviewDetail, view.ReviewBody = latestReview(section.Reviews)
 	for _, fragment := range section.Fragments {
@@ -813,7 +841,7 @@ func makeFragmentView(fragment *saga.Fragment, changes []gitdiff.Atom, threads [
 	}
 	view := &fragmentView{
 		Fragment: fragment, DOMID: domID(fragment.Target), Changes: makeAtomViews(changes, fragment.Target, diffThreads),
-		Attached: makeAttachedCodeView(title, fragment.Target, changes, fragment.Diffs, diffThreads),
+		Attached: makeAttachedCodeView(title, fragment.Target, changes, fragment.Diffs),
 	}
 	for _, thread := range threads {
 		if annotationAnchor(thread.Anchor.Type) {
@@ -831,7 +859,7 @@ func makeFragmentView(fragment *saga.Fragment, changes []gitdiff.Atom, threads [
 		view.LandmarkViews = append(view.LandmarkViews, &landmarkView{
 			Landmark: landmark, DOMID: view.DOMID + "--" + landmark.ID, Title: landmark.Label,
 			Changes:  makeAtomViews(landmarkChanges, landmark.Target, diffThreads),
-			Attached: makeAttachedCodeView(landmark.Label, landmark.Target, landmarkChanges, landmark.Diffs, diffThreads),
+			Attached: makeAttachedCodeView(landmark.Label, landmark.Target, landmarkChanges, landmark.Diffs),
 			Threads:  threadsByTarget[landmark.Target], Region: region,
 		})
 	}

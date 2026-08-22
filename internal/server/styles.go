@@ -366,6 +366,8 @@ mark.annotation-revealed{box-shadow:0 0 0 2px var(--ink)}
 .attached-file-diff .diff-row.linked-evidence{box-shadow:inset 3px 0 var(--accent)}
 .attached-file-diff .diff-row.linked-evidence .line-no:first-child{color:var(--accent)}
 .attached-file-diff.loading [data-linked-diff-rows]{opacity:.55}
+.manifest-file-diff.loading [data-manifest-diff-rows]{opacity:.55}
+.diff-placeholder{margin:0;padding:8px 10px;color:var(--faint);font:11px var(--mono)}
 
 /* Code workspace --------------------------------------------------------- */
 .code-toolbar{position:sticky;top:var(--top);z-index:6;display:flex;align-items:center;gap:2px;padding:5px clamp(8px,1.4vw,14px);background:var(--bg);border-bottom:1px solid var(--line)}

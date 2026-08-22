@@ -27,10 +27,10 @@ type attachedCodeFileView struct {
 	Added          int
 	Deleted        int
 	Events         int
-	Changes        []*diffAtomView
+	Changes        int
 }
 
-func makeAttachedCodeView(title, target string, atoms []gitdiff.Atom, evidence []saga.DiffFile, threads map[string][]*threadView) *attachedCodeView {
+func makeAttachedCodeView(title, target string, atoms []gitdiff.Atom, evidence []saga.DiffFile) *attachedCodeView {
 	if len(atoms) == 0 {
 		return nil
 	}
@@ -44,7 +44,7 @@ func makeAttachedCodeView(title, target string, atoms []gitdiff.Atom, evidence [
 			byPath[path] = file
 			view.Files = append(view.Files, file)
 		}
-		file.Changes = append(file.Changes, &diffAtomView{Atom: atom, Threads: threads[atom.URI], Target: target})
+		file.Changes++
 		switch {
 		case atom.Kind == "event":
 			file.Events++
@@ -55,13 +55,34 @@ func makeAttachedCodeView(title, target string, atoms []gitdiff.Atom, evidence [
 		}
 	}
 
+	for path, notes := range attachedFileNotes(atoms, evidence) {
+		if file := byPath[path]; file != nil {
+			file.Summary = strings.Join(notes, " ")
+		}
+	}
+	for _, file := range view.Files {
+		if file.Summary == "" {
+			file.Summary = "No change summary was authored for this file."
+			file.MissingSummary = true
+		}
+	}
+	sort.SliceStable(view.Files, func(i, j int) bool { return view.Files[i].Path < view.Files[j].Path })
+	return view
+}
+
+// attachedFileNotes collects the authored notes that apply to each changed
+// file. A reference selects atoms only when it agrees on kind and path, so
+// candidates are bucketed by that pair and a selector is compared against its
+// own bucket. Comparing every reference against every atom instead made the
+// page quadratic in the size of a well-covered target: the codebase saga has
+// one exact reference per changed line, so the two loops grew together.
+func attachedFileNotes(atoms []gitdiff.Atom, evidence []saga.DiffFile) map[string][]string {
 	notes := map[string][]string{}
-	type noteCandidate struct {
-		atom      gitdiff.Atom
+	type candidate struct {
+		path      string
 		reference diffuri.Reference
 	}
-	var candidates []noteCandidate
-	candidatesReady := false
+	var buckets map[string][]candidate
 	for _, diffFile := range evidence {
 		for _, reference := range diffFile.Diffs {
 			note := strings.TrimSpace(reference.Note)
@@ -72,37 +93,38 @@ func makeAttachedCodeView(title, target string, atoms []gitdiff.Atom, evidence [
 			if err != nil {
 				continue
 			}
-			// Large targets commonly contain one exact reference per changed
-			// atom. Parse candidates once, but keep the index lazy so evidence
-			// without authored notes retains its zero-parse fast path.
-			if !candidatesReady {
-				candidates = make([]noteCandidate, 0, len(atoms))
+			// Evidence without authored notes keeps its zero-parse fast path:
+			// the index is only built once a note actually needs matching.
+			if buckets == nil {
+				buckets = make(map[string][]candidate, len(atoms))
 				for _, atom := range atoms {
-					candidate, err := diffuri.Parse(atom.URI)
-					if err == nil {
-						candidates = append(candidates, noteCandidate{atom: atom, reference: candidate})
+					parsed, err := diffuri.Parse(atom.URI)
+					if err != nil {
+						continue
 					}
+					key := selectorBucket(parsed)
+					buckets[key] = append(buckets[key], candidate{path: effectiveAtomPath(atom), reference: parsed})
 				}
-				candidatesReady = true
 			}
-			for _, candidate := range candidates {
-				if !diffuri.Matches(selector, candidate.reference) {
+			for _, entry := range buckets[selectorBucket(selector)] {
+				if !diffuri.Matches(selector, entry.reference) {
 					continue
 				}
-				path := effectiveAtomPath(candidate.atom)
-				if !contains(notes[path], note) {
-					notes[path] = append(notes[path], note)
+				if !contains(notes[entry.path], note) {
+					notes[entry.path] = append(notes[entry.path], note)
 				}
 			}
 		}
 	}
-	for _, file := range view.Files {
-		file.Summary = strings.Join(notes[file.Path], " ")
-		if file.Summary == "" {
-			file.Summary = "No change summary was authored for this file."
-			file.MissingSummary = true
-		}
+	return notes
+}
+
+// selectorBucket is the coarsest key on which diffuri.Matches can still
+// succeed. Two references that disagree on it can never match, and every
+// reference that agrees on it is still compared exactly.
+func selectorBucket(reference diffuri.Reference) string {
+	if reference.Kind == "event" && reference.Event == "rename" {
+		return "event\x00rename\x00" + reference.OldPath + "\x00" + reference.NewPath
 	}
-	sort.SliceStable(view.Files, func(i, j int) bool { return view.Files[i].Path < view.Files[j].Path })
-	return view
+	return reference.Kind + "\x00" + reference.Path
 }

@@ -1028,7 +1028,25 @@ const appJavaScript = `(() => {
     showDrawer(returnOpener);
   }
 
-  const attachedFileCache = new Map();
+  // One changed file's diff body is fetched the first time a reviewer opens it
+  // and then reused for the rest of the session. The page deliberately ships no
+  // diff bodies: a large comparison would otherwise appear in the document once
+  // per narrative target that explains it and again in the coverage audit, as
+  // markup that stays inside a closed disclosure until it is asked for.
+  const fileDiffCache = new Map();
+
+  function fetchFileDiff(href) {
+    let request = fileDiffCache.get(href);
+    if (!request) {
+      request = fetch(href, {headers:{Accept:'text/html'}}).then(async response => {
+        if (!response.ok) throw new Error('diff request failed');
+        return response.text();
+      });
+      fileDiffCache.set(href, request);
+      request.catch(() => fileDiffCache.delete(href));
+    }
+    return request;
+  }
 
   async function hydrateAttachedFile(details) {
     if (!details?.open || details.dataset.fullDiffLoaded === 'true' || details.dataset.fullDiffLoading === 'true') return;
@@ -1040,37 +1058,58 @@ const appJavaScript = `(() => {
     details.dataset.fullDiffLoading = 'true';
     surface.classList.add('loading');
     if (status) status.textContent = 'Loading full file diff…';
-    const linkedRefs = new Set(qa('[data-diff-ref]', linkedRows).map(element => element.dataset.diffRef).filter(Boolean));
     try {
-      let request = attachedFileCache.get(href);
-      if (!request) {
-        request = fetch(href, {headers:{Accept:'text/html'}}).then(async response => {
-          if (!response.ok) throw new Error('diff request failed');
-          return response.text();
-        });
-        attachedFileCache.set(href, request);
-      }
+      // The response is already scoped to this target: its rows carry the
+      // target that a new comment belongs to, and the server has marked the
+      // rows this explanation is answerable for.
       const wrapper = document.createElement('div');
-      wrapper.innerHTML = await request;
-      const fullDiff = q('[data-attached-full-diff]', wrapper)?.parentElement;
-      if (!fullDiff) throw new Error('diff response was incomplete');
-      const target = details.dataset.attachedTarget || '';
-      qa('[data-target]', fullDiff).forEach(element => { element.dataset.target = target; });
-      qa('.diff-row', fullDiff).forEach(row => {
-        const reference = row.dataset.diffRef || q('[data-diff-ref]', row)?.dataset.diffRef;
-        if (reference && linkedRefs.has(reference)) row.classList.add('linked-evidence');
-      });
-      linkedRows.replaceChildren(...Array.from(fullDiff.childNodes));
+      wrapper.innerHTML = await fetchFileDiff(href);
+      if (!q('[data-attached-full-diff]', wrapper)) throw new Error('diff response was incomplete');
+      linkedRows.replaceChildren(...Array.from(wrapper.childNodes));
       details.dataset.fullDiffLoaded = 'true';
       if (status) status.textContent = 'Full file diff · linked changes highlighted';
       highlightCode(linkedRows);
     } catch (_) {
-      attachedFileCache.delete(href);
-      if (status) status.textContent = 'Could not load the full file diff · showing linked changes';
+      if (status) status.textContent = 'Could not load the full file diff';
+      const placeholder = q('[data-diff-placeholder]', linkedRows);
+      if (placeholder) placeholder.textContent = 'This file diff could not be loaded. Close and reopen to try again.';
     } finally {
       delete details.dataset.fullDiffLoading;
       surface.classList.remove('loading');
     }
+  }
+
+  // Coverage shows the same bodies to answer a different question, so it uses
+  // the same per-file endpoint and the same cache. Only the disclosure that
+  // owns a surface hydrates it, so opening one narrative target does not pull
+  // in every file underneath it.
+  async function hydrateManifestDiff(surface) {
+    if (surface.dataset.manifestDiffLoaded === 'true' || surface.dataset.manifestDiffLoading === 'true') return;
+    const href = surface.dataset.manifestDiffHref;
+    const rows = q('[data-manifest-diff-rows]', surface);
+    if (!href || !rows) return;
+    surface.dataset.manifestDiffLoading = 'true';
+    surface.classList.add('loading');
+    try {
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = await fetchFileDiff(href);
+      rows.replaceChildren(...Array.from(wrapper.childNodes));
+      surface.dataset.manifestDiffLoaded = 'true';
+      highlightCode(rows);
+    } catch (_) {
+      const placeholder = q('[data-diff-placeholder]', rows);
+      if (placeholder) placeholder.textContent = 'This file diff could not be loaded. Close and reopen to try again.';
+    } finally {
+      delete surface.dataset.manifestDiffLoading;
+      surface.classList.remove('loading');
+    }
+  }
+
+  function hydrateOpenedManifestDiffs(details) {
+    if (!details?.open) return;
+    qa('[data-manifest-diff-href]', details)
+      .filter(surface => surface.closest('details') === details)
+      .forEach(hydrateManifestDiff);
   }
 
   function openFragmentDrawer(anchor, opener) {
@@ -1108,6 +1147,20 @@ const appJavaScript = `(() => {
     restoreDrawerContent();
     drawerOpener = null;
     configureDrawer('code', 'Linked code');
+  }
+
+  // A diff row already carries the change it is: its exact diff URI, the
+  // narrative target a comment on it belongs to, and its content. The per-line
+  // buttons used to repeat all three, which cost more than the code itself in a
+  // large file, so they now read the row they sit in.
+  function diffActionContext(button) {
+    const row = button.closest('[data-diff-ref]');
+    return {dataset:{
+      diffAction: button.dataset.diffAction,
+      diffRef: button.dataset.diffRef || row?.dataset.diffRef,
+      target: button.dataset.target || row?.dataset.target || '',
+      content: button.dataset.content ?? (q('[data-code]', row)?.textContent || '')
+    }};
   }
 
   function openDiffComposer(button) {
@@ -1870,7 +1923,7 @@ const appJavaScript = `(() => {
     if (reviewCancel) { closeReviewComposer(reviewCancel.closest('[data-review-decision-form]')); return; }
     if (event.target.closest('[data-close-annotation]')) { closeAnnotation(); return; }
     const diffAction = event.target.closest('[data-diff-action]');
-    if (diffAction) { openDiffComposer(diffAction); return; }
+    if (diffAction) { openDiffComposer(diffActionContext(diffAction)); return; }
     if (event.target.closest('[data-close-diff-compose]')) { q('.diff-compose').classList.remove('open'); return; }
     const tool = event.target.closest('[data-tool]');
     if (tool) { useTool(tool.dataset.tool); return; }
@@ -1886,8 +1939,10 @@ const appJavaScript = `(() => {
   });
 
   document.addEventListener('toggle', event => {
-    const attachedFile = event.target.closest?.('details[data-full-diff-href]');
-    if (attachedFile?.open) hydrateAttachedFile(attachedFile);
+    const details = event.target.closest?.('details');
+    if (!details?.open) return;
+    if (details.dataset.fullDiffHref) hydrateAttachedFile(details);
+    hydrateOpenedManifestDiffs(details);
   }, true);
 
   document.addEventListener('submit', event => {

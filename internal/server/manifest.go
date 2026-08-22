@@ -56,7 +56,11 @@ type ManifestFileView struct {
 	Covered   int
 	Uncovered int
 	Chunks    []*ManifestChunkView
-	Diff      *FileDiffView
+	// HasDiff records that a body exists for this path without carrying it.
+	// The coverage audit fetches each body from /api/file-diff when a reviewer
+	// opens that file, so the page describes the whole comparison without
+	// containing it.
+	HasDiff bool
 }
 
 type ManifestChunkView struct {
@@ -96,7 +100,7 @@ type ManifestTargetFileView struct {
 	Events    int
 	Href      string
 	Chunks    []*ManifestChunkView
-	Diff      *FileDiffView
+	HasDiff   bool
 }
 
 type ManifestOrphanView struct {
@@ -116,9 +120,14 @@ func makeCoverageManifestView(document *saga.Saga, changes gitdiff.ChangeSet, re
 		Uncovered: report.Summary.Uncovered, Overlapping: report.Summary.Overlapping, Orphaned: report.Summary.Orphaned,
 	}
 	locations := indexManifestTargets(document)
-	diffsByPath := map[string]*FileDiffView{}
-	for _, diff := range makeFileViews(changes, saga.SagaTarget(document.Manifest.ID), nil, nil) {
-		diffsByPath[diff.Path] = diff
+	// Only which paths have a renderable body is needed here; building the
+	// bodies would reproduce the entire comparison inside the coverage model.
+	diffPaths := map[string]bool{}
+	for _, line := range changes.DisplayLines {
+		diffPaths[line.Path] = true
+	}
+	for _, atom := range changes.Atoms {
+		diffPaths[effectiveAtomPath(atom)] = true
 	}
 	files := map[string]*ManifestFileView{}
 	fileAtoms := map[string][]gitdiff.Atom{}
@@ -154,7 +163,7 @@ func makeCoverageManifestView(document *saga.Saga, changes gitdiff.ChangeSet, re
 	for path, atoms := range fileAtoms {
 		file := files[path]
 		file.Chunks = makeManifestChunks(atoms, report.Ownership, locations, true)
-		file.Diff = diffsByPath[path]
+		file.HasDiff = diffPaths[path]
 		view.Files = append(view.Files, file)
 	}
 	sort.SliceStable(view.Files, func(i, j int) bool { return view.Files[i].Path < view.Files[j].Path })
@@ -178,7 +187,7 @@ func makeCoverageManifestView(document *saga.Saga, changes gitdiff.ChangeSet, re
 		chunks := makeManifestChunks(atoms, nil, locations, false)
 		view.Targets = append(view.Targets, &ManifestTargetView{
 			ManifestOwnerView: *owner, AtomCount: len(atoms),
-			Chunks: chunks, Files: makeManifestTargetFiles(atoms, locations, diffsByPath),
+			Chunks: chunks, Files: makeManifestTargetFiles(atoms, locations, diffPaths),
 		})
 	}
 	for _, orphan := range report.Orphans {
@@ -189,14 +198,14 @@ func makeCoverageManifestView(document *saga.Saga, changes gitdiff.ChangeSet, re
 	return view
 }
 
-func makeManifestTargetFiles(atoms []gitdiff.Atom, locations map[string]manifestTargetLocation, diffsByPath map[string]*FileDiffView) []*ManifestTargetFileView {
+func makeManifestTargetFiles(atoms []gitdiff.Atom, locations map[string]manifestTargetLocation, diffPaths map[string]bool) []*ManifestTargetFileView {
 	byPath := map[string]*ManifestTargetFileView{}
 	fileAtoms := map[string][]gitdiff.Atom{}
 	for _, atom := range atoms {
 		path := effectiveAtomPath(atom)
 		file := byPath[path]
 		if file == nil {
-			file = &ManifestTargetFileView{Path: path, Href: CodeDiffURL(path, ""), Diff: diffsByPath[path]}
+			file = &ManifestTargetFileView{Path: path, Href: CodeDiffURL(path, ""), HasDiff: diffPaths[path]}
 			byPath[path] = file
 		}
 		fileAtoms[path] = append(fileAtoms[path], atom)

@@ -3,6 +3,7 @@ import { test as base, expect, type Page } from "@playwright/test";
 import { rmSync } from "node:fs";
 import {
   attachFailureState,
+  createLargeSagaFixture,
   createSagaFixture,
   createSagaRepositories,
   stopSagaFixture,
@@ -12,6 +13,9 @@ import {
 
 type Fixtures = {
   saga: SagaFixture;
+  /** A deliberately large saga, served but not yet opened in the browser, so a
+   * budget test controls its own navigation and measures the first load. */
+  largeSaga: SagaFixture;
   /** Both repositories with no server and no browser page, for subprocess tests. */
   sagaRepositories: SagaRepositories;
   browserEvents: string[];
@@ -33,6 +37,15 @@ export const test = base.extend<Fixtures>({
   saga: async ({ page, browserEvents }, use, testInfo) => {
     const fixture = await createSagaFixture(testInfo);
     await page.goto(fixture.baseURL);
+    try {
+      await use(fixture);
+    } finally {
+      await attachFailureState(fixture, testInfo, browserEvents);
+      await stopSagaFixture(fixture);
+    }
+  },
+  largeSaga: async ({ browserEvents }, use, testInfo) => {
+    const fixture = await createLargeSagaFixture(testInfo);
     try {
       await use(fixture);
     } finally {

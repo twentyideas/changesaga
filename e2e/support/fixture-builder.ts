@@ -448,3 +448,135 @@ export function multipartBody(
   parts.push(Buffer.from(`--${boundary}--\r\n`));
   return { body: Buffer.concat(parts), headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` } };
 }
+
+/**
+ * The scale of the large saga the performance budgets run against. It is
+ * deliberately a fraction of a real mega pull request: the budgets guard the
+ * shape of the payload, and the shape is already wrong at this size if a diff
+ * body has been inlined again. Every number here is fixed so a budget is a
+ * property of the product rather than of the fixture that happened to be built.
+ */
+export const largeSagaScale = {
+  chapters: 6,
+  fragmentsPerChapter: 3,
+  sourceFiles: 32,
+  changedLinesPerFile: 48
+} as const;
+
+export const largeSagaChangedLines = largeSagaScale.sourceFiles * largeSagaScale.changedLinesPerFile;
+
+function largeSourcePath(index: number): string {
+  return `src/component-${String(index).padStart(3, "0")}.ts`;
+}
+
+function largeSourceContent(state: string, file: number, lines: number): string {
+  const body: string[] = [];
+  for (let line = 0; line < lines; line += 1) {
+    body.push(`export const ${state}_${file}_${line} = "component ${file} line ${line} ${state}";`);
+  }
+  return `${body.join("\n")}\n`;
+}
+
+function buildLargeSourceRepository(root: string): { sourceRepo: string; base: string; head: string } {
+  const sourceRepo = join(root, "source-repo");
+  mkdirSync(sourceRepo, { recursive: true });
+  git(sourceRepo, "init", "-b", "main");
+  configureGit(sourceRepo, author);
+  git(sourceRepo, "remote", "add", "origin", declaredRepository);
+  for (let file = 0; file < largeSagaScale.sourceFiles; file += 1) {
+    write(join(sourceRepo, largeSourcePath(file)), largeSourceContent("before", file, largeSagaScale.changedLinesPerFile));
+  }
+  git(sourceRepo, "add", ".");
+  git(sourceRepo, "commit", "-m", "large base");
+  const base = git(sourceRepo, "rev-parse", "HEAD");
+
+  git(sourceRepo, "checkout", "-b", "feature/large");
+  for (let file = 0; file < largeSagaScale.sourceFiles; file += 1) {
+    write(join(sourceRepo, largeSourcePath(file)), largeSourceContent("after", file, largeSagaScale.changedLinesPerFile));
+  }
+  git(sourceRepo, "add", ".");
+  git(sourceRepo, "commit", "-m", "large change");
+  return { sourceRepo, base, head: git(sourceRepo, "rev-parse", "HEAD") };
+}
+
+function buildLargeSagaRepository(root: string, source: { sourceRepo: string; base: string; head: string }): { sagaRepo: string; sagaRoot: string; identity: DiffIdentity } {
+  const sagaRepo = join(root, "saga-repo");
+  const sagaRoot = join(sagaRepo, "large.saga");
+  mkdirSync(sagaRepo, { recursive: true });
+  git(sagaRepo, "init", "-b", "main");
+  configureGit(sagaRepo, reviewer);
+  runSaga([
+    "init", "--repo", source.sourceRepo, "--repository", declaredRepository,
+    "--base", source.base, "--head", source.head, "--id", "large", "--title", "Large Saga", sagaRoot
+  ], sagaRepo);
+  write(join(sagaRoot, "overview.fragment", "content.md"), "# Large change overview {#large-overview}\n\nThis change rewrites every component module.\n");
+
+  const records: Array<Record<string, unknown>> = [];
+  let file = 0;
+  for (let chapter = 0; chapter < largeSagaScale.chapters; chapter += 1) {
+    const chapterID = `chapter-${String(chapter).padStart(2, "0")}`;
+    runSaga(["add-chapter", "--id", chapterID, "--title", `Chapter ${chapter}`, "--order", String(chapter), sagaRoot, chapterID], sagaRepo);
+    for (let index = 0; index < largeSagaScale.fragmentsPerChapter; index += 1) {
+      const fragmentID = `${chapterID}-part-${index}`;
+      const section = `${chapterID}.chapter`;
+      runSaga([
+        "add-fragment", "--section", section, "--type", "markdown", "--name", fragmentID,
+        "--id", fragmentID, "--title", `Part ${chapter}.${index}`, "--order", String(index), sagaRoot
+      ], sagaRepo);
+      write(join(sagaRoot, section, `${fragmentID}.fragment`, "content.md"), `# Part ${chapter}.${index} {#part-${chapter}-${index}}\n\nThis part explains its own component modules.\n`);
+      records.push({
+        target: `${section}/${fragmentID}.fragment`,
+        path: largeSourcePath(file % largeSagaScale.sourceFiles),
+        changed_lines: true,
+        note: `Part ${chapter}.${index} rewrites this module.`,
+        name: `${fragmentID}-coverage`
+      });
+      file += 1;
+    }
+  }
+  // Fragments cover one module each; the overview owns everything left so the
+  // comparison is fully accounted for and Coverage has no gaps to report.
+  for (; file < largeSagaScale.sourceFiles; file += 1) {
+    records.push({
+      target: "overview.fragment",
+      path: largeSourcePath(file),
+      changed_lines: true,
+      note: "The overview accounts for the remaining modules.",
+      name: `overview-coverage-${String(file).padStart(3, "0")}`
+    });
+  }
+  const batch = join(root, "coverage-batch.json");
+  write(batch, `${JSON.stringify(records)}\n`);
+  runSaga(["cover", "--repo", source.sourceRepo, "--batch", batch, sagaRoot], sagaRepo);
+
+  const report = statusReport(source.sourceRepo, sagaRoot);
+  if ((report.uncovered ?? []).length !== 0) throw new Error(`large fixture left ${report.uncovered?.length ?? 0} atoms uncovered`);
+  git(sagaRepo, "add", ".");
+  git(sagaRepo, "commit", "-m", "add large saga fixture");
+  return { sagaRepo, sagaRoot, identity: { repository: report.repository, base: report.base_oid, head: report.head_oid } };
+}
+
+/** Builds a deliberately large but fixed saga for the performance budgets. */
+export function createLargeSagaRepositories(testInfo: TestInfo): SagaRepositories {
+  const root = mkdtempSync(join(tmpdir(), `change-saga-large-${testInfo.workerIndex}-`));
+  try {
+    const tempDir = join(root, "server-tmp");
+    mkdirSync(tempDir, { recursive: true });
+    const source = buildLargeSourceRepository(root);
+    const saga = buildLargeSagaRepository(root, source);
+    return { root, sourceRepo: source.sourceRepo, tempDir, ...saga };
+  } catch (error) {
+    rmSync(root, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+export async function createLargeSagaFixture(testInfo: TestInfo): Promise<SagaFixture> {
+  const repositories = createLargeSagaRepositories(testInfo);
+  try {
+    return { ...repositories, ...(await startSagaServer(repositories)) };
+  } catch (error) {
+    rmSync(repositories.root, { recursive: true, force: true });
+    throw error;
+  }
+}

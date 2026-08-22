@@ -816,10 +816,10 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	thread := &saga.Thread{ID: "thread", Target: fragment.Target, Anchor: saga.Anchor{Type: "region", Coordinate: "normalized", Shapes: []saga.Shape{{Type: "rect", X: .1, Y: .2, Width: .3, Height: .4, Color: "#336699"}}}, State: "open", Messages: []*saga.Message{{ID: "message", CreatedAt: time.Date(2026, 8, 19, 12, 0, 0, 0, time.UTC)}}}
 	lineURI := "saga-diff://v1/line?base=aaa&end=1&head=product-bbb&path=app.go&repository=https%3A%2F%2Fexample.test%2Fa.git&side=new&start=1"
 	fragment.Diffs = []saga.DiffFile{{Version: 2, Diffs: []saga.DiffReference{{URI: lineURI, Note: "Adds the package entrypoint so the example compiles."}}}}
-	manifestFiles := []*ManifestFileView{{Path: "internal/app.go", AtomCount: 1, Added: 1, Covered: 1, Diff: &FileDiffView{Path: "internal/app.go", Lines: []*DiffLineView{{Kind: "new", NewLine: 1, Content: "package app"}}}, Chunks: []*ManifestChunkView{{Label: "+1", Path: "internal/app.go", AtomCount: 1, Excerpt: "package app", Href: CodeDiffURL("internal/app.go", lineURI), Covered: true, Owners: []*ManifestOwnerView{{Title: "Overview", Kind: "Fragment", Chapter: "Test", Href: "#overview"}}}}}}
+	manifestFiles := []*ManifestFileView{{Path: "internal/app.go", AtomCount: 1, Added: 1, Covered: 1, HasDiff: true, Chunks: []*ManifestChunkView{{Label: "+1", Path: "internal/app.go", AtomCount: 1, Excerpt: "package app", Href: CodeDiffURL("internal/app.go", lineURI), Covered: true, Owners: []*ManifestOwnerView{{Title: "Overview", Kind: "Fragment", Chapter: "Test", Href: "#overview"}}}}}}
 	manifestFixture := &CoverageManifestView{
 		Complete: true, Total: 1, Covered: 1, MappingCount: 1, Files: manifestFiles, Tree: makeManifestTree(manifestFiles),
-		Targets: []*ManifestTargetView{{ManifestOwnerView: ManifestOwnerView{Title: "Overview", Kind: "Fragment", Chapter: "Test", Href: "#overview"}, AtomCount: 1, Chunks: []*ManifestChunkView{{Label: "+1", Path: "internal/app.go", Excerpt: "package app", Href: CodeDiffURL("internal/app.go", lineURI)}}, Files: []*ManifestTargetFileView{{Path: "internal/app.go", AtomCount: 1, Added: 1, Href: CodeDiffURL("internal/app.go", ""), Diff: manifestFiles[0].Diff, Chunks: []*ManifestChunkView{{Label: "+1", Path: "internal/app.go", AtomCount: 1, Href: CodeDiffURL("internal/app.go", lineURI)}}}}}},
+		Targets: []*ManifestTargetView{{ManifestOwnerView: ManifestOwnerView{Title: "Overview", Kind: "Fragment", Chapter: "Test", Href: "#overview"}, AtomCount: 1, Chunks: []*ManifestChunkView{{Label: "+1", Path: "internal/app.go", Excerpt: "package app", Href: CodeDiffURL("internal/app.go", lineURI)}}, Files: []*ManifestTargetFileView{{Path: "internal/app.go", AtomCount: 1, Added: 1, Href: CodeDiffURL("internal/app.go", ""), HasDiff: true, Chunks: []*ManifestChunkView{{Label: "+1", Path: "internal/app.go", AtomCount: 1, Href: CodeDiffURL("internal/app.go", lineURI)}}}}}},
 	}
 	data := pageData{
 		Saga: &saga.Saga{Manifest: saga.Manifest{ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/a.git", Base: "main", Head: "HEAD"}}, Section: section},
@@ -836,7 +836,10 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 		t.Fatal(err)
 	}
 	renderedPage := output.String()
-	if strings.Contains(renderedPage, "ZgotmplZ") || !strings.Contains(renderedPage, "/app.js") || !strings.Contains(renderedPage, `x="100.00"`) || !strings.Contains(renderedPage, `data-diff-ref="saga-diff://v1/line?`) || !strings.Contains(renderedPage, `id="`+domID(fragment.Target)+`--story"`) {
+	// The page no longer carries diff rows, so the `saga-diff://` scheme it must
+	// keep unmangled is asserted where those rows are now produced, in
+	// TestFileDiffEndpointServesCoverageAndTargetedBodies.
+	if strings.Contains(renderedPage, "ZgotmplZ") || !strings.Contains(renderedPage, "/app.js") || !strings.Contains(renderedPage, `x="100.00"`) || !strings.Contains(renderedPage, `diff=saga-diff%3A%2F%2Fv1%2Fline%3F`) || !strings.Contains(renderedPage, `id="`+domID(fragment.Target)+`--story"`) {
 		t.Fatalf("template produced unsafe or incomplete output")
 	}
 	if strings.Count(renderedPage, `class="annotation-toolbox"`) != 1 || !strings.Contains(renderedPage, `data-review-progress`) || !strings.Contains(renderedPage, `data-review-decided="2" data-review-total="3"`) || !strings.Contains(renderedPage, `aria-label="Review progress: 2 of 3 decisions"`) || !strings.Contains(renderedPage, `class="review-progress-segment approved"`) || !strings.Contains(renderedPage, `class="review-progress-segment rejected"`) || !strings.Contains(renderedPage, `class="review-progress-segment pending"`) || !strings.Contains(renderedPage, `data-review-progress-note="Ready to merge."`) || !strings.Contains(renderedPage, `Comment: Ready to merge.`) || !strings.Contains(renderedPage, `data-review-progress-tooltip`) || !strings.Contains(renderedPage, `href="/#`+domID(fragment.Target)+`"`) || !strings.Contains(renderedPage, `data-review-controls`) || !strings.Contains(renderedPage, `data-review-author="Ada"`) || !strings.Contains(renderedPage, `data-review-detail="ada@example.test · committed abc123"`) || !strings.Contains(renderedPage, `data-review-decision="approved" aria-pressed="true"`) || !strings.Contains(renderedPage, `data-review-decision-tooltip`) || !strings.Contains(renderedPage, `data-review-decision-author title="ada@example.test · committed abc123"`) || !strings.Contains(renderedPage, `data-review-comment`) || !strings.Contains(renderedPage, `data-review-note title="Ready to merge."`) || !strings.Contains(renderedPage, `i-approve-filled`) || !strings.Contains(renderedPage, `i-reject-filled`) || strings.Contains(renderedPage, `decision-dialog`) || strings.Contains(renderedPage, `class="review-form"`) {
@@ -861,8 +864,14 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	if !strings.Contains(renderedPage, `<details class="manifest-folder" data-manifest-folder open`) || !strings.Contains(renderedPage, `data-manifest-search="internal/app.go"`) || !strings.Contains(renderedPage, `<use href="#f-go">`) {
 		t.Fatal("coverage was not rendered as a fully expanded repository tree with file-type icons")
 	}
-	if !strings.Contains(renderedPage, `class="manifest-file-diff diff-surface"`) || !strings.Contains(renderedPage, `data-file-path="internal/app.go"`) || !strings.Contains(renderedPage, `class="diff-row new"`) || !strings.Contains(renderedPage, `data-code>package app</code>`) || !strings.Contains(renderedPage, `1 changed line`) {
-		t.Fatal("expandable coverage file did not render its actual diff and compact mapping metadata")
+	// The coverage file stays expandable, but its body is requested when the
+	// reviewer opens it. Inlining every body made the page carry the whole
+	// comparison a second time for markup behind a closed disclosure.
+	if !strings.Contains(renderedPage, `class="manifest-file-diff diff-surface"`) || !strings.Contains(renderedPage, `data-file-path="internal/app.go"`) || !strings.Contains(renderedPage, `data-manifest-diff-href="/api/file-diff?view=manifest&amp;file=internal%2Fapp.go"`) || !strings.Contains(renderedPage, `data-manifest-diff-rows`) || !strings.Contains(renderedPage, `1 changed line`) {
+		t.Fatal("expandable coverage file did not offer its diff on demand with compact mapping metadata")
+	}
+	if strings.Contains(renderedPage, `data-code>package app</code>`) {
+		t.Fatal("coverage inlined a diff body the reviewer had not opened")
 	}
 	if !strings.Contains(renderedPage, `class="manifest-target-file"`) || !strings.Contains(renderedPage, `class="manifest-target-file-detail"`) || !strings.Contains(renderedPage, `Open in Code Diff`) || strings.Contains(renderedPage, `class="manifest-target-row"`) {
 		t.Fatal("saga-to-code coverage did not keep linked diffs expandable in place")
