@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "annotation-server-node",
+  "label": "Mutation endpoint",
+  "description": "Validates request authentication, size, target, and anchor before entering persistence.",
+  "selector": {
+    "type": "element",
+    "element_id": "annotation-server-node"
+  },
+  "target": ""
+}

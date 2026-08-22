@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "trust-boundaries",
+  "title": "Attribution and mutation boundaries",
+  "media_type": "image/svg+xml",
+  "entrypoint": "image.svg",
+  "order": 10
+}

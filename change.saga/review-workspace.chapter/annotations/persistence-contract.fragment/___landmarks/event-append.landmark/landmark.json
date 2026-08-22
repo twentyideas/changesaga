@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "event-append",
+  "label": "Append-only later mutations",
+  "selector": {
+    "type": "text",
+    "exact": "Replies, state transitions, and anchor edits are committed as independent message directories or exclusive event files."
+  },
+  "target": ""
+}

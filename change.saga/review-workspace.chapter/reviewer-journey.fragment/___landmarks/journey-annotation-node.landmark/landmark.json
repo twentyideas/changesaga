@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "journey-annotation-node",
+  "label": "Annotation draft",
+  "description": "Maintains local draft shapes, highlights, and sticky notes with transient edit history.",
+  "selector": {
+    "type": "element",
+    "element_id": "journey-annotation-node"
+  },
+  "target": ""
+}

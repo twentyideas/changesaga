@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "annotation-history-node",
+  "label": "Draft history",
+  "description": "Tracks browser-only undo and redo state for pending annotation edits.",
+  "selector": {
+    "type": "element",
+    "element_id": "annotation-history-node"
+  },
+  "target": ""
+}

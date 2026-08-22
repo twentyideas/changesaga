@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "durable-write",
+  "label": "Durable atomic writes",
+  "selector": {
+    "type": "text",
+    "exact": "Atomic file and directory helpers sync data and parent directories around exclusive link or rename publication."
+  },
+  "target": ""
+}

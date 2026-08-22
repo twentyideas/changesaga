@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "reverse-link",
+  "label": "Reverse ownership links",
+  "selector": {
+    "type": "text",
+    "exact": "Reverse ownership groups selected atoms by narrative location and links landmark assignments to their exact authored anchor."
+  },
+  "target": ""
+}

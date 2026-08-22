@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "trust-browser-node",
+  "label": "Local browser",
+  "description": "Originates same-session mutation requests with the generated mutation token.",
+  "selector": {
+    "type": "element",
+    "element_id": "trust-browser-node"
+  },
+  "target": ""
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "journey-reverse-edge",
+  "label": "Open explanation",
+  "description": "Carries selected code atoms back to their owning narrative targets.",
+  "selector": {
+    "type": "element",
+    "element_id": "journey-reverse-edge"
+  },
+  "target": ""
+}

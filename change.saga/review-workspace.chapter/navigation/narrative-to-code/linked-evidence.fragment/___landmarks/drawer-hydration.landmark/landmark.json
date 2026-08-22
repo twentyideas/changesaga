@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "drawer-hydration",
+  "label": "Lazy full-diff hydration",
+  "selector": {
+    "type": "text",
+    "exact": "The browser fetches the complete file diff on first expansion and highlights the rows already linked by the narrative target."
+  },
+  "target": ""
+}

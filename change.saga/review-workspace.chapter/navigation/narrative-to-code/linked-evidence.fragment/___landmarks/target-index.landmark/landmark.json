@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "target-index",
+  "label": "Per-target atom index",
+  "selector": {
+    "type": "text",
+    "exact": "Page construction derives a per-target atom index from evaluated coverage before fragment views are rendered."
+  },
+  "target": ""
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "annotation-thread-node",
+  "label": "New thread entity",
+  "description": "Publishes a complete top-level thread and initial message as one directory entity.",
+  "selector": {
+    "type": "element",
+    "element_id": "annotation-thread-node"
+  },
+  "target": ""
+}

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "benchmark-scope",
+  "label": "Benchmark scope",
+  "selector": {
+    "type": "text",
+    "exact": "Benchmarks exercise large local projections and bounded attribution work without asserting a universal timing threshold."
+  },
+  "target": ""
+}

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "supported-writers-serialized-go-test",
+  "claim": "supported-writers-serialized",
+  "status": "verified",
+  "method": "test",
+  "summary": "The owned package suites passed, including concurrent review-record and Saga-lock serialization tests.",
+  "command": "go test ./internal/server ./internal/reviewstore ./internal/gitattribution ./internal/store",
+  "created_at": "2026-08-22T04:24:49.634218Z"
+}

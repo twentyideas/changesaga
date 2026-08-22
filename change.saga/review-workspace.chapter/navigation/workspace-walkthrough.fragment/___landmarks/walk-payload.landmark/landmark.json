@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "id": "walk-payload",
+  "label": "Navigation payload",
+  "description": "Makes the target, ownership lookup, and resulting destination explicit for the selected direction.",
+  "selector": {
+    "type": "element",
+    "element_id": "walk-payload"
+  },
+  "hotspot": {
+    "x": 0.02,
+    "y": 0.72,
+    "width": 0.96,
+    "height": 0.2
+  },
+  "target": ""
+}

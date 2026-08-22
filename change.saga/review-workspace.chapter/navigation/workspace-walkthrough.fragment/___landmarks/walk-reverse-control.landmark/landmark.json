@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "id": "walk-reverse-control",
+  "label": "Code to narrative control",
+  "description": "Switches the walkthrough to the selected-code-to-explanation reviewer path.",
+  "selector": {
+    "type": "element",
+    "element_id": "walk-reverse-control"
+  },
+  "hotspot": {
+    "x": 0.23,
+    "y": 0.02,
+    "width": 0.2,
+    "height": 0.12
+  },
+  "target": ""
+}

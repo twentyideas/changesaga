@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "trust-identity-edge",
+  "label": "Validate diff identity",
+  "description": "Parses the submitted diff URI and compares its canonical repository before writing.",
+  "selector": {
+    "type": "element",
+    "element_id": "trust-identity-edge"
+  },
+  "target": ""
+}

@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "id": "walk-forward-control",
+  "label": "Narrative to code control",
+  "description": "Switches the walkthrough to the landmark-to-focused-code reviewer path.",
+  "selector": {
+    "type": "element",
+    "element_id": "walk-forward-control"
+  },
+  "hotspot": {
+    "x": 0.02,
+    "y": 0.02,
+    "width": 0.2,
+    "height": 0.12
+  },
+  "target": ""
+}

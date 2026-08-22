@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "id": "walk-result-state",
+  "label": "Navigation result",
+  "description": "Shows the complete file diff or exact authored explanation reached by the journey.",
+  "selector": {
+    "type": "element",
+    "element_id": "walk-result-state"
+  },
+  "hotspot": {
+    "x": 0.74,
+    "y": 0.2,
+    "width": 0.24,
+    "height": 0.48
+  },
+  "target": ""
+}

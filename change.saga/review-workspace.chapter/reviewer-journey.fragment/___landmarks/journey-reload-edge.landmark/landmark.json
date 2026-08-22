@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "journey-reload-edge",
+  "label": "Reload projection",
+  "description": "Reloads stored review state and commit attribution into the rendered workspace.",
+  "selector": {
+    "type": "element",
+    "element_id": "journey-reload-edge"
+  },
+  "target": ""
+}

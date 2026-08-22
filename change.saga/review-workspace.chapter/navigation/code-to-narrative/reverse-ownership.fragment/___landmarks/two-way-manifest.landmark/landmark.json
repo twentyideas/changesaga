@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "two-way-manifest",
+  "label": "Two-way coverage manifest",
+  "selector": {
+    "type": "text",
+    "exact": "The coverage manifest derives repository-first and target-first trees from one evaluated ownership report."
+  },
+  "target": ""
+}

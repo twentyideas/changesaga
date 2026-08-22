@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "persistence-contract",
+  "title": "Append-only persistence contract",
+  "media_type": "text/markdown",
+  "entrypoint": "content.md",
+  "order": 20
+}

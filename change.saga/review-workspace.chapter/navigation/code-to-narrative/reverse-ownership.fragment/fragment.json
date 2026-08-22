@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "reverse-ownership",
+  "title": "From a changed line back to its story",
+  "media_type": "text/markdown",
+  "entrypoint": "content.md",
+  "order": 10
+}

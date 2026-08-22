@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "annotation-create-edge",
+  "label": "Atomic thread publication",
+  "description": "Stages a complete thread entity and renames it into place under the writer lock.",
+  "selector": {
+    "type": "element",
+    "element_id": "annotation-create-edge"
+  },
+  "target": ""
+}

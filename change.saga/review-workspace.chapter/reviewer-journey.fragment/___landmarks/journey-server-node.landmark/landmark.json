@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "journey-server-node",
+  "label": "Loopback server gate",
+  "description": "Restricts local serving and mutation requests before review state can change.",
+  "selector": {
+    "type": "element",
+    "element_id": "journey-server-node"
+  },
+  "target": ""
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "journey-history-node",
+  "label": "Git-native history",
+  "description": "Stores independent review records durably and resolves their introducing committers.",
+  "selector": {
+    "type": "element",
+    "element_id": "journey-history-node"
+  },
+  "target": ""
+}

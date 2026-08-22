@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "annotation-reload-edge",
+  "label": "Fold annotation events",
+  "description": "Projects append-only event history into the current annotation state on reload.",
+  "selector": {
+    "type": "element",
+    "element_id": "annotation-reload-edge"
+  },
+  "target": ""
+}

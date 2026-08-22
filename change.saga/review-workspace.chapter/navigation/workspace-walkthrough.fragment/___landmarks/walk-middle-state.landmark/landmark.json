@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "id": "walk-middle-state",
+  "label": "Navigation ownership state",
+  "description": "Presents focused linked code or the reverse ownership index as the intermediate state.",
+  "selector": {
+    "type": "element",
+    "element_id": "walk-middle-state"
+  },
+  "hotspot": {
+    "x": 0.38,
+    "y": 0.2,
+    "width": 0.27,
+    "height": 0.48
+  },
+  "target": ""
+}

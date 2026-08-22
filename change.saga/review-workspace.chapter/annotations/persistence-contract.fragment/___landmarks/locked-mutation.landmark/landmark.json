@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "locked-mutation",
+  "label": "Locked mutation validation",
+  "selector": {
+    "type": "text",
+    "exact": "Review mutations validate before and after acquiring the bounded Saga writer lock."
+  },
+  "target": ""
+}

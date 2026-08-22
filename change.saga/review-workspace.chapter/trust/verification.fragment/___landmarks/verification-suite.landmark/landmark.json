@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "verification-suite",
+  "label": "Focused verification suite",
+  "selector": {
+    "type": "text",
+    "exact": "Package tests cover the reviewer workspace, review record mutations, atomic storage, and Git-derived attribution contracts."
+  },
+  "target": ""
+}

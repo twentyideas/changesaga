@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "introducing-committer-go-test",
+  "claim": "introducing-committer-follows-renames",
+  "status": "verified",
+  "method": "test",
+  "summary": "The Git attribution suite passed introducing-committer, rename-following, and history-rewrite tests.",
+  "command": "go test ./internal/gitattribution",
+  "created_at": "2026-08-22T04:24:49.81144Z"
+}

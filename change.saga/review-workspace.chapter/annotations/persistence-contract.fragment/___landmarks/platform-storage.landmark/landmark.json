@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "platform-storage",
+  "label": "Platform storage adapters",
+  "selector": {
+    "type": "text",
+    "exact": "Unix and Windows adapters implement writer locking and directory durability behind the shared store contract."
+  },
+  "target": ""
+}

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "safe-markdown",
+  "label": "Safe Markdown rendering",
+  "selector": {
+    "type": "text",
+    "exact": "Markdown rendering enables GFM and footnotes, namespaces stable headings, and escapes authored raw HTML."
+  },
+  "target": ""
+}

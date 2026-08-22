@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "trust-follow-edge",
+  "label": "Follow introducing history",
+  "description": "Uses per-path rename-following Git history with bounded parallel workers.",
+  "selector": {
+    "type": "element",
+    "element_id": "trust-follow-edge"
+  },
+  "target": ""
+}

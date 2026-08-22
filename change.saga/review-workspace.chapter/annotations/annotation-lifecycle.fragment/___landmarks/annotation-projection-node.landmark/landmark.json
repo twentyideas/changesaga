@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "annotation-projection-node",
+  "label": "Reloaded annotation projection",
+  "description": "Folds persisted messages and latest events into bubbles, overlays, and active state.",
+  "selector": {
+    "type": "element",
+    "element_id": "annotation-projection-node"
+  },
+  "target": ""
+}

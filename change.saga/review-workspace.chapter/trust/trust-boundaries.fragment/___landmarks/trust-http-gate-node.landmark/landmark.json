@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "trust-http-gate-node",
+  "label": "HTTP security gate",
+  "description": "Restricts serving to loopback and validates Host, Fetch-Site, tokens, and resource bounds.",
+  "selector": {
+    "type": "element",
+    "element_id": "trust-http-gate-node"
+  },
+  "target": ""
+}

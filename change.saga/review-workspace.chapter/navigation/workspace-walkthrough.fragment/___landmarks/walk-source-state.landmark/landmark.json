@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "id": "walk-source-state",
+  "label": "Navigation source",
+  "description": "Shows the selected landmark or changed line that begins a navigation journey.",
+  "selector": {
+    "type": "element",
+    "element_id": "walk-source-state"
+  },
+  "hotspot": {
+    "x": 0.02,
+    "y": 0.2,
+    "width": 0.27,
+    "height": 0.48
+  },
+  "target": ""
+}

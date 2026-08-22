@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "journey-complete-diff-node",
+  "label": "Complete comparison",
+  "description": "Builds the file tree, focused diff surface, and ownership projections for the complete comparison.",
+  "selector": {
+    "type": "element",
+    "element_id": "journey-complete-diff-node"
+  },
+  "target": ""
+}

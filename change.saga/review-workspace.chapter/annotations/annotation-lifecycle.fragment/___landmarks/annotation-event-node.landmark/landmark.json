@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "annotation-event-node",
+  "label": "Later event file",
+  "description": "Appends state or anchor events while preserving the original thread record.",
+  "selector": {
+    "type": "element",
+    "element_id": "annotation-event-node"
+  },
+  "target": ""
+}

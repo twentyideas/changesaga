@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "annotation-undo-edge",
+  "label": "Undo or redo draft",
+  "description": "Moves immutable draft snapshots between undo and redo stacks before submission.",
+  "selector": {
+    "type": "element",
+    "element_id": "annotation-undo-edge"
+  },
+  "target": ""
+}
