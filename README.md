@@ -10,10 +10,15 @@ Change Saga is experimental. The v2 format may change before 1.0.
 
 Change Saga turns a large code change into a reviewable document. It gives the
 change an overview, chapters, diagrams, examples, and links to the exact code
-behind each explanation. Critically, it validates that every change in the diff
-is mapped somewhere in the document. Mapping catches omissions; it is not a
-claim that the explanation or code is correct. The result lives in Git beside
-the code and can be reviewed a chapter at a time.
+behind each explanation. You can quickly move from any part of the document to
+the code diffs it explains, or from a diff back to every relevant part of the
+document. Critically, Change Saga validates that every change in the diff is
+mapped somewhere in the document. Mapping catches omissions; it is not a claim
+that the explanation or code is correct. The result lives in Git beside the
+code, can be reviewed a chapter at a time, and takes code review to its next
+logical layer above the code itself.
+
+![Change Saga overview](docs/assets/change-saga-overview.gif)
 
 ## Install
 
