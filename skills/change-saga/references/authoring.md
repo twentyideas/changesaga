@@ -181,6 +181,45 @@ atom at fragment scope merely to make it visible. This is the literate-programmi
 explain intent, while the landmark opens the exact implementation. The fragment
 is always addressable even when it has no inner landmarks.
 
+### Diff citations in prose
+
+Use Markdown footnotes as diff citations when a sentence or short prose range
+makes a concrete claim about the implementation. Keep the paragraph readable,
+then put one focused explanation in the reference list:
+
+```markdown
+The heartbeat renews the lease before half its TTL elapses.[^lease-renewal]
+
+[^lease-renewal]: Renewal is triggered from the heartbeat path before the lease midpoint.
+```
+
+Make the reference text an exact-text landmark and attach only the diff atoms
+that substantiate that citation:
+
+```sh
+change-saga add-landmark --target path/to/lease.fragment \
+  --id lease-renewal \
+  --text "Renewal is triggered from the heartbeat path before the lease midpoint." \
+  --label "Lease renewal evidence" <name>.saga
+change-saga cover --target path/to/lease.fragment#lease-renewal \
+  --uri 'saga-diff://v1/line?...' \
+  --note "Schedules renewal from the heartbeat before the lease midpoint." <name>.saga
+```
+
+The renderer presents the definitions as a compact reference footer. Once its
+definition owns evidence, both the inline citation marker and the linked text
+open the exact code in the side drawer. Use a stable, descriptive footnote key;
+keep the definition text unique within the fragment, plain text, and free of
+inline Markdown so the exact selector remains durable. One citation should
+support one focused idea. Cite behavioral claims, invariants, data transitions,
+and non-obvious implementation facts—not every sentence and not background
+context that has no realizing diff.
+
+For SVG and HTML, prefer the more direct equivalent: give every code-bearing
+node, arrow, state, or control a stable element `id`, create an element landmark
+for that exact node, and attach its focused diffs there. Fragment-level evidence
+is not a substitute when the visual already identifies the narrower concept.
+
 ## Evidence discipline
 
 - Attach a changed atom to the most focused fragment that actually explains it.
@@ -206,10 +245,15 @@ is always addressable even when it has no inner landmarks.
   in one call and is never a reason to merge them into one broad range.
 - Use `change-saga cover --dry-run` to confirm which records an invocation would
   write, and the exact selectors in each, before writing them.
+- Use `--changed-lines` only when every changed atom in the named file belongs
+  to the same focused target. It derives both old/new line atoms and file events
+  such as `add`; it is not permission to hide unrelated concerns in one record.
 - Run `change-saga query mappings --sort scrutiny` after coverage. Treat the
-  score as a work queue, not a grade: split records that span unrelated files
-  or hundreds of atoms, replace thin notes, and move broad visual ownership to
-  semantic landmarks where that better matches the explanation.
+  score as a work queue, not a grade. Use the returned `evidence_file` with
+  `change-saga replace-coverage --record PATH --batch -` to atomically split,
+  retarget, or rewrite broad records, or with `remove-coverage` to delete one.
+  Move broad visual ownership to semantic landmarks where that better matches
+  the explanation.
 
 ## Claims and verification
 

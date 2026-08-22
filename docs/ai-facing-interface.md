@@ -176,9 +176,9 @@ error content; transport error numbers are not domain API.
 
 ## Structured CLI contract
 
-The proposed command group is `change-saga query` for reads and `change-saga mutate` for
-writes. These commands always emit the envelope above; they do not need a
-separate `--json` switch.
+The implemented read command group is `change-saga query`. It always emits the
+envelope above and does not need a separate `--json` switch. Supported
+authoring writes remain explicit top-level commands described below.
 
 Common read form:
 
@@ -224,7 +224,9 @@ and whether it owns current or stale diffs. It does not inline chapter content.
 
 `children` provides ordered recursive traversal one level at a time. Each node
 has `kind`, `target`, `parent`, `title`, `order`, `has_children`, and compact
-review/diff counts. Fragments are nodes with a media type and byte size.
+review/diff counts. Diff counts report `direct_current`, `direct_stale`,
+`descendant_current`, and `descendant_stale`; `current` and `stale` are their
+inclusive totals. Fragments are nodes with a media type and byte size.
 
 `fragment` reads the entrypoint without exposing its storage path:
 
@@ -342,7 +344,29 @@ and narrative intent; finally reconcile contradictions and independently test
 the claims. `coverage.scope` and `status.coverage_scope` are `mapping_only` to
 make explicit that all-atoms-mapped detects omissions rather than correctness.
 
-Common write form:
+## Supported authoring mutations
+
+`set-fragment-content` replaces a fragment entrypoint from a named file or
+standard input while preserving its manifest and media type. `cover
+--changed-lines` derives the exact changed line atoms for one path, optionally
+filtered by side, and includes file events such as `add`. It is appropriate
+only when the entire named file change belongs to the target.
+
+`query mappings` returns `evidence_file` as the stable repair handle.
+`remove-coverage --record PATH` deletes exactly that record.
+`replace-coverage --record PATH --batch FILE|-` resolves every replacement
+before writing, then atomically swaps the old record for one or more focused
+records. This supports splitting, retargeting, and note repair without direct
+metadata edits. Coverage commands accept `--json` for bounded counts and
+created evidence paths. Failures remain one structured JSON result on stdout
+with a non-zero exit status. `--quiet` suppresses successful output.
+
+Unique target IDs are accepted anywhere an authoring command accepts a path or
+URN. Ambiguous landmark IDs are rejected with the matching URNs.
+
+## Proposed structured review mutation contract
+
+The future structured review-overlay write form is:
 
 ```text
 change-saga mutate <operation> --saga PATH [--repo PATH] --input -

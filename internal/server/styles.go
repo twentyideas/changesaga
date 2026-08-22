@@ -204,6 +204,16 @@ section:hover>.section-actions .review-controls,.section:hover>.section-head>.se
 .fragment-markdown table{border-collapse:collapse;font-size:12.5px}
 .fragment-markdown th,.fragment-markdown td{padding:5px 9px;border:1px solid var(--line-soft);text-align:left}
 .fragment-markdown th{background:var(--bg-subtle)}
+.fragment-markdown .footnote-ref{display:inline-flex;align-items:center;justify-content:center;min-width:1.25em;height:1.25em;margin:0 .08em;padding:0 .25em;border-radius:999px;background:var(--bg-inset);color:var(--muted);font:600 10px/1 var(--mono);text-decoration:none;vertical-align:super}
+.fragment-markdown .footnote-ref:hover,.fragment-markdown .footnote-ref:focus-visible{background:#dbeafe;color:var(--accent)}
+.fragment-markdown .footnote-ref.diff-citation{background:#e8f2ff;color:var(--accent);cursor:pointer}
+.fragment-markdown .footnotes{margin-top:24px;color:var(--muted);font-size:12.5px}
+.fragment-markdown .footnotes hr{height:1px;margin:0 0 10px;border:0;background:var(--line-soft)}
+.fragment-markdown .footnotes ol{margin:0;padding-left:24px}
+.fragment-markdown .footnotes li{padding:2px 0 2px 4px}
+.fragment-markdown .footnotes p{margin:.35em 0}
+.fragment-markdown .footnote-backref{color:var(--muted);text-decoration:none}
+.fragment-markdown .footnotes .content-landmark-text{background:#f5f9ff}
 
 /* Quiet controls --------------------------------------------------------- */
 .btn,button{font:12px var(--ui);border:1px solid transparent;border-radius:var(--radius);padding:4px 9px;background:var(--bg-inset);color:var(--ink)}

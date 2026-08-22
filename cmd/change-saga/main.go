@@ -43,10 +43,16 @@ func run(args []string, stdout, stderr io.Writer) int {
 		err = cli.AddChapter(ctx, args[1:], stdout)
 	case "add-fragment":
 		err = cli.AddFragment(ctx, args[1:], stdout)
+	case "set-fragment-content":
+		err = cli.SetFragmentContent(ctx, args[1:], stdout)
 	case "add-landmark":
 		err = cli.AddLandmark(ctx, args[1:], stdout)
 	case "cover":
 		err = cli.Cover(ctx, args[1:], stdout)
+	case "remove-coverage":
+		err = cli.RemoveCoverage(ctx, args[1:], stdout)
+	case "replace-coverage":
+		err = cli.ReplaceCoverage(ctx, args[1:], stdout)
 	case "add-claim":
 		err = cli.AddClaim(ctx, args[1:], stdout)
 	case "verify-claim":

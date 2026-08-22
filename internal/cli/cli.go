@@ -84,30 +84,33 @@ func (e *StatusError) Error() string { return "command reported a non-success st
 // commandUsage is the single source of each command's usage line so the
 // overview, the per-command -h banner, and argument errors cannot drift apart.
 var commandOrder = []string{
-	"init", "add-chapter", "add-section", "add-fragment", "add-landmark", "cover", "add-claim", "verify-claim",
+	"init", "add-chapter", "add-section", "add-fragment", "set-fragment-content", "add-landmark", "cover", "remove-coverage", "replace-coverage", "add-claim", "verify-claim",
 	"thread", "reply", "review", "validate", "status", "query",
 	"serve", "open", "install-skill", "spec",
 }
 
 var commandUsage = map[string]string{
-	"init":          "change-saga init [flags] <name.saga>",
-	"add-chapter":   "change-saga add-chapter [flags] <saga> <name>",
-	"add-section":   "change-saga add-section [flags] <saga> <section/path>",
-	"add-fragment":  "change-saga add-fragment [flags] <saga>",
-	"add-landmark":  "change-saga add-landmark [flags] <saga>",
-	"cover":         "change-saga cover [flags] [--batch FILE|-] [--dry-run] <saga>",
-	"add-claim":     "change-saga add-claim --target TARGET --kind KIND --statement TEXT --diff URI [--diff URI...] <saga>",
-	"verify-claim":  "change-saga verify-claim --claim ID --status STATUS --summary TEXT [flags] <saga>",
-	"thread":        "change-saga thread [flags] <saga>",
-	"reply":         "change-saga reply [flags] <saga>",
-	"review":        "change-saga review [flags] <saga>",
-	"validate":      "change-saga validate [--json] [--fix] <saga>",
-	"status":        "change-saga status [--json] [--repo PATH] <saga>",
-	"query":         "change-saga query <operation> --saga PATH [--repo PATH] [operation flags]",
-	"serve":         "change-saga serve [--addr ADDR] [--repo PATH] [--open] <saga>",
-	"open":          "change-saga open [--addr ADDR] [--repo PATH] <saga>",
-	"install-skill": "change-saga install-skill",
-	"spec":          "change-saga spec [--json]",
+	"init":                 "change-saga init [flags] <name.saga>",
+	"add-chapter":          "change-saga add-chapter [flags] <saga> <name>",
+	"add-section":          "change-saga add-section [flags] <saga> <section/path>",
+	"add-fragment":         "change-saga add-fragment [flags] <saga>",
+	"set-fragment-content": "change-saga set-fragment-content --target TARGET --source FILE|- [--json|--quiet] <saga>",
+	"add-landmark":         "change-saga add-landmark [flags] <saga>",
+	"cover":                "change-saga cover [flags] [--batch FILE|-] [--dry-run] <saga>",
+	"remove-coverage":      "change-saga remove-coverage --record PATH [--dry-run] [--json|--quiet] <saga>",
+	"replace-coverage":     "change-saga replace-coverage --record PATH [coverage flags] [--batch FILE|-] [--dry-run] <saga>",
+	"add-claim":            "change-saga add-claim --target TARGET --kind KIND --statement TEXT --diff URI [--diff URI...] <saga>",
+	"verify-claim":         "change-saga verify-claim --claim ID --status STATUS --summary TEXT [flags] <saga>",
+	"thread":               "change-saga thread [flags] <saga>",
+	"reply":                "change-saga reply [flags] <saga>",
+	"review":               "change-saga review [flags] <saga>",
+	"validate":             "change-saga validate [--json] [--fix] <saga>",
+	"status":               "change-saga status [--json] [--repo PATH] <saga>",
+	"query":                "change-saga query <operation> --saga PATH [--repo PATH] [operation flags]",
+	"serve":                "change-saga serve [--addr ADDR] [--repo PATH] [--open] [--detach] <saga>",
+	"open":                 "change-saga open [--addr ADDR] [--repo PATH] [--detach] <saga>",
+	"install-skill":        "change-saga install-skill",
+	"spec":                 "change-saga spec [--json]",
 }
 
 func PrintHelp(out io.Writer) {
@@ -141,19 +144,22 @@ func commandFlags(name, usage string, out io.Writer) *flag.FlagSet {
 }
 
 var commandDescription = map[string]string{
-	"add-landmark": "Create a coverable target for one Markdown heading, exact text span, HTML/SVG\nelement, or normalized image region inside a fragment. Visual landmarks require\na semantic --description for non-visual consumers.",
+	"set-fragment-content": "Replace a fragment entrypoint through the supported authoring API. Use --source -\nto read content from standard input; the fragment media type and metadata are preserved.",
+	"add-landmark":         "Create a coverable target for one Markdown heading, exact text span, HTML/SVG\nelement, or normalized image region inside a fragment. Visual landmarks require\na semantic --description for non-visual consumers.",
 	"cover": `Attach the exact diff atoms a narrative target explains. --target accepts a
 section or fragment path, a target URN, or <fragment-path>#<landmark-id>.
 --batch reads newline-delimited JSON records (or one JSON array) with the
-per-record fields target, path, side, lines, event, old_path, new_path, note,
-name, and uris; the whole batch is resolved before anything is written, and a
+per-record fields target, path, side, lines, changed_lines, event, old_path,
+new_path, note, name, and uris; the whole batch is resolved before anything is written, and a
 failing record leaves the saga untouched.`,
-	"add-claim":     "Record one falsifiable author assertion and its exact supporting diff evidence.\nClaims do not count toward coverage and are independently verified.",
-	"verify-claim":  "Append an independent verification result without rewriting the claim or prior results.",
-	"open":          "Serve the saga on loopback and open it in a browser.",
-	"serve":         "Serve the saga on loopback for review.",
-	"install-skill": "Print the agent-agnostic prompt that installs the change-saga authoring skill.\nPipe it to a coding agent; it neither writes to this repository nor creates a saga.",
-	"validate":      "Check the saga against the format. --fix adds missing stable anchors to Markdown\nheadings in narrative fragments and changes nothing else.",
+	"remove-coverage":  "Delete one exact coverage record named by query mappings or fragment-diffs.",
+	"replace-coverage": "Atomically replace one coverage record with one or more newly resolved records.\nUse --batch to split or retarget broad evidence without leaving partial coverage.",
+	"add-claim":        "Record one falsifiable author assertion and its exact supporting diff evidence.\nClaims do not count toward coverage and are independently verified.",
+	"verify-claim":     "Append an independent verification result without rewriting the claim or prior results.",
+	"open":             "Serve the saga on loopback and open it in a browser. --detach returns after\nprinting the PID and active URL.",
+	"serve":            "Serve the saga on loopback for review. Detached instances are managed with\nchange-saga serve status [SAGA] and change-saga serve stop [SAGA].",
+	"install-skill":    "Print the agent-agnostic prompt that installs the change-saga authoring skill.\nPipe it to a coding agent; it neither writes to this repository nor creates a saga.",
+	"validate":         "Check the saga against the format. --fix adds missing stable anchors to Markdown\nheadings in narrative fragments and changes nothing else.",
 }
 
 func flagWasSet(flags *flag.FlagSet, name string) bool {
@@ -282,7 +288,7 @@ func AddChapter(_ context.Context, args []string, out io.Writer) error {
 	if name == "" || name == "." || name == ".." || filepath.IsAbs(name) || filepath.Clean(name) != name || filepath.Base(name) != name || strings.HasPrefix(name, "___") {
 		return fmt.Errorf("chapter name must be a single non-reserved path component")
 	}
-	var created string
+	var created, createdID, createdTarget string
 	err := authorMutation(flags.Arg(0), func(document *saga.Saga) error {
 		chapterTitle, chapterID := *title, *id
 		if chapterTitle == "" {
@@ -319,12 +325,16 @@ func AddChapter(_ context.Context, args []string, out io.Writer) error {
 			return fmt.Errorf("chapter %s already exists", filepath.Base(dir))
 		}
 		created = filepath.Base(dir)
+		createdID = chapterID
+		createdTarget = saga.ChapterTarget(document.Manifest.ID, chapterID)
 		return err
 	})
 	if err != nil {
 		return err
 	}
 	fmt.Fprintf(out, "Added chapter %s\n", created)
+	fmt.Fprintf(out, "Target: %s\n", createdTarget)
+	fmt.Fprintf(out, "Next: change-saga add-section --title \"Section title\" %s %s/section-name\n", flags.Arg(0), createdID)
 	return nil
 }
 
@@ -344,6 +354,7 @@ func AddSection(_ context.Context, args []string, out io.Writer) error {
 	if parentPath == "." || name == "." || strings.HasPrefix(name, "___") || strings.HasSuffix(name, ".chapter") || strings.HasSuffix(name, ".fragment") {
 		return fmt.Errorf("sections must be created inside an existing chapter or section")
 	}
+	var created, createdID, createdTarget string
 	err := authorMutation(flags.Arg(0), func(document *saga.Saga) error {
 		parentDir, _, err := resolveTarget(document, parentPath, false)
 		if err != nil {
@@ -375,12 +386,20 @@ func AddSection(_ context.Context, args []string, out io.Writer) error {
 		if errors.Is(err, fs.ErrExist) {
 			return fmt.Errorf("section %s already exists", flags.Arg(1))
 		}
+		if err == nil {
+			rel, _ := filepath.Rel(document.Root, dir)
+			created = filepath.ToSlash(rel)
+			createdID = sectionID
+			createdTarget = saga.SectionTarget(document.Manifest.ID, sectionID)
+		}
 		return err
 	})
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "Added section %s\n", filepath.ToSlash(flags.Arg(1)))
+	fmt.Fprintf(out, "Added section %s\n", created)
+	fmt.Fprintf(out, "Target: %s\n", createdTarget)
+	fmt.Fprintf(out, "Next: change-saga add-fragment --section %s --title \"Fragment title\" %s\n", createdID, flags.Arg(0))
 	return nil
 }
 
@@ -416,7 +435,7 @@ func AddFragment(_ context.Context, args []string, out io.Writer) error {
 	if !saga.ValidMediaType(resolvedType) {
 		return fmt.Errorf("unsupported fragment media type %q", resolvedType)
 	}
-	var created string
+	var created, createdTarget string
 	err = authorMutation(flags.Arg(0), func(document *saga.Saga) error {
 		sectionDir, _, err := resolveTarget(document, *section, false)
 		if err != nil {
@@ -440,12 +459,15 @@ func AddFragment(_ context.Context, args []string, out io.Writer) error {
 		}
 		rel, _ := filepath.Rel(document.Root, fragmentDir)
 		created = filepath.ToSlash(rel)
+		createdTarget = saga.FragmentTarget(document.Manifest.ID, fragmentID)
 		return err
 	})
 	if err != nil {
 		return err
 	}
 	fmt.Fprintf(out, "Added fragment %s\n", created)
+	fmt.Fprintf(out, "Target: %s\n", createdTarget)
+	fmt.Fprintf(out, "Next: change-saga set-fragment-content --target %s --source FILE|- %s\n", createdTarget, flags.Arg(0))
 	return nil
 }
 
@@ -752,15 +774,28 @@ func Serve(ctx context.Context, args []string, out io.Writer, openByDefault ...b
 	if opensBrowser {
 		name = "open"
 	}
+	if name == "serve" && len(args) > 0 && (args[0] == "status" || args[0] == "stop") {
+		return manageDetachedServers(ctx, args[0], args[1:], out)
+	}
 	flags := commandFlags(name, commandUsage[name], out)
 	addr := flags.String("addr", "127.0.0.1:7342", "loopback listen address; remote serving is disabled")
 	repoDir := flags.String("repo", "", "source repository checkout; required when separate")
 	openBrowser := flags.Bool("open", opensBrowser, "open the review in a browser")
+	detach := flags.Bool("detach", false, "run in the background and return the PID and active URL")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() != 1 {
 		return fmt.Errorf("usage: %s", commandUsage[name])
+	}
+	if *detach {
+		if !flagWasSet(flags, "addr") {
+			*addr = "127.0.0.1:0"
+		}
+		return startDetachedServer(ctx, flags.Arg(0), *repoDir, *addr, *openBrowser, out)
+	}
+	if statePath, token := os.Getenv(runtimeStateEnv), os.Getenv(runtimeTokenEnv); statePath != "" && token != "" {
+		return runManagedServer(ctx, flags.Arg(0), *repoDir, *addr, *openBrowser, statePath, token, out)
 	}
 	return reviewserver.Listen(ctx, flags.Arg(0), *repoDir, *addr, *openBrowser, out)
 }
@@ -928,6 +963,9 @@ func resolveTarget(document *saga.Saga, value string, allowFragment bool) (strin
 		}
 		return foundDir, value, nil
 	}
+	if dir, target, found, err := resolveTargetID(document, value, allowFragment); found || err != nil {
+		return dir, target, err
+	}
 	candidate := value
 	if !filepath.IsAbs(candidate) {
 		candidate = filepath.Join(document.Root, candidate)
@@ -963,6 +1001,57 @@ func resolveTarget(document *saga.Saga, value string, allowFragment bool) (strin
 		return "", "", fmt.Errorf("target %q is not a valid %s%s", value, map[bool]string{true: "chapter, section, fragment, or landmark", false: "chapter or section"}[allowFragment], targetHint(document, allowFragment))
 	}
 	return abs, foundTarget, nil
+}
+
+// resolveTargetID makes the stable IDs printed by authoring commands usable
+// everywhere a target is accepted. Paths and URNs remain supported, but an
+// agent no longer has to rediscover a full URN merely to put a section under a
+// chapter it just created. Landmark IDs may repeat across fragments, so an
+// ambiguous shorthand is rejected with the matching URNs instead of guessed.
+func resolveTargetID(document *saga.Saga, value string, allowFragment bool) (string, string, bool, error) {
+	if value == "" || value == "." || filepath.IsAbs(value) || strings.ContainsAny(value, `/\\#`) {
+		return "", "", false, nil
+	}
+	type match struct{ dir, target string }
+	var matches []match
+	if document.Manifest.ID == value || document.Section.ID == value {
+		matches = append(matches, match{document.Root, saga.SagaTarget(document.Manifest.ID)})
+	}
+	var walk func(*saga.Section)
+	walk = func(section *saga.Section) {
+		if section.Path != "" && section.ID == value {
+			matches = append(matches, match{filepath.Join(document.Root, filepath.FromSlash(section.Path)), section.Target})
+		}
+		if allowFragment {
+			for _, fragment := range section.Fragments {
+				if fragment.ID == value {
+					matches = append(matches, match{fragment.Directory, fragment.Target})
+				}
+				for index := range fragment.Landmarks {
+					landmark := &fragment.Landmarks[index]
+					if landmark.ID == value {
+						matches = append(matches, match{landmark.Directory, landmark.Target})
+					}
+				}
+			}
+		}
+		for _, child := range section.Children {
+			walk(child)
+		}
+	}
+	walk(document.Section)
+	if len(matches) == 0 {
+		return "", "", false, nil
+	}
+	if len(matches) > 1 {
+		targets := make([]string, len(matches))
+		for i := range matches {
+			targets[i] = matches[i].target
+		}
+		sort.Strings(targets)
+		return "", "", true, fmt.Errorf("target id %q is ambiguous; use one of: %s", value, strings.Join(targets, ", "))
+	}
+	return matches[0].dir, matches[0].target, true, nil
 }
 
 // splitLandmarkTarget recognizes the <fragment>#<landmark-id> shorthand. A
@@ -1315,6 +1404,10 @@ Start at "query overview", walk one level at a time with "query children", and
 read narrative content through "query fragment". "query children" is also how
 you discover landmark targets: a fragment's children are its landmarks, and each
 one reports the target URN to pass to "change-saga cover --target".
+Hierarchy nodes report inclusive "diffs.current" and "diffs.stale" totals plus
+"direct_current", "direct_stale", "descendant_current", and
+"descendant_stale", so evidence owned by a landmark is not mistaken for a
+fragment with no explained code.
 
 ## Author the saga
 
@@ -1327,25 +1420,36 @@ Use this authoring loop, consulting each command's "-h" output for exact flags:
    loop.
 3. "change-saga add-chapter", "change-saga add-section", and "change-saga add-fragment" build the
    reviewer-oriented narrative and its Markdown, SVG, image, or HTML packages.
+   Write or replace an entrypoint only with "change-saga set-fragment-content
+   --target TARGET --source FILE|-"; do not edit fragment package files directly.
 4. "change-saga add-landmark" makes a Markdown heading, HTML/SVG element, exact
    text, or image region independently addressable. Give every meaningful
    visual landmark a semantic "--description" that explains its role without
-   relying on geometry, color, or position.
+   relying on geometry, color, or position. Cite focused implementation claims
+   in prose with Markdown footnotes, make each plain-text footnote definition
+   an exact-text landmark, and attach its exact evidence there. Give each
+   code-bearing SVG/HTML node its own stable element ID and evidence-bearing
+   landmark instead of covering only the enclosing fragment.
 5. "change-saga cover" connects a focused fragment or landmark to the exact diff atoms
    it explains and includes a concise what-and-why note. "--target" accepts a
    path, a target URN, or the "<fragment-path>#<landmark-id>" shorthand. Use
    "--dry-run" to see exactly which records an invocation would write before
-   writing them.
+   writing them. When every changed atom in one file genuinely belongs to the
+   same target, "--path FILE --changed-lines" derives its exact old/new line
+   atoms and includes file events such as "add" automatically. Never use it to
+   hide multiple concerns in one broad record.
 6. When attaching many selectors, pipe newline-delimited JSON records to
    "change-saga cover --batch -". Each record carries its own "target", "path",
-   "side", "lines", "event", "old_path", "new_path", "note", and "name". The
+   "side", "lines", "changed_lines", "event", "old_path", "new_path", "note", and "name". The
    whole batch is resolved before anything is written and a failing record
    leaves the saga untouched, so a batch is a delivery optimization only: every
    record still maps the exact atoms it explains, never a widened range.
-7. Run "change-saga query mappings --sort scrutiny" and split broad evidence
-   records, replace thin notes, and prefer landmark-level ownership when the
-   score explains that a mapping deserves more skepticism. The score is a work
-   queue, not a correctness grade.
+7. Run "change-saga query mappings --sort scrutiny" and use each
+   "evidence_file" as the stable repair handle. "change-saga replace-coverage
+   --record PATH --batch -" atomically splits, retargets, or rewrites a record;
+   "change-saga remove-coverage --record PATH" deletes one. Prefer
+   landmark-level ownership when the score explains that a mapping deserves
+   more skepticism. The score is a work queue, not a correctness grade.
 8. Record falsifiable assertions with "change-saga add-claim" and append an
    explicit result with "change-saga verify-claim". Claims never contribute to
    coverage. Use "unverified" when an assertion has not actually been checked;
@@ -1361,7 +1465,10 @@ interactive HTML walkthrough, or concrete before/after example. Highlight
 end-to-end workflows, data flows, data models, state transitions, boundaries,
 failure paths, compatibility, and observable outcomes. Give meaningful diagram
 nodes and interactive elements stable landmarks with "change-saga add-landmark"
-so they can link to the exact code that realizes them. Audit every visual before
+so they can link to the exact code that realizes them. In prose, use Markdown
+footnote citations for concrete implementation claims and map the exact-text
+reference definition to its supporting diff atoms; the renderer makes both the
+inline marker and reference entry open those diffs. Audit every visual before
 moving on: enumerate its meaningful nodes and attach focused evidence to each
 code-bearing landmark. A visual with no landmarks or direct code mapping is
 unfinished, not decorative completeness.
@@ -1379,6 +1486,11 @@ mapped and no mapping is stale, then inspect "query mappings --sort scrutiny".
 All-atoms-mapped is an omission invariant, not proof of explanation quality or
 correctness. Then run "change-saga validate --json"
 and "change-saga status --json" before handoff.
+
+Use "--json" for bounded machine-readable coverage mutation summaries and
+"--quiet" when no successful output is needed. Use "change-saga open --detach"
+for a managed background reviewer, then inspect or stop it with "change-saga
+serve status" and "change-saga serve stop".
 
 Never leave generated instructions, blank scaffold fragments, or example
 diagram/HTML content in the handed-off saga. Treat every validation warning as
@@ -1423,6 +1535,9 @@ Create them with change-saga add-landmark, then pass the printed path or URN to
 change-saga cover so a reviewer can move directly from a visual node to code.
 Meaningful visual landmarks include a semantic description so query clients can
 understand their role without interpreting SVG or HTML geometry.
+Markdown footnotes are the prose citation convention. When a footnote
+definition is an exact-text landmark with evidence, the renderer turns both its
+inline reference and footer entry into controls that open the linked diffs.
 
 Falsifiable author assertions live as independent ___claims/<id>.json records.
 Append-only ___verifications/<id>.json records mark them unverified, verified,

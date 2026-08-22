@@ -165,6 +165,25 @@ func TestSessionReadOperations(t *testing.T) {
 	}
 }
 
+func TestNodeDiffsSeparateDirectAndDescendantCoverage(t *testing.T) {
+	fragment := "urn:change-saga:test:fragment:diagram"
+	landmark := fragment + ":landmark:worker"
+	service := &session{
+		document: &saga.Saga{},
+		targets: map[string]*targetEntry{
+			fragment: {node: Node{Kind: "fragment", Target: fragment}, children: []string{landmark}},
+			landmark: {node: Node{Kind: "landmark", Target: landmark}},
+		},
+		selectors: map[string][]selectorEntry{
+			landmark: {{selector: ResolvedSelector{Status: "current", Atoms: []gitdiff.Atom{{URI: "atom-1"}, {URI: "atom-2"}}}}},
+		},
+	}
+	node := service.finishNode(fragment, false)
+	if node.Diffs.DirectCurrent != 0 || node.Diffs.DescendantCurrent != 2 || node.Diffs.Current != 2 {
+		t.Fatalf("fragment coverage = %#v, want zero direct and two descendant atoms", node.Diffs)
+	}
+}
+
 func TestSessionStableErrorsSnapshotAndCursor(t *testing.T) {
 	fixture := newServiceFixture(t)
 	ctx := context.Background()

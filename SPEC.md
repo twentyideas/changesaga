@@ -158,6 +158,15 @@ anchor. The reference validator warns about headings without explicit anchors
 and rejects invalid or duplicate explicit anchors. Engines may derive fallback
 anchors for older content, but authored anchors are the stable sharing contract.
 
+Markdown footnotes are the standard prose citation form. Authors place the
+citation after a focused implementation claim and make the reference definition
+an exact-text landmark. When that landmark owns diff evidence, reference
+renderers should let both the inline marker and the definition open the linked
+code. Citation definition text should remain plain, unique within its fragment,
+and focused on one claim so its exact-text selector is durable. Footnote syntax
+does not itself create coverage; the landmark's independent `___diffs` records
+remain the authoritative association.
+
 Addressable subparts use one `<id>.landmark` package under `___landmarks/`.
 Its `landmark.json` conforms to
 [`schema/v2/landmark.schema.json`](schema/v2/landmark.schema.json) and contains a
@@ -189,6 +198,8 @@ Meaningful visual landmarks should carry a concise semantic `description` that
 explains their role without relying on geometry, color, or position. Query
 clients return this description so non-visual consumers do not need to infer
 meaning from SVG or HTML source.
+Every code-bearing SVG or HTML node should prefer its own stable element ID and
+element landmark over evidence attached only to the enclosing fragment.
 
 Static SVG and image landmarks may include a normalized `hotspot` rectangle.
 The renderer uses it to reveal permalink and related-code controls directly on

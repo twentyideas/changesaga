@@ -167,6 +167,37 @@ func TestListenRefusesNonLoopbackAddressBeforeServing(t *testing.T) {
 	}
 }
 
+func TestManagedRuntimeEndpointsRequireTokenAndSignalShutdown(t *testing.T) {
+	stopped := make(chan struct{}, 1)
+	application := &app{shutdownToken: "private-token", shutdown: func() { stopped <- struct{}{} }}
+	handler := newMux(application)
+
+	status := httptest.NewRecorder()
+	handler.ServeHTTP(status, httptest.NewRequest(http.MethodGet, "/api/runtime", nil))
+	if status.Code != http.StatusOK || !strings.Contains(status.Body.String(), `"ok":true`) {
+		t.Fatalf("runtime status = %d %q", status.Code, status.Body.String())
+	}
+
+	denied := httptest.NewRecorder()
+	handler.ServeHTTP(denied, httptest.NewRequest(http.MethodPost, "/api/runtime-stop", nil))
+	if denied.Code != http.StatusForbidden {
+		t.Fatalf("unauthenticated stop = %d", denied.Code)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api/runtime-stop", nil)
+	request.Header.Set("X-Change-Saga-Shutdown", "private-token")
+	accepted := httptest.NewRecorder()
+	handler.ServeHTTP(accepted, request)
+	if accepted.Code != http.StatusOK {
+		t.Fatalf("authenticated stop = %d %q", accepted.Code, accepted.Body.String())
+	}
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Fatal("authenticated stop did not signal shutdown")
+	}
+}
+
 func TestMultipartLimitsSniffingAndCleanup(t *testing.T) {
 	tempDir := t.TempDir()
 	attachmentTempDir = tempDir
@@ -885,6 +916,10 @@ func TestMarkdownRendersSafeGFMWithStablePermalinks(t *testing.T) {
 1. First
 2. Second
 
+The lease is renewed before its midpoint.[^lease-renewal]
+
+[^lease-renewal]: The heartbeat path renews the lease before half its TTL elapses.
+
 [safe](https://example.test) [unsafe](javascript:alert(1))
 
 <script>alert("no")</script>
@@ -897,6 +932,10 @@ func TestMarkdownRendersSafeGFMWithStablePermalinks(t *testing.T) {
 		`<code>fast</code>`,
 		`<ol>`,
 		`href="https://example.test"`,
+		`id="fragment--fnref:1"`,
+		`href="#fragment--fn:1"`,
+		`class="footnote-ref"`,
+		`The heartbeat path renews the lease before half its TTL elapses.`,
 	} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("Markdown output is missing %q:\n%s", expected, rendered)
@@ -904,6 +943,10 @@ func TestMarkdownRendersSafeGFMWithStablePermalinks(t *testing.T) {
 	}
 	if strings.Contains(rendered, `<script>`) || strings.Contains(rendered, `href="javascript:`) {
 		t.Fatalf("Markdown output contains unsafe content:\n%s", rendered)
+	}
+	other := string(markdownWithAnchors("Another claim.[^lease-renewal]\n\n[^lease-renewal]: Other evidence.\n", "other-fragment"))
+	if !strings.Contains(other, `id="other-fragment--fnref:1"`) || strings.Contains(other, `id="fragment--fnref:1"`) {
+		t.Fatalf("footnote IDs were not namespaced per fragment:\n%s", other)
 	}
 }
 

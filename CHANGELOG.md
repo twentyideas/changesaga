@@ -26,6 +26,28 @@ tool, and what they have to do about it.
   contains derived atom and stale-selector arrays.
 - `change-saga add-landmark --help` now states that a heading landmark's
   explicit `--id` must equal its `--heading-id`.
+- Authoring commands now accept unique stable target IDs wherever a full path
+  or target URN was previously required.
+- Query hierarchy nodes distinguish direct coverage from descendant coverage;
+  inclusive `current` and `stale` totals remain available.
+
+### Added
+
+- Markdown fragments support footnote-style diff citations. When a citation
+  definition is an evidence-bearing exact-text landmark, both the inline marker
+  and footer reference open its linked code in the side drawer.
+- `change-saga set-fragment-content` safely replaces a fragment entrypoint from
+  a file or standard input without requiring authors to edit package internals.
+- `change-saga cover --changed-lines` selects every exact changed atom for one
+  path and automatically includes file events such as an added-file atom.
+- `change-saga cover --json` emits bounded record, selector, evidence-file, and
+  failure results without mixing diagnostics into stderr; `--quiet` suppresses
+  successful output for large batches.
+- `change-saga remove-coverage` and `replace-coverage` provide supported,
+  atomic repair of evidence records identified by query `evidence_file` paths.
+- `change-saga open --detach` starts a managed loopback reviewer and prints its
+  PID and URL. `change-saga serve status` and `serve stop` discover and stop
+  managed instances using private per-user runtime state.
 
 ## [0.0.3] - 2026-08-21
 

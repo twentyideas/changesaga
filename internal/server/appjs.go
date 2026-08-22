@@ -554,6 +554,24 @@ const appJavaScript = `(() => {
     globalThis.requestAnimationFrame?.(positionFragmentOverlays);
   }
 
+  // Markdown citations are ordinary footnotes until their reference entry is
+  // made into an exact-text landmark. When that landmark owns code evidence,
+  // promote every inline citation marker into a direct diff-drawer control.
+  // Footnotes without evidence keep their normal jump-to-reference behavior.
+  function prepareDiffCitations() {
+    qa('a.footnote-ref').forEach(reference => {
+      const href = reference.getAttribute('href') || '';
+      if (!href.startsWith('#')) return;
+      const definition = document.getElementById(decodeURIComponent(href.slice(1)));
+      const diff = definition?.querySelector('[data-open-diffs]');
+      if (!diff?.dataset.openDiffs) return;
+      reference.dataset.openDiffs = diff.dataset.openDiffs;
+      reference.classList.add('diff-citation');
+      reference.setAttribute('aria-label', 'Open cited code');
+      reference.setAttribute('title', 'Open cited code');
+    });
+  }
+
   function activateLandmark() {
     qa('[data-landmark-visual].active').forEach(element => element.classList.remove('active'));
     qa('.content-landmark-active').forEach(element => element.classList.remove('content-landmark-active'));
@@ -1716,7 +1734,7 @@ const appJavaScript = `(() => {
     }
     if (event.target.closest('[data-selection-clear]')) { selectionAnchor = null; updateLineSelection([]); return; }
     const drawerButton = event.target.closest('[data-open-diffs]');
-    if (drawerButton) { openDrawer(drawerButton.dataset.openDiffs, drawerButton); return; }
+    if (drawerButton) { event.preventDefault(); openDrawer(drawerButton.dataset.openDiffs, drawerButton); return; }
     if (event.target.closest('[data-close-drawer]')) { closeDrawer(); return; }
     const reviewDecision = event.target.closest('[data-review-decision]');
     if (reviewDecision) { activateReviewDecision(reviewDecision); return; }
@@ -2012,6 +2030,7 @@ const appJavaScript = `(() => {
   updateHistoryControls();
   updateReviewProgress();
   prepareLandmarks();
+  prepareDiffCitations();
   qa('[data-text-target]').forEach(label => {
     const target = document.querySelector('[data-target="'+CSS.escape(label.dataset.textTarget)+'"] [data-selectable]');
     if (!target) return;
