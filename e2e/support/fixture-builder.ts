@@ -94,9 +94,13 @@ function addCoverage(sourceRepo: string, sagaRoot: string): DiffIdentity {
   const uncovered = initial.uncovered ?? [];
   if (uncovered.length === 0) throw new Error("fixture source comparison unexpectedly has no changed atoms");
   const overview = uncovered.filter((atom) => atom.path === "src/app.go" || atom.path === "docs/guide.md");
+  const citation = overview.find((atom) => atom.path === "src/app.go" && atom.side === "new" && atom.line !== undefined);
+  if (!citation) throw new Error("fixture has no changed line for its prose citation");
+  const overviewRemainder = overview.filter((atom) => atom !== citation);
   const architecture = uncovered.filter((atom) => !overview.includes(atom));
   for (const [target, name, atoms] of [
-    ["overview.fragment", "overview-linked", overview],
+    ["overview.fragment", "overview-linked", overviewRemainder],
+    ["overview.fragment/___landmarks/greeting-input.landmark", "greeting-citation", [citation]],
     ["architecture.chapter/overview.fragment", "architecture-linked", architecture]
   ] as const) {
     if (atoms.length === 0) throw new Error(`fixture has no atoms for ${target}`);
@@ -148,7 +152,8 @@ function buildSagaRepository(root: string, source: { sourceRepo: string; base: s
     "init", "--repo", source.sourceRepo, "--repository", declaredRepository,
     "--base", source.base, "--head", source.head, "--id", "wave-one", "--title", "Wave One Review", sagaRoot
   ], sagaRepo);
-  write(join(sagaRoot, "overview.fragment", "content.md"), `# Review overview {#review-overview}\n\nWave 1 connects the story to the exact source changes.\n\n## Reviewer path {#reviewer-path}\n\nStart with **the behavior**, then follow the \`linked code\`.\n\n| Before | After |\n| --- | --- |\n| Flat prose | Linked narrative |\n\n1. Read the story.\n2. Inspect its code.\n`);
+  write(join(sagaRoot, "overview.fragment", "content.md"), `# Review overview {#review-overview}\n\nWave 1 connects the story to the exact source changes. The greeting accepts a caller-provided name.[^greeting-input]\n\n## Reviewer path {#reviewer-path}\n\nStart with **the behavior**, then follow the \`linked code\`.\n\n| Before | After |\n| --- | --- |\n| Flat prose | Linked narrative |\n\n1. Read the story.\n2. Inspect its code.\n\n[^greeting-input]: The function signature and returned greeting now use the supplied name.\n`);
+  runSaga(["add-landmark", "--target", "overview.fragment", "--id", "greeting-input", "--text", "The function signature and returned greeting now use the supplied name.", "--label", "Greeting input evidence", sagaRoot], sagaRepo);
   runSaga(["add-chapter", "--id", "architecture", "--title", "Architecture", sagaRoot, "architecture"], sagaRepo);
   write(join(sagaRoot, "architecture.chapter", "overview.fragment", "content.md"), `# Architecture path {#architecture-path}\n\nThe renderer and persistence boundary stay independent.\n`);
 

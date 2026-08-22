@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -110,6 +111,142 @@ func TestCoverBatchAcceptsJSONArray(t *testing.T) {
 		t.Fatalf("expected two coverage records, got %v", names)
 	}
 	assertValid(t, root)
+}
+
+func TestCoverChangedLinesSelectsExactFileAtomsAndAddEvent(t *testing.T) {
+	root, repo := coveredSaga(t)
+	output, err := runCover(t, "", "--repo", repo, "--path", "internal/service/handler.go", "--changed-lines", "--name", "whole-file", "--json", root)
+	if err != nil {
+		t.Fatalf("changed-lines cover: %v\n%s", err, output)
+	}
+	var result coverageMutationOutput
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("decode output: %v\n%s", err, output)
+	}
+	if !result.OK || result.Records != 1 || result.Selectors != 6 {
+		t.Fatalf("changed-lines summary = %#v, want five lines plus add event", result)
+	}
+	references := readDiffFile(t, filepath.Join(root, "___diffs", "whole-file.json"))
+	seenAdd := false
+	for _, reference := range references {
+		seenAdd = seenAdd || strings.Contains(reference.URI, "event=add")
+	}
+	if !seenAdd {
+		t.Fatalf("added file event was not selected automatically: %#v", references)
+	}
+	report, err := buildReport(context.Background(), root, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !report.Complete {
+		t.Fatalf("all exact file atoms should be covered: %#v", report.Summary)
+	}
+}
+
+func TestCoverQuietSuppressesLargeBatchOutput(t *testing.T) {
+	root, repo := coveredSaga(t)
+	batch := `[{"path":"internal/service/handler.go","side":"new","lines":"1","name":"one"},
+{"path":"internal/service/handler.go","side":"new","lines":"3","name":"two"}]`
+	output, err := runCover(t, batch, "--repo", repo, "--batch", "-", "--quiet", root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if output != "" {
+		t.Fatalf("--quiet wrote output: %q", output)
+	}
+}
+
+func TestCoverJSONReportsFailureWithoutPartialOutput(t *testing.T) {
+	root, repo := coveredSaga(t)
+	var output bytes.Buffer
+	err := Cover(context.Background(), []string{"--repo", repo, "--path", "internal/service/handler.go", "--side", "sideways", "--lines", "1", "--json", root}, &output)
+	var status *StatusError
+	if !errors.As(err, &status) || status.Code != 1 {
+		t.Fatalf("JSON failure status = %#v", err)
+	}
+	var result mutationFailureOutput
+	if decodeErr := json.Unmarshal(output.Bytes(), &result); decodeErr != nil || result.OK || len(result.Failures) != 1 || !strings.Contains(result.Failures[0].Message, "side old or new") {
+		t.Fatalf("JSON failure = %#v, err=%v\n%s", result, decodeErr, output.String())
+	}
+	if names := diffRecords(t, filepath.Join(root, "___diffs")); len(names) != 0 {
+		t.Fatalf("failed JSON mutation left records: %v", names)
+	}
+}
+
+func TestReplaceAndRemoveCoverageCompleteRepairLoop(t *testing.T) {
+	root, repo := coveredSaga(t)
+	if output, err := runCover(t, "", "--repo", repo, "--path", "internal/service/handler.go", "--changed-lines", "--name", "broad", root); err != nil {
+		t.Fatalf("seed broad coverage: %v\n%s", err, output)
+	}
+	batch := strings.Join([]string{
+		`{"path":"internal/service/handler.go","side":"new","lines":"1-2","name":"declaration","note":"package boundary"}`,
+		`{"path":"internal/service/handler.go","side":"new","lines":"3-5","name":"constants","note":"three behavior constants"}`,
+		`{"path":"internal/service/handler.go","event":"add","name":"file-add","note":"introduces the service file"}`,
+	}, "\n")
+	var output bytes.Buffer
+	if err := replaceCoverage(context.Background(), []string{"--record", "___diffs/broad.json", "--repo", repo, "--batch", "-", "--json", root}, &output, strings.NewReader(batch)); err != nil {
+		t.Fatalf("replace coverage: %v\n%s", err, output.String())
+	}
+	var replaced coverageRepairOutput
+	if err := json.Unmarshal(output.Bytes(), &replaced); err != nil || replaced.Records != 3 || replaced.Selectors != 3 {
+		t.Fatalf("replacement output = %#v, err=%v\n%s", replaced, err, output.String())
+	}
+	if _, err := os.Stat(filepath.Join(root, "___diffs", "broad.json")); !os.IsNotExist(err) {
+		t.Fatalf("replaced record still exists: %v", err)
+	}
+	report, err := buildReport(context.Background(), root, repo)
+	if err != nil || !report.Complete {
+		t.Fatalf("split replacement should preserve complete coverage: %#v, %v", report.Summary, err)
+	}
+
+	output.Reset()
+	if err := RemoveCoverage(context.Background(), []string{"--record", "___diffs/constants.json", "--json", root}, &output); err != nil {
+		t.Fatal(err)
+	}
+	report, err = buildReport(context.Background(), root, repo)
+	if err != nil || report.Complete || report.Summary.Uncovered != 3 {
+		t.Fatalf("removing focused coverage should reopen exact gaps: %#v, %v", report.Summary, err)
+	}
+}
+
+func TestReplaceCoverageFailurePreservesOriginalRecord(t *testing.T) {
+	root, repo := coveredSaga(t)
+	if _, err := runCover(t, "", "--repo", repo, "--path", "internal/service/handler.go", "--changed-lines", "--name", "broad", root); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	badBatch := `{"path":"internal/service/handler.go","side":"sideways","lines":"1","name":"bad"}`
+	err := replaceCoverage(context.Background(), []string{"--record", "___diffs/broad.json", "--repo", repo, "--batch", "-", root}, &output, strings.NewReader(badBatch))
+	if err == nil {
+		t.Fatal("invalid replacement succeeded")
+	}
+	if _, statErr := os.Stat(filepath.Join(root, "___diffs", "broad.json")); statErr != nil {
+		t.Fatalf("failed replacement removed original: %v", statErr)
+	}
+	if names := diffRecords(t, filepath.Join(root, "___diffs")); len(names) != 1 {
+		t.Fatalf("failed replacement left partial files: %v", names)
+	}
+}
+
+func TestReplaceCoverageCanAtomicallyReuseTheRecordName(t *testing.T) {
+	root, repo := coveredSaga(t)
+	if _, err := runCover(t, "", "--repo", repo, "--path", "internal/service/handler.go", "--changed-lines", "--name", "broad", root); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	if err := replaceCoverage(context.Background(), []string{
+		"--record", "___diffs/broad.json", "--repo", repo, "--path", "internal/service/handler.go",
+		"--side", "new", "--lines", "1", "--name", "broad", "--note", "package declaration", root,
+	}, &output, strings.NewReader("")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "___diffs", "broad.json")); err != nil {
+		t.Fatalf("same-name replacement removed its destination: %v; records=%v; output=%s", err, diffRecords(t, filepath.Join(root, "___diffs")), output.String())
+	}
+	references := readDiffFile(t, filepath.Join(root, "___diffs", "broad.json"))
+	if len(references) != 1 || references[0].Note != "package declaration" {
+		t.Fatalf("same-name replacement = %#v", references)
+	}
 }
 
 // A batch is all-or-nothing. A record that cannot be resolved must leave the

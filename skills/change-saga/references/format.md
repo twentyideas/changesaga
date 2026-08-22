@@ -80,18 +80,26 @@ change-saga add-chapter --title "Title" <name>.saga backend
 change-saga add-section --title "Title" <name>.saga backend.chapter/path/to/section
 change-saga add-fragment --section path/to/section --type markdown --title "Context" <name>.saga
 change-saga add-fragment --section path/to/section --type html --source ./demo-package --entrypoint index.html <name>.saga
+change-saga set-fragment-content --target path/to/context.fragment --source ./overview.md <name>.saga
 change-saga add-landmark --target path/to/demo.fragment --element-id submit-action --label "Submit action" --description "The validated request crosses into persistence." --hotspot 0.68,0.72,0.2,0.12 <name>.saga
 change-saga add-landmark --target path/to/context.fragment --heading-id request-validation --label "Request validation" <name>.saga
+change-saga add-landmark --target path/to/context.fragment --id lease-renewal --text "Renewal is triggered from the heartbeat path before the lease midpoint." --label "Lease renewal evidence" <name>.saga
 change-saga cover --repo <source-checkout> --target path/to/demo.fragment --path file.go --side new --lines 4-9,12 --note "Adds request validation so malformed input fails before persistence." <name>.saga
+change-saga cover --repo <source-checkout> --target path/to/demo.fragment --path file.go --changed-lines --note "This focused file exists only to implement the demonstrated request flow." --json <name>.saga
 change-saga cover --target path/to/demo.fragment --uri 'saga-diff://v1/line?...' --note "Implements the behavior explained by this fragment." <name>.saga
 change-saga cover --target path/to/demo.fragment/___landmarks/submit-action.landmark --uri 'saga-diff://v1/line?...' --note "Connects the diagram action to its exact submit handler." <name>.saga
+change-saga cover --target path/to/context.fragment#lease-renewal --uri 'saga-diff://v1/line?...' --note "Connects the prose citation to the renewal scheduling path." <name>.saga
 change-saga add-claim --target path/to/demo.fragment#submit-action --kind invariant --statement "Only one request can enter persistence for this key." --diff 'saga-diff://v1/line?...' <name>.saga
 change-saga verify-claim --claim <claim-id> --status verified --method test --summary "The concurrent request test passed." --command "go test ./..." <name>.saga
 change-saga query mappings --saga <name>.saga --repo <source-checkout> --sort scrutiny
+change-saga replace-coverage --record <evidence_file> --batch replacements.jsonl --repo <source-checkout> <name>.saga
+change-saga remove-coverage --record <evidence_file> <name>.saga
 change-saga query claims --saga <name>.saga --status unverified
 change-saga validate --json <name>.saga
 change-saga status --json --repo <source-checkout> <name>.saga
-change-saga open --repo <source-checkout> <name>.saga
+change-saga open --detach --repo <source-checkout> <name>.saga
+change-saga serve status <name>.saga
+change-saga serve stop <name>.saga
 change-saga review --target path/to/demo.fragment --state approved <name>.saga
 change-saga reply --thread <id> --state withdrawn <name>.saga
 ```

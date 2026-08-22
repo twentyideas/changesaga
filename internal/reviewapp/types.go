@@ -125,8 +125,12 @@ type CompactReview struct {
 }
 
 type CompactDiffs struct {
-	Current int `json:"current"`
-	Stale   int `json:"stale"`
+	Current           int `json:"current"`
+	Stale             int `json:"stale"`
+	DirectCurrent     int `json:"direct_current"`
+	DirectStale       int `json:"direct_stale"`
+	DescendantCurrent int `json:"descendant_current"`
+	DescendantStale   int `json:"descendant_stale"`
 }
 
 type Node struct {

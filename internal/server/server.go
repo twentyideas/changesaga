@@ -39,7 +39,23 @@ type app struct {
 	sourceDir     string
 	template      *template.Template
 	mutationToken string
+	shutdownToken string
+	shutdown      func()
 }
+
+// ManagedOptions lets the CLI supervise a detached loopback server without
+// weakening the ordinary foreground server. The shutdown token is random,
+// stored only in the user's private runtime directory, and never rendered into
+// saga content.
+type ManagedOptions struct {
+	ShutdownToken string
+	OnReady       func(string) error
+}
+
+// OpenBrowser opens a trusted loopback URL using the platform launcher. It is
+// exported for the CLI's detached-server path, where readiness is observed in
+// a different process from the server itself.
+func OpenBrowser(rawURL string) error { return launchBrowser(rawURL) }
 
 type pageData struct {
 	Saga          *saga.Saga
@@ -142,6 +158,10 @@ type threadView struct {
 }
 
 func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool, out io.Writer) error {
+	return ListenManaged(ctx, root, sourceDir, addr, openBrowser, out, ManagedOptions{})
+}
+
+func ListenManaged(ctx context.Context, root, sourceDir, addr string, openBrowser bool, out io.Writer, options ManagedOptions) error {
 	if !loopbackListenAddress(addr) {
 		return fmt.Errorf("refusing non-loopback listen address %q; remote serving is disabled", addr)
 	}
@@ -165,7 +185,14 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 	if err != nil {
 		return fmt.Errorf("create mutation token: %w", err)
 	}
-	application := &app{root: abs, sourceDir: sourceDir, template: tmpl, mutationToken: mutationToken}
+	stopCh := make(chan struct{}, 1)
+	application := &app{root: abs, sourceDir: sourceDir, template: tmpl, mutationToken: mutationToken, shutdownToken: options.ShutdownToken}
+	application.shutdown = func() {
+		select {
+		case stopCh <- struct{}{}:
+		default:
+		}
+	}
 	mux := newMux(application)
 
 	listener, err := net.Listen("tcp", addr)
@@ -177,6 +204,12 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 	if host, port, err := net.SplitHostPort(listener.Addr().String()); err == nil && host == "127.0.0.1" {
 		serverURL = "http://127.0.0.1:" + port
 	}
+	if options.OnReady != nil {
+		if err := options.OnReady(serverURL); err != nil {
+			_ = listener.Close()
+			return fmt.Errorf("publish managed server state: %w", err)
+		}
+	}
 	fmt.Fprintf(out, "Change Saga is available at %s\nPress Ctrl-C to stop.\n", serverURL)
 	if openBrowser {
 		if err := launchBrowser(serverURL); err != nil {
@@ -187,6 +220,10 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 	go func() { errCh <- server.Serve(listener) }()
 	select {
 	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		return server.Shutdown(shutdownCtx)
+	case <-stopCh:
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		return server.Shutdown(shutdownCtx)
@@ -203,6 +240,8 @@ func newMux(application *app) *http.ServeMux {
 	mux.HandleFunc("GET /chapters/{chapter}", application.page)
 	mux.HandleFunc("GET /", application.page)
 	mux.HandleFunc("GET /app.js", application.javascript)
+	mux.HandleFunc("GET /api/runtime", application.runtimeStatus)
+	mux.HandleFunc("POST /api/runtime-stop", application.runtimeStop)
 	mux.HandleFunc("GET /f/{id}/{path...}", application.fragmentFile)
 	mux.HandleFunc("POST /api/thread", application.createThread)
 	mux.HandleFunc("POST /api/reply", application.reply)
@@ -211,6 +250,24 @@ func newMux(application *app) *http.ServeMux {
 	mux.HandleFunc("POST /api/review", application.review)
 	mux.HandleFunc("POST /api/diff-review", application.diffReview)
 	return mux
+}
+
+func (a *app) runtimeStatus(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = io.WriteString(w, `{"ok":true}`+"\n")
+}
+
+func (a *app) runtimeStop(w http.ResponseWriter, r *http.Request) {
+	provided := r.Header.Get("X-Change-Saga-Shutdown")
+	if a.shutdownToken == "" || subtle.ConstantTimeCompare([]byte(provided), []byte(a.shutdownToken)) != 1 {
+		http.Error(w, "Missing or invalid shutdown token.", http.StatusForbidden)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = io.WriteString(w, `{"ok":true}`+"\n")
+	if a.shutdown != nil {
+		go a.shutdown()
+	}
 }
 
 func newHTTPServer(handler http.Handler) *http.Server {

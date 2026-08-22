@@ -20,7 +20,14 @@ import (
 func markdownWithAnchors(source, namespace string) template.HTML {
 	var out bytes.Buffer
 	engine := goldmark.New(
-		goldmark.WithExtensions(extension.GFM),
+		goldmark.WithExtensions(
+			extension.GFM,
+			extension.NewFootnote(
+				extension.WithFootnoteIDPrefix(namespace+"--"),
+				extension.WithFootnoteLinkTitle("Open citation %%"),
+				extension.WithFootnoteBacklinkTitle("Return to citation"),
+			),
+		),
 		goldmark.WithParserOptions(
 			parser.WithAttribute(),
 			parser.WithAutoHeadingID(),

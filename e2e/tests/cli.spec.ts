@@ -59,11 +59,10 @@ test("@critical refuses malformed, non-canonical, and cross-repository coverage 
 test("@critical exposes mapping scrutiny, claims, and verification as an AI review harness", async ({ sagaRepositories }) => {
   const { identity, sagaRepo, sagaRoot, sourceRepo } = sagaRepositories;
   const evidence = canonicalLineURI(identity, "src/app.go", "new", 3, 3);
-  const returnEvidence = canonicalLineURI(identity, "src/app.go", "new", 4, 4);
 
   const claim = runCLI(sagaRepositories, [
-    "add-claim", "--id", "greeting-behavior", "--target", "overview.fragment", "--kind", "behavior",
-    "--statement", "Greeting accepts a name and includes it in the result.", "--diff", evidence, "--diff", returnEvidence, sagaRoot
+    "add-claim", "--id", "greeting-behavior", "--target", "overview.fragment#greeting-input", "--kind", "behavior",
+    "--statement", "Greeting accepts a name in its function signature.", "--diff", evidence, sagaRoot
   ]);
   expect(claim.status, claim.stderr).toBe(0);
   const verification = runCLI(sagaRepositories, [
