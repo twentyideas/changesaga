@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "anchor-isolation-check",
+  "label": "Anchor repair verification",
+  "selector": {
+    "type": "text",
+    "exact": "TestValidateFixLeavesReviewOverlayFragmentsAlone checks review-message bytes after authored Markdown anchor repair."
+  },
+  "target": ""
+}

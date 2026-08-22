@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "mutation-contract",
+  "label": "Mutation contract evidence",
+  "selector": {
+    "type": "text",
+    "exact": "CLI authoring mutations resolve stable targets, validate batches before writing, and expose structured success or failure output."
+  },
+  "target": ""
+}

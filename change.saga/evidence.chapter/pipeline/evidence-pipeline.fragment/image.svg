@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 760" role="img" aria-labelledby="title desc">
+  <title id="title">Portable evidence pipeline</title>
+  <desc id="desc">Authoring commands create portable packages, Git produces absolute diff identities, coverage binds exact atoms, and a deterministic query API feeds the authoring loop.</desc>
+  <style>
+    .bg{fill:#07111f}.panel{fill:#101f33;stroke:#37516f;stroke-width:2}.accent{fill:#102b35;stroke:#35c6ad}.warm{fill:#30251d;stroke:#f2a65a}.violet{fill:#251f3e;stroke:#a78bfa}.blue{fill:#142a49;stroke:#67b7ff}.green{fill:#112f29;stroke:#56d39b}.label{fill:#f4f8ff;font:700 22px ui-sans-serif,system-ui}.small{fill:#b7c7dc;font:15px ui-sans-serif,system-ui}.eyebrow{fill:#7f96b2;font:700 13px ui-sans-serif,system-ui;letter-spacing:1.8px}.edge{fill:none;stroke:#7d95b2;stroke-width:4;stroke-linecap:round}.feedback{stroke:#56d39b;stroke-dasharray:10 9}.edgeLabel{fill:#c9d7e8;font:600 14px ui-sans-serif,system-ui}.title{fill:#f4f8ff;font:800 34px ui-sans-serif,system-ui}.subtitle{fill:#a9bad0;font:17px ui-sans-serif,system-ui}.chip{fill:#172840;stroke:#37516f}.chipText{fill:#b9cee5;font:700 12px ui-monospace,SFMono-Regular,monospace}
+  </style>
+  <rect class="bg" width="1280" height="760"/>
+  <text class="title" x="70" y="68">From authored intent to inspectable evidence</text>
+  <text class="subtitle" x="70" y="100">Every handoff is portable, addressable, and reversible through exact source identities.</text>
+
+  <g id="authoring-command">
+    <rect class="panel accent" x="60" y="180" width="205" height="170" rx="18"/>
+    <text class="eyebrow" x="84" y="215">ENTRY</text>
+    <text class="label" x="84" y="250">Authoring CLI</text>
+    <text class="small" x="84" y="282">init · add · content</text>
+    <text class="small" x="84" y="307">landmarks · claims</text>
+    <rect class="chip" x="84" y="322" width="132" height="26" rx="13"/>
+    <text class="chipText" x="98" y="340">atomic mutation</text>
+  </g>
+
+  <path id="edge-author-package" class="edge" d="M265 265 H335"/>
+  <polygon fill="#7d95b2" points="335,265 319,256 319,274"/>
+  <text class="edgeLabel" x="274" y="246">writes</text>
+
+  <g id="portable-package">
+    <rect class="panel violet" x="340" y="180" width="205" height="170" rx="18"/>
+    <text class="eyebrow" x="364" y="215">PORTABLE MODEL</text>
+    <text class="label" x="364" y="250">Saga packages</text>
+    <text class="small" x="364" y="282">fragments + landmarks</text>
+    <text class="small" x="364" y="307">schemas + append-only records</text>
+    <rect class="chip" x="364" y="322" width="144" height="26" rx="13"/>
+    <text class="chipText" x="378" y="340">stable target URN</text>
+  </g>
+
+  <path id="edge-package-diff" class="edge" d="M545 265 H615"/>
+  <polygon fill="#7d95b2" points="615,265 599,256 599,274"/>
+  <text class="edgeLabel" x="552" y="246">binds</text>
+
+  <g id="git-evidence">
+    <rect class="panel warm" x="620" y="180" width="205" height="170" rx="18"/>
+    <text class="eyebrow" x="644" y="215">SOURCE TRUTH</text>
+    <text class="label" x="644" y="250">Git diff atoms</text>
+    <text class="small" x="644" y="282">new / old line atoms</text>
+    <text class="small" x="644" y="307">add · delete · rename · mode</text>
+    <rect class="chip" x="644" y="322" width="150" height="26" rx="13"/>
+    <text class="chipText" x="658" y="340">absolute diff URI</text>
+  </g>
+
+  <path id="edge-diff-coverage" class="edge" d="M825 265 H895"/>
+  <polygon fill="#7d95b2" points="895,265 879,256 879,274"/>
+  <text class="edgeLabel" x="833" y="246">indexes</text>
+
+  <g id="coverage-index">
+    <rect class="panel blue" x="900" y="180" width="205" height="170" rx="18"/>
+    <text class="eyebrow" x="924" y="215">OMISSION CHECK</text>
+    <text class="label" x="924" y="250">Coverage index</text>
+    <text class="small" x="924" y="282">owners · gaps · overlaps</text>
+    <text class="small" x="924" y="307">stale selector detection</text>
+    <rect class="chip" x="924" y="322" width="145" height="26" rx="13"/>
+    <text class="chipText" x="938" y="340">exact atom match</text>
+  </g>
+
+  <path id="edge-coverage-query" class="edge" d="M1002 350 V432"/>
+  <polygon fill="#7d95b2" points="1002,432 993,416 1011,416"/>
+  <text class="edgeLabel" x="1018" y="397">projects</text>
+
+  <g id="query-interface">
+    <rect class="panel green" x="790" y="438" width="315" height="168" rx="18"/>
+    <text class="eyebrow" x="816" y="473">AI-FACING READ MODEL</text>
+    <text class="label" x="816" y="508">Deterministic query API</text>
+    <text class="small" x="816" y="540">bounded content · stable errors</text>
+    <text class="small" x="816" y="565">snapshot-bound pagination</text>
+    <rect class="chip" x="816" y="578" width="167" height="26" rx="13"/>
+    <text class="chipText" x="830" y="596">one JSON envelope</text>
+  </g>
+
+  <path id="edge-query-author" class="edge feedback" d="M790 520 C620 690 210 665 160 354"/>
+  <polygon fill="#56d39b" points="160,354 151,371 170,368"/>
+  <text class="edgeLabel" x="378" y="665">gaps → focused content → mappings → verification</text>
+
+  <g id="comparison-boundary">
+    <rect class="panel" x="60" y="452" width="450" height="130" rx="16"/>
+    <text class="eyebrow" x="84" y="485">THIS COMPARISON</text>
+    <text class="label" x="84" y="520">Since inception → v0.0.6</text>
+    <text class="small" x="84" y="551">Owned paths enter as file-add events plus new-side lines.</text>
+  </g>
+</svg>

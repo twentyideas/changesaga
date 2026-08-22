@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "edge-diff-coverage",
+  "label": "Atom indexing",
+  "description": "Canonical source atoms enter the coverage index for exact selector matching.",
+  "selector": {
+    "type": "element",
+    "element_id": "edge-diff-coverage"
+  },
+  "target": ""
+}

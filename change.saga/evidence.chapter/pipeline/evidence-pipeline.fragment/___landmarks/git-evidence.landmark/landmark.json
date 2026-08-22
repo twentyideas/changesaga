@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "git-evidence",
+  "label": "Git diff atoms",
+  "description": "Git comparison yields exact changed-line and lifecycle atoms with a stable product identity.",
+  "selector": {
+    "type": "element",
+    "element_id": "git-evidence"
+  },
+  "target": ""
+}

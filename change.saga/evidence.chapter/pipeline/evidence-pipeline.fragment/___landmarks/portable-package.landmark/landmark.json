@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "portable-package",
+  "label": "Portable Saga model",
+  "description": "Versioned packages and schemas define stable hierarchy, targets, landmarks, evidence, claims, and history.",
+  "selector": {
+    "type": "element",
+    "element_id": "portable-package"
+  },
+  "target": ""
+}

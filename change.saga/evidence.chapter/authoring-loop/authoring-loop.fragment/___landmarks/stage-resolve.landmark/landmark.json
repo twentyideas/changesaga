@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "id": "stage-resolve",
+  "label": "Resolve comparison",
+  "description": "Authoring begins by pinning repository, base, head, and product-patch identity.",
+  "selector": {
+    "type": "element",
+    "element_id": "stage-resolve"
+  },
+  "hotspot": {
+    "x": 0.03,
+    "y": 0.24,
+    "width": 0.22,
+    "height": 0.13
+  },
+  "target": ""
+}

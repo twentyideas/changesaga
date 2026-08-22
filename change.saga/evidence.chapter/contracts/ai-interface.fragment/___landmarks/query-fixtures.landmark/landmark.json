@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "query-fixtures",
+  "label": "Query fixture evidence",
+  "selector": {
+    "type": "text",
+    "exact": "Reusable fixtures and CLI/application tests assert bounded inert reads, cursor integrity, no leaked host paths, and no query-side filesystem mutation."
+  },
+  "target": ""
+}

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "bounded-pagination",
+  "label": "Bounded pagination evidence",
+  "selector": {
+    "type": "text",
+    "exact": "Session reads preserve UTF-8 boundaries and snapshot-bound cursor pagination with counted page metadata."
+  },
+  "target": ""
+}

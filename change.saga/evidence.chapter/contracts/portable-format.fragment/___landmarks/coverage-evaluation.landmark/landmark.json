@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "coverage-evaluation",
+  "label": "Coverage evaluation evidence",
+  "selector": {
+    "type": "text",
+    "exact": "Coverage evaluation indexes exact atoms and reports omission, overlap, and stale ownership without claiming semantic correctness."
+  },
+  "target": ""
+}

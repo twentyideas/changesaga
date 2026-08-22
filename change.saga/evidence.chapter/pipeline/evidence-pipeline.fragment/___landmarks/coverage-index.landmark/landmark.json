@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "coverage-index",
+  "label": "Coverage index",
+  "description": "Coverage evaluates owners, gaps, overlaps, and stale selectors as an omission check.",
+  "selector": {
+    "type": "element",
+    "element_id": "coverage-index"
+  },
+  "target": ""
+}

@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "id": "stage-author",
+  "label": "Author focused content",
+  "description": "A fragment is created and its entrypoint replaced through supported authoring mutations.",
+  "selector": {
+    "type": "element",
+    "element_id": "stage-author"
+  },
+  "hotspot": {
+    "x": 0.51,
+    "y": 0.24,
+    "width": 0.22,
+    "height": 0.13
+  },
+  "target": ""
+}

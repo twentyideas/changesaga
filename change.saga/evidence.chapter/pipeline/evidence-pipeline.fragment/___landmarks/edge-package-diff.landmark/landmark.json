@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "edge-package-diff",
+  "label": "Evidence binding",
+  "description": "Portable narrative targets bind to source evidence through absolute diff identities.",
+  "selector": {
+    "type": "element",
+    "element_id": "edge-package-diff"
+  },
+  "target": ""
+}

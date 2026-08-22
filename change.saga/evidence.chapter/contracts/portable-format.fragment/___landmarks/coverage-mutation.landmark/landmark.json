@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "coverage-mutation",
+  "label": "Coverage mutation evidence",
+  "selector": {
+    "type": "text",
+    "exact": "Coverage authoring resolves complete batches before writing and supports atomic replacement or removal by evidence record."
+  },
+  "target": ""
+}

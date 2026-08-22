@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "query-isolation-check",
+  "label": "Query isolation verification",
+  "selector": {
+    "type": "text",
+    "exact": "TestFixtureNoSideEffectAssertion snapshots the fixture tree and fails when a query changes filesystem state."
+  },
+  "target": ""
+}

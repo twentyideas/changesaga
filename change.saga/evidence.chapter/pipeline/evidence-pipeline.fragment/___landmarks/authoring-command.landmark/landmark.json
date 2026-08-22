@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "authoring-command",
+  "label": "Authoring CLI",
+  "description": "The command entry point creates and mutates Saga authoring packages through stable operations.",
+  "selector": {
+    "type": "element",
+    "element_id": "authoring-command"
+  },
+  "target": ""
+}

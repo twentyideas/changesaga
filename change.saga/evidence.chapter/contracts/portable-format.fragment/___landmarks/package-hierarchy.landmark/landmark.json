@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "package-hierarchy",
+  "label": "Package hierarchy evidence",
+  "selector": {
+    "type": "text",
+    "exact": "The v2 model and schemas define independent hierarchy, landmark, evidence, claim, verification, and review records with append-only file granularity."
+  },
+  "target": ""
+}

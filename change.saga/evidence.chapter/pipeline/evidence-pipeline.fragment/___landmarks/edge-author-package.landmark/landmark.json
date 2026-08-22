@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "edge-author-package",
+  "label": "Atomic package write",
+  "description": "Validated authoring mutations cross into the portable package tree as focused atomic writes.",
+  "selector": {
+    "type": "element",
+    "element_id": "edge-author-package"
+  },
+  "target": ""
+}

@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "evidence-pipeline-map",
+  "title": "Evidence pipeline",
+  "media_type": "image/svg+xml",
+  "entrypoint": "image.svg",
+  "order": 10
+}

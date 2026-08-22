@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "edge-query-author",
+  "label": "Authoring feedback loop",
+  "description": "Query results guide the next focused content, coverage, scrutiny, or verification mutation.",
+  "selector": {
+    "type": "element",
+    "element_id": "edge-query-author"
+  },
+  "target": ""
+}
