@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "identity-model",
+  "label": "Identity model evidence",
+  "selector": {
+    "type": "text",
+    "exact": "Stable target constructors and the diff-URI codec define portable narrative and source identities without local filesystem paths."
+  },
+  "target": ""
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "comparison-boundary",
+  "label": "Since-inception boundary",
+  "description": "The owned authoring system is introduced between the inception base and v0.0.6.",
+  "selector": {
+    "type": "element",
+    "element_id": "comparison-boundary"
+  },
+  "target": ""
+}

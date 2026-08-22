@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "evidence-verification-ledger",
+  "title": "Verification ledger",
+  "media_type": "text/markdown",
+  "entrypoint": "content.md",
+  "order": 30
+}

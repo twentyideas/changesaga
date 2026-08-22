@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "portable-paths",
+  "label": "Portable path evidence",
+  "selector": {
+    "type": "text",
+    "exact": "Runtime loading and schema-contract tests enforce contained entrypoints, portable names, safe structural entities, and matching grammar constants."
+  },
+  "target": ""
+}

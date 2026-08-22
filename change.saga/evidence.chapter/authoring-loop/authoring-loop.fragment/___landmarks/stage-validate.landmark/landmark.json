@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "id": "stage-validate",
+  "label": "Validate and report status",
+  "description": "Validation checks the authored structure while status checks current source-atom ownership.",
+  "selector": {
+    "type": "element",
+    "element_id": "stage-validate"
+  },
+  "hotspot": {
+    "x": 0.75,
+    "y": 0.39,
+    "width": 0.22,
+    "height": 0.13
+  },
+  "target": ""
+}

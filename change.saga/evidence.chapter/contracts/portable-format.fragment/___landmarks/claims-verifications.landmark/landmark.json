@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "claims-verifications",
+  "label": "Claim history evidence",
+  "selector": {
+    "type": "text",
+    "exact": "Claim and verification commands write independent records and validation requires valid kinds, statuses, methods, targets, and exact evidence URIs."
+  },
+  "target": ""
+}

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "session-safety",
+  "label": "Session safety evidence",
+  "selector": {
+    "type": "text",
+    "exact": "The query session validates and indexes a bounded immutable view, contains file access, sanitizes errors, and applies deterministic ordering."
+  },
+  "target": ""
+}

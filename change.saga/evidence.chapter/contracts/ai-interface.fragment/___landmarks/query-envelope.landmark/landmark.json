@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "query-envelope",
+  "label": "Query envelope evidence",
+  "selector": {
+    "type": "text",
+    "exact": "The CLI dispatcher and review application adapter implement one versioned envelope, stable operations, and stable error mapping for every query."
+  },
+  "target": ""
+}

@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "id": "mode-happy",
+  "label": "Happy authoring path",
+  "description": "The successful loop progresses from an exact comparison to focused evidence and verified handoff.",
+  "selector": {
+    "type": "element",
+    "element_id": "mode-happy"
+  },
+  "hotspot": {
+    "x": 0.03,
+    "y": 0.15,
+    "width": 0.12,
+    "height": 0.07
+  },
+  "target": ""
+}

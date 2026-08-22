@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "product-identity-check",
+  "label": "Product identity verification",
+  "selector": {
+    "type": "text",
+    "exact": "TestProductIdentityIgnoresSagaOnlyCommits compares product identities and atom URIs before and after a Saga-only commit."
+  },
+  "target": ""
+}

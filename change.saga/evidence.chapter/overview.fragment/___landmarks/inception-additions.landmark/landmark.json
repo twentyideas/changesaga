@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "inception-additions",
+  "label": "Since-inception additions",
+  "selector": {
+    "type": "text",
+    "exact": "Git file-lifecycle evidence records every owned path as an addition at v0.0.6 against the inception base."
+  },
+  "target": ""
+}

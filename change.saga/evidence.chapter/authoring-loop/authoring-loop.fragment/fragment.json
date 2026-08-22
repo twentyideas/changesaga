@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "interactive-authoring-loop",
+  "title": "Interactive authoring loop",
+  "media_type": "text/html",
+  "entrypoint": "index.html",
+  "order": 10
+}

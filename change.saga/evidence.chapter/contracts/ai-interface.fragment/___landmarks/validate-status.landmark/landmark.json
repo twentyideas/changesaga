@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "validate-status",
+  "label": "Validate and status evidence",
+  "selector": {
+    "type": "text",
+    "exact": "Anchor fixing is idempotent and scoped to authored Markdown, while validation and status deliberately report different contracts."
+  },
+  "target": ""
+}

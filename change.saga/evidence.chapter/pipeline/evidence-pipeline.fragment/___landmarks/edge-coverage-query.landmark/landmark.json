@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "edge-coverage-query",
+  "label": "Read-model projection",
+  "description": "Coverage and hierarchy indexes are projected into the bounded query read model.",
+  "selector": {
+    "type": "element",
+    "element_id": "edge-coverage-query"
+  },
+  "target": ""
+}

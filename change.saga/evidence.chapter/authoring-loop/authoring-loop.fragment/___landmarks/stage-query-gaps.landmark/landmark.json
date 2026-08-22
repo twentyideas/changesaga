@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "id": "stage-query-gaps",
+  "label": "Query gaps",
+  "description": "The uncovered query is the snapshot-bound, paginated authoring work queue.",
+  "selector": {
+    "type": "element",
+    "element_id": "stage-query-gaps"
+  },
+  "hotspot": {
+    "x": 0.27,
+    "y": 0.24,
+    "width": 0.22,
+    "height": 0.13
+  },
+  "target": ""
+}

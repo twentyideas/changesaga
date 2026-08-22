@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "git-atoms",
+  "label": "Git atom evidence",
+  "selector": {
+    "type": "text",
+    "exact": "Git diff parsing distinguishes changed lines from lifecycle events and derives a product patch identity that excludes Saga-only paths."
+  },
+  "target": ""
+}

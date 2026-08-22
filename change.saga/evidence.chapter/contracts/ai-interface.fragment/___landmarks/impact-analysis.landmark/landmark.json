@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "impact-analysis",
+  "label": "Maintenance impact evidence",
+  "selector": {
+    "type": "text",
+    "exact": "Diff-only impact analysis classifies replacement, adjacency, and new ownership and marks incomplete baselines explicitly."
+  },
+  "target": ""
+}

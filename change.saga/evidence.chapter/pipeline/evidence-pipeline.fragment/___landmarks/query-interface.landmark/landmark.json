@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "query-interface",
+  "label": "Deterministic query API",
+  "description": "The AI-facing API returns bounded, snapshot-consistent JSON envelopes and stable errors.",
+  "selector": {
+    "type": "element",
+    "element_id": "query-interface"
+  },
+  "target": ""
+}

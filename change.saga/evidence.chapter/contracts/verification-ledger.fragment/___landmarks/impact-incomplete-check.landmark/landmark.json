@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "impact-incomplete-check",
+  "label": "Impact completeness verification",
+  "selector": {
+    "type": "text",
+    "exact": "TestAnalyzeMarksIncompleteBaselineInsteadOfClaimingCompleteImpact asserts the explicit incomplete-baseline result."
+  },
+  "target": ""
+}
