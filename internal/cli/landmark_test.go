@@ -26,7 +26,7 @@ func TestAddLandmarkMakesDiagramElementsCoverable(t *testing.T) {
 	if err := AddLandmark(context.Background(), []string{"--target", "system-map.fragment", "--element-id", "worker-pool", "--label", "Worker pool", "--description", "Workers pull one job at a time from the shared queue.", root}, &output); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(output.String(), "Target: urn:change-saga:") || !strings.Contains(output.String(), "change-saga cover --target") {
+	if !strings.Contains(output.String(), "Target: urn:change-saga:") || !strings.Contains(output.String(), "change-saga cover --target") || !strings.Contains(output.String(), "inferred from SVG element #worker-pool") {
 		t.Fatalf("landmark output did not make the next step discoverable: %s", output.String())
 	}
 
@@ -67,7 +67,7 @@ func TestAddLandmarkHelpExplainsHeadingIDInvariant(t *testing.T) {
 		t.Fatal("-h must report flag.ErrHelp")
 	}
 	text := output.String()
-	if !strings.Contains(text, "-heading-id") || !strings.Contains(text, "must equal --id") {
+	if !strings.Contains(text, "-heading-id") || !strings.Contains(text, "must equal --id") || !strings.Contains(text, "SVG bounds become an on-canvas link automatically") || !strings.Contains(text, "overrides inferred SVG element bounds") {
 		t.Fatalf("add-landmark -h omitted the heading id invariant:\n%s", text)
 	}
 }

@@ -24,13 +24,13 @@ func AddLandmark(_ context.Context, args []string, out io.Writer) error {
 	id := flags.String("id", "", "stable landmark identifier")
 	label := flags.String("label", "", "reviewer-facing landmark label")
 	description := flags.String("description", "", "semantic explanation for AI and non-visual consumers")
-	elementID := flags.String("element-id", "", "id of an element in an HTML or SVG fragment")
+	elementID := flags.String("element-id", "", "id of an HTML or SVG element; SVG bounds become an on-canvas link automatically")
 	headingID := flags.String("heading-id", "", "explicit Markdown heading anchor; must equal --id when --id is provided")
 	exact := flags.String("text", "", "exact text to mark in a Markdown or text fragment")
 	prefix := flags.String("prefix", "", "text immediately before --text, for disambiguation")
 	suffix := flags.String("suffix", "", "text immediately after --text, for disambiguation")
 	region := flags.String("region", "", "normalized image region x,y,width,height")
-	hotspot := flags.String("hotspot", "", "optional normalized visual hotspot x,y,width,height")
+	hotspot := flags.String("hotspot", "", "normalized on-canvas hit area x,y,width,height; overrides inferred SVG element bounds")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func AddLandmark(_ context.Context, args []string, out io.Writer) error {
 		hotspotRegion = &parsed
 	}
 
-	var created, targetURN string
+	var created, targetURN, createdMediaType string
 	err := authorMutation(flags.Arg(0), func(document *saga.Saga) error {
 		targetDir, resolved, err := resolveTarget(document, *target, true)
 		if err != nil {
@@ -140,12 +140,23 @@ func AddLandmark(_ context.Context, args []string, out io.Writer) error {
 		rel, _ := filepath.Rel(document.Root, dir)
 		created = filepath.ToSlash(rel)
 		targetURN = saga.LandmarkTarget(document.Manifest.ID, fragment.ID, *id)
+		createdMediaType = fragment.MediaType
 		return nil
 	})
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "Added landmark %s\nTarget: %s\nNext: change-saga cover --target %q ... %s\n", created, targetURN, created, flags.Arg(0))
+	fmt.Fprintf(out, "Added landmark %s\nTarget: %s\n", created, targetURN)
+	if selector.Type == "element" {
+		if hotspotRegion != nil {
+			fmt.Fprintln(out, "On-canvas link: uses the explicit --hotspot geometry.")
+		} else if createdMediaType == "image/svg+xml" {
+			fmt.Fprintf(out, "On-canvas link: inferred from SVG element #%s; use --hotspot only to override its bounds.\n", selector.ElementID)
+		} else {
+			fmt.Fprintln(out, "On-canvas link: HTML elements need --hotspot geometry; without it they remain available through Marked places and deep links.")
+		}
+	}
+	fmt.Fprintf(out, "Next: change-saga cover --target %q ... %s\n", created, flags.Arg(0))
 	return nil
 }
 
@@ -226,8 +237,8 @@ func validateLandmarkSelector(fragment *saga.Fragment, selector saga.LandmarkSel
 			return fmt.Errorf("--region requires an image fragment")
 		}
 	}
-	if hotspot != nil && fragment.MediaType != "image/svg+xml" && !strings.HasPrefix(fragment.MediaType, "image/") {
-		return fmt.Errorf("--hotspot requires an image or SVG fragment")
+	if hotspot != nil && fragment.MediaType != "text/html" && !strings.HasPrefix(fragment.MediaType, "image/") {
+		return fmt.Errorf("--hotspot requires an HTML, image, or SVG fragment")
 	}
 	return nil
 }

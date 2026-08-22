@@ -358,6 +358,86 @@ const appJavaScript = `(() => {
     return q('[data-landmark-affordance-template]', target)?.content.cloneNode(true) || null;
   }
 
+  function normalizedMeasuredRegion(rect, rootRect) {
+    if (!rect || !rootRect.width || !rootRect.height || (!rect.width && !rect.height)) return null;
+    // A thin path or small glyph should still be easy to discover with a
+    // pointer. Explicit --hotspot geometry remains the escape hatch when the
+    // author's desired interaction area differs from the rendered bounds.
+    const minimumX = 24 / rootRect.width;
+    const minimumY = 24 / rootRect.height;
+    const paddingX = 6 / rootRect.width;
+    const paddingY = 6 / rootRect.height;
+    const centerX = (rect.left + rect.right) / 2;
+    const centerY = (rect.top + rect.bottom) / 2;
+    const width = Math.min(1, Math.max(rect.width / rootRect.width + paddingX * 2, minimumX));
+    const height = Math.min(1, Math.max(rect.height / rootRect.height + paddingY * 2, minimumY));
+    const x = Math.max(0, Math.min(1 - width, (centerX - rootRect.left) / rootRect.width - width / 2));
+    const y = Math.max(0, Math.min(1 - height, (centerY - rootRect.top) / rootRect.height - height / 2));
+    return {x, y, width, height};
+  }
+
+  function appendAutomaticLandmarkHotspot(fragment, target, region) {
+    const stage = q('.fragment-stage', fragment);
+    if (!stage || q('[data-landmark-visual="' + CSS.escape(target.dataset.landmarkAnchor) + '"]', stage)) return;
+    const visual = document.createElement('div');
+    visual.className = 'landmark-hotspot';
+    visual.dataset.landmarkVisual = target.dataset.landmarkAnchor;
+    visual.dataset.autoLandmarkHotspot = 'true';
+    visual.dataset.elementId = target.dataset.elementId;
+    visual.dataset.x = String(region.x);
+    visual.dataset.y = String(region.y);
+    visual.dataset.width = String(region.width);
+    visual.dataset.height = String(region.height);
+    const affordance = cloneLandmarkAffordance(target);
+    if (affordance) visual.append(affordance);
+    stage.insertBefore(visual, q('.review-overlay', stage));
+  }
+
+  async function prepareSVGElementHotspots(fragment) {
+    const frame = q('[data-fragment-frame]', fragment);
+    const targets = qa('[data-landmark-target][data-landmark-type="element"]', fragment)
+      .filter(target => target.dataset.elementId && !q('[data-landmark-visual="' + CSS.escape(target.dataset.landmarkAnchor) + '"]', fragment));
+    if (!frame || targets.length === 0) return;
+    const sourceURL = new URL(frame.getAttribute('src'), location.href);
+    // SVG fragments created by the CLI have a .svg entrypoint. The aspect
+    // query is also present for viewBox-based SVGs, including renamed assets.
+    if (!sourceURL.pathname.toLowerCase().endsWith('.svg') && !sourceURL.searchParams.has('saga_aspect')) return;
+    sourceURL.hash = '';
+    const response = await fetch(sourceURL, {credentials:'same-origin'});
+    if (!response.ok) return;
+    const parsed = new DOMParser().parseFromString(await response.text(), 'image/svg+xml');
+    if (parsed.querySelector('parsererror') || parsed.documentElement.localName !== 'svg') return;
+    const svg = document.importNode(parsed.documentElement, true);
+    // Measurement never needs executable or navigable content. Keeping this
+    // clone inert preserves the iframe sandbox while still letting the browser
+    // account for groups, paths, text, and transforms via normal SVG layout.
+    svg.querySelectorAll('script,foreignObject').forEach(node => node.remove());
+    svg.querySelectorAll('*').forEach(node => [...node.attributes].forEach(attribute => {
+      const name = attribute.name.toLowerCase();
+      if (name.startsWith('on') || ((name === 'href' || name.endsWith(':href')) && !attribute.value.startsWith('#'))) node.removeAttribute(attribute.name);
+    }));
+    const viewBox = svg.viewBox?.baseVal;
+    if (!viewBox || !(viewBox.width > 0) || !(viewBox.height > 0)) return;
+    const measure = document.createElement('div');
+    measure.setAttribute('aria-hidden', 'true');
+    measure.style.cssText = 'position:absolute;left:-100000px;top:0;visibility:hidden;pointer-events:none;overflow:hidden';
+    svg.removeAttribute('width');
+    svg.removeAttribute('height');
+    svg.style.width = '1000px';
+    svg.style.height = (1000 * viewBox.height / viewBox.width) + 'px';
+    const shadow = measure.attachShadow({mode:'closed'});
+    shadow.append(svg);
+    document.body.append(measure);
+    const rootRect = svg.getBoundingClientRect();
+    targets.forEach(target => {
+      const element = svg.querySelector('#' + CSS.escape(target.dataset.elementId));
+      const region = normalizedMeasuredRegion(element?.getBoundingClientRect(), rootRect);
+      if (region) appendAutomaticLandmarkHotspot(fragment, target, region);
+    });
+    measure.remove();
+    positionLandmarkHotspots();
+  }
+
   function positionLandmarkHotspots() {
     qa('.fragment-stage').forEach(stage => {
       const media = q('.fragment-frame,.fragment-image', stage);
@@ -551,6 +631,7 @@ const appJavaScript = `(() => {
         if (affordance) mark.append(affordance);
       }
     });
+    qa('.fragment').forEach(fragment => { void prepareSVGElementHotspots(fragment).catch(() => {}); });
     globalThis.requestAnimationFrame?.(positionFragmentOverlays);
   }
 

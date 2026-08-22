@@ -145,7 +145,7 @@ func commandFlags(name, usage string, out io.Writer) *flag.FlagSet {
 
 var commandDescription = map[string]string{
 	"set-fragment-content": "Replace a fragment entrypoint through the supported authoring API. Use --source -\nto read content from standard input; the fragment media type and metadata are preserved.",
-	"add-landmark":         "Create a coverable target for one Markdown heading, exact text span, HTML/SVG\nelement, or normalized image region inside a fragment. Visual landmarks require\na semantic --description for non-visual consumers.",
+	"add-landmark":         "Create a coverable target for one Markdown heading, exact text span, HTML/SVG\nelement, or normalized image region inside a fragment. An SVG --element-id is\nmeasured into an on-canvas link automatically; --hotspot overrides its bounds.\nHTML elements need --hotspot for an on-canvas link. Visual landmarks require a\nsemantic --description for non-visual consumers.",
 	"cover": `Attach the exact diff atoms a narrative target explains. --target accepts a
 section or fragment path, a target URN, or <fragment-path>#<landmark-id>.
 --batch reads newline-delimited JSON records (or one JSON array) with the
@@ -1425,11 +1425,17 @@ Use this authoring loop, consulting each command's "-h" output for exact flags:
 4. "change-saga add-landmark" makes a Markdown heading, HTML/SVG element, exact
    text, or image region independently addressable. Give every meaningful
    visual landmark a semantic "--description" that explains its role without
-   relying on geometry, color, or position. Cite focused implementation claims
-   in prose with Markdown footnotes, make each plain-text footnote definition
-   an exact-text landmark, and attach its exact evidence there. Give each
-   code-bearing SVG/HTML node its own stable element ID and evidence-bearing
-   landmark instead of covering only the enclosing fragment.
+   relying on geometry, color, or position. Every concrete prose claim about
+   implementation, behavior, an invariant, or a data transition must carry a
+   focused Markdown footnote citation or live under a deliberately
+   evidence-bearing heading. Make each plain-text footnote definition an
+   exact-text landmark and attach its exact evidence there. Do not finish a
+   substantive implementation narrative with zero citations merely because
+   its atoms are covered at fragment scope. Give each code-bearing SVG/HTML
+   node, edge, arrow, transition, or state its own stable element ID and
+   evidence-bearing landmark instead of covering only the enclosing fragment.
+   SVG element bounds become on-canvas links automatically; use "--hotspot"
+   only to override awkward geometry.
 5. "change-saga cover" connects a focused fragment or landmark to the exact diff atoms
    it explains and includes a concise what-and-why note. "--target" accepts a
    path, a target URN, or the "<fragment-path>#<landmark-id>" shorthand. Use
@@ -1450,6 +1456,10 @@ Use this authoring loop, consulting each command's "-h" output for exact flags:
    "change-saga remove-coverage --record PATH" deletes one. Prefer
    landmark-level ownership when the score explains that a mapping deserves
    more skepticism. The score is a work queue, not a correctness grade.
+   Then use "query children" and "query fragment-diffs" to audit every
+   substantive fragment. Move direct fragment-level evidence to citations,
+   headings, SVG nodes, or SVG edges whenever the authored content identifies
+   that narrower target.
 8. Record falsifiable assertions with "change-saga add-claim" and append an
    explicit result with "change-saga verify-claim". Claims never contribute to
    coverage. Use "unverified" when an assertion has not actually been checked;
@@ -1464,14 +1474,16 @@ Every substantial chapter should begin with an SVG diagram, self-contained
 interactive HTML walkthrough, or concrete before/after example. Highlight
 end-to-end workflows, data flows, data models, state transitions, boundaries,
 failure paths, compatibility, and observable outcomes. Give meaningful diagram
-nodes and interactive elements stable landmarks with "change-saga add-landmark"
-so they can link to the exact code that realizes them. In prose, use Markdown
-footnote citations for concrete implementation claims and map the exact-text
-reference definition to its supporting diff atoms; the renderer makes both the
-inline marker and reference entry open those diffs. Audit every visual before
-moving on: enumerate its meaningful nodes and attach focused evidence to each
-code-bearing landmark. A visual with no landmarks or direct code mapping is
-unfinished, not decorative completeness.
+nodes, edges, and interactive elements stable landmarks with "change-saga
+add-landmark" so they can link to the exact code that realizes them. In prose,
+use Markdown footnote citations for every concrete implementation claim and map
+the exact-text reference definition to its supporting diff atoms; the renderer
+makes both the inline marker and reference entry open those diffs. A
+citation-free implementation narrative is unfinished even when status reports
+complete coverage. Audit every visual before moving on: enumerate its
+meaningful nodes and edges and attach focused evidence to each code-bearing
+landmark. A visual with no landmarks or direct code mapping is unfinished, not
+decorative completeness.
 
 Organize the change into independently reviewable chapters based on behavior,
 risk, architecture, or reviewer intent rather than file type. Use Markdown to
@@ -1533,6 +1545,10 @@ Addressable Markdown headings, exact text, HTML/SVG elements, and image regions
 live in independent ___landmarks/<id>.landmark packages beneath a fragment.
 Create them with change-saga add-landmark, then pass the printed path or URN to
 change-saga cover so a reviewer can move directly from a visual node to code.
+For SVG fragments, --element-id identifies the node and its rendered bounds
+automatically become the on-canvas link. Use --hotspot only to override that
+geometry. HTML element landmarks need an explicit hotspot to appear on-canvas;
+without one they remain reachable through Marked places and deep links.
 Meaningful visual landmarks include a semantic description so query clients can
 understand their role without interpreting SVG or HTML geometry.
 Markdown footnotes are the prose citation convention. When a footnote

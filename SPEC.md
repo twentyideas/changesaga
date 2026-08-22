@@ -198,15 +198,18 @@ Meaningful visual landmarks should carry a concise semantic `description` that
 explains their role without relying on geometry, color, or position. Query
 clients return this description so non-visual consumers do not need to infer
 meaning from SVG or HTML source.
-Every code-bearing SVG or HTML node should prefer its own stable element ID and
-element landmark over evidence attached only to the enclosing fragment.
+Every code-bearing SVG or HTML node or edge should prefer its own stable element
+ID and element landmark over evidence attached only to the enclosing fragment.
 
-Static SVG and image landmarks may include a normalized `hotspot` rectangle.
-The renderer uses it to reveal permalink and related-code controls directly on
-hover without trusting or modifying the fragment document. A `region` selector
-is itself a hotspot. The fragment target remains the portable fallback for
-media without a native selector; authors may use an HTML wrapper with element
-landmarks when inner addressability is important.
+SVG element landmarks use the rendered element bounds as their on-canvas
+interaction area by default, including groups, nodes, lines, paths, and graph
+edges. Static SVG, HTML, and image landmarks may include a normalized `hotspot`
+rectangle to override or supply that geometry. The renderer uses an external
+overlay to reveal permalink and related-code controls directly on hover without
+trusting or modifying the fragment document. A `region` selector is itself a
+hotspot. The fragment target remains the portable fallback for media without a
+native selector; authors may use an HTML wrapper with element landmarks when
+inner addressability is important.
 
 HTML and SVG fragments execute in an iframe with `sandbox="allow-scripts"` and a
 network-denying Content Security Policy. They can execute bundled JavaScript but

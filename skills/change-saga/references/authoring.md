@@ -71,9 +71,9 @@ after the prose:
   lifecycle changes, migration/compatibility behavior, and old-to-new shape.
 - For workflows, show the entry point, happy path, permissions or validation,
   side effects, failure/recovery path, and observable result.
-- Give meaningful SVG/HTML nodes stable IDs and landmark packages. Attach the
-  exact realizing diff to the node, state, arrow, example step, or control—not
-  only to the enclosing fragment.
+- Give meaningful SVG/HTML nodes and edges stable IDs and landmark packages.
+  Attach the exact realizing diff to the node, state, arrow, transition,
+  example step, or control—not only to the enclosing fragment.
 
 Keep prose around a visual short: state what question it answers, call out the
 non-obvious invariant or tradeoff, and tell the reviewer where to look next.
@@ -157,17 +157,20 @@ This creates `___landmarks/<stable-id>.landmark/landmark.json` with the shape:
   target or place the media in a small HTML wrapper whose meaningful controls
   and regions have stable element IDs. Do not invent an unrecognized selector.
 
-Create landmarks for independently discussable concepts, states, controls, and
-diagram nodes—not decorative shapes or every sentence. Keep IDs stable when
+Create landmarks for independently discussable concepts, states, controls,
+diagram nodes, and edges—not decorative shapes or every sentence. Keep IDs stable when
 labels or visuals change, keep them unique within the fragment, and use a
 separate package for each landmark so parallel edits do not touch a shared
 array. Give every meaningful visual landmark a concise semantic `description`
 that explains its role without referring to SVG geometry, color, or screen
 position. This is the non-visual representation returned to AI clients. For
-static SVGs and images, add a normalized `hotspot` rectangle when the
-renderer should reveal permalink and code controls over the item on hover.
-For SVG, divide the item's viewBox coordinates by the viewBox width and height;
-for raster media, divide pixel coordinates by the intrinsic image dimensions.
+SVG `element` landmarks automatically use the rendered bounds of their
+`element_id` for the on-canvas permalink and code controls. This works for
+groups, shapes, text, lines, and paths, including graph edges. Add a normalized
+`hotspot` only when the inferred rectangular hit area is awkward—for example,
+a long diagonal or curved edge whose bounding box overlaps unrelated nodes.
+For an override, divide the desired viewBox coordinates by the viewBox width
+and height. Raster regions always use normalized intrinsic-image coordinates.
 For example: `"hotspot":{"x":0.68,"y":0.72,"width":0.2,"height":0.12}`.
 
 When a landmark is realized by code, put each focused diff association in its
@@ -183,8 +186,9 @@ is always addressable even when it has no inner landmarks.
 
 ### Diff citations in prose
 
-Use Markdown footnotes as diff citations when a sentence or short prose range
-makes a concrete claim about the implementation. Keep the paragraph readable,
+Use Markdown footnotes as diff citations whenever a sentence or short prose
+range makes a concrete claim about implementation, behavior, an invariant, or
+a data transition. Keep the paragraph readable,
 then put one focused explanation in the reference list:
 
 ```markdown
@@ -211,14 +215,28 @@ definition owns evidence, both the inline citation marker and the linked text
 open the exact code in the side drawer. Use a stable, descriptive footnote key;
 keep the definition text unique within the fragment, plain text, and free of
 inline Markdown so the exact selector remains durable. One citation should
-support one focused idea. Cite behavioral claims, invariants, data transitions,
-and non-obvious implementation facts—not every sentence and not background
-context that has no realizing diff.
+support one focused idea. Do not finish a substantive implementation narrative
+with zero citations merely because its atoms are covered at fragment scope.
+Zero citations are appropriate only when the prose is pure orientation or
+background, or when its code ownership is already expressed through focused
+heading landmarks. Cite behavioral claims, invariants, data transitions, and
+non-obvious implementation facts—not every sentence and not background context
+that has no realizing diff.
 
 For SVG and HTML, prefer the more direct equivalent: give every code-bearing
 node, arrow, state, or control a stable element `id`, create an element landmark
 for that exact node, and attach its focused diffs there. Fragment-level evidence
 is not a substitute when the visual already identifies the narrower concept.
+
+Before attaching broad coverage, perform an addressability inventory:
+
+1. List each concrete implementation claim in every Markdown fragment and give
+   it a footnote citation or a deliberately evidence-bearing heading landmark.
+2. List every code-bearing node, edge, state, and control in every SVG or HTML
+   fragment and give each one a stable element landmark.
+3. Use `query children` and `query fragment-diffs` to confirm these focused
+   targets own their evidence. Treat direct fragment-level mappings as an
+   exception that needs a narrative reason, not the default.
 
 ## Evidence discipline
 
@@ -289,9 +307,13 @@ Before handing off:
 - Confirm interactive fragments teach something through their default state and
   controls, remain self-contained, and are not static prose placed in HTML.
 - Confirm diagrams and examples agree with current code.
+- Confirm every substantive prose fragment's concrete implementation claims
+  have focused citations or deliberately evidence-bearing headings. A
+  citation-free implementation narrative is unfinished even when coverage is
+  complete.
 - Confirm meaningful diagram nodes, interactive controls, text regions, and
   image regions have valid landmarks that still resolve to their content, and
-  that every code-bearing landmark opens its exact related diff.
+  that every code-bearing node and edge opens its exact related diff.
 - Confirm validation reports no untouched scaffold and no unexplained visual
   mapping warning.
 - Confirm every product atom is covered, no URI is stale, and every overlap is

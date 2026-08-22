@@ -66,8 +66,9 @@ Store the record at `___landmarks/<id>.landmark/landmark.json`. Selector types
 are `heading` for an explicit Markdown anchor, `element` for an HTML/SVG element
 ID, `text` for an exact Markdown/plain-text quote, and `region` for normalized
 image coordinates. Put each code association in its own `___diffs/*.json`
-inside the package. Static SVG/image records may include a normalized `hotspot`
-that places hover controls over the illustrated item.
+inside the package. SVG element landmarks infer their on-canvas hover controls
+from the rendered element bounds. A normalized `hotspot` overrides that
+geometry when needed; raster regions use normalized coordinates directly.
 Meaningful visual landmarks should include a semantic `description`; query
 clients receive it so they do not need to interpret raw SVG or HTML geometry.
 
@@ -81,7 +82,7 @@ change-saga add-section --title "Title" <name>.saga backend.chapter/path/to/sect
 change-saga add-fragment --section path/to/section --type markdown --title "Context" <name>.saga
 change-saga add-fragment --section path/to/section --type html --source ./demo-package --entrypoint index.html <name>.saga
 change-saga set-fragment-content --target path/to/context.fragment --source ./overview.md <name>.saga
-change-saga add-landmark --target path/to/demo.fragment --element-id submit-action --label "Submit action" --description "The validated request crosses into persistence." --hotspot 0.68,0.72,0.2,0.12 <name>.saga
+change-saga add-landmark --target path/to/demo.fragment --element-id submit-action --label "Submit action" --description "The validated request crosses into persistence." <name>.saga
 change-saga add-landmark --target path/to/context.fragment --heading-id request-validation --label "Request validation" <name>.saga
 change-saga add-landmark --target path/to/context.fragment --id lease-renewal --text "Renewal is triggered from the heartbeat path before the lease midpoint." --label "Lease renewal evidence" <name>.saga
 change-saga cover --repo <source-checkout> --target path/to/demo.fragment --path file.go --side new --lines 4-9,12 --note "Adds request validation so malformed input fails before persistence." <name>.saga

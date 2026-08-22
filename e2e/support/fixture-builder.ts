@@ -98,10 +98,15 @@ function addCoverage(sourceRepo: string, sagaRoot: string): DiffIdentity {
   if (!citation) throw new Error("fixture has no changed line for its prose citation");
   const overviewRemainder = overview.filter((atom) => atom !== citation);
   const architecture = uncovered.filter((atom) => !overview.includes(atom));
+  const diagramAtom = architecture[0];
+  const edgeAtom = architecture[1];
+  if (!diagramAtom || !edgeAtom) throw new Error("fixture has too few changed atoms for its SVG landmarks");
   for (const [target, name, atoms] of [
     ["overview.fragment", "overview-linked", overviewRemainder],
     ["overview.fragment/___landmarks/greeting-input.landmark", "greeting-citation", [citation]],
-    ["architecture.chapter/overview.fragment", "architecture-linked", architecture]
+    ["diagram.fragment/___landmarks/render-boundary.landmark", "diagram-node", [diagramAtom]],
+    ["diagram.fragment/___landmarks/evidence-handoff.landmark", "diagram-edge", [edgeAtom]],
+    ["architecture.chapter/overview.fragment", "architecture-linked", architecture.slice(2)]
   ] as const) {
     if (atoms.length === 0) throw new Error(`fixture has no atoms for ${target}`);
     runSaga([
@@ -159,11 +164,13 @@ function buildSagaRepository(root: string, source: { sourceRepo: string; base: s
 
   const mediaRoot = join(root, "media");
   const interactiveRoot = join(mediaRoot, "interactive");
-  write(join(mediaRoot, "diagram.svg"), `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 80" role="img" aria-label="Review flow diagram"><rect width="240" height="80" fill="#eef4ff"/><text x="20" y="46">Saga to source</text></svg>\n`);
+  write(join(mediaRoot, "diagram.svg"), `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 80" role="img" aria-label="Review flow diagram"><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0 0L0 6L7 3Z" fill="#3867a8"/></marker></defs><rect width="240" height="80" fill="#eef4ff"/><g id="render-boundary" transform="translate(12 14)"><rect width="86" height="52" rx="8" fill="#dce8ff" stroke="#3867a8"/><text x="12" y="31">Saga</text></g><path id="evidence-handoff" d="M102 40H138" fill="none" stroke="#3867a8" stroke-width="3" marker-end="url(#arrow)"/><g transform="translate(142 14)"><rect width="86" height="52" rx="8" fill="#f3f7ff" stroke="#3867a8"/><text x="12" y="31">Source</text></g></svg>\n`);
   write(join(mediaRoot, "pixel.png"), Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"));
   write(join(interactiveRoot, "index.html"), `<!doctype html><button id="run">Run demo</button><output id="result">idle</output><script src="app.js"></script>\n`);
   write(join(interactiveRoot, "app.js"), `document.querySelector('#run').addEventListener('click', () => { document.querySelector('#result').textContent = 'interactive ready'; });\n`);
   runSaga(["add-fragment", "--section", ".", "--type", "svg", "--name", "diagram", "--id", "diagram", "--title", "Architecture Diagram", "--source", join(mediaRoot, "diagram.svg"), sagaRoot], sagaRepo);
+  runSaga(["add-landmark", "--target", "diagram.fragment", "--element-id", "render-boundary", "--label", "Render boundary", "--description", "The renderer connects authored explanation to its exact source evidence.", sagaRoot], sagaRepo);
+  runSaga(["add-landmark", "--target", "diagram.fragment", "--element-id", "evidence-handoff", "--label", "Evidence handoff", "--description", "The diagram edge carries a focused explanation into its exact source evidence.", sagaRoot], sagaRepo);
   runSaga(["add-fragment", "--section", ".", "--type", "image", "--name", "pixel", "--id", "pixel", "--title", "Raster Preview", "--source", join(mediaRoot, "pixel.png"), sagaRoot], sagaRepo);
   runSaga(["add-fragment", "--section", ".", "--type", "html", "--name", "interactive", "--id", "interactive", "--title", "Interactive Demo", "--source", interactiveRoot, sagaRoot], sagaRepo);
 

@@ -121,9 +121,11 @@ the complete diff is represented. The reviewer still decides whether the
 change is correct.
 
 Saga content can be Markdown, text, images, SVG, or interactive HTML with
-JavaScript. Prose can cite exact diffs with footnote-style references, while
-headings, diagram nodes, exact text, and image regions can link to one or more
-files and diff ranges. Everything remains ordinary files in a
+JavaScript. Concrete implementation statements in prose should cite exact diffs
+with footnote-style references. Code-bearing diagram nodes and edges should each
+link directly to their own files and diff ranges; SVG element bounds become
+hoverable links automatically. Headings, exact text, controls, and image regions
+can use the same focused mapping model. Everything remains ordinary files in a
 `.saga` directory; [SPEC.md](SPEC.md) defines the format.
 
 ## Reviewing a saga

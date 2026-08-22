@@ -67,9 +67,11 @@ test("@critical navigates the saga, linked code, code tree, and coverage in both
 
   await page.getByRole("tab", { name: "Coverage" }).click();
   await page.getByRole("button", { name: "Saga → Code" }).click();
-  const overviewTarget = page.locator("details.manifest-target").filter({ hasText: "Overview" }).first();
-  await overviewTarget.locator(":scope > summary").click();
-  const targetFile = overviewTarget.locator("details.manifest-target-file").filter({ hasText: "src/app.go" });
+  const sourceTarget = page.locator("details.manifest-target").filter({
+    has: page.locator("details.manifest-target-file code", { hasText: "src/app.go" })
+  }).first();
+  await sourceTarget.locator(":scope > summary").click();
+  const targetFile = sourceTarget.locator("details.manifest-target-file").filter({ hasText: "src/app.go" });
   await targetFile.locator("summary").click();
   await targetFile.getByRole("link", { name: /Open in Code Diff/ }).click();
   await expect(page.getByRole("tab", { name: "Code Diff" })).toHaveAttribute("aria-selected", "true");
@@ -93,6 +95,22 @@ test("renders Markdown, SVG, raster, and interactive HTML fragments", async ({ p
   await citationDrawer.getByRole("button", { name: "Close linked code" }).click();
   const diagram = page.frameLocator('iframe[title="Architecture Diagram"]');
   await expect(diagram.getByRole("img", { name: "Review flow diagram" })).toBeVisible();
+  const diagramFragment = page.locator('[data-fragment-title="Architecture Diagram"]');
+  const elementHotspot = diagramFragment.locator('[data-auto-landmark-hotspot="true"][data-element-id="render-boundary"]');
+  await expect(elementHotspot).toBeVisible();
+  await elementHotspot.hover();
+  await elementHotspot.getByRole("button", { name: "Open code related to Render boundary" }).click();
+  const elementDrawer = page.getByRole("complementary", { name: "Linked code" });
+  await expect(elementDrawer).toHaveAttribute("aria-hidden", "false");
+  await expect(elementDrawer.locator("details.attached-file")).toHaveCount(1);
+  await elementDrawer.getByRole("button", { name: "Close linked code" }).click();
+  const edgeHotspot = diagramFragment.locator('[data-auto-landmark-hotspot="true"][data-element-id="evidence-handoff"]');
+  await expect(edgeHotspot).toBeVisible();
+  await edgeHotspot.hover();
+  await edgeHotspot.getByRole("button", { name: "Open code related to Evidence handoff" }).click();
+  await expect(elementDrawer).toHaveAttribute("aria-hidden", "false");
+  await expect(elementDrawer.locator("details.attached-file")).toHaveCount(1);
+  await elementDrawer.getByRole("button", { name: "Close linked code" }).click();
   await expect(page.locator('[data-fragment-title="Raster Preview"] img[alt="Raster Preview"]')).toBeVisible();
 
   const demo = page.frameLocator('iframe[title="Interactive Demo"]');

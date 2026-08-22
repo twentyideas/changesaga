@@ -7,12 +7,14 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/twentyideas/changesaga/internal/diffuri"
 )
 
 var stableID = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$`)
+var svgViewBoxValidationPattern = regexp.MustCompile(`(?i)\bviewBox\s*=\s*["']([^"']+)["']`)
 
 func ValidID(value string) bool { return stableID.MatchString(value) }
 
@@ -274,8 +276,8 @@ func validateLandmark(value Landmark, fragment *Fragment, result *Validation) {
 		addIssue(result, "error", value.Path, "landmark selector type must be heading, element, text, or region")
 	}
 	if value.Hotspot != nil {
-		if fragment.MediaType != "image/svg+xml" && !strings.HasPrefix(fragment.MediaType, "image/") {
-			addIssue(result, "error", value.Path, "landmark hotspots require an image or SVG fragment")
+		if fragment.MediaType != "text/html" && !strings.HasPrefix(fragment.MediaType, "image/") {
+			addIssue(result, "error", value.Path, "landmark hotspots require an HTML, image, or SVG fragment")
 		}
 		if !validNormalizedRegion(value.Hotspot.X, value.Hotspot.Y, value.Hotspot.Width, value.Hotspot.Height) {
 			addIssue(result, "error", value.Path, "landmark hotspot must define a positive normalized rectangle within the fragment")
@@ -544,6 +546,7 @@ func validateDocument(document *Saga, result *Validation) {
 		}
 		for _, fragment := range section.Fragments {
 			validateVisualMappings(fragment, result)
+			validateNarrativeMappings(fragment, result)
 			visitFragment(fragment)
 		}
 		for _, child := range section.Children {
@@ -618,11 +621,47 @@ func validateVisualMappings(fragment *Fragment, result *Validation) {
 		}
 		if len(landmark.Diffs) > 0 {
 			mapped = true
+			if landmark.Selector.Type == "element" && landmark.Hotspot == nil && fragment.MediaType == "text/html" {
+				addIssue(result, "warning", landmark.Path, "mapped HTML element has no on-canvas hit area; add hotspot geometry so reviewers can open its linked code directly from the content")
+			}
+			if landmark.Selector.Type == "element" && landmark.Hotspot == nil && fragment.MediaType == "image/svg+xml" && !fragmentHasUsableSVGViewBox(fragment) {
+				addIssue(result, "warning", landmark.Path, "mapped SVG element cannot be positioned automatically because the SVG has no usable viewBox; add a viewBox or explicit hotspot geometry")
+			}
 		}
 	}
 	if !mapped {
 		addIssue(result, "warning", fragment.Path, "visual fragment has no directly linked code; attach exact diff evidence to the fragment or its landmarks")
 	}
+}
+
+func validateNarrativeMappings(fragment *Fragment, result *Validation) {
+	if fragment.MediaType != "text/markdown" || len(fragment.Diffs) == 0 {
+		return
+	}
+	for _, landmark := range fragment.Landmarks {
+		if len(landmark.Diffs) > 0 && (landmark.Selector.Type == "text" || landmark.Selector.Type == "heading") {
+			return
+		}
+	}
+	addIssue(result, "warning", fragment.Path, "Markdown fragment owns code only at fragment scope; cite concrete implementation claims with evidence-bearing footnotes or attach the evidence to focused heading landmarks")
+}
+
+func fragmentHasUsableSVGViewBox(fragment *Fragment) bool {
+	content, err := os.ReadFile(filepath.Join(fragment.Directory, filepath.FromSlash(fragment.Entrypoint)))
+	if err != nil {
+		return false
+	}
+	match := svgViewBoxValidationPattern.FindStringSubmatch(string(content))
+	if len(match) != 2 {
+		return false
+	}
+	parts := strings.Fields(strings.ReplaceAll(match[1], ",", " "))
+	if len(parts) != 4 {
+		return false
+	}
+	width, widthErr := strconv.ParseFloat(parts[2], 64)
+	height, heightErr := strconv.ParseFloat(parts[3], 64)
+	return widthErr == nil && heightErr == nil && width > 0 && height > 0 && !math.IsInf(width, 0) && !math.IsInf(height, 0) && !math.IsNaN(width) && !math.IsNaN(height)
 }
 
 func hasErrors(issues []Issue) bool {

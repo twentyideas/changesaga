@@ -10,6 +10,35 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-08-21
+
+### Added
+
+- SVG element landmarks now infer their on-canvas interaction area from the
+  rendered element bounds. Nodes, groups, paths, lines, and graph edges link to
+  their exact code with `--element-id` alone; `--hotspot` remains an explicit
+  geometry override.
+- The browser E2E fixture now proves that both an SVG node and an SVG edge can
+  reveal and open their independently mapped code.
+
+### Changed
+
+- The authoring skill now requires an explicit addressability pass: concrete
+  implementation claims in prose use focused footnote citations or deliberate
+  heading landmarks, while code-bearing SVG nodes, edges, transitions, and
+  states own focused element landmarks. Complete atom coverage no longer serves
+  as a reason to omit those narrower links.
+- `install-skill`, the format reference, the public specification, and README
+  carry the same granular citation and visual-mapping guidance.
+- HTML landmarks may use explicit hotspot geometry for on-canvas controls.
+
+### Fixed
+
+- Validation warns when Markdown owns evidence only at fragment scope without
+  any evidence-bearing text or heading landmark, when mapped HTML elements lack
+  a hotspot, or when an SVG cannot infer element geometry because it lacks a
+  usable `viewBox`.
+
 ## [0.0.4] - 2026-08-21
 
 ### Changed

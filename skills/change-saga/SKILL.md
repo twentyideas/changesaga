@@ -132,11 +132,21 @@ children.
    claims with Markdown footnotes and make the plain-text citation definition
    an exact-text landmark; evidence on that landmark lets the inline citation
    and its reference entry open the code drawer. Attach exact diff atoms to the returned
-   landmark target when code realizes it. Before moving on from a visual,
-   enumerate its meaningful nodes and confirm each code-bearing node has a
-   stable element ID, a landmark, and focused evidence rather than relying on
-   fragment-level coverage. Keep one review idea per fragment and avoid
-   decorative media.
+   landmark target when code realizes it. Treat this as a required
+   addressability pass before broad coverage: every concrete prose statement
+   about implementation, behavior, an invariant, or a data transition must
+   either carry a focused footnote citation or live under a deliberately
+   evidence-bearing heading landmark. Do not finish a substantive prose
+   fragment with zero citations merely because its diff atoms are covered at
+   fragment scope. Zero citations are appropriate only for pure orientation,
+   background, or prose whose exact code ownership is already expressed by
+   focused heading landmarks. Before moving on from a visual, enumerate its
+   meaningful nodes **and edges** and confirm each code-bearing node, arrow,
+   transition, or state has a stable element ID, a landmark, and focused
+   evidence rather than relying on fragment-level coverage. For SVG,
+   `--element-id` automatically creates the on-canvas link from the element's
+   rendered bounds; use `--hotspot` only to override an awkward hit area. Keep
+   one review idea per fragment and avoid decorative media.
 8. Attach only the atoms actually explained or demonstrated by a fragment (or a
    deliberately higher target) with `change-saga cover --target`. `--target`
    accepts a section or fragment path, a target URN, or the
@@ -168,6 +178,12 @@ children.
     landmark-level ownership for broad visual fragments. A mapping
     score directs scrutiny; it is not a correctness grade and a low score is
     not proof that the explanation is true.
+    Then audit addressability independently of atom completeness: use `query
+    children` and `query fragment-diffs` on every substantive fragment. Move
+    direct fragment-level evidence down to prose citations, heading landmarks,
+    SVG nodes, or SVG edges whenever the authored content identifies that
+    narrower concept. A complete saga with avoidably broad targets is not ready
+    for handoff.
 11. Record falsifiable assertions with `change-saga add-claim`. Each claim must
     target the exact narrative element making it and cite exact supporting diff
     URIs. Claims never contribute to coverage. Append an explicit result with
@@ -183,6 +199,9 @@ children.
     authoring, then perform the
     visual and reviewer-readiness checks in `references/authoring.md`. Replace
     walls of text with diagrams or concrete examples before handoff.
+    Treat a citation-free implementation narrative or a code-bearing visual
+    node/edge without its own landmark as unfinished even when status reports
+    complete coverage.
     `change-saga validate --fix` adds missing stable anchors to Markdown
     headings in narrative fragments and changes nothing else; it never touches
     review history. Summarize the chapter structure, coverage result, saga-only

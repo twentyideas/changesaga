@@ -153,6 +153,7 @@ func TestInstallSkillPrintsPortableAuthoringContract(t *testing.T) {
 		"project-local agent skill", "existing PR-authoring", "thing to be reviewed, not the review itself",
 		"Do not create review", "change-saga --help", "change-saga status --json", "change-saga add-landmark", "SVG diagram",
 		"interactive HTML", "data flows", "data models", "exact diff atoms",
+		"zero citations", "code-bearing SVG/HTML", "node, edge, arrow, transition", "SVG element bounds become on-canvas links automatically",
 		"change-saga query mappings --sort scrutiny", "change-saga add-claim", "change-saga verify-claim",
 		"read the code diff independently", "All-atoms-mapped is an omission invariant",
 	} {

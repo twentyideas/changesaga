@@ -3,6 +3,7 @@ package saga
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -134,5 +135,47 @@ func TestValidateVisualMappingsReportsMissingLandmarksAndEvidence(t *testing.T) 
 	validateVisualMappings(fragment, &result)
 	if len(result.Issues) != 0 {
 		t.Fatalf("mapped visual issues = %#v", result.Issues)
+	}
+}
+
+func TestValidateVisualMappingsWarnsWhenMappedElementCannotAppearOnCanvas(t *testing.T) {
+	directory := t.TempDir()
+	if err := os.WriteFile(filepath.Join(directory, "diagram.svg"), []byte(`<svg xmlns="http://www.w3.org/2000/svg"><g id="worker"><rect width="20" height="20"/></g></svg>`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	fragment := &Fragment{
+		Path: "map.fragment/fragment.json", Directory: directory, Entrypoint: "diagram.svg", MediaType: "image/svg+xml",
+		Landmarks: []Landmark{{ID: "worker", Path: "map.fragment/___landmarks/worker.landmark/landmark.json", Description: "Worker", Selector: LandmarkSelector{Type: "element", ElementID: "worker"}, Diffs: []DiffFile{{Version: 2}}}},
+	}
+	result := Validation{}
+	validateVisualMappings(fragment, &result)
+	if len(result.Issues) != 1 || !strings.Contains(result.Issues[0].Message, "no usable viewBox") {
+		t.Fatalf("missing on-canvas warning = %#v", result.Issues)
+	}
+	if err := os.WriteFile(filepath.Join(directory, "diagram.svg"), []byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g id="worker"><rect width="20" height="20"/></g></svg>`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result = Validation{}
+	validateVisualMappings(fragment, &result)
+	if len(result.Issues) != 0 {
+		t.Fatalf("measurable mapped SVG issues = %#v", result.Issues)
+	}
+}
+
+func TestValidateNarrativeMappingsWarnsAboutCitationFreeFragmentCoverage(t *testing.T) {
+	fragment := &Fragment{
+		Path: "overview.fragment/fragment.json", MediaType: "text/markdown",
+		Diffs: []DiffFile{{Version: 2}},
+	}
+	result := Validation{}
+	validateNarrativeMappings(fragment, &result)
+	if len(result.Issues) != 1 || !strings.Contains(result.Issues[0].Message, "evidence-bearing footnotes") {
+		t.Fatalf("citation-free narrative issues = %#v", result.Issues)
+	}
+	fragment.Landmarks = []Landmark{{Selector: LandmarkSelector{Type: "text", Exact: "Focused implementation statement."}, Diffs: []DiffFile{{Version: 2}}}}
+	result = Validation{}
+	validateNarrativeMappings(fragment, &result)
+	if len(result.Issues) != 0 {
+		t.Fatalf("focused citation narrative issues = %#v", result.Issues)
 	}
 }
