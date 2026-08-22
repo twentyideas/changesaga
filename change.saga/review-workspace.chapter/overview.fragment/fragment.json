@@ -1,0 +1,6 @@
+{
+  "version": 2,
+  "id": "review-workspace-overview",
+  "media_type": "text/markdown",
+  "entrypoint": "content.md"
+}

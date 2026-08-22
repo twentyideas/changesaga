@@ -1,0 +1,11 @@
+{
+  "$schema": "https://changesaga.dev/schema/v2/saga.schema.json",
+  "version": 2,
+  "id": "changesaga-codebase",
+  "title": "Change Saga: the codebase",
+  "source": {
+    "repository": "https://github.com/twentyideas/changesaga.git",
+    "base": "14afd0526c471d9ccad5825fadda735094e599e4",
+    "head": "v0.0.6"
+  }
+}
