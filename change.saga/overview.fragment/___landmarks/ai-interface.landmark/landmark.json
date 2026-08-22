@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "ai-interface",
+  "label": "AI interface",
+  "selector": {
+    "type": "text",
+    "exact": "Agents use bounded queries and atomic mutations while direct CLI authoring remains documented for exceptional use."
+  },
+  "target": ""
+}

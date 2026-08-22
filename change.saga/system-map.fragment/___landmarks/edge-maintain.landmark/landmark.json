@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "edge-maintain",
+  "label": "Maintain with the next diff",
+  "description": "An incoming source diff is projected onto existing ownership to locate explanations that need attention.",
+  "selector": {
+    "type": "element",
+    "element_id": "edge-maintain"
+  },
+  "target": ""
+}

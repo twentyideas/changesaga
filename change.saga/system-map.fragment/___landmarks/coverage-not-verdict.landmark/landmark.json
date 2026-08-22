@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "coverage-not-verdict",
+  "label": "Coverage is not a verdict",
+  "description": "Completeness detects omitted source evidence but never asserts that the code or explanation is correct.",
+  "selector": {
+    "type": "element",
+    "element_id": "coverage-not-verdict"
+  },
+  "target": ""
+}

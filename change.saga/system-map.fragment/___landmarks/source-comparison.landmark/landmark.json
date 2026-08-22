@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "source-comparison",
+  "label": "Git comparison",
+  "description": "The selected Git range is the ground truth from which exact changed-line and lifecycle atoms are derived.",
+  "selector": {
+    "type": "element",
+    "element_id": "source-comparison"
+  },
+  "target": ""
+}

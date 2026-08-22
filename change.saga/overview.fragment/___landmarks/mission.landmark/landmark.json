@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "mission",
+  "label": "Coverage contract",
+  "selector": {
+    "type": "text",
+    "exact": "The public contract defines coverage as an omission check rather than a correctness verdict."
+  },
+  "target": ""
+}

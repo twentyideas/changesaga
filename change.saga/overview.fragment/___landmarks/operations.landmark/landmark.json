@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "operations",
+  "label": "Operating contract",
+  "selector": {
+    "type": "text",
+    "exact": "Installation, security boundaries, source builds, governance, support, and licensing are explicit parts of the public surface."
+  },
+  "target": ""
+}

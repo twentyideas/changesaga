@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ai-authored-saga",
+  "label": "AI-authored Saga",
+  "description": "An AI turns exact evidence into a gradual visual narrative rather than a flat PR description.",
+  "selector": {
+    "type": "element",
+    "element_id": "ai-authored-saga"
+  },
+  "target": ""
+}

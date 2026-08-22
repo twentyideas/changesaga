@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "review-workspace",
+  "label": "Review workspace",
+  "selector": {
+    "type": "text",
+    "exact": "Narrative, code, coverage, and file-granular review history remain connected without becoming the same thing."
+  },
+  "target": ""
+}

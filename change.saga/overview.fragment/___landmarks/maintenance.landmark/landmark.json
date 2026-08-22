@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "maintenance",
+  "label": "Maintenance model",
+  "selector": {
+    "type": "text",
+    "exact": "Codebase Sagas are maintained by projecting incoming source diffs onto existing evidence ownership."
+  },
+  "target": ""
+}

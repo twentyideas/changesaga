@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "edge-author",
+  "label": "Explain and cite",
+  "description": "The AI attaches focused narrative and visual targets to the exact atoms they explain.",
+  "selector": {
+    "type": "element",
+    "element_id": "edge-author"
+  },
+  "target": ""
+}

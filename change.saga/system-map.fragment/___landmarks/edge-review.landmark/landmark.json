@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "edge-review",
+  "label": "Inspect exact code",
+  "description": "The reviewer opens linked implementation without losing the surrounding narrative.",
+  "selector": {
+    "type": "element",
+    "element_id": "edge-review"
+  },
+  "target": ""
+}

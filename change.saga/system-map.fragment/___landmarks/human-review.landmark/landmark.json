@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "human-review",
+  "label": "Human review",
+  "description": "A human moves between the authored explanation and exact code, then commits independent review actions.",
+  "selector": {
+    "type": "element",
+    "element_id": "human-review"
+  },
+  "target": ""
+}

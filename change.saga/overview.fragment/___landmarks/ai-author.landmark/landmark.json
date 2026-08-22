@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "ai-author",
+  "label": "AI and human roles",
+  "selector": {
+    "type": "text",
+    "exact": "AI prepares the structured visual account; a human still decides whether the change is correct."
+  },
+  "target": ""
+}

@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "system-map",
+  "title": "The gradual path through a large change",
+  "media_type": "image/svg+xml",
+  "entrypoint": "system-map.svg",
+  "order": 5
+}

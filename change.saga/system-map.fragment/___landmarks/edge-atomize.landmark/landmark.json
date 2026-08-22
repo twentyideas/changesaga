@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "edge-atomize",
+  "label": "Atomize the comparison",
+  "description": "The Git comparison becomes independently coverable line and file-event atoms.",
+  "selector": {
+    "type": "element",
+    "element_id": "edge-atomize"
+  },
+  "target": ""
+}

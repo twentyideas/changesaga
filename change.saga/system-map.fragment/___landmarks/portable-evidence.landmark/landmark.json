@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "portable-evidence",
+  "label": "Portable evidence",
+  "description": "Canonical source identities connect changed atoms to stable targets in the file-native Saga.",
+  "selector": {
+    "type": "element",
+    "element_id": "portable-evidence"
+  },
+  "target": ""
+}
