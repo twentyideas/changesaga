@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"math"
 	"mime"
 	"net"
 	"net/http"
@@ -107,11 +108,15 @@ type fragmentView struct {
 	LandmarkViews []*landmarkView
 	Changes       []*diffAtomView
 	Attached      *attachedCodeView
-	Threads       []*threadView
-	ReviewState   string
-	ReviewAuthor  string
-	ReviewDetail  string
-	ReviewBody    string
+	// Threads keeps its historical meaning: comments that belong to the
+	// fragment as a whole, listed under the content. Comments drawn onto the
+	// content move to AnnotationThreads and render as bubbles on the mark.
+	Threads           []*threadView
+	AnnotationThreads []*annotationThreadView
+	ReviewState       string
+	ReviewAuthor      string
+	ReviewDetail      string
+	ReviewBody        string
 }
 
 type landmarkView struct {
@@ -139,6 +144,21 @@ type threadView struct {
 	MessageViews [][]*fragmentView
 	StateAuthor  string
 	StateDetail  string
+}
+
+// annotationThreadView pins a comment to the visual mark it was drawn on. X and
+// Y are normalized stage coordinates for the bubble; Placed is false for a
+// highlight, whose position only exists once the browser has marked the text,
+// so the browser measures that one instead. Comments holds the single thread so
+// the bubble can reuse the same comment rendering as the list below the content.
+type annotationThreadView struct {
+	*threadView
+	Comments []*threadView
+	Label    string
+	PanelID  string
+	X        float64
+	Y        float64
+	Placed   bool
 }
 
 func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool, out io.Writer) error {
@@ -574,6 +594,104 @@ func anchorLabel(kind string) string {
 	return "note"
 }
 
+// annotationAnchor reports whether a comment was drawn onto the content: a
+// rectangle, a freehand drawing, a highlight, or a sticky note. Those comments
+// render as bubbles pinned to the mark. Every other anchor — a whole fragment,
+// a section, a chapter, a diff line — keeps its place in the list below.
+func annotationAnchor(kind string) bool {
+	switch kind {
+	case "region", "drawing", "text", "note":
+		return true
+	}
+	return false
+}
+
+// annotationBubbleLabel names the mark a bubble belongs to, in the same
+// vocabulary the annotation toolbox uses. anchorLabel answers "note" for every
+// anchor it does not know, which is too vague to say out loud on a bubble.
+func annotationBubbleLabel(kind string) string {
+	if kind == "note" {
+		return "sticky note"
+	}
+	return anchorLabel(kind)
+}
+
+func clampUnit(value float64) float64 {
+	if value < 0 {
+		return 0
+	}
+	if value > 1 {
+		return 1
+	}
+	return value
+}
+
+// annotationShapeBounds is the normalized box a drawn shape occupies. It mirrors
+// shapeBounds in appjs.go, because the server places a bubble from the stored
+// anchor and the browser then refines it from the rendered mark; the two must
+// agree on where the shape is.
+func annotationShapeBounds(shape saga.Shape) (left, top, right, bottom float64, ok bool) {
+	switch shape.Type {
+	case "path":
+		if len(shape.Points) == 0 {
+			return 0, 0, 0, 0, false
+		}
+		left, right = shape.Points[0].X, shape.Points[0].X
+		top, bottom = shape.Points[0].Y, shape.Points[0].Y
+		for _, point := range shape.Points[1:] {
+			left, right = math.Min(left, point.X), math.Max(right, point.X)
+			top, bottom = math.Min(top, point.Y), math.Max(bottom, point.Y)
+		}
+		return left, top, right, bottom, true
+	case "line":
+		return math.Min(shape.X, shape.Width), math.Min(shape.Y, shape.Height),
+			math.Max(shape.X, shape.Width), math.Max(shape.Y, shape.Height), true
+	case "ellipse":
+		return shape.X - shape.Width, shape.Y - shape.Height, shape.X + shape.Width, shape.Y + shape.Height, true
+	case "rect":
+		return shape.X, shape.Y, shape.X + shape.Width, shape.Y + shape.Height, true
+	}
+	return 0, 0, 0, 0, false
+}
+
+// annotationBubblePoint is where a bubble sits before the browser has measured
+// anything: the top-right corner of the mark. A highlight reports no point
+// because its position is a property of the rendered text, not of the record.
+func annotationBubblePoint(anchor saga.Anchor) (x, y float64, ok bool) {
+	if anchor.Type == "note" {
+		if anchor.Note == nil {
+			return 0, 0, false
+		}
+		return clampUnit(anchor.Note.X), clampUnit(anchor.Note.Y), true
+	}
+	for _, shape := range anchor.Shapes {
+		_, shapeTop, shapeRight, _, valid := annotationShapeBounds(shape)
+		if !valid {
+			continue
+		}
+		if !ok {
+			x, y, ok = shapeRight, shapeTop, true
+			continue
+		}
+		x, y = math.Max(x, shapeRight), math.Min(y, shapeTop)
+	}
+	if !ok {
+		return 0, 0, false
+	}
+	return clampUnit(x), clampUnit(y), true
+}
+
+func makeAnnotationThreadView(thread *threadView) *annotationThreadView {
+	view := &annotationThreadView{
+		threadView: thread,
+		Comments:   []*threadView{thread},
+		Label:      annotationBubbleLabel(thread.Anchor.Type),
+		PanelID:    domID("thread:"+thread.ID) + "--bubble",
+	}
+	view.X, view.Y, view.Placed = annotationBubblePoint(thread.Anchor)
+	return view
+}
+
 func makeSectionView(section *saga.Section, changes map[string][]gitdiff.Atom, threads map[string][]*threadView, diffThreads map[string][]*threadView) *sectionView {
 	view := &sectionView{
 		Section: section, DOMID: domID(section.Target), Changes: makeAtomViews(changes[section.Target], section.Target, diffThreads),
@@ -596,7 +714,14 @@ func makeFragmentView(fragment *saga.Fragment, changes []gitdiff.Atom, threads [
 	}
 	view := &fragmentView{
 		Fragment: fragment, DOMID: domID(fragment.Target), Changes: makeAtomViews(changes, fragment.Target, diffThreads),
-		Attached: makeAttachedCodeView(title, fragment.Target, changes, fragment.Diffs, diffThreads), Threads: threads,
+		Attached: makeAttachedCodeView(title, fragment.Target, changes, fragment.Diffs, diffThreads),
+	}
+	for _, thread := range threads {
+		if annotationAnchor(thread.Anchor.Type) {
+			view.AnnotationThreads = append(view.AnnotationThreads, makeAnnotationThreadView(thread))
+			continue
+		}
+		view.Threads = append(view.Threads, thread)
 	}
 	for _, landmark := range fragment.Landmarks {
 		region := landmark.Hotspot

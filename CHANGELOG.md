@@ -12,6 +12,14 @@ tool, and what they have to do about it.
 
 ### Changed
 
+- A comment drawn onto an explanation — a rectangle, a freehand mark, a
+  highlight, or a sticky note — now renders as a compact bubble on the mark
+  itself instead of in the list under the explanation. Hovering or focusing
+  either the mark or its bubble reveals the thread, replies and resolution work
+  as before, and comments on a whole explanation, section, chapter, or diff line
+  keep exactly the placement they had.
+- Attachment pickers in the comment, suggestion, and reply forms now carry an
+  accessible name.
 - Query schemas now expose `pagination.counted_path`, identifying the response
   collection described by `page.total` and `page.returned`. This disambiguates
   multi-collection responses such as `fragment-diffs`, whose selector page also

@@ -1,34 +1,6 @@
+import { annotationBubble, dragOn, openAnnotationBubble, selectExactText } from "../support/annotations.js";
 import { readJSON, reviewFiles } from "../support/fixture-builder.js";
 import { expect, test } from "../support/test.js";
-
-async function dragOn(page: import("@playwright/test").Page, locator: import("@playwright/test").Locator, from: [number, number], to: [number, number], steps = 8): Promise<void> {
-  await locator.scrollIntoViewIfNeeded();
-  const box = await locator.boundingBox();
-  if (!box) throw new Error("annotation surface has no bounding box");
-  await page.mouse.move(box.x + box.width * from[0], box.y + box.height * from[1]);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width * to[0], box.y + box.height * to[1], { steps });
-  await page.mouse.up();
-}
-
-async function selectExactText(page: import("@playwright/test").Page, selector: string, exact: string): Promise<void> {
-  await page.locator(selector).evaluate((root, selectedText) => {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    while (walker.nextNode()) {
-      const node = walker.currentNode;
-      const start = node.textContent?.indexOf(selectedText) ?? -1;
-      if (start < 0) continue;
-      const range = document.createRange();
-      range.setStart(node, start);
-      range.setEnd(node, start + selectedText.length);
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-      return;
-    }
-    throw new Error(`text not found: ${selectedText}`);
-  }, exact);
-}
 
 test("@critical drafts, undoes, redoes, submits, moves, recolors, and deletes visual annotations", async ({ page, saga }) => {
   const overview = page.locator('[data-fragment-title="Overview"]');
@@ -50,7 +22,9 @@ test("@critical drafts, undoes, redoes, submits, moves, recolors, and deletes vi
   const composer = page.locator("form.annotation-compose");
   await composer.locator('textarea[name="body"]').fill("Rectangle and freehand review marks.");
   await Promise.all([page.waitForNavigation(), composer.getByRole("button", { name: "Comment" }).click()]);
-  await expect(page.getByText("Rectangle and freehand review marks.")).toBeVisible();
+  // The comment now belongs to the mark it was drawn on, so it reads from the
+  // bubble rather than from the list under the fragment.
+  await expect(openAnnotationBubble(annotationBubble(page, "drawing"))).resolves.toContainText("Rectangle and freehand review marks.");
 
   const threadManifests = reviewFiles(saga, /\/thread\.json$/);
   expect(threadManifests).toHaveLength(1);
@@ -69,7 +43,7 @@ test("@critical drafts, undoes, redoes, submits, moves, recolors, and deletes vi
   await page.getByRole("button", { name: "Highlight selected text" }).click();
   await composer.locator('textarea[name="body"]').fill("Highlighted review claim.");
   await Promise.all([page.waitForNavigation(), composer.getByRole("button", { name: "Comment" }).click()]);
-  await expect(page.getByText("Highlighted review claim.")).toBeVisible();
+  await expect(openAnnotationBubble(annotationBubble(page, "text"))).resolves.toContainText("Highlighted review claim.");
   const textThread = reviewFiles(saga, /\/thread\.json$/).map((path) => readJSON<{ anchor: { type: string; text?: { exact: string } } }>(path)).find((record) => record.anchor.type === "text");
   expect(textThread?.anchor.text?.exact).toBe("exact source changes");
 

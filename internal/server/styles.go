@@ -256,6 +256,25 @@ section:hover>.section-actions .review-controls,.section:hover>.section-head>.se
 .annotation-resize-handle{pointer-events:all;cursor:nwse-resize;fill:#fff;stroke:var(--ink);stroke-width:3;vector-effect:non-scaling-stroke}
 .pending{fill-opacity:.22}
 .pending.path{fill:none}
+.annotation-revealed .annotation,.annotation-revealed.sticky-note{filter:drop-shadow(0 0 3px var(--ink))}
+mark.annotation-revealed{box-shadow:0 0 0 2px var(--ink)}
+
+/* Annotation comment bubbles --------------------------------------------- */
+/* A comment drawn onto the content stays with its mark: a compact bubble at
+   the mark's top-right corner, opening its thread on hover or focus. Comments
+   on a whole fragment, section, or chapter keep their list below the content. */
+.annotation-bubble{position:absolute;z-index:16;left:0;top:0;transform:translate(-30%,-70%);line-height:0}
+.review-overlay.drawing~.annotation-bubble{pointer-events:none}
+.annotation-bubble.resolved{opacity:.55}
+.annotation-bubble.resolved:hover,.annotation-bubble.open{opacity:1}
+.annotation-bubble-toggle{display:inline-flex;align-items:center;gap:3px;height:21px;padding:0 6px;border:1px solid var(--line);border-radius:11px;background:var(--bg);color:var(--muted);font:11px/1 var(--mono);box-shadow:var(--shadow)}
+.annotation-bubble-toggle .i{width:13px;height:13px}
+.annotation-bubble-toggle:hover,.annotation-bubble.open>.annotation-bubble-toggle{background:var(--bg-inset);color:var(--ink);border-color:var(--ink)}
+.annotation-bubble-panel{position:absolute;z-index:17;left:0;top:calc(100% + 5px);width:min(360px,72vw);max-height:min(340px,60vh);overflow:auto;padding:2px 10px 8px;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg);box-shadow:var(--shadow);line-height:1.55;text-align:left;cursor:auto}
+.annotation-bubble-panel[hidden]{display:none}
+.annotation-bubble-panel.flip-y{top:auto;bottom:calc(100% + 5px)}
+.annotation-bubble-panel .threads{margin-top:0}
+.annotation-bubble-panel .thread{margin:8px 0 0}
 
 /* Threads ---------------------------------------------------------------- */
 .threads{margin-top:10px}
@@ -527,6 +546,7 @@ section:hover>.section-actions .review-controls,.section:hover>.section-head>.se
 }
 @media(max-width:780px){
 .sticky-note{width:min(150px,64%);min-height:84px;font-size:12px}
+.annotation-bubble-panel{width:min(280px,80vw)}
 .topbar{padding:0 8px;gap:6px}
 .brand span{display:none}
 .view-tab{padding:0 8px}
