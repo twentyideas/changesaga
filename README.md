@@ -53,6 +53,31 @@ these prompts from the repository containing your change:
 
 > Use the change-saga cli to open this PR's Saga
 
+## Try the example Saga
+
+This repository's own since-inception Saga is attached to the `v0.0.6`
+release. After installing Change Saga, download it and open the local reviewer.
+
+macOS and Linux:
+
+```sh
+demo_dir="$(mktemp -d)" && \
+  curl -fsSL https://github.com/twentyideas/changesaga/releases/download/v0.0.6/change.saga.zip \
+    -o "$demo_dir/change.saga.zip" && \
+  unzip -q "$demo_dir/change.saga.zip" -d "$demo_dir" && \
+  change-saga open "$demo_dir/change.saga"
+```
+
+Windows PowerShell:
+
+```powershell
+$demo = Join-Path ([IO.Path]::GetTempPath()) ("change-saga-" + [guid]::NewGuid())
+New-Item -ItemType Directory -Path $demo | Out-Null
+Invoke-WebRequest https://github.com/twentyideas/changesaga/releases/download/v0.0.6/change.saga.zip -OutFile "$demo/change.saga.zip"
+Expand-Archive "$demo/change.saga.zip" -DestinationPath $demo
+change-saga open "$demo/change.saga"
+```
+
 ## What it does
 
 A normal PR description sits above a flat file-by-file diff. That works for
