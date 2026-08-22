@@ -10,6 +10,8 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-08-21
+
 ### Changed
 
 - A comment drawn onto an explanation — a rectangle, a freehand mark, a
