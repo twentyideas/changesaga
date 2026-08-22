@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "mac-signing",
+  "label": "macOS signing evidence",
+  "description": "Connects credential isolation and achieved-state reporting to the macOS release path.",
+  "selector": {
+    "type": "text",
+    "exact": "macOS credentials are confined to the protected release job, and release metadata reports whether signing and notarization actually occurred."
+  },
+  "target": ""
+}

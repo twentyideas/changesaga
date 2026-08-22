@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "verification-gate",
+  "label": "Verification gate",
+  "description": "Runs the unsigned test matrix before any platform artifacts are built.",
+  "selector": {
+    "type": "element",
+    "element_id": "verification-gate"
+  },
+  "target": ""
+}

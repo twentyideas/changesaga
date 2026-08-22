@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "release-trust-boundary",
+  "label": "Release trust boundary",
+  "description": "Separates tag-authorized release work and the protected macOS signing environment from untrusted pull-request execution.",
+  "selector": {
+    "type": "element",
+    "element_id": "release-trust-boundary"
+  },
+  "target": ""
+}

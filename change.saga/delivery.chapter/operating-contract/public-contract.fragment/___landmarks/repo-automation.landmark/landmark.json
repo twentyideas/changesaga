@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "repo-automation",
+  "label": "Repository automation evidence",
+  "description": "Connects contribution intake and read-only automation to the public operating model.",
+  "selector": {
+    "type": "text",
+    "exact": "GitHub templates and automation standardize evidence collection and run pull-request checks without crossing the release-signing boundary."
+  },
+  "target": ""
+}

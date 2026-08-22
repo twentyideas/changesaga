@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "edge-tests-to-build",
+  "label": "Verified commit to builders",
+  "description": "Allows artifact construction only after verification succeeds.",
+  "selector": {
+    "type": "element",
+    "element_id": "edge-tests-to-build"
+  },
+  "target": ""
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "benchmark-limit",
+  "label": "Benchmark limit evidence",
+  "description": "Connects reference measurements to their non-portable scope.",
+  "selector": {
+    "type": "text",
+    "exact": "Performance results name their hardware and command, and the document labels wall-clock budgets as investigative rather than cross-platform guarantees."
+  },
+  "target": ""
+}

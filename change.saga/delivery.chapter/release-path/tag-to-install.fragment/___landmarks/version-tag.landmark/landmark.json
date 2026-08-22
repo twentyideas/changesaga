@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "version-tag",
+  "label": "Version tag",
+  "description": "The authorized semantic-version tag that identifies the release input.",
+  "selector": {
+    "type": "element",
+    "element_id": "version-tag"
+  },
+  "target": ""
+}

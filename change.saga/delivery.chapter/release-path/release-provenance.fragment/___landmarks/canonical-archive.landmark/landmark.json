@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "canonical-archive",
+  "label": "Canonical archive evidence",
+  "description": "Connects reproducible archive structure and atomic output replacement to their implementation.",
+  "selector": {
+    "type": "text",
+    "exact": "Release archives use a canonical three-file shape and deterministic metadata, while staging prevents partial replacement."
+  },
+  "target": ""
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "edge-fetch-to-checksum",
+  "label": "Bytes to checksum gate",
+  "description": "Carries downloaded bytes and manifest into local SHA-256 validation.",
+  "selector": {
+    "type": "element",
+    "element_id": "edge-fetch-to-checksum"
+  },
+  "target": ""
+}

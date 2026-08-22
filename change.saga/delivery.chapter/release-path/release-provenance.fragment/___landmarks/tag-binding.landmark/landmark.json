@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "tag-binding",
+  "label": "Tag binding evidence",
+  "description": "Connects the tag-to-commit release invariant to workflow metadata validation.",
+  "selector": {
+    "type": "text",
+    "exact": "Release metadata binds a validated version tag to one default-branch commit before verification or artifact construction."
+  },
+  "target": ""
+}

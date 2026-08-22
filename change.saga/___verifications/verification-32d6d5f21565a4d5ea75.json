@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "verification-32d6d5f21565a4d5ea75",
+  "claim": "runtime-status-redacts-token",
+  "status": "verified",
+  "method": "test",
+  "summary": "The focused CLI package test passed, including explicit rejection if either the shutdown_token field or test token appears in public status JSON.",
+  "command": "go test ./internal/cli",
+  "created_at": "2026-08-22T04:30:24.864838Z"
+}

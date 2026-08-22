@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "archive-shape-gate",
+  "label": "Archive shape gate",
+  "description": "Rejects absolute, nested, linked, or otherwise unexpected archive members before extraction.",
+  "selector": {
+    "type": "element",
+    "element_id": "archive-shape-gate"
+  },
+  "target": ""
+}

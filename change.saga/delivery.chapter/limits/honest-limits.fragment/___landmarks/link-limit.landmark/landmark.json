@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "link-limit",
+  "label": "External link limit evidence",
+  "description": "Connects offline link validation to its explicit external-network limit.",
+  "selector": {
+    "type": "text",
+    "exact": "Documentation checking is offline and deterministic, so external destination availability remains outside its verified boundary."
+  },
+  "target": ""
+}

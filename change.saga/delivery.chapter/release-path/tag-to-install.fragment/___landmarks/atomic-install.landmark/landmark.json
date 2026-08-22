@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "atomic-install",
+  "label": "Atomic user install",
+  "description": "Replaces the executable through a temporary sibling without elevation or platform-protection bypass.",
+  "selector": {
+    "type": "element",
+    "element_id": "atomic-install"
+  },
+  "target": ""
+}

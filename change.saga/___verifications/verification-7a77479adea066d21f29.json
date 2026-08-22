@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "verification-7a77479adea066d21f29",
+  "claim": "checksum-failure-preserves-install",
+  "status": "verified",
+  "method": "test",
+  "summary": "The complete POSIX installer contract suite passed, including the corrupted archive and preserved existing binary assertions.",
+  "command": "./scripts/install_test.sh",
+  "created_at": "2026-08-22T04:30:24.723611Z"
+}

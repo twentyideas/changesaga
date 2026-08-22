@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "large-fixture",
+  "label": "Large fixture evidence",
+  "description": "Connects the synthetic workload and its determinism and scale assertions.",
+  "selector": {
+    "type": "text",
+    "exact": "The generated large-Saga fixture is deterministic, valid, exactly covered, and deliberately large enough to exercise hierarchy and review history."
+  },
+  "target": ""
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "posix-installer",
+  "label": "POSIX installer evidence",
+  "description": "Connects the worked success and mismatch paths to the Unix installer.",
+  "selector": {
+    "type": "text",
+    "exact": "The POSIX installer validates transport inputs, checksum, archive topology, and destination replacement before exposing a new executable."
+  },
+  "target": ""
+}

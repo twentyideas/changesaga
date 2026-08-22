@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "checksum-gate",
+  "label": "Checksum gate",
+  "description": "Requires the selected archive digest to match SHA256SUMS.",
+  "selector": {
+    "type": "element",
+    "element_id": "checksum-gate"
+  },
+  "target": ""
+}

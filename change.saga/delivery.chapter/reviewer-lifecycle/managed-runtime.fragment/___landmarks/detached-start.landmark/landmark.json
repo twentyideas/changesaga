@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "detached-start",
+  "label": "Detached start evidence",
+  "description": "Connects process startup, state persistence, and redacted public status.",
+  "selector": {
+    "type": "text",
+    "exact": "Detached review startup persists enough runtime identity for later management while keeping shutdown authorization out of public status output."
+  },
+  "target": ""
+}

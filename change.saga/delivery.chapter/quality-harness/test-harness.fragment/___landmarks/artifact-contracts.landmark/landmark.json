@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "artifact-contracts",
+  "label": "Artifact contract tests",
+  "description": "Groups the executable distribution tests that enforce consumer-visible invariants.",
+  "selector": {
+    "type": "text",
+    "exact": "Release and installer tests assert consumer-visible archive, checksum, permission, replacement, credential, and workflow contracts."
+  },
+  "target": ""
+}

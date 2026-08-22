@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "edge-tag-to-metadata",
+  "label": "Tag resolution",
+  "description": "Carries the pushed tag into commit and version validation.",
+  "selector": {
+    "type": "element",
+    "element_id": "edge-tag-to-metadata"
+  },
+  "target": ""
+}
