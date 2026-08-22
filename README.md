@@ -108,6 +108,27 @@ state transition gets its own file, which keeps concurrent Git changes small
 and avoids shared comment arrays. Attribution comes from the commit that adds
 the record.
 
+## Maintain a codebase Saga
+
+A Saga can document a repository over its entire lifetime, not only one PR.
+Its authoring and maintenance workflow is designed for AI, not manual human
+operation. Maintaining exact coverage, granular citations, diagrams, and
+structured evidence by hand would be unreasonable. That exhaustive bookkeeping
+is precisely the kind of tedious work AI is good at; humans can focus on
+understanding and reviewing the result.
+
+**To create a Saga for the whole codebase:**
+
+> Use the change-saga cli to create a Saga for this codebase since inception
+
+**To update the codebase Saga for a PR:**
+
+> Use the change-saga cli to update this codebase's Saga for the changes in this PR
+
+**To update it from an existing PR Saga:**
+
+> Use the change-saga cli to compare this PR's Saga with the codebase Saga and update what changed
+
 ## Structured access for AI
 
 Agents do not need to crawl the saga's files. The CLI exposes a bounded,
@@ -147,24 +168,6 @@ and file-event selectors. Coverage summaries can be bounded with `--json` or
 silenced with `--quiet`. Repair broad mappings using the `evidence_file` from
 `query mappings`: `replace-coverage --record PATH --batch -` atomically splits
 or retargets one, while `remove-coverage --record PATH` deletes one.
-
-## Maintain a codebase Saga
-
-A Saga can document a repository over its entire lifetime, not only one PR.
-Your coding agent can create that canonical account and keep it current as
-changes land.
-
-**To create a Saga for the whole codebase:**
-
-> Use the change-saga cli to create a Saga for this codebase since inception
-
-**To update the codebase Saga for a PR:**
-
-> Use the change-saga cli to update this codebase's Saga for the changes in this PR
-
-**To update it from an existing PR Saga:**
-
-> Use the change-saga cli to compare this PR's Saga with the codebase Saga and update what changed
 
 ## Manual CLI workflow
 
