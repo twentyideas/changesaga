@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "edge-metadata-to-tests",
+  "label": "Bound commit to tests",
+  "description": "Passes the resolved immutable commit into the verification matrix.",
+  "selector": {
+    "type": "element",
+    "element_id": "edge-metadata-to-tests"
+  },
+  "target": ""
+}

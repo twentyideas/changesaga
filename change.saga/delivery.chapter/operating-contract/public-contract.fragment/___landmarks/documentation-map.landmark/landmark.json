@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "documentation-map",
+  "label": "Documentation map evidence",
+  "description": "Connects the documentation hub and design records to the operating contract.",
+  "selector": {
+    "type": "text",
+    "exact": "The documentation index links renderer, release, performance, security-test, audit, and UX decisions as maintained engineering context."
+  },
+  "target": ""
+}

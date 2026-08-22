@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "notarization-limit",
+  "label": "Notarization limit evidence",
+  "description": "Connects external Apple dependencies and truthful release-note states.",
+  "selector": {
+    "type": "text",
+    "exact": "Signing and notarization are credential- and service-dependent, and release notes expose the achieved macOS state without disabling platform protections."
+  },
+  "target": ""
+}

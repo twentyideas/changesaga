@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "verification-e33c6bdb5c78f7740172",
+  "claim": "live-gatekeeper-acceptance",
+  "status": "inconclusive",
+  "method": "inspection",
+  "summary": "The workflow and script encode notarization and a nonfatal spctl assessment, but no Apple credentials, notarized artifact, or live Gatekeeper lookup was available here.",
+  "command": "./scripts/macos-notarize.sh \u003csigned-v0.0.6-binary\u003e",
+  "created_at": "2026-08-22T04:30:25.340577Z"
+}

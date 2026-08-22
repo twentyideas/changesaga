@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "browser-limit",
+  "label": "Browser verification limit",
+  "description": "Distinguishes committed browser scenarios from a fresh executed result.",
+  "selector": {
+    "type": "text",
+    "exact": "Browser coverage is encoded as executable Playwright scenarios and CI jobs, but platform execution remains an explicit verification obligation."
+  },
+  "target": ""
+}

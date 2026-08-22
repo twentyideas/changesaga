@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "delivery-tag-to-install",
+  "title": "Tag to install",
+  "media_type": "image/svg+xml",
+  "entrypoint": "tag-to-install.svg",
+  "order": 10
+}

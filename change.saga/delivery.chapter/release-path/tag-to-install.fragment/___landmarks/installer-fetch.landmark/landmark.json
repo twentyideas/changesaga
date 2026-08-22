@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "installer-fetch",
+  "label": "Installer fetch",
+  "description": "Selects the native platform asset and downloads it over constrained HTTPS.",
+  "selector": {
+    "type": "element",
+    "element_id": "installer-fetch"
+  },
+  "target": ""
+}

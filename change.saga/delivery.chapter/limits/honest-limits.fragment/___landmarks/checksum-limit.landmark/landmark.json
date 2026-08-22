@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "checksum-limit",
+  "label": "Checksum limit evidence",
+  "description": "Distinguishes integrity checking from publisher-origin evidence.",
+  "selector": {
+    "type": "text",
+    "exact": "Installers compare release bytes to SHA256SUMS while the publish job separately emits provenance attestations for stronger origin verification."
+  },
+  "target": ""
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "runtime-tests",
+  "label": "Runtime test evidence",
+  "description": "Connects lifecycle claims to their focused tests.",
+  "selector": {
+    "type": "text",
+    "exact": "Runtime integration tests cover detached reuse, authenticated stopping, stale records, and source-checkout preservation."
+  },
+  "target": ""
+}

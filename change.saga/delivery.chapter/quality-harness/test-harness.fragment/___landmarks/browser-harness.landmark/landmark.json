@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "browser-harness",
+  "label": "Browser harness evidence",
+  "description": "Connects Playwright fixtures and scenarios to the end-to-end boundary they exercise.",
+  "selector": {
+    "type": "text",
+    "exact": "The browser suite uses isolated Git repositories and a managed local server to test review behavior, security rejection, navigation, and accessibility end to end."
+  },
+  "target": ""
+}

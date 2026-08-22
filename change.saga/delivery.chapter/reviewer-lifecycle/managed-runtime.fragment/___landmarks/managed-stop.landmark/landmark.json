@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "managed-stop",
+  "label": "Managed stop evidence",
+  "description": "Connects shutdown authorization, liveness, and safe cleanup.",
+  "selector": {
+    "type": "text",
+    "exact": "Managed shutdown is loopback-scoped, token-authenticated, PID-aware, and conservative about deleting another process's state."
+  },
+  "target": ""
+}

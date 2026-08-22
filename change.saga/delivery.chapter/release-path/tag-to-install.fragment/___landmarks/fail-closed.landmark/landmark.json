@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "fail-closed",
+  "label": "Fail closed",
+  "description": "Stops installation and preserves the prior executable when trust checks fail.",
+  "selector": {
+    "type": "element",
+    "element_id": "fail-closed"
+  },
+  "target": ""
+}

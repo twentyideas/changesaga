@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "edge-shape-to-install",
+  "label": "Safe payload to installation",
+  "description": "Carries the single validated executable into destination replacement.",
+  "selector": {
+    "type": "element",
+    "element_id": "edge-shape-to-install"
+  },
+  "target": ""
+}

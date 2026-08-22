@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "delivery-release-provenance",
+  "title": "Release provenance",
+  "media_type": "text/markdown",
+  "entrypoint": "release.md",
+  "order": 20
+}

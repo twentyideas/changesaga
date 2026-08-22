@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "verification-80cd3a477935a1214645",
+  "claim": "release-archive-determinism",
+  "status": "verified",
+  "method": "test",
+  "summary": "The focused archive, CLI runtime, and large-fixture Go packages passed; the archive test includes two independent writes after source mtime changes for both formats.",
+  "command": "go test ./internal/releasearchive ./internal/cli ./internal/testfixture",
+  "created_at": "2026-08-22T04:30:24.57474Z"
+}

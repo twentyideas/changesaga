@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "large-fixture-minimum-scale",
+  "target": "urn:change-saga:changesaga-codebase:fragment:delivery-test-harness:landmark:large-fixture",
+  "kind": "performance",
+  "statement": "The default generated workload contains at least 4,000 diff atoms, 1,000 ranged references, 100 section fragments, and 300 review-history records.",
+  "evidence": [
+    "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=83\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=internal%2Ftestfixture%2Flargesaga_test.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=83"
+  ],
+  "created_at": "2026-08-22T04:30:24.933292Z"
+}

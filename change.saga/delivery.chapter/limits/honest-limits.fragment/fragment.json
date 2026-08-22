@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "delivery-honest-limits",
+  "title": "Honest limits and external checks",
+  "media_type": "text/markdown",
+  "entrypoint": "limits.md",
+  "order": 10
+}

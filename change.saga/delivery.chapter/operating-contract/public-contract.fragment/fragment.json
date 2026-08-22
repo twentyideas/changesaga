@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "delivery-public-contract",
+  "title": "Open-source operating contract",
+  "media_type": "text/markdown",
+  "entrypoint": "contract.md",
+  "order": 10
+}

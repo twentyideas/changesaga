@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "delivery-test-harness",
+  "title": "The test harness",
+  "media_type": "text/markdown",
+  "entrypoint": "harness.md",
+  "order": 10
+}

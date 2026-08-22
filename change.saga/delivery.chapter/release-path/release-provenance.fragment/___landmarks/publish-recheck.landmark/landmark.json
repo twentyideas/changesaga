@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "publish-recheck",
+  "label": "Publication recheck evidence",
+  "description": "Connects final bundle verification and tag immutability checks to publication.",
+  "selector": {
+    "type": "text",
+    "exact": "Publication revalidates checksums and tag identity immediately before attestation and GitHub Release creation."
+  },
+  "target": ""
+}

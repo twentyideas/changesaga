@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "edge-publish-to-fetch",
+  "label": "Release to installer",
+  "description": "Makes the published archive and checksum manifest available to platform installers.",
+  "selector": {
+    "type": "element",
+    "element_id": "edge-publish-to-fetch"
+  },
+  "target": ""
+}

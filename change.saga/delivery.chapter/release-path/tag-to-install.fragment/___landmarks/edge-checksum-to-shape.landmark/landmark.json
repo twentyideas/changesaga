@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "edge-checksum-to-shape",
+  "label": "Verified bytes to layout gate",
+  "description": "Permits archive inspection only after digest validation succeeds.",
+  "selector": {
+    "type": "element",
+    "element_id": "edge-checksum-to-shape"
+  },
+  "target": ""
+}

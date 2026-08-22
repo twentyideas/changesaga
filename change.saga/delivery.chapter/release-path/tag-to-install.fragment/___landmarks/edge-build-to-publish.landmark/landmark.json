@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "edge-build-to-publish",
+  "label": "Artifacts to preparation",
+  "description": "Moves independently built archives into checksum and metadata preparation.",
+  "selector": {
+    "type": "element",
+    "element_id": "edge-build-to-publish"
+  },
+  "target": ""
+}

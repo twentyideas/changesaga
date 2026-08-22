@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "windows-installer",
+  "label": "Windows installer evidence",
+  "description": "Connects the equivalent PowerShell trust gates to the worked example.",
+  "selector": {
+    "type": "text",
+    "exact": "The Windows installer verifies SHA256SUMS and rejects unsafe ZIP entries before installing in the current user's path."
+  },
+  "target": ""
+}

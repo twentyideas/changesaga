@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "public-contract",
+  "label": "Public contract evidence",
+  "description": "Connects the repository operating promises to their public documents.",
+  "selector": {
+    "type": "text",
+    "exact": "Repository-level policy files define installation, contribution, governance, conduct, security disclosure, support, licensing, and release history."
+  },
+  "target": ""
+}

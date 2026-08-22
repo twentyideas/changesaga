@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "metadata-gate",
+  "label": "Metadata gate",
+  "description": "Validates tag syntax, resolves its commit, and requires default-branch ancestry.",
+  "selector": {
+    "type": "element",
+    "element_id": "metadata-gate"
+  },
+  "target": ""
+}

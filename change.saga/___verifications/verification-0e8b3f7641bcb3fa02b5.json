@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "verification-0e8b3f7641bcb3fa02b5",
+  "claim": "cross-browser-critical-suite",
+  "status": "unverified",
+  "method": "test",
+  "summary": "The browser matrix is committed, but this workspace did not execute Playwright or obtain platform-specific CI results.",
+  "command": "cd e2e \u0026\u0026 npm ci \u0026\u0026 npx playwright install --with-deps \u0026\u0026 npm run test:critical",
+  "created_at": "2026-08-22T04:30:25.157438Z"
+}

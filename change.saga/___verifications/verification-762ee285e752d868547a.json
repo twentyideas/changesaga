@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "verification-762ee285e752d868547a",
+  "claim": "large-fixture-minimum-scale",
+  "status": "verified",
+  "method": "test",
+  "summary": "The focused testfixture package passed its default scale budget assertions.",
+  "command": "go test ./internal/testfixture",
+  "created_at": "2026-08-22T04:30:25.010802Z"
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "publish-bundle",
+  "label": "Published bundle",
+  "description": "Publishes six archives, SHA256SUMS, release notes, and provenance attestations.",
+  "selector": {
+    "type": "element",
+    "element_id": "publish-bundle"
+  },
+  "target": ""
+}

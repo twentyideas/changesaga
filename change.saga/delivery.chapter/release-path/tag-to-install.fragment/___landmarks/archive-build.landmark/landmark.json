@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "archive-build",
+  "label": "Archive build",
+  "description": "Builds canonical platform archives and optionally signs macOS binaries before packaging.",
+  "selector": {
+    "type": "element",
+    "element_id": "archive-build"
+  },
+  "target": ""
+}

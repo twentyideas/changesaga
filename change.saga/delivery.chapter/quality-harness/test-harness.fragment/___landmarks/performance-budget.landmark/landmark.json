@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "performance-budget",
+  "label": "Performance budget evidence",
+  "description": "Connects the reproducible benchmark contract and stated limitations.",
+  "selector": {
+    "type": "text",
+    "exact": "Large-Saga measurements publish workload, benchmark command, budgets, and remaining bottlenecks instead of promising universal wall-clock numbers."
+  },
+  "target": ""
+}

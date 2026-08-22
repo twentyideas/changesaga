@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "delivery-managed-runtime",
+  "title": "Managed reviewer lifecycle",
+  "media_type": "text/markdown",
+  "entrypoint": "reviewer.md",
+  "order": 10
+}

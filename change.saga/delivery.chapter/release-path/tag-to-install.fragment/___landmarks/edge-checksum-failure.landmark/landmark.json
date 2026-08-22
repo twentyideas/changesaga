@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "edge-checksum-failure",
+  "label": "Failure transition",
+  "description": "Routes checksum, layout, or prerequisite failures away from destination mutation.",
+  "selector": {
+    "type": "element",
+    "element_id": "edge-checksum-failure"
+  },
+  "target": ""
+}
