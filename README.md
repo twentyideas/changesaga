@@ -53,37 +53,6 @@ these prompts from the repository containing your change:
 
 > Use the change-saga cli to open this PR's Saga
 
-## Maintain a codebase Saga
-
-A Saga can document a repository over its lifetime, not only one PR. Before
-merging a new change, project that PR's diff onto the codebase Saga:
-
-```sh
-change-saga compare --repo /path/to/checkout \
-  --base <pr-base> --head <pr-head> codebase.saga
-```
-
-If the PR already has a Saga, its source comparison can be used directly:
-
-```sh
-change-saga compare --repo /path/to/checkout \
-  --against-saga pr-123.saga codebase.saga
-```
-
-`compare` never compares prose, diagrams, or other Saga content. It reconstructs
-the codebase Saga at the incoming diff's base, follows conflicting and nearby
-source changes through existing evidence ownership, and reports:
-
-- `must_update` targets whose owned code is removed, replaced, renamed, or
-  otherwise directly intersected;
-- `consider_update` targets next to additive changes in an existing flow; and
-- `new_content_required` changes with no existing Saga owner.
-
-Use `--json` for CI or an agent-driven maintenance loop. The command is
-read-only; it identifies where the maintained document needs work without
-pretending that source overlap determines how its explanation should be
-rewritten.
-
 ## What it does
 
 A normal PR description sits above a flat file-by-file diff. That works for
@@ -179,6 +148,24 @@ silenced with `--quiet`. Repair broad mappings using the `evidence_file` from
 `query mappings`: `replace-coverage --record PATH --batch -` atomically splits
 or retargets one, while `remove-coverage --record PATH` deletes one.
 
+## Maintain a codebase Saga
+
+A Saga can document a repository over its entire lifetime, not only one PR.
+Your coding agent can create that canonical account and keep it current as
+changes land.
+
+**To create a Saga for the whole codebase:**
+
+> Use the change-saga cli to create a Saga for this codebase since inception
+
+**To update the codebase Saga for a PR:**
+
+> Use the change-saga cli to update this codebase's Saga for the changes in this PR
+
+**To update it from an existing PR Saga:**
+
+> Use the change-saga cli to compare this PR's Saga with the codebase Saga and update what changed
+
 ## Manual CLI workflow
 
 Most people should let their coding agent manage these commands. If you want to
@@ -213,6 +200,28 @@ change-saga serve stop checkout.saga
 Run these commands from the changed repository on the branch containing the
 work. If the saga lives in a separate repository, pass
 `--repo /path/to/source-checkout` to commands that inspect the diff.
+
+### Maintaining a codebase Saga
+
+Project a PR's source diff onto an existing codebase Saga:
+
+```sh
+change-saga compare --repo /path/to/checkout \
+  --base <pr-base> --head <pr-head> codebase.saga
+```
+
+If the PR already has a Saga, use its source comparison directly:
+
+```sh
+change-saga compare --repo /path/to/checkout \
+  --against-saga pr-123.saga codebase.saga
+```
+
+`compare` never compares prose, diagrams, or other Saga content. It follows
+conflicting and nearby source changes through existing evidence ownership and
+reports targets that must be updated, targets that should be considered, and
+changes that need new content. The command is read-only; use `--json` for CI or
+an agent-driven maintenance loop.
 
 ## Security
 
