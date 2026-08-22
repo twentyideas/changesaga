@@ -38,19 +38,12 @@ Change Saga is experimental. The v2 format may change before 1.0.
 
 ## Quick start
 
-Change Saga is designed to work with the coding agent you already use. This
-prints a short, portable prompt that teaches the agent how to author a saga:
+Change Saga is designed to work with the coding agent you already use. Give it
+these prompts from the repository containing your change:
 
-```sh
-change-saga install-skill
-```
+**To install the Change Saga skill:**
 
-Paste the output into Claude Code, Codex, OpenCode, or another coding agent in
-the repository containing your change. It uses the project's normal PR-writing
-workflow, but produces a visual, structured saga instead of one long PR
-description.
-
-Then give the agent one of these prompts:
+> Use the change-saga cli to install its skill for this coding agent
 
 **To author a PR's saga:**
 
@@ -59,43 +52,6 @@ Then give the agent one of these prompts:
 **To review a PR's saga:**
 
 > Use the change-saga cli to open this PR's Saga
-
-To create one manually:
-
-```sh
-change-saga init --base main --head HEAD --title "Checkout rewrite" checkout.saga
-change-saga add-chapter --title "Backend" checkout.saga backend
-change-saga add-fragment --section backend.chapter --type markdown \
-  --id request-flow --title "Request flow" checkout.saga
-change-saga set-fragment-content --target request-flow --source ./request-flow.md \
-  checkout.saga
-change-saga add-landmark --target backend.chapter/request-flow.fragment \
-  --heading-id request-validation --label "Request validation" checkout.saga
-```
-
-Ask which changes still need an explanation:
-
-```sh
-change-saga status checkout.saga
-```
-
-Open the review UI:
-
-```sh
-change-saga open checkout.saga
-```
-
-To keep it running in the background and manage it later:
-
-```sh
-change-saga open --detach checkout.saga
-change-saga serve status checkout.saga
-change-saga serve stop checkout.saga
-```
-
-Run these commands from the changed repository on the branch containing the
-work. If the saga lives in a separate repository, pass
-`--repo /path/to/source-checkout` to commands that inspect the diff.
 
 ## Maintain a codebase Saga
 
@@ -222,6 +178,41 @@ and file-event selectors. Coverage summaries can be bounded with `--json` or
 silenced with `--quiet`. Repair broad mappings using the `evidence_file` from
 `query mappings`: `replace-coverage --record PATH --batch -` atomically splits
 or retargets one, while `remove-coverage --record PATH` deletes one.
+
+## Manual CLI workflow
+
+Most people should let their coding agent manage these commands. If you want to
+author a saga directly, the basic workflow is:
+
+```sh
+change-saga init --base main --head HEAD --title "Checkout rewrite" checkout.saga
+change-saga add-chapter --title "Backend" checkout.saga backend
+change-saga add-fragment --section backend.chapter --type markdown \
+  --id request-flow --title "Request flow" checkout.saga
+change-saga set-fragment-content --target request-flow --source ./request-flow.md \
+  checkout.saga
+change-saga add-landmark --target backend.chapter/request-flow.fragment \
+  --heading-id request-validation --label "Request validation" checkout.saga
+```
+
+Check for unexplained changes, then open the review UI:
+
+```sh
+change-saga status checkout.saga
+change-saga open checkout.saga
+```
+
+To keep it running in the background and manage it later:
+
+```sh
+change-saga open --detach checkout.saga
+change-saga serve status checkout.saga
+change-saga serve stop checkout.saga
+```
+
+Run these commands from the changed repository on the branch containing the
+work. If the saga lives in a separate repository, pass
+`--repo /path/to/source-checkout` to commands that inspect the diff.
 
 ## Security
 
