@@ -10,6 +10,8 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-08-21
+
 ### Added
 
 - `change-saga compare` projects a PR's Git range or another Saga's source
