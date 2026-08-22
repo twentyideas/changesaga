@@ -25,16 +25,17 @@ import (
 // invocation does; batching changes how many instructions are delivered, never
 // how precisely each one selects.
 type coverRecord struct {
-	Target  string   `json:"target,omitempty"`
-	Path    string   `json:"path,omitempty"`
-	Side    string   `json:"side,omitempty"`
-	Lines   string   `json:"lines,omitempty"`
-	Event   string   `json:"event,omitempty"`
-	OldPath string   `json:"old_path,omitempty"`
-	NewPath string   `json:"new_path,omitempty"`
-	Note    string   `json:"note,omitempty"`
-	Name    string   `json:"name,omitempty"`
-	URIs    []string `json:"uris,omitempty"`
+	Target       string   `json:"target,omitempty"`
+	Path         string   `json:"path,omitempty"`
+	Side         string   `json:"side,omitempty"`
+	Lines        string   `json:"lines,omitempty"`
+	ChangedLines bool     `json:"changed_lines,omitempty"`
+	Event        string   `json:"event,omitempty"`
+	OldPath      string   `json:"old_path,omitempty"`
+	NewPath      string   `json:"new_path,omitempty"`
+	Note         string   `json:"note,omitempty"`
+	Name         string   `json:"name,omitempty"`
+	URIs         []string `json:"uris,omitempty"`
 }
 
 // plannedRecord is a fully resolved write that has not happened yet. Planning
@@ -49,12 +50,24 @@ type plannedRecord struct {
 	relative string
 }
 
+type coverageMutationOutput struct {
+	OK            bool     `json:"ok"`
+	DryRun        bool     `json:"dry_run"`
+	Records       int      `json:"records"`
+	Selectors     int      `json:"selectors"`
+	EvidenceFiles []string `json:"evidence_files"`
+}
+
 const maxGeneratedNameAttempts = 1000
 
 // Cover attaches diff evidence to a narrative target. os.Stdin is bound here
 // rather than read inside the command so tests drive --batch deterministically.
 func Cover(ctx context.Context, args []string, out io.Writer) error {
-	return cover(ctx, args, out, os.Stdin)
+	err := cover(ctx, args, out, os.Stdin)
+	if err != nil && jsonFlagRequested(args) {
+		return reportJSONMutationFailure(out, err)
+	}
+	return err
 }
 
 func cover(ctx context.Context, args []string, out io.Writer, stdin io.Reader) error {
@@ -64,6 +77,7 @@ func cover(ctx context.Context, args []string, out io.Writer, stdin io.Reader) e
 	path := flags.String("path", "", "changed repository path")
 	side := flags.String("side", "", "line side: old or new")
 	lines := flags.String("lines", "", "line ranges, for example 4-9,12")
+	changedLines := flags.Bool("changed-lines", false, "select every exact changed line and file event for --path; optionally filter lines with --side")
 	event := flags.String("event", "", "file event: add, delete, type-change, rename, mode, binary, or modify")
 	oldPath := flags.String("old-path", "", "old path for a rename event")
 	newPath := flags.String("new-path", "", "new path for a rename event")
@@ -71,6 +85,8 @@ func cover(ctx context.Context, args []string, out io.Writer, stdin io.Reader) e
 	name := flags.String("name", "", "coverage filename without .json")
 	batch := flags.String("batch", "", "read coverage records from a JSON file, or - for stdin")
 	dryRun := flags.Bool("dry-run", false, "resolve and report the coverage records without writing them")
+	jsonOutput := flags.Bool("json", false, "emit one machine-readable summary instead of every selector")
+	quiet := flags.Bool("quiet", false, "suppress successful output")
 	allowRepositoryMismatch := flags.Bool("allow-repository-mismatch", false, "use a checkout whose origin differs from the declared repository")
 	var uris stringList
 	flags.Var(&uris, "uri", "absolute saga-diff URI; repeatable")
@@ -80,13 +96,16 @@ func cover(ctx context.Context, args []string, out io.Writer, stdin io.Reader) e
 	if flags.NArg() != 1 {
 		return fmt.Errorf("usage: %s", commandUsage["cover"])
 	}
+	if *jsonOutput && *quiet {
+		return fmt.Errorf("--json and --quiet cannot be combined")
+	}
 	document, _, err := saga.Load(flags.Arg(0))
 	if err != nil {
 		return err
 	}
 
 	records, err := coverRecords(*batch, stdin, coverRecord{
-		Target: *target, Path: *path, Side: *side, Lines: *lines, Event: *event,
+		Target: *target, Path: *path, Side: *side, Lines: *lines, ChangedLines: *changedLines, Event: *event,
 		OldPath: *oldPath, NewPath: *newPath, Note: *note, Name: *name, URIs: uris,
 	}, flags)
 	if err != nil {
@@ -98,7 +117,7 @@ func cover(ctx context.Context, args []string, out io.Writer, stdin io.Reader) e
 	// writers. Only target resolution and the record writes are serialized.
 	var changes *gitdiff.ChangeSet
 	for _, record := range records {
-		if record.Path == "" && record.Event == "" {
+		if record.Path == "" && record.Event == "" && !record.ChangedLines {
 			continue
 		}
 		checkout := firstNonEmpty(*repoDir, document.Root)
@@ -137,6 +156,12 @@ func cover(ctx context.Context, args []string, out io.Writer, stdin io.Reader) e
 		if err := plan(document); err != nil {
 			return err
 		}
+		if *quiet {
+			return nil
+		}
+		if *jsonOutput {
+			return writeJSON(out, coverageOutput(planned, true))
+		}
 		for _, record := range planned {
 			fmt.Fprintf(out, "Would add %s (%s)\n", record.relative, record.targetID)
 			for _, reference := range record.file.Diffs {
@@ -158,10 +183,25 @@ func cover(ctx context.Context, args []string, out io.Writer, stdin io.Reader) e
 	}); err != nil {
 		return err
 	}
+	if *quiet {
+		return nil
+	}
+	if *jsonOutput {
+		return writeJSON(out, coverageOutput(planned, false))
+	}
 	for _, record := range planned {
 		fmt.Fprintf(out, "Added %s\n", record.relative)
 	}
 	return nil
+}
+
+func coverageOutput(planned []plannedRecord, dryRun bool) coverageMutationOutput {
+	result := coverageMutationOutput{OK: true, DryRun: dryRun, Records: len(planned), EvidenceFiles: make([]string, 0, len(planned))}
+	for _, record := range planned {
+		result.EvidenceFiles = append(result.EvidenceFiles, record.relative)
+		result.Selectors += len(record.file.Diffs)
+	}
+	return result
 }
 
 // coverRecords returns the batch records, or the single record built from the
@@ -169,12 +209,12 @@ func cover(ctx context.Context, args []string, out io.Writer, stdin io.Reader) e
 // losing to the file, because a dropped selector would quietly under-cover.
 func coverRecords(batch string, stdin io.Reader, single coverRecord, flags *flag.FlagSet) ([]coverRecord, error) {
 	if batch == "" {
-		if len(single.URIs) == 0 && single.Path == "" && single.Event == "" {
+		if len(single.URIs) == 0 && single.Path == "" && single.Event == "" && !single.ChangedLines {
 			return nil, fmt.Errorf("provide --uri or --path/--lines (or --event), or --batch for many records at once")
 		}
 		return []coverRecord{single}, nil
 	}
-	for _, conflicting := range []string{"path", "side", "lines", "event", "old-path", "new-path", "name", "uri"} {
+	for _, conflicting := range []string{"path", "side", "lines", "changed-lines", "event", "old-path", "new-path", "name", "uri"} {
 		if flagWasSet(flags, conflicting) {
 			return nil, fmt.Errorf("--%s cannot be combined with --batch; put it in the batch record instead", conflicting)
 		}
@@ -261,7 +301,31 @@ func buildCoverageFile(record coverRecord, changes *gitdiff.ChangeSet, repositor
 			return saga.DiffFile{}, fmt.Errorf("invalid --uri: repository %q does not match saga source repository %q", reference.Repository, repository)
 		}
 	}
-	if record.Path != "" || record.Event != "" {
+	if record.ChangedLines {
+		if record.Path == "" {
+			return saga.DiffFile{}, errors.New("--changed-lines requires --path")
+		}
+		if record.Lines != "" || record.Event != "" || record.OldPath != "" || record.NewPath != "" || len(record.URIs) != 0 {
+			return saga.DiffFile{}, errors.New("--changed-lines cannot be combined with --lines, --event, --old-path, --new-path, or --uri")
+		}
+		if record.Side != "" && record.Side != "old" && record.Side != "new" {
+			return saga.DiffFile{}, errors.New("--side must be old or new when used with --changed-lines")
+		}
+		if changes == nil {
+			return saga.DiffFile{}, errors.New("--changed-lines requires the source comparison")
+		}
+		path := filepath.ToSlash(record.Path)
+		for _, atom := range changes.Atoms {
+			matchesPath := atom.Path == path || atom.OldPath == path || atom.NewPath == path
+			if !matchesPath || atom.Kind == "line" && record.Side != "" && atom.Side != record.Side {
+				continue
+			}
+			uris = append(uris, atom.URI)
+		}
+		if len(uris) == 0 {
+			return saga.DiffFile{}, fmt.Errorf("--path %q has no changed atoms%s", path, map[bool]string{true: " on side " + record.Side, false: ""}[record.Side != ""])
+		}
+	} else if record.Path != "" || record.Event != "" {
 		if changes == nil {
 			return saga.DiffFile{}, errors.New("path and event coverage require the source comparison")
 		}
@@ -302,16 +366,20 @@ func buildCoverageFile(record coverRecord, changes *gitdiff.ChangeSet, repositor
 // are reserved across the whole batch, so two records in one batch collide with
 // each other exactly as loudly as one record collides with a record already on
 // disk.
-func planCoverage(document *saga.Saga, records []coverRecord, files []saga.DiffFile, now time.Time) ([]plannedRecord, error) {
+func planCoverage(document *saga.Saga, records []coverRecord, files []saga.DiffFile, now time.Time, replaceable ...string) ([]plannedRecord, error) {
 	planned := make([]plannedRecord, 0, len(records))
 	claimed := map[string]int{}
+	allowed := map[string]bool{}
+	for _, path := range replaceable {
+		allowed[canonicalCoveragePath(path)] = true
+	}
 	for i, record := range records {
 		targetDir, targetID, err := resolveTarget(document, record.Target, true)
 		if err != nil {
 			return nil, recordError(records, i, err)
 		}
 		diffDir := filepath.Join(targetDir, "___diffs")
-		name, err := coverageName(record, diffDir, claimed, now)
+		name, err := coverageName(record, diffDir, claimed, allowed, now)
 		if err != nil {
 			return nil, recordError(records, i, err)
 		}
@@ -361,7 +429,7 @@ func ensureCoverageDirectories(root string, planned []plannedRecord) error {
 // coverageName picks the record filename. An explicit name is an author's
 // stable handle, so a collision is reported instead of renamed; a generated
 // name has no meaning to the author, so it is uniquified deterministically.
-func coverageName(record coverRecord, dir string, claimed map[string]int, now time.Time) (string, error) {
+func coverageName(record coverRecord, dir string, claimed map[string]int, replaceable map[string]bool, now time.Time) (string, error) {
 	if strings.TrimSpace(record.Name) != "" {
 		name := store.Slug(record.Name)
 		full := filepath.Join(dir, name+".json")
@@ -369,17 +437,35 @@ func coverageName(record coverRecord, dir string, claimed map[string]int, now ti
 			return "", fmt.Errorf("coverage name %q collides with record %d, which also writes %s", record.Name, other+1, filepath.Base(full))
 		}
 		if _, err := os.Lstat(full); err == nil {
-			hint := ""
-			if name != record.Name {
-				hint = fmt.Sprintf(" (name %q is stored as %q)", record.Name, name)
+			if !replaceable[canonicalCoveragePath(full)] {
+				hint := ""
+				if name != record.Name {
+					hint = fmt.Sprintf(" (name %q is stored as %q)", record.Name, name)
+				}
+				return "", fmt.Errorf("coverage record %s already exists%s; choose a different name or omit it to generate one", filepath.Base(full), hint)
 			}
-			return "", fmt.Errorf("coverage record %s already exists%s; choose a different name or omit it to generate one", filepath.Base(full), hint)
 		} else if !os.IsNotExist(err) {
 			return "", err
 		}
 		return name, nil
 	}
 	return uniqueGeneratedName(dir, generatedCoverageName(record, now), claimed)
+}
+
+// canonicalCoveragePath resolves existing parent symlinks without following
+// the final file. macOS exposes /var through /private/var, so plain absolute
+// strings can name the same evidence record differently and make a same-name
+// replacement delete the file it just wrote.
+func canonicalCoveragePath(path string) string {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return filepath.Clean(path)
+	}
+	parent, err := filepath.EvalSymlinks(filepath.Dir(abs))
+	if err != nil {
+		return abs
+	}
+	return filepath.Join(parent, filepath.Base(abs))
 }
 
 // uniqueGeneratedName resolves a generated base to a free filename by appending

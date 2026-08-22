@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"math"
 	"mime"
 	"net"
 	"net/http"
@@ -39,7 +40,23 @@ type app struct {
 	sourceDir     string
 	template      *template.Template
 	mutationToken string
+	shutdownToken string
+	shutdown      func()
 }
+
+// ManagedOptions lets the CLI supervise a detached loopback server without
+// weakening the ordinary foreground server. The shutdown token is random,
+// stored only in the user's private runtime directory, and never rendered into
+// saga content.
+type ManagedOptions struct {
+	ShutdownToken string
+	OnReady       func(string) error
+}
+
+// OpenBrowser opens a trusted loopback URL using the platform launcher. It is
+// exported for the CLI's detached-server path, where readiness is observed in
+// a different process from the server itself.
+func OpenBrowser(rawURL string) error { return launchBrowser(rawURL) }
 
 type pageData struct {
 	Saga          *saga.Saga
@@ -107,11 +124,15 @@ type fragmentView struct {
 	LandmarkViews []*landmarkView
 	Changes       []*diffAtomView
 	Attached      *attachedCodeView
-	Threads       []*threadView
-	ReviewState   string
-	ReviewAuthor  string
-	ReviewDetail  string
-	ReviewBody    string
+	// Threads keeps its historical meaning: comments that belong to the
+	// fragment as a whole, listed under the content. Comments drawn onto the
+	// content move to AnnotationThreads and render as bubbles on the mark.
+	Threads           []*threadView
+	AnnotationThreads []*annotationThreadView
+	ReviewState       string
+	ReviewAuthor      string
+	ReviewDetail      string
+	ReviewBody        string
 }
 
 type landmarkView struct {
@@ -141,7 +162,26 @@ type threadView struct {
 	StateDetail  string
 }
 
+// annotationThreadView pins a comment to the visual mark it was drawn on. X and
+// Y are normalized stage coordinates for the bubble; Placed is false for a
+// highlight, whose position only exists once the browser has marked the text,
+// so the browser measures that one instead. Comments holds the single thread so
+// the bubble can reuse the same comment rendering as the list below the content.
+type annotationThreadView struct {
+	*threadView
+	Comments []*threadView
+	Label    string
+	PanelID  string
+	X        float64
+	Y        float64
+	Placed   bool
+}
+
 func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool, out io.Writer) error {
+	return ListenManaged(ctx, root, sourceDir, addr, openBrowser, out, ManagedOptions{})
+}
+
+func ListenManaged(ctx context.Context, root, sourceDir, addr string, openBrowser bool, out io.Writer, options ManagedOptions) error {
 	if !loopbackListenAddress(addr) {
 		return fmt.Errorf("refusing non-loopback listen address %q; remote serving is disabled", addr)
 	}
@@ -165,7 +205,14 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 	if err != nil {
 		return fmt.Errorf("create mutation token: %w", err)
 	}
-	application := &app{root: abs, sourceDir: sourceDir, template: tmpl, mutationToken: mutationToken}
+	stopCh := make(chan struct{}, 1)
+	application := &app{root: abs, sourceDir: sourceDir, template: tmpl, mutationToken: mutationToken, shutdownToken: options.ShutdownToken}
+	application.shutdown = func() {
+		select {
+		case stopCh <- struct{}{}:
+		default:
+		}
+	}
 	mux := newMux(application)
 
 	listener, err := net.Listen("tcp", addr)
@@ -177,6 +224,12 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 	if host, port, err := net.SplitHostPort(listener.Addr().String()); err == nil && host == "127.0.0.1" {
 		serverURL = "http://127.0.0.1:" + port
 	}
+	if options.OnReady != nil {
+		if err := options.OnReady(serverURL); err != nil {
+			_ = listener.Close()
+			return fmt.Errorf("publish managed server state: %w", err)
+		}
+	}
 	fmt.Fprintf(out, "Change Saga is available at %s\nPress Ctrl-C to stop.\n", serverURL)
 	if openBrowser {
 		if err := launchBrowser(serverURL); err != nil {
@@ -187,6 +240,10 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 	go func() { errCh <- server.Serve(listener) }()
 	select {
 	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		return server.Shutdown(shutdownCtx)
+	case <-stopCh:
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		return server.Shutdown(shutdownCtx)
@@ -203,6 +260,8 @@ func newMux(application *app) *http.ServeMux {
 	mux.HandleFunc("GET /chapters/{chapter}", application.page)
 	mux.HandleFunc("GET /", application.page)
 	mux.HandleFunc("GET /app.js", application.javascript)
+	mux.HandleFunc("GET /api/runtime", application.runtimeStatus)
+	mux.HandleFunc("POST /api/runtime-stop", application.runtimeStop)
 	mux.HandleFunc("GET /f/{id}/{path...}", application.fragmentFile)
 	mux.HandleFunc("POST /api/thread", application.createThread)
 	mux.HandleFunc("POST /api/reply", application.reply)
@@ -211,6 +270,24 @@ func newMux(application *app) *http.ServeMux {
 	mux.HandleFunc("POST /api/review", application.review)
 	mux.HandleFunc("POST /api/diff-review", application.diffReview)
 	return mux
+}
+
+func (a *app) runtimeStatus(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = io.WriteString(w, `{"ok":true}`+"\n")
+}
+
+func (a *app) runtimeStop(w http.ResponseWriter, r *http.Request) {
+	provided := r.Header.Get("X-Change-Saga-Shutdown")
+	if a.shutdownToken == "" || subtle.ConstantTimeCompare([]byte(provided), []byte(a.shutdownToken)) != 1 {
+		http.Error(w, "Missing or invalid shutdown token.", http.StatusForbidden)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = io.WriteString(w, `{"ok":true}`+"\n")
+	if a.shutdown != nil {
+		go a.shutdown()
+	}
 }
 
 func newHTTPServer(handler http.Handler) *http.Server {
@@ -574,6 +651,104 @@ func anchorLabel(kind string) string {
 	return "note"
 }
 
+// annotationAnchor reports whether a comment was drawn onto the content: a
+// rectangle, a freehand drawing, a highlight, or a sticky note. Those comments
+// render as bubbles pinned to the mark. Every other anchor — a whole fragment,
+// a section, a chapter, a diff line — keeps its place in the list below.
+func annotationAnchor(kind string) bool {
+	switch kind {
+	case "region", "drawing", "text", "note":
+		return true
+	}
+	return false
+}
+
+// annotationBubbleLabel names the mark a bubble belongs to, in the same
+// vocabulary the annotation toolbox uses. anchorLabel answers "note" for every
+// anchor it does not know, which is too vague to say out loud on a bubble.
+func annotationBubbleLabel(kind string) string {
+	if kind == "note" {
+		return "sticky note"
+	}
+	return anchorLabel(kind)
+}
+
+func clampUnit(value float64) float64 {
+	if value < 0 {
+		return 0
+	}
+	if value > 1 {
+		return 1
+	}
+	return value
+}
+
+// annotationShapeBounds is the normalized box a drawn shape occupies. It mirrors
+// shapeBounds in appjs.go, because the server places a bubble from the stored
+// anchor and the browser then refines it from the rendered mark; the two must
+// agree on where the shape is.
+func annotationShapeBounds(shape saga.Shape) (left, top, right, bottom float64, ok bool) {
+	switch shape.Type {
+	case "path":
+		if len(shape.Points) == 0 {
+			return 0, 0, 0, 0, false
+		}
+		left, right = shape.Points[0].X, shape.Points[0].X
+		top, bottom = shape.Points[0].Y, shape.Points[0].Y
+		for _, point := range shape.Points[1:] {
+			left, right = math.Min(left, point.X), math.Max(right, point.X)
+			top, bottom = math.Min(top, point.Y), math.Max(bottom, point.Y)
+		}
+		return left, top, right, bottom, true
+	case "line":
+		return math.Min(shape.X, shape.Width), math.Min(shape.Y, shape.Height),
+			math.Max(shape.X, shape.Width), math.Max(shape.Y, shape.Height), true
+	case "ellipse":
+		return shape.X - shape.Width, shape.Y - shape.Height, shape.X + shape.Width, shape.Y + shape.Height, true
+	case "rect":
+		return shape.X, shape.Y, shape.X + shape.Width, shape.Y + shape.Height, true
+	}
+	return 0, 0, 0, 0, false
+}
+
+// annotationBubblePoint is where a bubble sits before the browser has measured
+// anything: the top-right corner of the mark. A highlight reports no point
+// because its position is a property of the rendered text, not of the record.
+func annotationBubblePoint(anchor saga.Anchor) (x, y float64, ok bool) {
+	if anchor.Type == "note" {
+		if anchor.Note == nil {
+			return 0, 0, false
+		}
+		return clampUnit(anchor.Note.X), clampUnit(anchor.Note.Y), true
+	}
+	for _, shape := range anchor.Shapes {
+		_, shapeTop, shapeRight, _, valid := annotationShapeBounds(shape)
+		if !valid {
+			continue
+		}
+		if !ok {
+			x, y, ok = shapeRight, shapeTop, true
+			continue
+		}
+		x, y = math.Max(x, shapeRight), math.Min(y, shapeTop)
+	}
+	if !ok {
+		return 0, 0, false
+	}
+	return clampUnit(x), clampUnit(y), true
+}
+
+func makeAnnotationThreadView(thread *threadView) *annotationThreadView {
+	view := &annotationThreadView{
+		threadView: thread,
+		Comments:   []*threadView{thread},
+		Label:      annotationBubbleLabel(thread.Anchor.Type),
+		PanelID:    domID("thread:"+thread.ID) + "--bubble",
+	}
+	view.X, view.Y, view.Placed = annotationBubblePoint(thread.Anchor)
+	return view
+}
+
 func makeSectionView(section *saga.Section, changes map[string][]gitdiff.Atom, threads map[string][]*threadView, diffThreads map[string][]*threadView) *sectionView {
 	view := &sectionView{
 		Section: section, DOMID: domID(section.Target), Changes: makeAtomViews(changes[section.Target], section.Target, diffThreads),
@@ -596,7 +771,14 @@ func makeFragmentView(fragment *saga.Fragment, changes []gitdiff.Atom, threads [
 	}
 	view := &fragmentView{
 		Fragment: fragment, DOMID: domID(fragment.Target), Changes: makeAtomViews(changes, fragment.Target, diffThreads),
-		Attached: makeAttachedCodeView(title, fragment.Target, changes, fragment.Diffs, diffThreads), Threads: threads,
+		Attached: makeAttachedCodeView(title, fragment.Target, changes, fragment.Diffs, diffThreads),
+	}
+	for _, thread := range threads {
+		if annotationAnchor(thread.Anchor.Type) {
+			view.AnnotationThreads = append(view.AnnotationThreads, makeAnnotationThreadView(thread))
+			continue
+		}
+		view.Threads = append(view.Threads, thread)
 	}
 	for _, landmark := range fragment.Landmarks {
 		region := landmark.Hotspot

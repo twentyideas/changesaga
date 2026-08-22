@@ -27,7 +27,8 @@ snapshot of both temporary repositories before deleting them.
 
 Each check runs at the cheapest layer that can still tell the truth about it.
 
-- **Browser** (`navigation`, `annotations`, `review`, `accessibility`): a real
+- **Browser** (`navigation`, `annotations`, `annotation-bubbles`, `review`,
+  `accessibility`): a real
   Chromium page against the real server process. Reviewer behavior, rendering,
   focus, and axe scans live here.
 - **HTTP against the running process** (`security`): raw Node requests to the

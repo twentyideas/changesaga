@@ -72,6 +72,11 @@ aggregate count equals `page.total`. Do not raise `--limit` to silently swallow 
 result. `query
 children` on a fragment lists its landmarks with the target URNs to pass to
 `change-saga cover --target`.
+Hierarchy nodes report both direct and descendant diff counts. Treat
+`diffs.current` and `diffs.stale` as inclusive totals; use `direct_current`,
+`direct_stale`, `descendant_current`, and `descendant_stale` when deciding
+whether evidence belongs to the node itself or to one of its landmarks or
+children.
 
 ## Author a saga
 
@@ -116,14 +121,21 @@ children` on a fragment lists its landmarks with the target URNs to pass to
    stable flows. Use sandboxed HTML with bundled JavaScript for alternate paths,
    state transitions, before/after comparisons, and explorable examples. Use
    Markdown to orient and connect those artifacts, not as the default container
-   for everything. Build focused fragments with `change-saga add-fragment`. Make every
+   for everything. Build focused fragments with `change-saga add-fragment`,
+   then write or replace their entrypoints through `change-saga
+   set-fragment-content --target TARGET --source FILE|-`. Do not edit
+   `content.md`, manifests, or other fragment-package files directly. Make every
    meaningful subpart addressable using the landmark
    contract in `references/authoring.md`: annotate Markdown headings directly,
    then use `change-saga add-landmark --description "<semantic meaning>"` for each addressable heading, HTML/SVG
-   element, exact text, or image region. Attach exact diff atoms to the returned
+   element, exact text, or image region. In prose, cite concrete implementation
+   claims with Markdown footnotes and make the plain-text citation definition
+   an exact-text landmark; evidence on that landmark lets the inline citation
+   and its reference entry open the code drawer. Attach exact diff atoms to the returned
    landmark target when code realizes it. Before moving on from a visual,
    enumerate its meaningful nodes and confirm each code-bearing node has a
-   landmark and focused evidence. Keep one review idea per fragment and avoid
+   stable element ID, a landmark, and focused evidence rather than relying on
+   fragment-level coverage. Keep one review idea per fragment and avoid
    decorative media.
 8. Attach only the atoms actually explained or demonstrated by a fragment (or a
    deliberately higher target) with `change-saga cover --target`. `--target`
@@ -136,18 +148,24 @@ children` on a fragment lists its landmarks with the target URNs to pass to
    and binary events explicitly. Prefer the absolute URIs emitted by `query
    gaps` when source and saga live in different repositories. Use `--dry-run`
    to see exactly which records an invocation would write before writing them.
+   When every changed atom in one file genuinely belongs to the same narrative
+   target, `--path FILE --changed-lines` derives its exact old/new line atoms
+   and includes file events such as `add` automatically. Do not use this
+   convenience to collapse multiple concerns into one broad record.
 9. When attaching many selectors, pipe newline-delimited JSON records (or one
    JSON array) to `change-saga cover --batch -`. Each record carries its own
-   `target`, `path`, `side`, `lines`, `event`, `old_path`, `new_path`, `note`,
-   and `name`; `--target` and `--note` supply batch-wide defaults. The whole
+   `target`, `path`, `side`, `lines`, `changed_lines`, `event`, `old_path`,
+   `new_path`, `note`, and `name`; `--target` and `--note` supply batch-wide defaults. The whole
    batch is resolved before anything is written and a failing record leaves the
    saga untouched. A batch is a delivery optimization only: every record still
    maps the exact atoms it explains, never a widened range. Give a record an
    explicit `name` only when you want a stable handle; a reused name is an
    error, not an overwrite.
-10. Run `change-saga query mappings --sort scrutiny`. Split evidence records
-    that span unrelated files or large numbers of atoms, replace generic notes,
-    and prefer landmark-level ownership for broad visual fragments. A mapping
+10. Run `change-saga query mappings --sort scrutiny`. Its `evidence_file` is
+    the supported repair handle: use `change-saga replace-coverage --record
+    PATH --batch -` to atomically split, retarget, or rewrite a record, and
+    `change-saga remove-coverage --record PATH` to delete one. Prefer
+    landmark-level ownership for broad visual fragments. A mapping
     score directs scrutiny; it is not a correctness grade and a low score is
     not proof that the explanation is true.
 11. Record falsifiable assertions with `change-saga add-claim`. Each claim must
@@ -177,7 +195,8 @@ current story, improve the structure or call out the unexplained change.
 
 Run status against the new head, then handle both sides of drift:
 
-- Remove or revise stale evidence files whose selectors no longer match.
+- Remove or revise stale evidence with `remove-coverage` or
+  `replace-coverage`; never delete metadata files directly.
 - Place newly uncovered atoms only after reading their current diff context.
 - Update fragment content when behavior changed, even if an old range still
   happens to match line numbers.
@@ -208,6 +227,9 @@ Backspace removes the current selection. Committed edits append anchor or state
 events; never rewrite or delete the original thread or message.
 Do not create comments or findings, or resolve, reopen, approve, or reject on a
 person's behalf without an explicit request to conduct those review actions.
+For a background reviewer use `change-saga open --detach`; it prints the PID
+and URL. Discover it later with `change-saga serve status [SAGA]` and stop it
+with `change-saga serve stop [SAGA]`.
 
 When reviewing without the UI, read the saga through the query API described
 above rather than searching for or reading saga metadata files directly.

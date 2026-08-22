@@ -167,6 +167,37 @@ func TestListenRefusesNonLoopbackAddressBeforeServing(t *testing.T) {
 	}
 }
 
+func TestManagedRuntimeEndpointsRequireTokenAndSignalShutdown(t *testing.T) {
+	stopped := make(chan struct{}, 1)
+	application := &app{shutdownToken: "private-token", shutdown: func() { stopped <- struct{}{} }}
+	handler := newMux(application)
+
+	status := httptest.NewRecorder()
+	handler.ServeHTTP(status, httptest.NewRequest(http.MethodGet, "/api/runtime", nil))
+	if status.Code != http.StatusOK || !strings.Contains(status.Body.String(), `"ok":true`) {
+		t.Fatalf("runtime status = %d %q", status.Code, status.Body.String())
+	}
+
+	denied := httptest.NewRecorder()
+	handler.ServeHTTP(denied, httptest.NewRequest(http.MethodPost, "/api/runtime-stop", nil))
+	if denied.Code != http.StatusForbidden {
+		t.Fatalf("unauthenticated stop = %d", denied.Code)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api/runtime-stop", nil)
+	request.Header.Set("X-Change-Saga-Shutdown", "private-token")
+	accepted := httptest.NewRecorder()
+	handler.ServeHTTP(accepted, request)
+	if accepted.Code != http.StatusOK {
+		t.Fatalf("authenticated stop = %d %q", accepted.Code, accepted.Body.String())
+	}
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Fatal("authenticated stop did not signal shutdown")
+	}
+}
+
 func TestMultipartLimitsSniffingAndCleanup(t *testing.T) {
 	tempDir := t.TempDir()
 	attachmentTempDir = tempDir
@@ -295,6 +326,151 @@ func TestWithdrawnThreadIsHiddenUntilReopened(t *testing.T) {
 	}
 	if got := render(); got != "1" {
 		t.Fatalf("reopened thread count = %q, want 1", got)
+	}
+}
+
+func TestAnnotationCommentsBecomeBubblesAndOtherCommentsKeepTheirList(t *testing.T) {
+	root := validServerSaga(t)
+	target := "urn:change-saga:test:fragment:overview"
+	fragmentThread, err := reviewstore.AddThread(root, target, "Comment on the whole explanation", saga.Anchor{Type: "target"}, "comment", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rectangleThread, err := reviewstore.AddThread(root, target, "Comment on the rectangle", saga.Anchor{
+		Type: "region", Coordinate: "normalized",
+		Shapes: []saga.Shape{{Type: "rect", X: .2, Y: .3, Width: .25, Height: .1}},
+	}, "comment", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	noteThread, err := reviewstore.AddThread(root, target, "Comment on the sticky note", saga.Anchor{
+		Type: "note", Coordinate: "normalized", Note: &saga.NoteSelector{Text: "Placed", X: .6, Y: .4},
+	}, "comment", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	highlightThread, err := reviewstore.AddThread(root, target, "Comment on the highlight", saga.Anchor{
+		Type: "text", Text: &saga.TextSelector{Exact: "Story"},
+	}, "comment", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tmpl, err := newPageTemplate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder := httptest.NewRecorder()
+	(&app{root: root, sourceDir: root, template: tmpl}).page(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("page status = %d: %s", recorder.Code, recorder.Body.String())
+	}
+	page := recorder.Body.String()
+
+	for _, thread := range []string{rectangleThread, noteThread, highlightThread} {
+		if !strings.Contains(page, `data-annotation-bubble data-thread-id="`+thread+`"`) {
+			t.Fatalf("annotation comment %s did not render as a bubble", thread)
+		}
+		panel := `id="` + domID("thread:"+thread) + `--bubble" data-annotation-bubble-panel hidden`
+		if !strings.Contains(page, panel) {
+			t.Fatalf("bubble for %s did not render a hidden comment panel", thread)
+		}
+	}
+	if strings.Contains(page, `data-annotation-bubble data-thread-id="`+fragmentThread+`"`) {
+		t.Fatal("a comment on the whole explanation must not become a bubble")
+	}
+	if !strings.Contains(page, "Comment on the whole explanation") {
+		t.Fatal("the whole-explanation comment disappeared from the page")
+	}
+
+	// The bubble sits at the top-right corner of the rectangle it belongs to.
+	if !strings.Contains(page, `style="left:45.0000%;top:30.0000%"`) {
+		t.Fatal("the rectangle bubble was not placed on its rectangle")
+	}
+	// A highlight has no stored geometry, so it carries no server placement and
+	// the browser measures the rendered mark instead.
+	highlight := page[strings.Index(page, `data-thread-id="`+highlightThread+`" data-anchor-type="text"`):]
+	if strings.Contains(highlight[:strings.Index(highlight, ">")], "style=") {
+		t.Fatal("a highlight bubble must be placed by the browser, not by the server")
+	}
+
+	// Every comment list on the page is either inside a bubble panel or below
+	// the content, and exactly one is below the content: the comment that was
+	// never drawn onto anything.
+	lists := strings.Count(page, `<div class="threads">`)
+	inBubbles := strings.Count(page, `data-annotation-bubble-panel hidden><div class="threads">`)
+	if inBubbles != 3 || lists-inBubbles != 1 {
+		t.Fatalf("comment lists = %d with %d in bubbles, want 4 with 3 in bubbles", lists, inBubbles)
+	}
+}
+
+func TestAnnotationBubblePointFollowsTheMark(t *testing.T) {
+	for name, testCase := range map[string]struct {
+		anchor saga.Anchor
+		x, y   float64
+		placed bool
+	}{
+		"rectangle uses its top-right corner": {
+			anchor: saga.Anchor{Type: "region", Shapes: []saga.Shape{{Type: "rect", X: .1, Y: .2, Width: .3, Height: .4}}},
+			x:      .4, y: .2, placed: true,
+		},
+		"freehand uses the extremes of its points": {
+			anchor: saga.Anchor{Type: "drawing", Shapes: []saga.Shape{{Type: "path", Points: []saga.Point{{X: .5, Y: .6}, {X: .2, Y: .1}}}}},
+			x:      .5, y: .1, placed: true,
+		},
+		"several shapes share one bubble": {
+			anchor: saga.Anchor{Type: "drawing", Shapes: []saga.Shape{
+				{Type: "rect", X: .1, Y: .5, Width: .1, Height: .1},
+				{Type: "path", Points: []saga.Point{{X: .8, Y: .2}}},
+			}},
+			x: .8, y: .2, placed: true,
+		},
+		"an ellipse spans its radii": {
+			anchor: saga.Anchor{Type: "region", Shapes: []saga.Shape{{Type: "ellipse", X: .5, Y: .5, Width: .2, Height: .1}}},
+			x:      .7, y: .4, placed: true,
+		},
+		"a line spans its endpoints": {
+			anchor: saga.Anchor{Type: "region", Shapes: []saga.Shape{{Type: "line", X: .8, Y: .9, Width: .2, Height: .1}}},
+			x:      .8, y: .1, placed: true,
+		},
+		"a sticky note uses its own placement": {
+			anchor: saga.Anchor{Type: "note", Note: &saga.NoteSelector{X: .25, Y: .75}},
+			x:      .25, y: .75, placed: true,
+		},
+		"a mark outside the stage is pulled back onto it": {
+			anchor: saga.Anchor{Type: "region", Shapes: []saga.Shape{{Type: "rect", X: .9, Y: -.4, Width: .5, Height: .2}}},
+			x:      1, y: 0, placed: true,
+		},
+		"a highlight is placed by the browser": {
+			anchor: saga.Anchor{Type: "text", Text: &saga.TextSelector{Exact: "quote"}},
+		},
+		"an empty annotation is placed by the browser": {
+			anchor: saga.Anchor{Type: "region"},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			x, y, placed := annotationBubblePoint(testCase.anchor)
+			if placed != testCase.placed || x != testCase.x || y != testCase.y {
+				t.Fatalf("bubble point = (%v, %v, %v), want (%v, %v, %v)", x, y, placed, testCase.x, testCase.y, testCase.placed)
+			}
+		})
+	}
+}
+
+func TestAnnotationAnchorsAreExactlyTheMarksDrawnOnContent(t *testing.T) {
+	for kind, want := range map[string]bool{
+		"region": true, "drawing": true, "text": true, "note": true,
+		"target": false, "diff": false, "": false,
+	} {
+		if got := annotationAnchor(kind); got != want {
+			t.Errorf("annotationAnchor(%q) = %v, want %v", kind, got, want)
+		}
+	}
+	if got := annotationBubbleLabel("note"); got != "sticky note" {
+		t.Errorf("sticky note bubble label = %q", got)
+	}
+	if got := annotationBubbleLabel("region"); got != anchorLabel("region") {
+		t.Errorf("rectangle bubble label = %q, want the shared reviewer word %q", got, anchorLabel("region"))
 	}
 }
 
@@ -740,6 +916,10 @@ func TestMarkdownRendersSafeGFMWithStablePermalinks(t *testing.T) {
 1. First
 2. Second
 
+The lease is renewed before its midpoint.[^lease-renewal]
+
+[^lease-renewal]: The heartbeat path renews the lease before half its TTL elapses.
+
 [safe](https://example.test) [unsafe](javascript:alert(1))
 
 <script>alert("no")</script>
@@ -752,6 +932,10 @@ func TestMarkdownRendersSafeGFMWithStablePermalinks(t *testing.T) {
 		`<code>fast</code>`,
 		`<ol>`,
 		`href="https://example.test"`,
+		`id="fragment--fnref:1"`,
+		`href="#fragment--fn:1"`,
+		`class="footnote-ref"`,
+		`The heartbeat path renews the lease before half its TTL elapses.`,
 	} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("Markdown output is missing %q:\n%s", expected, rendered)
@@ -759,6 +943,10 @@ func TestMarkdownRendersSafeGFMWithStablePermalinks(t *testing.T) {
 	}
 	if strings.Contains(rendered, `<script>`) || strings.Contains(rendered, `href="javascript:`) {
 		t.Fatalf("Markdown output contains unsafe content:\n%s", rendered)
+	}
+	other := string(markdownWithAnchors("Another claim.[^lease-renewal]\n\n[^lease-renewal]: Other evidence.\n", "other-fragment"))
+	if !strings.Contains(other, `id="other-fragment--fnref:1"`) || strings.Contains(other, `id="fragment--fnref:1"`) {
+		t.Fatalf("footnote IDs were not namespaced per fragment:\n%s", other)
 	}
 }
 

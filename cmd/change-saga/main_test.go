@@ -41,3 +41,22 @@ func TestRunQueryKeepsMachineOutputOnStdout(t *testing.T) {
 		})
 	}
 }
+
+func TestRunMutationJSONKeepsFailureOnStdout(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if got := run([]string{"cover", "--uri", "not-a-uri", "--json", "missing.saga"}, &stdout, &stderr); got != 1 {
+		t.Fatalf("exit = %d, want 1", got)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("structured mutation wrote stderr: %q", stderr.String())
+	}
+	var result struct {
+		OK       bool `json:"ok"`
+		Failures []struct {
+			Message string `json:"message"`
+		} `json:"failures"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil || result.OK || len(result.Failures) != 1 {
+		t.Fatalf("mutation failure = %#v, err=%v\n%s", result, err, stdout.String())
+	}
+}

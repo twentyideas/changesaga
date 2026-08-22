@@ -55,6 +55,25 @@ already nested under.
 The Code Diff sidebar is a different thing and should stay that way: a compact,
 filterable changed-file tree with counts, status, and a selected file.
 
+## Comments and their marks
+
+A comment carries an anchor. When that anchor is a mark drawn on the content —
+a rectangle, a freehand drawing, a highlight, or a sticky note — the comment
+belongs to the mark and renders as a compact bubble pinned to it, revealed on
+hover or focus of either the mark or the bubble. Every other anchor — a whole
+fragment, a section, a chapter, a diff line — keeps its comment in the list
+below the content. `annotationAnchor` in `server.go` is the single place that
+decides which is which; adding an anchor type means answering there.
+
+The server places a bubble from the stored anchor (`annotationBubblePoint`) and
+the browser refines it against the mark as laid out (`positionAnnotationBubbles`
+in `appjs.go`). The two must agree on where a shape is, so `annotationShapeBounds`
+and `shapeBounds` are deliberate mirrors of each other. A highlight has no stored
+geometry and is placed by the browser alone.
+
+A revealed comment never buries the mark it describes, and arming a drawing tool
+closes every open bubble so the content keeps the pointer.
+
 ## Diagnostics, not congratulation
 
 Complete coverage is an invariant enforced by the validator, not an achievement.

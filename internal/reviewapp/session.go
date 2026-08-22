@@ -243,17 +243,24 @@ func (s *session) finishNode(target string, recursive bool) Node {
 	}
 	for _, selector := range s.selectors[target] {
 		if selector.stale != nil {
-			node.Diffs.Stale++
+			node.Diffs.DirectStale++
 		} else {
-			node.Diffs.Current += len(selector.selector.Atoms)
+			node.Diffs.DirectCurrent += len(selector.selector.Atoms)
 		}
 	}
+	node.Diffs.Current = node.Diffs.DirectCurrent
+	node.Diffs.Stale = node.Diffs.DirectStale
+	for _, child := range entry.children {
+		childDiffs := s.finishNode(child, false).Diffs
+		node.Diffs.DescendantCurrent += childDiffs.Current
+		node.Diffs.DescendantStale += childDiffs.Stale
+	}
+	node.Diffs.Current += node.Diffs.DescendantCurrent
+	node.Diffs.Stale += node.Diffs.DescendantStale
 	if recursive {
 		for _, child := range entry.children {
 			childNode := s.finishNode(child, true)
 			node.Review.OpenThreads += childNode.Review.OpenThreads
-			node.Diffs.Current += childNode.Diffs.Current
-			node.Diffs.Stale += childNode.Diffs.Stale
 		}
 	}
 	return node

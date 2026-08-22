@@ -18,6 +18,8 @@ const appJavaScript = `(() => {
   let annotationColorTouched = false;
   let drawerOpener = null;
   let drawerRestore = null;
+  let pinnedBubble = null;
+  let bubbleHideTimer = null;
   const noteDefaultColor = '#f2bd4b';
 
   const languageKeywords = {
@@ -371,6 +373,154 @@ const appJavaScript = `(() => {
     });
   }
 
+  // A comment drawn onto the content travels with its mark. The server places
+  // each bubble from the stored anchor so it is already right without script;
+  // here it is refined against the mark as the browser actually laid it out,
+  // which is the only way to place a highlight at all.
+  function annotationBubbleFor(threadID) {
+    return threadID ? q('[data-annotation-bubble][data-thread-id="' + CSS.escape(threadID) + '"]') : null;
+  }
+
+  function annotationMarkFor(bubble) {
+    const id = bubble?.dataset.threadId;
+    if (!id) return null;
+    const selector = '[data-thread-id="' + CSS.escape(id) + '"]';
+    const stage = bubble.closest('.fragment-stage') || document;
+    return q('[data-annotation-entity]' + selector, stage) || q('[data-sticky-note]' + selector, stage) || q('mark[data-text-mark]' + selector, stage);
+  }
+
+  function annotationBubbleAt(node) {
+    const own = node?.closest?.('[data-annotation-bubble]');
+    if (own) return own;
+    const mark = node?.closest?.('[data-annotation-entity],[data-sticky-note],mark[data-text-mark]');
+    return mark ? annotationBubbleFor(mark.dataset.threadId) : null;
+  }
+
+  function positionAnnotationBubbles(root = document) {
+    let unplaced = 0;
+    qa('[data-annotation-bubble]', root).forEach(bubble => {
+      const stage = bubble.closest('.fragment-stage');
+      const mark = annotationMarkFor(bubble);
+      const box = mark?.getBoundingClientRect();
+      const stageBox = stage?.getBoundingClientRect();
+      if (!stageBox || !stageBox.width || !stageBox.height || !box || (!box.width && !box.height)) {
+        // A mark the browser cannot measure yet — an unloaded image, a
+        // highlight whose text moved — still needs a reachable comment, so the
+        // bubble parks on the stage edge instead of vanishing.
+        if (!bubble.classList.contains('placed')) {
+          bubble.style.left = '100%';
+          bubble.style.top = unplaced++ * 26 + 'px';
+          bubble.classList.add('placed');
+        }
+        return;
+      }
+      bubble.style.left = clampNormalized((box.right - stageBox.left) / stageBox.width) * 100 + '%';
+      bubble.style.top = clampNormalized((box.top - stageBox.top) / stageBox.height) * 100 + '%';
+      bubble.classList.add('placed');
+    });
+  }
+
+  function positionFragmentOverlays() {
+    positionLandmarkHotspots();
+    positionAnnotationBubbles();
+  }
+
+  // A revealed comment must stay on screen and must not sit on top of the mark
+  // it describes. The panel is first nudged left far enough to fit in the
+  // window, then moved above its bubble if that is what it takes to leave the
+  // mark visible. A sliver of overlap beside a rectangle is not worth moving
+  // for; burying a sticky note under its own comment is.
+  function alignAnnotationBubblePanel(bubble) {
+    const panel = q('[data-annotation-bubble-panel]', bubble);
+    if (!panel) return;
+    panel.classList.remove('flip-y');
+    panel.style.marginLeft = '';
+    const overflow = panel.getBoundingClientRect().right - (innerWidth - 8);
+    if (overflow > 0) panel.style.marginLeft = -Math.min(overflow, Math.max(0, panel.getBoundingClientRect().left - 8)) + 'px';
+    const box = panel.getBoundingClientRect();
+    const mark = annotationMarkFor(bubble)?.getBoundingClientRect();
+    const buriesMark = Boolean(mark)
+      && Math.min(box.right, mark.right) - Math.max(box.left, mark.left) > 40
+      && Math.min(box.bottom, mark.bottom) - Math.max(box.top, mark.top) > 10;
+    const roomAbove = bubble.getBoundingClientRect().top - box.height - 13;
+    if ((buriesMark || box.bottom > innerHeight - 8) && roomAbove > 0) panel.classList.add('flip-y');
+  }
+
+  function setAnnotationBubbleOpen(bubble, open) {
+    if (!bubble) return;
+    bubble.classList.toggle('open', open);
+    const panel = q('[data-annotation-bubble-panel]', bubble);
+    if (panel) panel.hidden = !open;
+    q('[data-annotation-bubble-toggle]', bubble)?.setAttribute('aria-expanded', String(open));
+    annotationMarkFor(bubble)?.classList.toggle('annotation-revealed', open);
+    if (open) alignAnnotationBubblePanel(bubble);
+  }
+
+  function revealAnnotationBubble(bubble) {
+    if (!bubble) return;
+    clearTimeout(bubbleHideTimer);
+    qa('[data-annotation-bubble].open').forEach(other => {
+      if (other !== bubble && other !== pinnedBubble) setAnnotationBubbleOpen(other, false);
+    });
+    setAnnotationBubbleOpen(bubble, true);
+  }
+
+  // A bubble the reviewer is still using stays open: pinned by a click, holding
+  // focus, or under the pointer on either the bubble or the mark it belongs to.
+  function annotationBubbleHeld(bubble) {
+    if (bubble === pinnedBubble || bubble.contains(document.activeElement)) return true;
+    const mark = annotationMarkFor(bubble);
+    return Boolean(bubble.matches?.(':hover') || mark?.matches?.(':hover'));
+  }
+
+  function hideAnnotationBubbleSoon(bubble) {
+    if (!bubble) return;
+    clearTimeout(bubbleHideTimer);
+    // The gap between a mark and its bubble is real screen distance; closing
+    // immediately would make the thread impossible to reach with the pointer.
+    bubbleHideTimer = setTimeout(() => {
+      if (!annotationBubbleHeld(bubble)) setAnnotationBubbleOpen(bubble, false);
+    }, 180);
+  }
+
+  function pinAnnotationBubble(bubble) {
+    if (pinnedBubble === bubble) {
+      pinnedBubble = null;
+      setAnnotationBubbleOpen(bubble, false);
+      return;
+    }
+    const previous = pinnedBubble;
+    pinnedBubble = bubble;
+    if (previous) setAnnotationBubbleOpen(previous, false);
+    revealAnnotationBubble(bubble);
+  }
+
+  function closeAnnotationBubbles() {
+    pinnedBubble = null;
+    clearTimeout(bubbleHideTimer);
+    qa('[data-annotation-bubble].open').forEach(bubble => setAnnotationBubbleOpen(bubble, false));
+  }
+
+  function closeAnnotationBubble(bubble) {
+    if (!bubble) return;
+    if (pinnedBubble === bubble) pinnedBubble = null;
+    const returnFocus = bubble.contains(document.activeElement);
+    setAnnotationBubbleOpen(bubble, false);
+    if (returnFocus) q('[data-annotation-bubble-toggle]', bubble)?.focus();
+  }
+
+  // A permalink to a comment must still open it now that the comment lives
+  // inside a bubble rather than in the list under the content.
+  function revealHashedAnnotationBubble() {
+    const id = decodeURIComponent(location.hash.replace(/^#/, ''));
+    const target = id ? document.getElementById(id) : null;
+    const bubble = target?.closest?.('[data-annotation-bubble]');
+    if (!bubble) return;
+    pinnedBubble = bubble;
+    revealAnnotationBubble(bubble);
+    globalThis.requestAnimationFrame?.(() => target.scrollIntoView({block:'center'}));
+  }
+
   function prepareLandmarks() {
     qa('.fragment-frame').forEach(frame => {
       const aspect = Number(new URL(frame.src, location.href).searchParams.get('saga_aspect'));
@@ -378,9 +528,9 @@ const appJavaScript = `(() => {
         frame.style.minHeight = '0';
         frame.style.aspectRatio = String(aspect);
       }
-      frame.addEventListener('load', positionLandmarkHotspots);
+      frame.addEventListener('load', positionFragmentOverlays);
     });
-    qa('.fragment-image').forEach(image => image.addEventListener('load', positionLandmarkHotspots));
+    qa('.fragment-image').forEach(image => image.addEventListener('load', positionFragmentOverlays));
     qa('[data-landmark-target]').forEach(target => {
       const anchor = target.dataset.landmarkAnchor;
       const fragment = target.closest('.fragment');
@@ -401,7 +551,25 @@ const appJavaScript = `(() => {
         if (affordance) mark.append(affordance);
       }
     });
-    globalThis.requestAnimationFrame?.(positionLandmarkHotspots);
+    globalThis.requestAnimationFrame?.(positionFragmentOverlays);
+  }
+
+  // Markdown citations are ordinary footnotes until their reference entry is
+  // made into an exact-text landmark. When that landmark owns code evidence,
+  // promote every inline citation marker into a direct diff-drawer control.
+  // Footnotes without evidence keep their normal jump-to-reference behavior.
+  function prepareDiffCitations() {
+    qa('a.footnote-ref').forEach(reference => {
+      const href = reference.getAttribute('href') || '';
+      if (!href.startsWith('#')) return;
+      const definition = document.getElementById(decodeURIComponent(href.slice(1)));
+      const diff = definition?.querySelector('[data-open-diffs]');
+      if (!diff?.dataset.openDiffs) return;
+      reference.dataset.openDiffs = diff.dataset.openDiffs;
+      reference.classList.add('diff-citation');
+      reference.setAttribute('aria-label', 'Open cited code');
+      reference.setAttribute('title', 'Open cited code');
+    });
   }
 
   function activateLandmark() {
@@ -662,6 +830,9 @@ const appJavaScript = `(() => {
     if (codeMeta) codeMeta.hidden = name !== 'code';
     const shell = q('[data-shell]');
     if (shell) shell.classList.toggle('code-mode', name === 'code');
+    // A hidden view measures as zero, so the bubbles are placed once the saga
+    // view is actually on screen.
+    if (name === 'saga') globalThis.requestAnimationFrame?.(positionFragmentOverlays);
     if (updateURL) {
       const url = new URL(location.href);
       if (name === 'saga') url.searchParams.delete('view'); else url.searchParams.set('view', name);
@@ -788,7 +959,7 @@ const appJavaScript = `(() => {
     configureDrawer('fragment', fragment.dataset.fragmentTitle || 'Related explanation');
     setActiveFragment(fragment);
     showDrawer(opener);
-    positionLandmarkHotspots();
+    positionFragmentOverlays();
     requestAnimationFrame(() => {
       const visual = q('[data-landmark-visual="' + CSS.escape(anchor) + '"]', fragment);
       (visual || destination).scrollIntoView({block:'center'});
@@ -1324,6 +1495,7 @@ const appJavaScript = `(() => {
     renderNoteElement(selectedAnnotation.element, anchor.note);
     if (selectedAnnotation.kind === 'draft') annotationDraft.anchor = anchor;
     noteNudge.after = anchor;
+    positionAnnotationBubbles(selectedAnnotation.element.closest('.fragment-stage') || document);
   }
 
   function commitNoteNudge() {
@@ -1396,6 +1568,7 @@ const appJavaScript = `(() => {
     selection.element.remove();
     qa('[data-shape-index]', selection.group).forEach((element,index) => { element.dataset.shapeIndex = String(index); });
     clearAnnotationSelection();
+    positionAnnotationBubbles(selection.group?.closest('.fragment-stage') || document);
     try {
       await persistAnnotationAnchor(selection.thread, anchor);
     } catch (error) {
@@ -1406,6 +1579,9 @@ const appJavaScript = `(() => {
   function useTool(mode) {
     cancelDrawing();
     clearAnnotationSelection();
+    // An open comment covers the surface the reviewer is about to draw on, so
+    // arming a tool hands the pointer back to the content.
+    if (mode !== 'select') closeAnnotationBubbles();
     setSelectedTool(mode);
     if (mode === 'select') return;
     if (!activeFragment) {
@@ -1463,11 +1639,21 @@ const appJavaScript = `(() => {
   document.addEventListener('pointerover', event => {
     const fragment = event.target.closest('.fragment');
     if (fragment && !drawing) setActiveFragment(fragment);
+    if (!drawing) revealAnnotationBubble(annotationBubbleAt(event.target));
+  });
+
+  document.addEventListener('pointerout', event => {
+    hideAnnotationBubbleSoon(annotationBubbleAt(event.target));
   });
 
   document.addEventListener('focusin', event => {
     const fragment = event.target.closest('.fragment');
     if (fragment) setActiveFragment(fragment);
+    revealAnnotationBubble(annotationBubbleAt(event.target));
+  });
+
+  document.addEventListener('focusout', event => {
+    hideAnnotationBubbleSoon(annotationBubbleAt(event.target));
   });
 
   document.addEventListener('click', event => {
@@ -1485,6 +1671,13 @@ const appJavaScript = `(() => {
         setChapterOpen(destination.closest('[data-chapter]'), true);
         setView('saga', false);
       }
+    }
+    const bubbleToggle = event.target.closest?.('[data-annotation-bubble-toggle]');
+    if (bubbleToggle) { pinAnnotationBubble(bubbleToggle.closest('[data-annotation-bubble]')); return; }
+    if (pinnedBubble && !event.target.closest?.('[data-annotation-bubble]')) {
+      const unpinned = pinnedBubble;
+      pinnedBubble = null;
+      hideAnnotationBubbleSoon(unpinned);
     }
     const permalink = event.target.closest('[data-copy-link]');
     if (permalink) { copyPermalink(permalink); return; }
@@ -1541,7 +1734,7 @@ const appJavaScript = `(() => {
     }
     if (event.target.closest('[data-selection-clear]')) { selectionAnchor = null; updateLineSelection([]); return; }
     const drawerButton = event.target.closest('[data-open-diffs]');
-    if (drawerButton) { openDrawer(drawerButton.dataset.openDiffs, drawerButton); return; }
+    if (drawerButton) { event.preventDefault(); openDrawer(drawerButton.dataset.openDiffs, drawerButton); return; }
     if (event.target.closest('[data-close-drawer]')) { closeDrawer(); return; }
     const reviewDecision = event.target.closest('[data-review-decision]');
     if (reviewDecision) { activateReviewDecision(reviewDecision); return; }
@@ -1661,6 +1854,11 @@ const appJavaScript = `(() => {
       return;
     }
     if (event.key !== 'Escape') return;
+    const focusedBubble = document.activeElement?.closest?.('[data-annotation-bubble]') || pinnedBubble;
+    if (focusedBubble) {
+      closeAnnotationBubble(focusedBubble);
+      return;
+    }
     if (selectedAnnotation) {
       clearAnnotationSelection();
       return;
@@ -1773,6 +1971,7 @@ const appJavaScript = `(() => {
       if (annotationDrag.selection.kind === 'draft') annotationDraft.anchor = anchor;
       annotationDrag.after = anchor;
       annotationDrag.moved = Math.abs(dx) + Math.abs(dy) > .001;
+      positionAnnotationBubbles(annotationDrag.selection.element.closest('.fragment-stage') || document);
       event.preventDefault();
       return;
     }
@@ -1831,13 +2030,17 @@ const appJavaScript = `(() => {
   updateHistoryControls();
   updateReviewProgress();
   prepareLandmarks();
+  prepareDiffCitations();
   qa('[data-text-target]').forEach(label => {
     const target = document.querySelector('[data-target="'+CSS.escape(label.dataset.textTarget)+'"] [data-selectable]');
     if (!target) return;
     const exact = label.dataset.exact;
     const color = normalizedAnnotationColor(label.dataset.textColor);
     const mark = markExactText(target, exact);
-    if (mark) mark.style.backgroundColor = colorWithAlpha(color);
+    if (!mark) return;
+    mark.style.backgroundColor = colorWithAlpha(color);
+    mark.dataset.textMark = 'true';
+    mark.dataset.threadId = label.dataset.threadId || '';
   });
 
   const firstFragment = q('.fragment');
@@ -1863,7 +2066,7 @@ const appJavaScript = `(() => {
   prepareContext();
   highlightCode();
   applyDiffLayout('inline');
-  addEventListener('resize', () => { applyDiffLayout(diffLayout); positionLandmarkHotspots(); });
+  addEventListener('resize', () => { applyDiffLayout(diffLayout); positionFragmentOverlays(); });
   addEventListener('scroll', () => {
     const progress = q('[data-review-progress]');
     if (!progress) return;
@@ -1876,7 +2079,10 @@ const appJavaScript = `(() => {
   setView(initialView, false);
   setManifestMode('code');
   activateLandmark();
-  addEventListener('hashchange', activateLandmark);
+  positionFragmentOverlays();
+  globalThis.requestAnimationFrame?.(positionFragmentOverlays);
+  revealHashedAnnotationBubble();
+  addEventListener('hashchange', () => { activateLandmark(); revealHashedAnnotationBubble(); });
   addEventListener('popstate', () => {
     const view = new URL(location.href).searchParams.get('view');
     setView(view === 'code' || view === 'manifest' ? view : 'saga', false);

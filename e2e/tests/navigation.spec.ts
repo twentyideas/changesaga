@@ -83,7 +83,14 @@ test("renders Markdown, SVG, raster, and interactive HTML fragments", async ({ p
   await expect(markdown.locator("table")).toContainText("Linked narrative");
   await expect(markdown.locator("strong")).toHaveText("the behavior");
   await expect(markdown.locator("code")).toHaveText("linked code");
-  await expect(markdown.locator("ol > li")).toHaveCount(2);
+  await expect(markdown.locator(":scope > ol").first().locator(":scope > li")).toHaveCount(2);
+  const citation = markdown.locator("a.footnote-ref");
+  await expect(citation).toHaveAttribute("data-open-diffs", /diffs-/);
+  await citation.click();
+  const citationDrawer = page.getByRole("complementary", { name: "Linked code" });
+  await expect(citationDrawer).toHaveAttribute("aria-hidden", "false");
+  await expect(citationDrawer.getByText("src/app.go", { exact: true })).toBeVisible();
+  await citationDrawer.getByRole("button", { name: "Close linked code" }).click();
   const diagram = page.frameLocator('iframe[title="Architecture Diagram"]');
   await expect(diagram.getByRole("img", { name: "Review flow diagram" })).toBeVisible();
   await expect(page.locator('[data-fragment-title="Raster Preview"] img[alt="Raster Preview"]')).toBeVisible();
