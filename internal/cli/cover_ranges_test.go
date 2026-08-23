@@ -228,6 +228,17 @@ func TestChangedLineSelectorsPreserveExactAtomIdentity(t *testing.T) {
 	}
 }
 
+func TestParseRangesCanonicalizesEquivalentManualSelectors(t *testing.T) {
+	ranges, err := parseRanges("9-10, 1, 3-5, 2-3, 8, 10")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []lineRange{{Start: 1, End: 5}, {Start: 8, End: 10}}
+	if fmt.Sprint(ranges) != fmt.Sprint(want) {
+		t.Fatalf("canonical ranges = %v, want %v", ranges, want)
+	}
+}
+
 // changedLinesSaga has one added file, one modified file whose changed lines are
 // deliberately nonconsecutive on both sides, and one deleted file, so a single
 // comparison exercises gaps, both sides, and several event kinds.

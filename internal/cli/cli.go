@@ -873,7 +873,23 @@ func parseRanges(value string) ([]lineRange, error) {
 	if len(ranges) == 0 {
 		return nil, fmt.Errorf("at least one line range is required")
 	}
-	return ranges, nil
+	sort.Slice(ranges, func(i, j int) bool {
+		if ranges[i].Start != ranges[j].Start {
+			return ranges[i].Start < ranges[j].Start
+		}
+		return ranges[i].End < ranges[j].End
+	})
+	canonical := ranges[:0]
+	for _, current := range ranges {
+		if len(canonical) == 0 || current.Start > canonical[len(canonical)-1].End && current.Start-canonical[len(canonical)-1].End > 1 {
+			canonical = append(canonical, current)
+			continue
+		}
+		if current.End > canonical[len(canonical)-1].End {
+			canonical[len(canonical)-1].End = current.End
+		}
+	}
+	return canonical, nil
 }
 
 func discoverRepository(ctx context.Context, repoDir, explicit string, options ...bool) (string, string, error) {
