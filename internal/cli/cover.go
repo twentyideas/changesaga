@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/twentyideas/changesaga/internal/diffuri"
 	"github.com/twentyideas/changesaga/internal/gitdiff"
@@ -57,8 +56,6 @@ type coverageMutationOutput struct {
 	Selectors     int      `json:"selectors"`
 	EvidenceFiles []string `json:"evidence_files"`
 }
-
-const maxGeneratedNameAttempts = 1000
 
 // Cover attaches diff evidence to a narrative target. os.Stdin is bound here
 // rather than read inside the command so tests drive --batch deterministically.
@@ -142,11 +139,10 @@ func cover(ctx context.Context, args []string, out io.Writer, stdin io.Reader) e
 		files[i] = file
 	}
 
-	now := time.Now()
 	var planned []plannedRecord
 	plan := func(locked *saga.Saga) error {
 		var planErr error
-		planned, planErr = planCoverage(locked, records, files, now)
+		planned, planErr = planCoverage(locked, records, files)
 		return planErr
 	}
 	if *dryRun {
@@ -366,7 +362,7 @@ func buildCoverageFile(record coverRecord, changes *gitdiff.ChangeSet, repositor
 // are reserved across the whole batch, so two records in one batch collide with
 // each other exactly as loudly as one record collides with a record already on
 // disk.
-func planCoverage(document *saga.Saga, records []coverRecord, files []saga.DiffFile, now time.Time, replaceable ...string) ([]plannedRecord, error) {
+func planCoverage(document *saga.Saga, records []coverRecord, files []saga.DiffFile, replaceable ...string) ([]plannedRecord, error) {
 	planned := make([]plannedRecord, 0, len(records))
 	claimed := map[string]int{}
 	allowed := map[string]bool{}
@@ -379,7 +375,7 @@ func planCoverage(document *saga.Saga, records []coverRecord, files []saga.DiffF
 			return nil, recordError(records, i, err)
 		}
 		diffDir := filepath.Join(targetDir, "___diffs")
-		name, err := coverageName(record, diffDir, claimed, allowed, now)
+		name, err := coverageName(record, files[i], diffDir, claimed, allowed)
 		if err != nil {
 			return nil, recordError(records, i, err)
 		}
@@ -427,9 +423,10 @@ func ensureCoverageDirectories(root string, planned []plannedRecord) error {
 }
 
 // coverageName picks the record filename. An explicit name is an author's
-// stable handle, so a collision is reported instead of renamed; a generated
-// name has no meaning to the author, so it is uniquified deterministically.
-func coverageName(record coverRecord, dir string, claimed map[string]int, replaceable map[string]bool, now time.Time) (string, error) {
+// stable handle. A generated name is the selector identity: it deliberately
+// collides when two authors explain the same selectors differently so Git
+// exposes the disagreement instead of manufacturing an overlap.
+func coverageName(record coverRecord, file saga.DiffFile, dir string, claimed map[string]int, replaceable map[string]bool) (string, error) {
 	if strings.TrimSpace(record.Name) != "" {
 		name := store.Slug(record.Name)
 		full := filepath.Join(dir, name+".json")
@@ -449,7 +446,19 @@ func coverageName(record coverRecord, dir string, claimed map[string]int, replac
 		}
 		return name, nil
 	}
-	return uniqueGeneratedName(dir, generatedCoverageName(record, now), claimed)
+	name := stableGeneratedCoverageName(record, file)
+	full := filepath.Join(dir, name+".json")
+	if other, taken := claimed[full]; taken {
+		return "", fmt.Errorf("coverage selector identity collides with record %d, which also writes %s", other+1, filepath.Base(full))
+	}
+	if _, err := os.Lstat(full); err == nil {
+		if !replaceable[canonicalCoveragePath(full)] {
+			return "", fmt.Errorf("coverage record %s already exists for the same selector identity; use replace-coverage to reconcile its explanation", filepath.Base(full))
+		}
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	return name, nil
 }
 
 // canonicalCoveragePath resolves existing parent symlinks without following
@@ -466,43 +475,6 @@ func canonicalCoveragePath(path string) string {
 		return abs
 	}
 	return filepath.Join(parent, filepath.Base(abs))
-}
-
-// uniqueGeneratedName resolves a generated base to a free filename by appending
-// -2, -3, and so on. The sequence is deterministic so a collision produces a
-// predictable name rather than a second random draw.
-func uniqueGeneratedName(dir, base string, claimed map[string]int) (string, error) {
-	for attempt := 1; attempt <= maxGeneratedNameAttempts; attempt++ {
-		candidate := base
-		if attempt > 1 {
-			candidate = fmt.Sprintf("%s-%d", base, attempt)
-		}
-		full := filepath.Join(dir, candidate+".json")
-		if _, taken := claimed[full]; taken {
-			continue
-		}
-		if _, err := os.Lstat(full); os.IsNotExist(err) {
-			return candidate, nil
-		} else if err != nil {
-			return "", err
-		}
-	}
-	return "", fmt.Errorf("could not find an unused coverage record name for %q", base)
-}
-
-// generatedCoverageName keeps the uniquifying event ID intact. Slugging the
-// joined string would truncate it to 60 characters, and for any path longer
-// than a couple of directories that truncation removed the random suffix
-// entirely, so two records for the same file collided.
-func generatedCoverageName(record coverRecord, now time.Time) string {
-	prefix := store.Slug(firstNonEmpty(record.Path, record.Event, "diff"))
-	if len(prefix) > 20 {
-		prefix = strings.Trim(prefix[:20], "-")
-	}
-	if prefix == "" {
-		prefix = "diff"
-	}
-	return prefix + "-" + store.Slug(store.EventID(now))
 }
 
 // writeCoverage publishes a planned batch. Every destination was proven free

@@ -321,6 +321,16 @@ atoms are mapped when every changed line and file event is selected and every
 committed link matches the current source comparison. This is an omission
 invariant only; it does not establish explanation quality, claim truth, review
 completion, or correctness. Overlap is reported but permitted.
+
+CLI-generated evidence filenames are a deterministic function of the target's
+canonical selector set and exclude reviewer-facing notes. Unrelated selector
+sets therefore write unrelated files, while two branches that explain the same
+selectors differently write the same path and require an explicit Git
+reconciliation. A generated filename collision MUST NOT be resolved by adding a
+timestamp or numeric suffix: preserving both records would turn an authored
+disagreement into an accidental overlap. Explicit `--name` values remain stable
+author-chosen repair handles.
+
 Every Git-reported product file has at least one event or line atom, so an
 unrepresentable file record cannot make a nonempty comparison appear complete.
 

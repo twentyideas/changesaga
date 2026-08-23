@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 // coveredSaga returns a saga whose source comparison contains a single added
@@ -464,32 +463,22 @@ func TestCoverGeneratedNamesSurviveLongPaths(t *testing.T) {
 	assertValid(t, root)
 }
 
-// A generated name that is already taken is uniquified deterministically rather
-// than failing, because the author never chose it and cannot act on the error.
-func TestCoverGeneratedNamesUniquifyAgainstExistingRecords(t *testing.T) {
-	root, _ := coveredSaga(t)
-	dir := filepath.Join(root, "___diffs")
-	base := generatedCoverageName(coverRecord{Path: "internal/service/handler.go"}, fixedTime())
-	if !strings.HasPrefix(base, "internal-service-han-") {
-		t.Fatalf("generated base lost its human-readable prefix: %q", base)
-	}
-	writeFile(t, filepath.Join(dir, base+".json"), "{}\n")
-
-	claimed := map[string]int{}
-	name, err := uniqueGeneratedName(dir, base, claimed)
-	if err != nil {
+// A generated path is the logical selector identity. Reusing it must be an
+// explicit repair, otherwise two different explanations for the same code
+// silently survive a Git merge as an overlap neither author chose.
+func TestCoverGeneratedNamesExposeSameSelectorDisagreement(t *testing.T) {
+	root, repo := coveredSaga(t)
+	args := []string{"--repo", repo, "--path", "internal/service/handler.go", "--side", "new", "--lines", "1", "--note", "first explanation", root}
+	if _, err := runCover(t, "", args...); err != nil {
 		t.Fatal(err)
 	}
-	if name != base+"-2" {
-		t.Fatalf("expected deterministic uniquification, got %q", name)
+	args[9] = "different explanation"
+	_, err := runCover(t, "", args...)
+	if err == nil || !strings.Contains(err.Error(), "same selector identity") {
+		t.Fatalf("same selector should require explicit reconciliation, got %v", err)
 	}
-	claimed[filepath.Join(dir, name+".json")] = 0
-	next, err := uniqueGeneratedName(dir, base, claimed)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if next != base+"-3" {
-		t.Fatalf("a name claimed within the same batch must be skipped, got %q", next)
+	if names := diffRecords(t, filepath.Join(root, "___diffs")); len(names) != 1 {
+		t.Fatalf("selector disagreement created duplicate evidence: %v", names)
 	}
 }
 
@@ -499,10 +488,4 @@ func TestCoverWithoutSelectorsExplainsBatch(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "--batch") {
 		t.Fatalf("the empty-invocation error should mention --batch, got %v", err)
 	}
-}
-
-// fixedTime keeps generated-name tests deterministic; the event ID still adds
-// its own random suffix, which is exactly what the uniquifier must handle.
-func fixedTime() time.Time {
-	return time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
 }
