@@ -1,8 +1,8 @@
 # Why a whole-codebase saga is 230 MB and takes 17 minutes
 
-Status: **Defect 1 is fixed; Defects 2 and 3 are not.** This records what was
-measured, what causes it, and the decisions each fix would require. For the
-remaining defects it is not a design and it is not a plan.
+Status: **all three diagnosed defects are fixed.** The original measurements
+remain below as the regression baseline; focused scale benchmarks cover the
+authoring and selector-construction paths that caused it.
 
 The saga behind it documents an entire codebase: 2,666 source files, 532,290
 changed atoms, 118 narrative targets that own evidence, fully mapped with no
@@ -109,7 +109,7 @@ the whole product patch, so an edit that stops line 2 from being a changed line
 also changes the head and orphans every reference in the comparison, ranged or
 not.
 
-## Defect 2 — `session.build` recomputes a path inside its innermost loop
+## Defect 2 — `session.build` recomputes a path inside its innermost loop — **fixed**
 
 `internal/reviewapp/session.go:121`
 
@@ -131,6 +131,10 @@ Hoisting it above the inner loop changes no behaviour at all. It is the single
 cheapest change available and it addresses most of the ~1,840 instructions per
 iteration the profile implies.
 
+`linkOwnership` now normalizes each distinct raw evidence path once, outside
+selector lookup. The lookup itself uses the normalized path as part of a
+`selectorKey` rather than reparsing it for every candidate.
+
 Later benchmarking corrects one detail of this: the call does not allocate.
 `filepath.Clean` returns its argument unchanged for the already-clean relative
 paths coverage produces, and `filepath.ToSlash` is a no-op on darwin and Linux,
@@ -141,7 +145,7 @@ the most concentrated shape of `BenchmarkLargeSagaSelectorConstruction`
 unchanged; it is a CPU cost rather than a garbage one, and on Windows, where
 `ToSlash` rewrites separators, it would allocate as originally stated.
 
-## Defect 3 — the same loop is quadratic
+## Defect 3 — the same loop is quadratic — **fixed**
 
 The inner `for i := range entries` is a linear scan for the selector matching
 `(evidence file, diff index)` among every selector its target owns. With one
@@ -155,6 +159,12 @@ A map from `(target, evidence file, diff index)` to the selector's index,
 built once, makes it O(1). The slice elements are mutated in place and the
 slice is never reallocated inside the loop, so an index map is safe.
 
+That map is now built once by `selectorIndex`. A synthetic scale benchmark over
+256, 1,024, and 4,096 selectors measured 4.8×, 17.4×, and 60.4× speedups over
+the former scan; growing the input 16× changed construction from 254× slower to
+20× slower. A regression test exercises an eightfold input increase and rejects
+quadratic growth.
+
 ### Why this matters independently of defect 1
 
 Ranged selectors make the same saga's scan about 1e8 steps — roughly 120× fewer
@@ -163,10 +173,9 @@ with identical reported coverage. That was measured by re-emitting the same
 evidence as ordinary ranged v2 JSON and running the unmodified binary against
 it.
 
-But that only helps sagas authored *after* defect 1 is fixed. Sagas that
-already exist on disk keep their per-line references, and for them the quadratic
-is the whole problem. **Defect 1 protects future sagas; defects 2 and 3 rescue
-the ones already written.**
+Range authoring is the normal path and the selector index independently keeps
+the reader linear if explicit URI input or a malformed producer nevertheless
+creates per-line evidence.
 
 ## What was ruled out
 
@@ -185,23 +194,20 @@ change, a migration, a version bump, and a SQLite dependency.
 One thing it did surface that ranges do not fix, recorded here because it is a
 separate defect and not a size problem:
 
-**`cover` record filenames are timestamped** (`generatedCoverageName`,
-`internal/cli/cover.go:497`), so two reviewers who explain the *same* lines
-differently never conflict in Git. Both records survive the merge, the lines
-acquire two owners, and coverage reports an overlap neither reviewer authored.
-A content-addressed record name would put the second author's record on the
-first one's path and force Git to reconcile them. Not attempted.
+The experiment also surfaced a merge defect that is now fixed. `cover` used to
+name records by timestamp, so two reviewers who explained the same selectors
+differently never conflicted in Git. Generated names are now a hash of the
+canonical selector set and deliberately exclude the note: unrelated selectors
+write unrelated files, while different explanations for the same selectors
+write the same path and require explicit reconciliation.
 
 ## Measured, versus inferred
 
-Measured: every number in this document, the zero-ranged-references count, the
-83× improvement from ranged evidence, and the coverage equivalence between the
-two encodings.
+Measured: every baseline number in this document, the zero-ranged-reference
+count, the 83× improvement from ranged evidence, the coverage equivalence
+between encodings, and the focused selector-index speedups above.
 
-Inferred: that hoisting `cleanDiagnosticPath` and replacing the linear scan with
-a map will produce a specific speedup. The scan-step arithmetic and the 83×
-result make the direction certain; the magnitude has not been measured, because
-neither fix has been written.
-
-Not investigated: whether anything else in a `query overview` — Git attribution,
-`buildSnapshot` — becomes the bottleneck once this loop stops being one.
+Not yet remeasured here: end-to-end `query overview` on the original 532,290
+atom fixture after all three fixes. Git diff, coverage evaluation, snapshot
+construction, and the remaining eager indexes determine the new floor once the
+11.9-billion-step scan is gone.

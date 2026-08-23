@@ -34,9 +34,9 @@ type LargeSagaOptions struct {
 	DiffReviews         int
 
 	// CoverageRangeWidth is how many consecutive changed lines one diff
-	// reference covers. Zero selects coverageRangeWidth. One reproduces the
-	// shape `cover --changed-lines` writes today: a separate reference per
-	// changed line, which is what sagas already on disk contain.
+	// reference covers. Zero selects coverageRangeWidth. One deliberately
+	// produces the fragmented per-line shape that the authoring API now
+	// canonicalizes, so reader benchmarks can defend against adversarial input.
 	CoverageRangeWidth int
 
 	// CoverageTargets is how many fragments receive evidence. Zero spreads it
@@ -87,9 +87,8 @@ type LargeSaga struct {
 	CoverageTargets    int
 
 	// MaxTargetReferences is the largest number of diff references a single
-	// target owns. Selector resolution scans one target's references once per
-	// atom that target owns, so this is what decides whether a fixture
-	// exercises that scan at a realistic length.
+	// target owns. It is the concentration dimension reader scale benchmarks
+	// vary while holding atoms and total references constant.
 	MaxTargetReferences int
 }
 

@@ -30,14 +30,13 @@ every atom is mapped with no overlaps or stale references.
 
 That default shape is what a reviewer writes with `cover --lines`, and it is
 deliberately spread: 1,024 four-line ranges over 144 fragments, so no target
-owns more than eight references. Sagas on disk do not look like that.
-`cover --changed-lines` writes one reference per changed line, and a few
-narrative targets end up owning most of the comparison. `CoverageRangeWidth`
-and `CoverageTargets` select that shape — width 1 for a reference per line, and
-a target count to concentrate them — over the same comparison, the same
-narrative tree and the same review overlay, so the two can be measured against
-each other. `TestGenerateLargeSagaCoverageShapeIsSelectable` proves the
-concentrated shape still covers every atom exactly once, and
+owns more than eight references. `CoverageRangeWidth` and `CoverageTargets`
+can instead produce deliberately fragmented per-line evidence concentrated on
+a few targets. The authoring API canonicalizes that input now; the pathological
+shape remains a reader regression fixture so explicit URI input or another
+producer cannot restore nonlinear construction. It uses the same comparison,
+narrative tree, and review overlay. `TestGenerateLargeSagaCoverageShapeIsSelectable`
+proves the concentrated shape still covers every atom exactly once, and
 `TestDefaultLargeSagaOptionsKeepTheirSpreadRangedShape` pins the default the
 byte budgets above are measured against.
 
@@ -115,10 +114,6 @@ go test ./internal/coverage ./internal/cli ./internal/gitattribution ./internal/
 | `BenchmarkLargeSagaLinkedDrawerConstruction` | 25.2 ms | 19.44 MB | — |
 | `BenchmarkMakeCodeReviewViewLargeSaga` | 1.73 ms | 2.30 MB | — |
 | `BenchmarkEvaluateLargeMappedDiff` | 36.3 ms | 45.2 MB | — |
-| `BenchmarkLargeSagaOpen/authored_ranges` | 543 ms | 62.4 MB | — |
-| `BenchmarkLargeSagaOpen/per_line_evidence_4_targets` | 492 ms | 85.4 MB | — |
-| `BenchmarkLargeSagaOverview/authored_ranges` | 0.19 ms | 4,016 B | — |
-| `BenchmarkLargeSagaOverview/per_line_evidence_4_targets` | 0.22 ms | 4,016 B | — |
 | `BenchmarkValidateLargeSaga` | 61.0 ms | 15.08 MB | — |
 | `BenchmarkStatusLargeSaga` | 156 ms | 50.0 MB | — |
 
@@ -128,63 +123,34 @@ fixture and is the one that reflects a real comparison. Keep the fixture and
 `-benchtime` identical for before-and-after comparisons, use `benchstat` when
 it is available, and never include fixture construction in the timed region.
 
-### Selector construction over per-line evidence
+### Selector construction over fragmented evidence
 
-`internal/reviewapp/largesaga_bench_test.go` benchmarks the two calls a
-reviewer's first request makes — `reviewapp.Open`, which builds the selector
-index, and `Session.Overview`, which answers `change-saga query overview` from
-it — over one comparison of 4,096 changed atoms written four different ways.
-The three per-line shapes hold everything constant except how many targets own
-the same 4,096 references.
+`internal/reviewapp/largesaga_bench_test.go` benchmarks `reviewapp.Open`, warm
+`Session.Overview`, and isolated selector construction over one 4,096-atom
+comparison written as ranged evidence and as increasingly concentrated
+per-line evidence. `former-scan-steps/op` reports the deterministic work the
+removed selector scan would perform—up to 2,099,200 iterations in the fixture
+and 11.9 billion in the diagnosed whole-codebase saga. The current engine uses
+one `selectorKey` lookup per ownership edge instead.
 
-Selector construction scans one target's selectors once per atom that target
-owns, so its cost is the sum over targets of atoms x selectors. `scan-steps/op`
-is that loop's exact step count over the built index. It is a property of the
-saga rather than of the host — the same fixture yields the same count on any
-machine — so `TestLargeSagaBenchmarkShapesRemainRealistic` asserts it where it
-could not assert a duration, and fails if a fixture change stops the benchmark
-exercising the scan.
+The focused `BenchmarkSelectorLinking` comparison on Apple M3 Pro measured:
 
-Medians of five, `-benchtime=5x`, Apple M3 Pro, darwin/arm64, Go 1.26.
+| Selectors | Former scan | Identity index | Speedup |
+| ---: | ---: | ---: | ---: |
+| 256 | 1.09 ms | 0.23 ms | 4.8× |
+| 1,024 | 17.26 ms | 0.99 ms | 17.4× |
+| 4,096 | 277.94 ms | 4.60 ms | 60.4× |
 
-| Evidence shape | Scan steps | Per atom | `Open` | `Overview` | Construction | Allocated |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Ranged, 144 targets | 16,640 | 4.1 | 543 ms | 0.19 ms | 33.4 ms | 7.96 MB |
-| Per line, 64 targets | 133,120 | 32.5 | 382 ms | 0.22 ms | 47.4 ms | 8.29 MB |
-| Per line, 16 targets | 526,336 | 128.5 | 370 ms | 0.20 ms | 80.1 ms | 8.28 MB |
-| Per line, 4 targets | 2,099,200 | 512.5 | 492 ms | 0.22 ms | 251.0 ms | 8.81 MB |
+Growing input 16× made the old construction 254× slower and the indexed
+construction 20× slower. `TestSelectorLinkingScalesLinearly` guards an
+eightfold increase with enough headroom for noisy shared runners while still
+rejecting quadratic growth. The realistic fixture separately ensures the
+stress shape remains valid, completely covered, and concentrated.
 
-Three things fall out of that table.
-
-The scan is quadratic and the fixture shows it. Quartering the targets
-quadruples the steps, and construction — which is `Open` with the load, the Git
-read and the coverage evaluation lifted out — grows with them once the roughly
-33 ms of linear work every shape pays is set aside: 14 ms, 47 ms, 218 ms.
-
-The cost is CPU, not memory. Allocations are flat across a 126x range of scan
-steps, so `cleanDiagnosticPath` in the innermost loop does not allocate for the
-already-clean relative paths coverage produces on darwin and Linux — it returns
-its argument. It still costs **81.7 ns** a call to reparse that path, which is
-about 172 ms of the concentrated shape's 218 ms of scan. Hoisting it above the
-loop is the cheapest change available, and on this fixture it is most of the
-cost of the quadratic it sits inside.
-
-`Overview` is not where the time goes. It answers in about 0.2 ms and 5
-allocations regardless of shape, because it reads an index that is already
-built. The 17 minutes `query overview` takes on a whole-codebase saga is
-construction, not query, and a session that survived more than one query would
-pay it once.
-
-`Open` is not a useful lens on any of this at fixture scale: at 4,096 atoms it
-is dominated by `git diff`, `saga.Load` and snapshot construction, and its
-spread across runs is wider than the difference the scan makes. It is reported
-because it is what a reviewer actually waits for; the construction column is
-the one that moves.
-
-The fixture is four orders of magnitude below the whole-codebase saga in
-[large-saga-diagnosis.md](large-saga-diagnosis.md) — 2.1e6 scan steps against
-1.19e10 — so it reproduces that saga's shape and growth rate, not its absolute
-cost.
+`Overview` itself is cheap once a session exists; cold `Open` also includes
+Saga loading, Git diff generation, coverage evaluation, snapshot construction,
+review indexing, and attribution. Those components become the next profiling
+surface now that selector linking is linear.
 
 ## Where the payload went
 
@@ -268,10 +234,10 @@ Earlier work, unchanged by this pass and kept for context:
 ## Remaining bottlenecks
 
 A separate investigation into a whole-codebase saga — 532,290 changed atoms
-across 2,666 files — found three defects that dominate everything below at that
-scale, including a quadratic in `reviewapp.session.build`. They are recorded,
-unfixed, in [large-saga-diagnosis.md](large-saga-diagnosis.md), and the
-benchmark above reproduces the shape that causes them at fixture scale.
+across 2,666 files — found three defects that dominated at that scale. Dense
+range authoring and direct selector identity indexing now fix them; the history
+and measurements remain in [large-saga-diagnosis.md](large-saga-diagnosis.md),
+and the benchmark above retains the pathological shape as a regression case.
 
 - `attachedFileNotes` is the largest single cost left in first load: 32% of CPU
   and about 143 MB of the 313 MB a warm page allocates for this repository's

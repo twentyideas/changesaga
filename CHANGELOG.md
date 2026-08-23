@@ -24,6 +24,18 @@ tool, and what they have to do about it.
   than line-grained. In practice a Saga's head identity is a digest of the whole
   product patch, so any edit that changes the diff already invalidates every
   reference in the comparison regardless of granularity.
+- Manual `--lines` input is sorted, deduplicated, and coalesced into the same
+  canonical dense ranges, so equivalent selector spellings cannot inflate an
+  evidence record.
+- Generated evidence filenames now identify their canonical selector set
+  instead of the authoring timestamp. Unrelated selectors remain independent
+  Git merge units; two branches that explain the same selectors differently
+  write the same path and must reconcile the disagreement explicitly.
+- Review-session selector construction now resolves coverage assignments
+  through a direct identity index instead of scanning every selector owned by
+  the target. Focused scale benchmarks measure up to a 60× improvement and
+  guard linear growth. Atom URI lookup stores positions into the canonical atom
+  slice rather than copying each atom into the map.
 
 ## [0.0.7] - 2026-08-22
 

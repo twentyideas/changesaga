@@ -26,35 +26,24 @@ import (
 //   - authored_ranges is the shape a reviewer writes with `cover --lines`:
 //     1,024 four-line ranged references spread over every fragment, so no
 //     target owns more than eight selectors.
-//   - per_line_evidence_64/16/4_targets is the shape `cover --changed-lines`
-//     writes and the shape sagas already on disk have: one reference per
-//     changed line. The same 4,096 references are concentrated onto fewer
-//     targets at each step, which is what distinguishes a real saga, where a
-//     few narrative targets own most of the comparison.
+//   - per_line_evidence_64/16/4_targets deliberately bypasses the authoring
+//     canonicalization and stores one reference per changed line. The same
+//     4,096 references are concentrated onto fewer targets at each step, which
+//     defends the reader against malformed or adversarial producers.
 //
-// Selector construction scans one target's selectors once per atom that target
-// owns, so its cost is sum over targets of atoms x selectors. Quartering the
-// target count quadruples that sum while every other input stays byte-identical
-// — same atoms, same tree, same reviews, same total references — so the sweep
-// isolates the scan from the linear work around it. scan-steps/atom, reported
-// below, is the exact step count of that loop over the built index; it
-// quadruples at each step and a linear construction would hold it flat. The
-// ranged control pays 4.1 steps per atom against the most concentrated shape's
-// 512.5.
+// The former implementation scanned one target's selectors once per atom that
+// target owned. former-scan-steps/atom reports exactly how much work that loop
+// would perform for each fixture: it quadruples as targets are quartered, while
+// the direct selector identity index must keep actual construction near-linear.
 //
 // What it does not measure. Nothing here asserts a wall-clock time or an
 // allocation count: benchmark hosts vary, and docs/performance.md keeps timing
 // and allocation figures as diagnostics rather than budgets. ns/op, B/op and
 // allocs/op are reported for comparison against the reference results recorded
-// there, and per-atom figures are ns/op or B/op divided by the reported
-// atoms/op. The scan barely allocates — cleanDiagnosticPath returns its
-// argument for an already-clean relative path, and costs 81.7 ns of CPU to
-// decide that — so allocations track the saga's size rather than the scan, and
-// it is ns/op and scan-steps/atom that move together. The fixture is four orders of magnitude below the
-// whole-codebase saga in docs/large-saga-diagnosis.md — 2.1e6 scan steps
-// against 1.19e10 — so it reproduces that saga's shape and growth rate, not its
-// absolute cost. Cold-cache filesystem behaviour is not represented either: a
-// fixture is generated once per process and stays warm.
+// there. The fixture is four orders of magnitude below the whole-codebase saga
+// in docs/large-saga-diagnosis.md — 2.1e6 former scan steps against 1.19e10 —
+// so it reproduces the pathological shape, not its absolute cost. Cold-cache
+// filesystem behaviour is not represented: fixtures stay warm.
 
 type largeSagaShape struct {
 	name    string
@@ -84,7 +73,7 @@ func BenchmarkLargeSagaOpen(b *testing.B) {
 		b.Run(shape.name, func(b *testing.B) {
 			fixture := largeSagaFixture(b, shape)
 			options := OpenOptions{SagaRoot: fixture.Root, SourceDir: fixture.Repository}
-			steps := largeSagaScanSteps(b, fixture)
+			steps := formerSelectorScanSteps(b, fixture)
 
 			b.ReportAllocs()
 			for b.Loop() {
@@ -110,7 +99,7 @@ func BenchmarkLargeSagaOverview(b *testing.B) {
 		b.Run(shape.name, func(b *testing.B) {
 			fixture := largeSagaFixture(b, shape)
 			opened := openLargeSaga(b, fixture)
-			steps := largeSagaScanSteps(b, fixture)
+			steps := formerSelectorScanSteps(b, fixture)
 
 			b.ReportAllocs()
 			for b.Loop() {
@@ -138,7 +127,7 @@ func BenchmarkLargeSagaSelectorConstruction(b *testing.B) {
 		b.Run(shape.name, func(b *testing.B) {
 			fixture := largeSagaFixture(b, shape)
 			document, changes, report := largeSagaInputs(b, fixture)
-			steps := largeSagaScanSteps(b, fixture)
+			steps := formerSelectorScanSteps(b, fixture)
 
 			b.ReportAllocs()
 			for b.Loop() {
@@ -154,9 +143,10 @@ func BenchmarkLargeSagaSelectorConstruction(b *testing.B) {
 // TestLargeSagaBenchmarkShapesRemainRealistic guards the benchmark rather than
 // the product. Every shape must be a valid, completely covered saga that Open
 // accepts and Overview answers, the per-line shapes must keep their evidence
-// concentrated, and their selector scan cost must keep growing faster than
-// their atom count. If a fixture change flattens that growth, these benchmarks
-// stop exercising the construction they exist to watch and this fails first.
+// concentrated, and the scan cost of the implementation this benchmark guards
+// against must keep growing faster than atom count. If a fixture change
+// flattens that hypothetical cost, the benchmark stops exercising its intended
+// regression shape and this fails first.
 func TestLargeSagaBenchmarkShapesRemainRealistic(t *testing.T) {
 	ctx := context.Background()
 	stepsByTargets := map[int]int64{}
@@ -178,8 +168,8 @@ func TestLargeSagaBenchmarkShapesRemainRealistic(t *testing.T) {
 				t.Fatalf("overview reported %d chapters, want %d", len(overview.Chapters), fixture.Chapters)
 			}
 
-			steps := largeSagaScanSteps(t, fixture)
-			t.Logf("atoms=%d references=%d targets=%d max-target-refs=%d scan-steps=%d (%.1f per atom)",
+			steps := formerSelectorScanSteps(t, fixture)
+			t.Logf("atoms=%d references=%d targets=%d max-target-refs=%d former-scan-steps=%d (%.1f per atom)",
 				fixture.Atoms, fixture.References, fixture.CoverageTargets, fixture.MaxTargetReferences, steps, float64(steps)/float64(fixture.Atoms))
 			if shape.options.CoverageRangeWidth != 1 {
 				rangedSteps, rangedAtoms = steps, int64(fixture.Atoms)
@@ -223,11 +213,10 @@ func TestLargeSagaBenchmarkShapesRemainRealistic(t *testing.T) {
 	}
 }
 
-// largeSagaScanSteps counts the iterations the selector construction in
-// session.build performs over the index it built, which is a property of the
-// saga rather than of the host: the same fixture yields the same count on any
-// machine, so it can be asserted where a duration cannot.
-func largeSagaScanSteps(tb testing.TB, fixture testfixture.LargeSaga) int64 {
+// formerSelectorScanSteps counts the iterations the removed linear selector
+// scan would perform. It is a deterministic property of the saga and makes the
+// adversarial fixture shape assertable without a wall-clock threshold.
+func formerSelectorScanSteps(tb testing.TB, fixture testfixture.LargeSaga) int64 {
 	tb.Helper()
 	largeSagaFixtures.Lock()
 	defer largeSagaFixtures.Unlock()
@@ -262,8 +251,8 @@ func reportLargeSagaMetrics(b *testing.B, fixture testfixture.LargeSaga, steps i
 	b.ReportMetric(float64(fixture.Atoms), "atoms/op")
 	b.ReportMetric(float64(fixture.References), "references/op")
 	b.ReportMetric(float64(fixture.MaxTargetReferences), "max-target-refs/op")
-	b.ReportMetric(float64(steps), "scan-steps/op")
-	b.ReportMetric(float64(steps)/float64(fixture.Atoms), "scan-steps/atom")
+	b.ReportMetric(float64(steps), "former-scan-steps/op")
+	b.ReportMetric(float64(steps)/float64(fixture.Atoms), "former-scan-steps/atom")
 }
 
 func openLargeSaga(tb testing.TB, fixture testfixture.LargeSaga) Session {
@@ -299,7 +288,7 @@ func newLargeSagaSession(document *saga.Saga, changes gitdiff.ChangeSet, report 
 	return &session{
 		document: document, changes: changes, report: report,
 		targets: map[string]*targetEntry{}, selectors: map[string][]selectorEntry{},
-		selectorsByAtom: map[string][]DiffOwner{}, atomByURI: map[string]gitdiff.Atom{},
+		selectorsByAtom: map[string][]DiffOwner{}, atomByURI: map[string]int{},
 		fragments: map[string]fragmentValue{}, threads: map[string]ReviewThread{}, threadsByDiff: map[string][]ReviewThread{},
 	}
 }

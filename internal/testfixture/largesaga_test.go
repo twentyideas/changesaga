@@ -80,11 +80,10 @@ func TestGenerateLargeSagaIsDeterministicAndValid(t *testing.T) {
 	}
 }
 
-// TestGenerateLargeSagaCoverageShapeIsSelectable covers the shape a saga has
-// once `cover --changed-lines` has written it: a reference per changed line,
-// owned by a few narrative targets. Benchmarks need that shape because the
-// default one — ranged references spread over every fragment — gives no target
-// enough selectors to exercise selector resolution at a realistic length.
+// TestGenerateLargeSagaCoverageShapeIsSelectable covers a deliberately
+// fragmented input: one reference per changed line, owned by a few narrative
+// targets. The authoring API no longer emits this shape, but reader benchmarks
+// retain it to prove adversarial evidence cannot restore nonlinear behavior.
 func TestGenerateLargeSagaCoverageShapeIsSelectable(t *testing.T) {
 	options := LargeSagaOptions{
 		Chapters: 2, SectionsPerChapter: 2, FragmentsPerSection: 3,
