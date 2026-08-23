@@ -122,16 +122,23 @@ func TestCoverChangedLinesSelectsExactFileAtomsAndAddEvent(t *testing.T) {
 	if err := json.Unmarshal([]byte(output), &result); err != nil {
 		t.Fatalf("decode output: %v\n%s", err, output)
 	}
-	if !result.OK || result.Records != 1 || result.Selectors != 6 {
-		t.Fatalf("changed-lines summary = %#v, want five lines plus add event", result)
+	// The five added lines are dense, so they canonicalize to a single ranged
+	// selector. The add event stays its own reference: an event is not a line.
+	if !result.OK || result.Records != 1 || result.Selectors != 2 {
+		t.Fatalf("changed-lines summary = %#v, want one dense range plus the add event", result)
 	}
 	references := readDiffFile(t, filepath.Join(root, "___diffs", "whole-file.json"))
 	seenAdd := false
-	for _, reference := range references {
-		seenAdd = seenAdd || strings.Contains(reference.URI, "event=add")
+	seenRange := false
+	for _, parsed := range parseSelectors(t, references) {
+		seenAdd = seenAdd || (parsed.Kind == "event" && parsed.Event == "add")
+		seenRange = seenRange || (parsed.Kind == "line" && parsed.Side == "new" && parsed.Start == 1 && parsed.End == 5)
 	}
 	if !seenAdd {
 		t.Fatalf("added file event was not selected automatically: %#v", references)
+	}
+	if !seenRange {
+		t.Fatalf("five consecutive added lines did not coalesce into one range: %#v", references)
 	}
 	report, err := buildReport(context.Background(), root, repo)
 	if err != nil {

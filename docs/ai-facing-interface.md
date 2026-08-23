@@ -370,10 +370,12 @@ does not rewrite evidence or advance the maintained Saga's source declaration.
 standard input while preserving its manifest and media type. `cover
 --changed-lines` derives the exact changed line atoms for one path, optionally
 filtered by side, coalesces gapless lines into canonical dense ranges, and
-includes file events such as `add`. It is appropriate only when the entire
-named file change belongs to the target. Generated evidence paths identify the
-canonical selector set; a second explanation for the same selectors is an
-explicit replacement rather than a timestamp-suffixed duplicate.
+includes file events such as `add`. Coalescing is restricted to atoms sharing
+a repository, base, head, path, and side and never spans a gap; file events
+remain separate references. It is appropriate only when the entire named file
+change belongs to the target. Generated evidence paths identify the canonical
+selector set; a second explanation for the same selectors is an explicit
+replacement rather than a timestamp-suffixed duplicate.
 
 `query mappings` returns `evidence_file` as the stable repair handle.
 `remove-coverage --record PATH` deletes exactly that record.

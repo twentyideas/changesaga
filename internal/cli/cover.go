@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/twentyideas/changesaga/internal/diffuri"
@@ -311,13 +312,19 @@ func buildCoverageFile(record coverRecord, changes *gitdiff.ChangeSet, repositor
 			return saga.DiffFile{}, errors.New("--changed-lines requires the source comparison")
 		}
 		path := filepath.ToSlash(record.Path)
+		var selected []gitdiff.Atom
 		for _, atom := range changes.Atoms {
 			matchesPath := atom.Path == path || atom.OldPath == path || atom.NewPath == path
 			if !matchesPath || atom.Kind == "line" && record.Side != "" && atom.Side != record.Side {
 				continue
 			}
-			uris = append(uris, atom.URI)
+			selected = append(selected, atom)
 		}
+		selectors, err := changedLineSelectors(selected)
+		if err != nil {
+			return saga.DiffFile{}, err
+		}
+		uris = append(uris, selectors...)
 		if len(uris) == 0 {
 			return saga.DiffFile{}, fmt.Errorf("--path %q has no changed atoms%s", path, map[bool]string{true: " on side " + record.Side, false: ""}[record.Side != ""])
 		}
@@ -356,6 +363,102 @@ func buildCoverageFile(record coverRecord, changes *gitdiff.ChangeSet, repositor
 		file.Diffs = append(file.Diffs, saga.DiffReference{URI: value, Note: record.Note})
 	}
 	return file, nil
+}
+
+// changedLineGroup accumulates every line one identity contributed, in the
+// order the identity was first seen. Identity is the whole comparison address
+// minus the line numbers, so two groups can never be merged with each other.
+type changedLineGroup struct {
+	reference diffuri.Reference
+	lines     []int
+	seen      map[int]bool
+}
+
+// changedLineSelectors names exactly the atoms it is given, using the fewest
+// URIs that can name them. Consecutive line atoms coalesce into one ranged URI
+// only when their repository, base, head, path, and side are identical and
+// their line numbers are dense. A dense range is not a widened selector: every
+// line it spans is an atom that was already going to be written, so coverage,
+// ownership, and overlap are byte-identical to emitting one URI per line.
+// Events never coalesce -- an event is not a line and has no range spelling.
+func changedLineSelectors(atoms []gitdiff.Atom) ([]string, error) {
+	// A slot is one position in the output. Event slots carry their URI
+	// verbatim; a line slot stands in for the group's first atom and expands to
+	// that group's ranges, so relative order survives coalescing.
+	type slot struct {
+		uri   string
+		group *changedLineGroup
+	}
+	var slots []slot
+	groups := map[string]*changedLineGroup{}
+	for _, atom := range atoms {
+		reference, err := diffuri.Parse(atom.URI)
+		if err != nil {
+			return nil, fmt.Errorf("parse changed atom URI %q: %w", atom.URI, err)
+		}
+		if reference.Kind != "line" {
+			slots = append(slots, slot{uri: atom.URI})
+			continue
+		}
+		key := changedLineGroupKey(reference)
+		group, ok := groups[key]
+		if !ok {
+			group = &changedLineGroup{reference: reference, seen: map[int]bool{}}
+			groups[key] = group
+			slots = append(slots, slot{group: group})
+		}
+		for line := reference.Start; line <= reference.End; line++ {
+			if group.seen[line] {
+				continue
+			}
+			group.seen[line] = true
+			group.lines = append(group.lines, line)
+		}
+	}
+	uris := make([]string, 0, len(slots))
+	for _, current := range slots {
+		if current.group == nil {
+			uris = append(uris, current.uri)
+			continue
+		}
+		values, err := current.group.selectors()
+		if err != nil {
+			return nil, err
+		}
+		uris = append(uris, values...)
+	}
+	return uris, nil
+}
+
+// changedLineGroupKey is every part of a line reference except the range. Two
+// references share a key only when a range spanning both would address the same
+// file, on the same side, of the same comparison.
+func changedLineGroupKey(reference diffuri.Reference) string {
+	return strings.Join([]string{reference.Repository, reference.Base, reference.Head, reference.Path, reference.Side}, "\x00")
+}
+
+// selectors emits one ranged URI per dense run, ascending. A gap of even one
+// line ends the run, so a range never spans a line that was not selected.
+func (group *changedLineGroup) selectors() ([]string, error) {
+	lines := append([]int(nil), group.lines...)
+	sort.Ints(lines)
+	var uris []string
+	for index := 0; index < len(lines); {
+		end := index
+		for end+1 < len(lines) && lines[end+1] == lines[end]+1 {
+			end++
+		}
+		reference := group.reference
+		reference.Start = lines[index]
+		reference.End = lines[end]
+		value, err := diffuri.Build(reference)
+		if err != nil {
+			return nil, err
+		}
+		uris = append(uris, value)
+		index = end + 1
+	}
+	return uris, nil
 }
 
 // planCoverage resolves every target and destination filename up front. Names

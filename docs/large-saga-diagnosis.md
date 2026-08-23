@@ -1,8 +1,8 @@
 # Why a whole-codebase saga is 230 MB and takes 17 minutes
 
-Status: **diagnosis only. Nothing described here is fixed.** This records what
-was measured, what causes it, and the decisions each fix would require. It is
-not a design and it is not a plan.
+Status: **Defect 1 is fixed; Defects 2 and 3 are not.** This records what was
+measured, what causes it, and the decisions each fix would require. For the
+remaining defects it is not a design and it is not a plan.
 
 The saga behind it documents an entire codebase: 2,666 source files, 532,290
 changed atoms, 118 narrative targets that own evidence, fully mapped with no
@@ -40,7 +40,11 @@ OID, the 64-hex product head identity, and the source path. The information
 content is one comparison identity, 2,666 paths, 133 sentences, and a set of
 line numbers.
 
-## Defect 1 — `cover --changed-lines` never coalesces
+## Defect 1 — `cover --changed-lines` never coalesces — **fixed**
+
+The measurements below describe the behaviour before the fix. `--changed-lines`
+now coalesces as described under "What the fix costs"; see
+`changedLineSelectors` in `internal/cli/cover.go`.
 
 `internal/cli/cover.go:317`
 
@@ -96,6 +100,14 @@ simplification is a maintainer's call, not a mechanical one.
 Measured effect of doing it: **230.36 MB → 2.33 MB**, 532,290 references →
 5,330, with byte-identical coverage — same atoms, same owners, same notes, same
 overlaps, same orphans.
+
+That decision was taken: coarser stale detection for derived coverage is
+accepted. Ranges are built per identity (repository, base, head, path, side)
+and only across gapless line numbers, so a range never spans a line the flag
+did not select. The loss is smaller than it reads: head identity is a digest of
+the whole product patch, so an edit that stops line 2 from being a changed line
+also changes the head and orphans every reference in the comparison, ranged or
+not.
 
 ## Defect 2 — `session.build` recomputes a path inside its innermost loop
 
