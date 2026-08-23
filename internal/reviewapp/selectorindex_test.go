@@ -19,7 +19,7 @@ func linkedSession(document *saga.Saga, changes gitdiff.ChangeSet, report covera
 		document: document, changes: changes, report: report,
 		targets: map[string]*targetEntry{}, selectors: map[string][]selectorEntry{},
 		selectorsByAtom: make(map[string][]DiffOwner, len(report.Ownership)),
-		atomByURI:       make(map[string]gitdiff.Atom, len(changes.Atoms)),
+		atomByURI:       make(map[string]int, len(changes.Atoms)),
 		fragments:       map[string]fragmentValue{}, threads: map[string]ReviewThread{}, threadsByDiff: map[string][]ReviewThread{},
 	}
 	service.indexSection(document.Section, "")
@@ -72,7 +72,7 @@ func TestSelectorIdentityResolvesEveryAssignment(t *testing.T) {
 	if owners[1].EvidenceFile != "___diffs/root.json" || owners[1].Note != "second" {
 		t.Fatalf("second owner of uri-1 = %#v, want the root evidence file note", owners[1])
 	}
-	if stored, ok := service.atomByURI["uri-2"]; !ok || stored.Key != "key-2" {
+	if stored, ok := service.atomByURI["uri-2"]; !ok || service.changes.Atoms[stored].Key != "key-2" {
 		t.Fatalf("atom index missed uri-2: %#v", service.atomByURI)
 	}
 }

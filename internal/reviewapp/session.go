@@ -61,7 +61,7 @@ type session struct {
 	targets         map[string]*targetEntry
 	selectors       map[string][]selectorEntry
 	selectorsByAtom map[string][]DiffOwner
-	atomByURI       map[string]gitdiff.Atom
+	atomByURI       map[string]int
 	fragments       map[string]fragmentValue
 	reviewItems     []ReviewItem
 	threads         map[string]ReviewThread
@@ -109,7 +109,7 @@ func Open(ctx context.Context, options OpenOptions) (Session, error) {
 	s := &session{
 		snapshot: snapshot, document: document, changes: changes, report: report,
 		targets: map[string]*targetEntry{}, selectors: map[string][]selectorEntry{},
-		selectorsByAtom: make(map[string][]DiffOwner, len(report.Ownership)), atomByURI: make(map[string]gitdiff.Atom, len(changes.Atoms)),
+		selectorsByAtom: make(map[string][]DiffOwner, len(report.Ownership)), atomByURI: make(map[string]int, len(changes.Atoms)),
 		fragments: map[string]fragmentValue{}, threads: map[string]ReviewThread{}, threadsByDiff: map[string][]ReviewThread{},
 	}
 	if err := s.build(ctx); err != nil {
@@ -184,7 +184,7 @@ func (s *session) linkOwnership() {
 	normalized := map[string]string{}
 	for i := range s.changes.Atoms {
 		atom := &s.changes.Atoms[i]
-		s.atomByURI[atom.URI] = *atom
+		s.atomByURI[atom.URI] = i
 		for _, assignment := range s.report.Ownership[atom.Key] {
 			evidenceFile, known := normalized[assignment.DiffFile]
 			if !known {
@@ -503,8 +503,8 @@ func (s *session) DiffOwners(ctx context.Context, query DiffOwnerQuery) (DiffOwn
 				atoms = append(atoms, atom)
 			}
 		}
-	} else if atom, ok := s.atomByURI[query.Diff]; ok {
-		atoms = append(atoms, atom)
+	} else if index, ok := s.atomByURI[query.Diff]; ok {
+		atoms = append(atoms, s.changes.Atoms[index])
 	}
 	if len(atoms) == 0 {
 		return DiffOwnership{}, notFound("diff", query.Diff)
