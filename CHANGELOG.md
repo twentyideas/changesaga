@@ -10,6 +10,21 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+### Changed
+
+- `change-saga cover --changed-lines` now emits one ranged diff URI per dense
+  run of consecutive changed lines instead of one URI per line. Coalescing is
+  restricted to line atoms that share a repository, base, head, path, and side
+  and whose line numbers have no gap, so the emitted selectors address exactly
+  the atoms the flag already selected: same coverage, same owners, same notes,
+  same overlaps. File events are never coalesced. On a saga covering an entire
+  codebase this replaced 529,599 single-line references with dense ranges.
+  Because a dense range keeps matching when one line inside it stops being a
+  changed line, stale detection for derived coverage is range-grained rather
+  than line-grained. In practice a Saga's head identity is a digest of the whole
+  product patch, so any edit that changes the diff already invalidates every
+  reference in the comparison regardless of granularity.
+
 ## [0.0.7] - 2026-08-22
 
 ### Added

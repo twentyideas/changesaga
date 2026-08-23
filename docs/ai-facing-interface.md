@@ -370,7 +370,11 @@ does not rewrite evidence or advance the maintained Saga's source declaration.
 standard input while preserving its manifest and media type. `cover
 --changed-lines` derives the exact changed line atoms for one path, optionally
 filtered by side, and includes file events such as `add`. It is appropriate
-only when the entire named file change belongs to the target.
+only when the entire named file change belongs to the target. Derived line
+atoms are emitted as ranged diff URIs: consecutive lines that share a
+repository, base, head, path, and side and have no gap between them collapse
+into one reference addressing exactly those atoms. File events are always
+separate references.
 
 `query mappings` returns `evidence_file` as the stable repair handle.
 `remove-coverage --record PATH` deletes exactly that record.
