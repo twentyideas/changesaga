@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/twentyideas/changesaga/internal/diffuri"
@@ -88,6 +89,40 @@ func TestEvaluateFindsUncoveredOverlapAndOrphan(t *testing.T) {
 	}
 	if got := report.Uncovered[0].Line; got != 3 {
 		t.Fatalf("uncovered line = %d, want 3", got)
+	}
+}
+
+func TestEvaluateSummaryPreservesAggregatesWithoutAtomDetailIndexes(t *testing.T) {
+	atoms := []gitdiff.Atom{
+		lineAtom(t, "app.go", "new", 2),
+		lineAtom(t, "app.go", "new", 3),
+	}
+	current := atoms[0].URI
+	stale := buildURI(t, diffuri.Reference{Repository: testRepository, Base: testBase, Head: testHead, Kind: "line", Path: "missing.go", Side: "new", Start: 99, End: 99})
+	document := &saga.Saga{Section: &saga.Section{
+		Target: "urn:change-saga:test:saga",
+		Diffs: []saga.DiffFile{{Path: "___diffs/root.json", Diffs: []saga.DiffReference{
+			{URI: current}, {URI: current}, {URI: stale},
+		}}},
+	}}
+	changes := gitdiff.ChangeSet{Repository: testRepository, BaseOID: testBase, HeadOID: testHead, Atoms: atoms}
+	full := Evaluate(document, saga.Validation{Valid: true}, changes)
+	summary := EvaluateSummary(document, saga.Validation{Valid: true}, changes)
+
+	if len(full.Ownership) == 0 {
+		t.Fatal("full evaluation did not retain ownership")
+	}
+	if len(summary.Ownership) != 0 {
+		t.Fatalf("summary evaluation retained ownership: %#v", summary.Ownership)
+	}
+	if len(summary.Uncovered) != 0 || len(summary.Overlaps) != 0 {
+		t.Fatalf("summary evaluation retained atom details: uncovered=%d overlaps=%d", len(summary.Uncovered), len(summary.Overlaps))
+	}
+	full.Ownership = map[string][]Assignment{}
+	full.Uncovered = []gitdiff.Atom{}
+	full.Overlaps = []Overlap{}
+	if !reflect.DeepEqual(summary, full) {
+		t.Fatalf("summary aggregates differ from full report:\nsummary=%#v\nfull=%#v", summary, full)
 	}
 }
 

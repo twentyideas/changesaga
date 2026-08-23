@@ -152,6 +152,19 @@ Saga loading, Git diff generation, coverage evaluation, snapshot construction,
 review indexing, and attribution. Those components become the next profiling
 surface now that selector linking is linear.
 
+CLI `overview` and `children` queries use an aggregate-only `Open` mode because
+their response schemas expose counts and hierarchy, not atom-level details.
+The mode stores per-atom assignment state in a contiguous slice, spills only
+uncommon additional target owners into a sparse map, and omits ownership and
+reverse-selector indexes. Generated Git atoms are indexed from their structured
+fields and shared comparison identity rather than by parsing each long URI.
+
+On the 532,290-atom whole-codebase Saga, the original per-line evidence now
+opens in 10.74 s at 1.49 GB peak RSS, down from 1,049.7 s at 1.93 GB. Rewriting
+the identical evidence as 5,330 canonical dense ranges reduces the Saga from
+230.36 MB to 2.33 MB and the query to 3.80 s at 0.93 GB. Both responses carry
+identical data after excluding the content-derived snapshot hash.
+
 ## Where the payload went
 
 Before this work, the page carried every changed line twice: once inside a

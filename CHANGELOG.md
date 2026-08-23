@@ -36,6 +36,13 @@ tool, and what they have to do about it.
   the target. Focused scale benchmarks measure up to a 60× improvement and
   guard linear growth. Atom URI lookup stores positions into the canonical atom
   slice rather than copying each atom into the map.
+- `query overview` and `query children` now open aggregate-only sessions. Their
+  responses are unchanged, but coverage uses contiguous atom-indexed state and
+  sparse overlap storage, skips reparsing generated atom URIs, and does not
+  retain ownership, atom-gap, fragment-content, or reverse-selector indexes
+  that only focused queries consume. On the diagnosed 532,290-atom saga, the
+  unmigrated overview falls from 1,049.7 seconds to 10.74 seconds; regenerating
+  its evidence as dense ranges brings it to 3.80 seconds.
 
 ## [0.0.7] - 2026-08-22
 

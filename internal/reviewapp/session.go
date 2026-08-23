@@ -66,6 +66,9 @@ type session struct {
 	reviewItems     []ReviewItem
 	threads         map[string]ReviewThread
 	threadsByDiff   map[string][]ReviewThread
+	summaryOnly     bool
+	directCurrent   map[string]int
+	directStale     map[string]int
 }
 
 func Open(ctx context.Context, options OpenOptions) (Session, error) {
@@ -101,16 +104,32 @@ func Open(ctx context.Context, options OpenOptions) (Session, error) {
 	if err != nil {
 		return nil, newError(CodeSourceUnavailable, "the source comparison is unavailable", true, nil, err)
 	}
-	report := coverage.Evaluate(document, validation, changes)
+	var report coverage.Report
+	if options.SummaryOnly {
+		report = coverage.EvaluateSummary(document, validation, changes)
+	} else {
+		report = coverage.Evaluate(document, validation, changes)
+	}
 	snapshot, err := buildSnapshot(ctx, document.Root, changes)
 	if err != nil {
 		return nil, newError(CodeInternal, "the session snapshot could not be created", false, nil, err)
 	}
+	atomCapacity := len(changes.Atoms)
+	if options.SummaryOnly {
+		// The aggregate report and snapshot have consumed the atom data. Keeping
+		// it (or preallocating its reverse lookup) cannot serve either operation
+		// allowed to use this session mode.
+		changes.Atoms = nil
+		changes.SagaChanges = nil
+		changes.DisplayLines = nil
+		atomCapacity = 0
+	}
 	s := &session{
 		snapshot: snapshot, document: document, changes: changes, report: report,
 		targets: map[string]*targetEntry{}, selectors: map[string][]selectorEntry{},
-		selectorsByAtom: make(map[string][]DiffOwner, len(report.Ownership)), atomByURI: make(map[string]int, len(changes.Atoms)),
+		selectorsByAtom: make(map[string][]DiffOwner, len(report.Ownership)), atomByURI: make(map[string]int, atomCapacity),
 		fragments: map[string]fragmentValue{}, threads: map[string]ReviewThread{}, threadsByDiff: map[string][]ReviewThread{},
+		summaryOnly: options.SummaryOnly, directCurrent: map[string]int{}, directStale: map[string]int{},
 	}
 	if err := s.build(ctx); err != nil {
 		return nil, err
@@ -122,6 +141,18 @@ func (s *session) Snapshot() string { return s.snapshot }
 
 func (s *session) build(ctx context.Context) error {
 	s.indexSection(s.document.Section, "")
+	if s.summaryOnly {
+		for _, target := range s.report.Targets {
+			s.directCurrent[target.Target] = target.Covered
+		}
+		for _, orphan := range s.report.Orphans {
+			s.directStale[orphan.Assignment.Target]++
+		}
+		s.report.Orphans = nil
+		s.report.Targets = nil
+		s.report.SagaChanges = nil
+		return nil
+	}
 	// coverage.Report.Ownership is the single selector-resolution index. Both
 	// traversal directions below are projections of it, so they cannot drift
 	// from coverage's overlap and stale decisions.
@@ -239,7 +270,9 @@ func (s *session) indexSection(section *saga.Section, parent string) {
 		diffs: section.Diffs, reviews: section.Reviews,
 	}
 	s.targets[section.Target] = entry
-	s.indexDiffs(section.Target, section.Diffs)
+	if !s.summaryOnly {
+		s.indexDiffs(section.Target, section.Diffs)
+	}
 	for _, fragment := range section.Fragments {
 		fragmentEntry := &targetEntry{
 			node:  Node{Kind: "fragment", Target: fragment.Target, Parent: section.Target, ID: fragment.ID, Title: fragment.Title, Order: fragment.Order, MediaType: fragment.MediaType},
@@ -250,11 +283,15 @@ func (s *session) indexSection(section *saga.Section, parent string) {
 		}
 		if data, err := readContainedFile(fragment.Directory, fragment.Entrypoint); err == nil {
 			fragmentEntry.node.Bytes = int64(len(data))
-			assets, _ := listAssets(fragment)
-			s.fragments[fragment.Target] = fragmentValue{data: data, assets: assets}
+			if !s.summaryOnly {
+				assets, _ := listAssets(fragment)
+				s.fragments[fragment.Target] = fragmentValue{data: data, assets: assets}
+			}
 		}
 		s.targets[fragment.Target] = fragmentEntry
-		s.indexDiffs(fragment.Target, fragment.Diffs)
+		if !s.summaryOnly {
+			s.indexDiffs(fragment.Target, fragment.Diffs)
+		}
 		entry.children = append(entry.children, fragment.Target)
 		for i := range fragment.Landmarks {
 			landmark := &fragment.Landmarks[i]
@@ -263,7 +300,9 @@ func (s *session) indexSection(section *saga.Section, parent string) {
 				Description: landmark.Description, Selector: landmarkValue(landmark.Selector),
 			}, diffs: landmark.Diffs}
 			s.targets[landmark.Target] = landmarkEntry
-			s.indexDiffs(landmark.Target, landmark.Diffs)
+			if !s.summaryOnly {
+				s.indexDiffs(landmark.Target, landmark.Diffs)
+			}
 			fragmentEntry.children = append(fragmentEntry.children, landmark.Target)
 		}
 		fragmentEntry.node.HasChildren = len(fragmentEntry.children) > 0
@@ -303,11 +342,16 @@ func (s *session) finishNode(target string, recursive bool) Node {
 			node.Review.OpenThreads++
 		}
 	}
-	for _, selector := range s.selectors[target] {
-		if selector.stale != nil {
-			node.Diffs.DirectStale++
-		} else {
-			node.Diffs.DirectCurrent += len(selector.selector.Atoms)
+	if s.summaryOnly {
+		node.Diffs.DirectCurrent = s.directCurrent[target]
+		node.Diffs.DirectStale = s.directStale[target]
+	} else {
+		for _, selector := range s.selectors[target] {
+			if selector.stale != nil {
+				node.Diffs.DirectStale++
+			} else {
+				node.Diffs.DirectCurrent += len(selector.selector.Atoms)
+			}
 		}
 	}
 	node.Diffs.Current = node.Diffs.DirectCurrent

@@ -1,8 +1,9 @@
 # Why a whole-codebase saga is 230 MB and takes 17 minutes
 
-Status: **all three diagnosed defects are fixed.** The original measurements
-remain below as the regression baseline; focused scale benchmarks cover the
-authoring and selector-construction paths that caused it.
+Status: **all three diagnosed defects are fixed and remeasured end to end.**
+The original measurements remain below as the regression baseline; focused
+scale benchmarks cover the authoring and selector-construction paths that
+caused it.
 
 The saga behind it documents an entire codebase: 2,666 source files, 532,290
 changed atoms, 118 narrative targets that own evidence, fully mapped with no
@@ -34,6 +35,17 @@ resident size from `/usr/bin/time -l`.
 | `saga.Load` | 3.7 s, 2.60 GB allocated |
 | `coverage.Evaluate` | 4.4 s |
 | `change-saga query overview` | 1,049.7 s, 1.93 GB RSS |
+
+After the fixes, the same machine and source comparison measure:
+
+| Evidence representation | `query overview` | Peak RSS |
+| --- | ---: | ---: |
+| Original 230.36 MB / 532,290 per-line references | **10.74 s** | **1.49 GB** |
+| Canonical 2.33 MB / 5,330 dense references | **3.80 s** | **0.93 GB** |
+
+Both responses report 532,290 total and covered atoms, zero uncovered,
+overlapping, or stale atoms, and are byte-identical after removing the snapshot
+hash (which intentionally includes the different Saga directory contents).
 
 Every one of those 532,290 references restates the repository URL, the base
 OID, the 64-hex product head identity, and the source path. The information
@@ -201,13 +213,29 @@ canonical selector set and deliberately exclude the note: unrelated selectors
 write unrelated files, while different explanations for the same selectors
 write the same path and require explicit reconciliation.
 
+## The query API also avoids building detail-only state
+
+`overview` and `children` return hierarchy and aggregate counts; they cannot
+return atom ownership, individual gaps, fragment bodies, or reverse diff
+lookups. They now request a summary-only review session. Coverage records one
+small state value per atom in a contiguous slice, puts additional target owners
+in a sparse overlap map, and never constructs the large string-keyed ownership
+projection those focused operations need.
+
+The coverage index also stores atom positions rather than copied atom structs.
+For `gitdiff.Read` results it constructs the match reference from the atom's
+already parsed fields and the shared comparison identity, avoiding another
+parse of every long atom URI. Full sessions use the same positional index and
+transfer completed owner slices into the report without copying them.
+
+This is where cache locality materially helps: the hot per-atom state is a
+linear array addressed by integer, not hundreds of thousands of independently
+allocated map entries. It does not require a binary on-disk format; it is an
+in-memory execution detail behind an unchanged query response.
+
 ## Measured, versus inferred
 
 Measured: every baseline number in this document, the zero-ranged-reference
-count, the 83× improvement from ranged evidence, the coverage equivalence
-between encodings, and the focused selector-index speedups above.
-
-Not yet remeasured here: end-to-end `query overview` on the original 532,290
-atom fixture after all three fixes. Git diff, coverage evaluation, snapshot
-construction, and the remaining eager indexes determine the new floor once the
-11.9-billion-step scan is gone.
+count, the 83× experiment with ranged evidence, the coverage equivalence
+between encodings, the focused selector-index speedups, and the final 10.74 s /
+3.80 s end-to-end query results above.

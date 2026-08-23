@@ -159,7 +159,8 @@ func TestQueryDispatchesEveryOperationAndPreservesArguments(t *testing.T) {
 			if err := queryWithOpener(context.Background(), args, &out, open); err != nil {
 				t.Fatal(err)
 			}
-			if opened != (queryOpenOptions{SagaRoot: "review.saga", SourceDir: "source-repo"}) {
+			wantSummary := test.operation == "overview" || test.operation == "children"
+			if opened != (queryOpenOptions{SagaRoot: "review.saga", SourceDir: "source-repo", SummaryOnly: wantSummary}) {
 				t.Fatalf("open options = %#v", opened)
 			}
 			if session.called != test.operation || !reflect.DeepEqual(session.request, test.want) {

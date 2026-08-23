@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -181,6 +182,46 @@ func TestNodeDiffsSeparateDirectAndDescendantCoverage(t *testing.T) {
 	node := service.finishNode(fragment, false)
 	if node.Diffs.DirectCurrent != 0 || node.Diffs.DescendantCurrent != 2 || node.Diffs.Current != 2 {
 		t.Fatalf("fragment coverage = %#v, want zero direct and two descendant atoms", node.Diffs)
+	}
+}
+
+func TestSummarySessionMatchesOverviewAndChildrenWithoutDetailIndexes(t *testing.T) {
+	fixture := newServiceFixture(t)
+	ctx := context.Background()
+	compact, err := Open(ctx, OpenOptions{SagaRoot: fixture.root, SourceDir: fixture.repo, SummaryOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fullOverview, err := fixture.session.Overview(ctx, OverviewQuery{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	compactOverview, err := compact.Overview(ctx, OverviewQuery{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(compactOverview, fullOverview) {
+		t.Fatalf("summary overview differs from full overview:\nsummary=%#v\nfull=%#v", compactOverview, fullOverview)
+	}
+
+	parent := saga.SagaTarget("query-test")
+	fullChildren, err := fixture.session.Children(ctx, ChildrenQuery{Parent: parent})
+	if err != nil {
+		t.Fatal(err)
+	}
+	compactChildren, err := compact.Children(ctx, ChildrenQuery{Parent: parent})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(compactChildren, fullChildren) {
+		t.Fatalf("summary children differ from full children:\nsummary=%#v\nfull=%#v", compactChildren, fullChildren)
+	}
+
+	internal := compact.(*session)
+	if len(internal.changes.Atoms) != 0 || len(internal.report.Ownership) != 0 || len(internal.report.Orphans) != 0 || len(internal.report.Targets) != 0 || len(internal.selectors) != 0 || len(internal.selectorsByAtom) != 0 || len(internal.atomByURI) != 0 || len(internal.fragments) != 0 {
+		t.Fatalf("summary session retained detail indexes: changes=%d ownership=%d orphans=%d targets=%d selectors=%d owners=%d atoms=%d fragments=%d",
+			len(internal.changes.Atoms), len(internal.report.Ownership), len(internal.report.Orphans), len(internal.report.Targets), len(internal.selectors), len(internal.selectorsByAtom), len(internal.atomByURI), len(internal.fragments))
 	}
 }
 

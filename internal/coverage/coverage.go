@@ -64,8 +64,13 @@ type Report struct {
 }
 
 type indexedAtom struct {
-	atom      gitdiff.Atom
+	index     int
 	reference diffuri.Reference
+}
+
+type summaryAssignment struct {
+	owners      int
+	firstTarget string
 }
 
 type atomIndex struct {
@@ -75,35 +80,20 @@ type atomIndex struct {
 }
 
 func Evaluate(document *saga.Saga, validation saga.Validation, changes gitdiff.ChangeSet) Report {
-	report := Report{
-		CoverageScope: "mapping_only",
-		Repository:    changes.Repository, Base: changes.Base, Head: changes.Head, BaseOID: changes.BaseOID, HeadOID: changes.HeadOID,
-		SchemaValid: validation.Valid, SchemaIssues: nonNil(validation.Issues), SagaChanges: nonNil(changes.SagaChanges),
-		Uncovered: []gitdiff.Atom{}, Overlaps: []Overlap{}, Orphans: []Orphan{}, Targets: []TargetSummary{},
-		Ownership: make(map[string][]Assignment),
-	}
-	assignments := make(map[string][]Assignment, len(changes.Atoms))
-	index := buildIndex(changes.Atoms)
-
-	visitDiffs(document.Section.Target, document.Section.Diffs, index, assignments, &report)
-	walkSections(document.Section, func(section *saga.Section) {
-		if section != document.Section {
-			visitDiffs(section.Target, section.Diffs, index, assignments, &report)
-		}
-		for _, fragment := range section.Fragments {
-			visitDiffs(fragment.Target, fragment.Diffs, index, assignments, &report)
-			for landmarkIndex := range fragment.Landmarks {
-				landmark := &fragment.Landmarks[landmarkIndex]
-				visitDiffs(landmark.Target, landmark.Diffs, index, assignments, &report)
-			}
-		}
+	report := newReport(validation, changes)
+	assignments := make([][]Assignment, len(changes.Atoms))
+	index := buildIndex(changes)
+	walkDocumentDiffs(document, func(target string, files []saga.DiffFile) {
+		visitDiffs(target, files, index, assignments, &report)
 	})
 
 	targetCounts := map[string]int{}
-	for _, atom := range changes.Atoms {
-		owners := assignments[atom.Key]
+	for i, atom := range changes.Atoms {
+		owners := assignments[i]
 		if len(owners) > 0 {
-			report.Ownership[atom.Key] = append([]Assignment(nil), owners...)
+			// The per-atom slice is complete and never mutated again, so transfer
+			// its backing array into the report instead of copying every owner.
+			report.Ownership[atom.Key] = owners
 		}
 		switch len(owners) {
 		case 0:
@@ -121,16 +111,62 @@ func Evaluate(document *saga.Saga, validation saga.Validation, changes gitdiff.C
 			}
 		}
 	}
+	finishReport(&report, targetCounts, len(changes.Atoms), len(report.Uncovered), len(report.Overlaps), len(changes.SagaChanges))
+	return report
+}
+
+// EvaluateSummary computes coverage verdicts and per-target rollups without
+// retaining atom-level ownership, uncovered, or overlap details. Overview-style
+// queries use it because their bounded response needs counts, not the complete
+// reverse indexes that gap, fragment, and diff-owner queries traverse.
+func EvaluateSummary(document *saga.Saga, validation saga.Validation, changes gitdiff.ChangeSet) Report {
+	report := newReport(validation, changes)
+	assignments := make([]summaryAssignment, len(changes.Atoms))
+	otherTargets := map[int][]string{}
+	index := buildIndex(changes)
+	walkDocumentDiffs(document, func(target string, files []saga.DiffFile) {
+		visitDiffsSummary(target, files, index, assignments, otherTargets, &report)
+	})
+
+	targetCounts := map[string]int{}
+	uncovered, overlapping := 0, 0
+	for atomIndex, assignment := range assignments {
+		if assignment.owners == 0 {
+			uncovered++
+			continue
+		}
+		if assignment.owners > 1 {
+			overlapping++
+		}
+		targetCounts[assignment.firstTarget]++
+		for _, target := range otherTargets[atomIndex] {
+			targetCounts[target]++
+		}
+	}
+	finishReport(&report, targetCounts, len(changes.Atoms), uncovered, overlapping, len(changes.SagaChanges))
+	return report
+}
+
+func newReport(validation saga.Validation, changes gitdiff.ChangeSet) Report {
+	return Report{
+		CoverageScope: "mapping_only",
+		Repository:    changes.Repository, Base: changes.Base, Head: changes.Head, BaseOID: changes.BaseOID, HeadOID: changes.HeadOID,
+		SchemaValid: validation.Valid, SchemaIssues: nonNil(validation.Issues), SagaChanges: nonNil(changes.SagaChanges),
+		Uncovered: []gitdiff.Atom{}, Overlaps: []Overlap{}, Orphans: []Orphan{}, Targets: []TargetSummary{},
+		Ownership: make(map[string][]Assignment),
+	}
+}
+
+func finishReport(report *Report, targetCounts map[string]int, total, uncovered, overlapping, sagaChanges int) {
 	for target, count := range targetCounts {
 		report.Targets = append(report.Targets, TargetSummary{Target: target, Covered: count})
 	}
 	sort.Slice(report.Targets, func(i, j int) bool { return report.Targets[i].Target < report.Targets[j].Target })
 	report.Summary = Summary{
-		Total: len(changes.Atoms), Covered: len(changes.Atoms) - len(report.Uncovered), Uncovered: len(report.Uncovered),
-		Overlapping: len(report.Overlaps), Orphaned: len(report.Orphans), SagaChanges: len(changes.SagaChanges),
+		Total: total, Covered: total - uncovered, Uncovered: uncovered,
+		Overlapping: overlapping, Orphaned: len(report.Orphans), SagaChanges: sagaChanges,
 	}
-	report.Complete = validation.Valid && len(report.Uncovered) == 0 && len(report.Orphans) == 0
-	return report
+	report.Complete = report.SchemaValid && uncovered == 0 && len(report.Orphans) == 0
 }
 
 // nonNil keeps an empty collection encodable as [] instead of null. A nil Go
@@ -143,7 +179,7 @@ func nonNil[T any](values []T) []T {
 	return values
 }
 
-func visitDiffs(target string, files []saga.DiffFile, index atomIndex, assignments map[string][]Assignment, report *Report) {
+func visitDiffs(target string, files []saga.DiffFile, index atomIndex, assignments [][]Assignment, report *Report) {
 	for _, file := range files {
 		for i, reference := range file.Diffs {
 			assignment := Assignment{Target: target, DiffFile: file.Path, Diff: i + 1}
@@ -159,7 +195,7 @@ func visitDiffs(target string, files []saga.DiffFile, index atomIndex, assignmen
 			}
 			for _, candidate := range candidates {
 				if diffuri.Matches(selector, candidate.reference) {
-					assignments[candidate.atom.Key] = append(assignments[candidate.atom.Key], assignment)
+					assignments[candidate.index] = append(assignments[candidate.index], assignment)
 					matched++
 				}
 			}
@@ -170,14 +206,74 @@ func visitDiffs(target string, files []saga.DiffFile, index atomIndex, assignmen
 	}
 }
 
-func buildIndex(atoms []gitdiff.Atom) atomIndex {
-	index := atomIndex{lines: map[string][]indexedAtom{}, sorted: map[string]bool{}}
-	for _, atom := range atoms {
-		reference, err := diffuri.Parse(atom.URI)
-		if err != nil {
-			continue
+func visitDiffsSummary(target string, files []saga.DiffFile, index atomIndex, assignments []summaryAssignment, otherTargets map[int][]string, report *Report) {
+	for _, file := range files {
+		for i, reference := range file.Diffs {
+			assignment := Assignment{Target: target, DiffFile: file.Path, Diff: i + 1}
+			selector, err := diffuri.Parse(reference.URI)
+			if err != nil {
+				report.Orphans = append(report.Orphans, Orphan{Assignment: assignment, Reference: reference, Reason: err.Error()})
+				continue
+			}
+			matched := 0
+			candidates := index.events
+			if selector.Kind == "line" {
+				candidates = index.lineCandidates(selector)
+			}
+			for _, candidate := range candidates {
+				if diffuri.Matches(selector, candidate.reference) {
+					addSummaryAssignment(assignments, otherTargets, candidate.index, target)
+					matched++
+				}
+			}
+			if matched == 0 {
+				report.Orphans = append(report.Orphans, Orphan{Assignment: assignment, Reference: reference, Reason: "diff URI does not match the current source comparison"})
+			}
 		}
-		value := indexedAtom{atom: atom, reference: reference}
+	}
+}
+
+func addSummaryAssignment(assignments []summaryAssignment, otherTargets map[int][]string, atomIndex int, target string) {
+	assignment := &assignments[atomIndex]
+	assignment.owners++
+	if assignment.firstTarget == "" {
+		assignment.firstTarget = target
+		return
+	}
+	if assignment.firstTarget == target {
+		return
+	}
+	for _, existing := range otherTargets[atomIndex] {
+		if existing == target {
+			return
+		}
+	}
+	otherTargets[atomIndex] = append(otherTargets[atomIndex], target)
+}
+
+func buildIndex(changes gitdiff.ChangeSet) atomIndex {
+	index := atomIndex{lines: map[string][]indexedAtom{}, sorted: map[string]bool{}}
+	for atomIndex := range changes.Atoms {
+		atom := &changes.Atoms[atomIndex]
+		reference := diffuri.Reference{
+			Repository: changes.Repository, Base: changes.BaseOID, Head: changes.HeadOID,
+			Kind: atom.Kind, Path: atom.Path, Side: atom.Side, Start: atom.Line, End: atom.Line,
+			Event: atom.Event, OldPath: atom.OldPath, NewPath: atom.NewPath,
+		}
+		if atom.Kind == "event" && atom.Event == "rename" {
+			reference.Path = ""
+		}
+		// Hand-built ChangeSets used by package clients may omit the shared
+		// comparison identity. Production gitdiff.Read results always carry it,
+		// avoiding one long-URI parse and its allocations per atom.
+		if reference.Repository == "" || reference.Base == "" || reference.Head == "" {
+			var err error
+			reference, err = diffuri.Parse(atom.URI)
+			if err != nil {
+				continue
+			}
+		}
+		value := indexedAtom{index: atomIndex, reference: reference}
 		if reference.Kind == "line" {
 			key := lineIndexKey(reference)
 			index.lines[key] = append(index.lines[key], value)
@@ -186,6 +282,22 @@ func buildIndex(atoms []gitdiff.Atom) atomIndex {
 		}
 	}
 	return index
+}
+
+func walkDocumentDiffs(document *saga.Saga, visit func(string, []saga.DiffFile)) {
+	visit(document.Section.Target, document.Section.Diffs)
+	walkSections(document.Section, func(section *saga.Section) {
+		if section != document.Section {
+			visit(section.Target, section.Diffs)
+		}
+		for _, fragment := range section.Fragments {
+			visit(fragment.Target, fragment.Diffs)
+			for landmarkIndex := range fragment.Landmarks {
+				landmark := &fragment.Landmarks[landmarkIndex]
+				visit(landmark.Target, landmark.Diffs)
+			}
+		}
+	})
 }
 
 func (index atomIndex) lineCandidates(selector diffuri.Reference) []indexedAtom {
