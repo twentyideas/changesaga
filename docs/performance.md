@@ -192,6 +192,11 @@ Earlier work, unchanged by this pass and kept for context:
 
 ## Remaining bottlenecks
 
+A separate investigation into a whole-codebase saga — 532,290 changed atoms
+across 2,666 files — found three defects that dominate everything below at that
+scale, including a quadratic in `reviewapp.session.build`. They are recorded,
+unfixed, in [large-saga-diagnosis.md](large-saga-diagnosis.md).
+
 - `attachedFileNotes` is the largest single cost left in first load: 32% of CPU
   and about 143 MB of the 313 MB a warm page allocates for this repository's
   saga. Nearly all of it is `diffuri.Parse` re-deriving references that

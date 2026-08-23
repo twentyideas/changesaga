@@ -38,6 +38,7 @@ not a contract — where they disagree with the code, the code is current.
 | --- | --- |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | Setup, the checks CI runs, and the rules for format changes. |
 | [performance.md](performance.md) | The payload boundary large sagas depend on, its hard budgets and diagnostic metrics, deterministic fixtures, before-and-after measurements, and remaining bottlenecks. |
+| [large-saga-diagnosis.md](large-saga-diagnosis.md) | Why a whole-codebase saga reaches 230 MB and 17 minutes, traced to three unfixed defects in coverage authoring and session building. Diagnosis, not a plan. |
 | [../GOVERNANCE.md](../GOVERNANCE.md) | Roles, how decisions are made, and what is out of scope. |
 | [../SECURITY.md](../SECURITY.md) | Threat model and private reporting. |
 | [../SUPPORT.md](../SUPPORT.md) | Where to ask, and answers to the questions that come up most. |

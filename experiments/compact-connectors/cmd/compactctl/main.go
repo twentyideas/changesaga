@@ -99,6 +99,7 @@ func runStats(args []string) error {
 
 	owners := migrate.Owners(document)
 	files, references, withEvidence := 0, 0, 0
+	singleLine, ranged, events := 0, 0, 0
 	sources := map[string]bool{}
 	for _, owner := range owners {
 		if len(owner.Diffs) > 0 {
@@ -113,6 +114,14 @@ func runStats(args []string) error {
 					continue
 				}
 				sources[record.SourcePath()] = true
+				switch {
+				case record.Kind == "event":
+					events++
+				case record.Start == record.End:
+					singleLine++
+				default:
+					ranged++
+				}
 			}
 		}
 	}
@@ -127,6 +136,7 @@ func runStats(args []string) error {
 	fmt.Printf("evidence files  %d\n", files)
 	fmt.Printf("references      %d\n", references)
 	fmt.Printf("source paths    %d\n", len(sources))
+	fmt.Printf("line refs       %d single-line, %d ranged, %d events\n", singleLine, ranged, events)
 
 	if *repo != "" {
 		start = time.Now()
