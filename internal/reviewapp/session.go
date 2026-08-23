@@ -39,6 +39,15 @@ type selectorEntry struct {
 	diff     int
 }
 
+// selectorKey is the identity coverage assigns to one persisted diff reference:
+// the owning target, its evidence file, and the 1-based position of the
+// reference within that file.
+type selectorKey struct {
+	target       string
+	evidenceFile string
+	diff         int
+}
+
 type fragmentValue struct {
 	data   []byte
 	assets []AssetSummary
@@ -100,7 +109,7 @@ func Open(ctx context.Context, options OpenOptions) (Session, error) {
 	s := &session{
 		snapshot: snapshot, document: document, changes: changes, report: report,
 		targets: map[string]*targetEntry{}, selectors: map[string][]selectorEntry{},
-		selectorsByAtom: map[string][]DiffOwner{}, atomByURI: map[string]gitdiff.Atom{},
+		selectorsByAtom: make(map[string][]DiffOwner, len(report.Ownership)), atomByURI: make(map[string]gitdiff.Atom, len(changes.Atoms)),
 		fragments: map[string]fragmentValue{}, threads: map[string]ReviewThread{}, threadsByDiff: map[string][]ReviewThread{},
 	}
 	if err := s.build(ctx); err != nil {
@@ -112,52 +121,24 @@ func Open(ctx context.Context, options OpenOptions) (Session, error) {
 func (s *session) Snapshot() string { return s.snapshot }
 
 func (s *session) build(ctx context.Context) error {
-	for _, atom := range s.changes.Atoms {
-		s.atomByURI[atom.URI] = atom
-	}
 	s.indexSection(s.document.Section, "")
 	// coverage.Report.Ownership is the single selector-resolution index. Both
 	// traversal directions below are projections of it, so they cannot drift
 	// from coverage's overlap and stale decisions.
-	for _, atom := range s.changes.Atoms {
-		for _, assignment := range s.report.Ownership[atom.Key] {
-			entries := s.selectors[assignment.Target]
-			for i := range entries {
-				entry := &entries[i]
-				if entry.selector.EvidenceFile != cleanDiagnosticPath(assignment.DiffFile) || entry.diff != assignment.Diff {
-					continue
-				}
-				entry.selector.Atoms = append(entry.selector.Atoms, atom)
-				s.selectorsByAtom[atom.URI] = append(s.selectorsByAtom[atom.URI], DiffOwner{
-					Target: assignment.Target, Selector: entry.selector.URI, Note: entry.selector.Note, EvidenceFile: entry.selector.EvidenceFile,
-				})
-				break
-			}
-			s.selectors[assignment.Target] = entries
-		}
-	}
-	for target, entries := range s.selectors {
-		for i := range entries {
-			entry := &entries[i]
-			if len(entry.selector.Atoms) == 0 {
-				entry.selector.Status = "stale"
-				reason := "diff URI does not match the current source comparison"
-				for _, orphan := range s.report.Orphans {
-					if orphan.Assignment.Target == target && orphan.Assignment.DiffFile == entry.selector.EvidenceFile && orphan.Assignment.Diff == entry.diff {
-						reason = orphan.Reason
-						break
-					}
-				}
-				entry.stale = &StaleSelector{URI: entry.selector.URI, Note: entry.selector.Note, Target: target, EvidenceFile: entry.selector.EvidenceFile, Reason: reason}
-			} else {
-				entry.selector.Status = "current"
-			}
-		}
-		s.selectors[target] = entries
-	}
-	for uri := range s.selectorsByAtom {
-		sort.SliceStable(s.selectorsByAtom[uri], func(i, j int) bool {
-			left, right := s.selectorsByAtom[uri][i], s.selectorsByAtom[uri][j]
+	s.linkOwnership()
+	s.resolveStaleSelectors()
+	s.sortAtomOwners()
+	s.indexReviewItems(ctx)
+	return nil
+}
+
+// sortAtomOwners gives every atom a deterministic owner order. The slices are
+// sorted in place, so the map is read once per atom rather than once per
+// comparison.
+func (s *session) sortAtomOwners() {
+	for _, owners := range s.selectorsByAtom {
+		sort.SliceStable(owners, func(i, j int) bool {
+			left, right := &owners[i], &owners[j]
 			if left.Target != right.Target {
 				return left.Target < right.Target
 			}
@@ -167,8 +148,89 @@ func (s *session) build(ctx context.Context) error {
 			return left.Selector < right.Selector
 		})
 	}
-	s.indexReviewItems(ctx)
-	return nil
+}
+
+// selectorIndex maps every persisted diff reference to its stored entry so that
+// a coverage assignment resolves in constant time. It must be built after
+// indexSection has finished appending to s.selectors: the entries are addressed
+// by pointer, and a later append would move them.
+func (s *session) selectorIndex() map[selectorKey]*selectorEntry {
+	total := 0
+	for _, entries := range s.selectors {
+		total += len(entries)
+	}
+	index := make(map[selectorKey]*selectorEntry, total)
+	for target, entries := range s.selectors {
+		for i := range entries {
+			key := selectorKey{target: target, evidenceFile: entries[i].selector.EvidenceFile, diff: entries[i].diff}
+			// Two evidence files under one target can normalize to the same path.
+			// The scan this index replaced stopped at the first such entry, so
+			// duplicate identities keep resolving to the first one.
+			if _, taken := index[key]; !taken {
+				index[key] = &entries[i]
+			}
+		}
+	}
+	return index
+}
+
+// linkOwnership projects coverage ownership onto both traversal directions:
+// selector to atoms, and atom to owning selectors.
+func (s *session) linkOwnership() {
+	index := s.selectorIndex()
+	// Coverage repeats one raw evidence path across every atom that diff file
+	// owns, so each distinct path is normalized once. There is one key per stored
+	// diff file rather than per selector, so this stays small and is left unsized.
+	normalized := map[string]string{}
+	for i := range s.changes.Atoms {
+		atom := &s.changes.Atoms[i]
+		s.atomByURI[atom.URI] = *atom
+		for _, assignment := range s.report.Ownership[atom.Key] {
+			evidenceFile, known := normalized[assignment.DiffFile]
+			if !known {
+				evidenceFile = cleanDiagnosticPath(assignment.DiffFile)
+				normalized[assignment.DiffFile] = evidenceFile
+			}
+			entry := index[selectorKey{target: assignment.Target, evidenceFile: evidenceFile, diff: assignment.Diff}]
+			if entry == nil {
+				continue
+			}
+			entry.selector.Atoms = append(entry.selector.Atoms, *atom)
+			s.selectorsByAtom[atom.URI] = append(s.selectorsByAtom[atom.URI], DiffOwner{
+				Target: assignment.Target, Selector: entry.selector.URI, Note: entry.selector.Note, EvidenceFile: entry.selector.EvidenceFile,
+			})
+		}
+	}
+}
+
+// resolveStaleSelectors marks every selector coverage left unmatched, reusing
+// the orphan's own reason when coverage recorded one.
+func (s *session) resolveStaleSelectors() {
+	reasons := make(map[selectorKey]string, len(s.report.Orphans))
+	for i := range s.report.Orphans {
+		orphan := &s.report.Orphans[i]
+		// The orphan carries the evidence path exactly as it was stored, which is
+		// how the previous scan compared it, so it is keyed unnormalized here.
+		key := selectorKey{target: orphan.Assignment.Target, evidenceFile: orphan.Assignment.DiffFile, diff: orphan.Assignment.Diff}
+		if _, taken := reasons[key]; !taken {
+			reasons[key] = orphan.Reason
+		}
+	}
+	for target, entries := range s.selectors {
+		for i := range entries {
+			entry := &entries[i]
+			if len(entry.selector.Atoms) > 0 {
+				entry.selector.Status = "current"
+				continue
+			}
+			entry.selector.Status = "stale"
+			reason := "diff URI does not match the current source comparison"
+			if recorded, ok := reasons[selectorKey{target: target, evidenceFile: entry.selector.EvidenceFile, diff: entry.diff}]; ok {
+				reason = recorded
+			}
+			entry.stale = &StaleSelector{URI: entry.selector.URI, Note: entry.selector.Note, Target: target, EvidenceFile: entry.selector.EvidenceFile, Reason: reason}
+		}
+	}
 }
 
 func (s *session) indexSection(section *saga.Section, parent string) {
