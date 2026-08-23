@@ -111,13 +111,23 @@ for _, atom := range s.changes.Atoms {
 ```
 
 `cleanDiagnosticPath` is `filepath.Clean` plus `filepath.ToSlash`
-(`internal/reviewapp/session.go:565`) — it allocates, and it is called once per
-*inner* iteration although its argument only changes with the assignment. On
-this saga that is roughly **1.19e10 calls**.
+(`internal/reviewapp/session.go:565`), and it is called once per *inner*
+iteration although its argument only changes with the assignment. On this saga
+that is roughly **1.19e10 calls**.
 
 Hoisting it above the inner loop changes no behaviour at all. It is the single
 cheapest change available and it addresses most of the ~1,840 instructions per
 iteration the profile implies.
+
+Later benchmarking corrects one detail of this: the call does not allocate.
+`filepath.Clean` returns its argument unchanged for the already-clean relative
+paths coverage produces, and `filepath.ToSlash` is a no-op on darwin and Linux,
+so `testing.AllocsPerRun` measures zero allocations a call. What it costs is
+**81.7 ns** of CPU to reparse the path — about 172 ms of the 218 ms of scan in
+the most concentrated shape of `BenchmarkLargeSagaSelectorConstruction`
+(`internal/reviewapp/largesaga_bench_test.go`). The cost is real and the fix is
+unchanged; it is a CPU cost rather than a garbage one, and on Windows, where
+`ToSlash` rewrites separators, it would allocate as originally stated.
 
 ## Defect 3 — the same loop is quadratic
 

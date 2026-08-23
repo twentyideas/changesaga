@@ -80,6 +80,89 @@ func TestGenerateLargeSagaIsDeterministicAndValid(t *testing.T) {
 	}
 }
 
+// TestGenerateLargeSagaCoverageShapeIsSelectable covers the shape a saga has
+// once `cover --changed-lines` has written it: a reference per changed line,
+// owned by a few narrative targets. Benchmarks need that shape because the
+// default one — ranged references spread over every fragment — gives no target
+// enough selectors to exercise selector resolution at a realistic length.
+func TestGenerateLargeSagaCoverageShapeIsSelectable(t *testing.T) {
+	options := LargeSagaOptions{
+		Chapters: 2, SectionsPerChapter: 2, FragmentsPerSection: 3,
+		SourceFiles: 4, ChangedLinesPerFile: 4, ReviewsPerFragment: 1,
+		Threads: 1, DiffReviews: 1, CoverageRangeWidth: 1, CoverageTargets: 2,
+	}
+	fixture, err := GenerateLargeSaga(context.Background(), filepath.Join(t.TempDir(), "per-line"), options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fixture.CoverageRangeWidth != 1 || fixture.References != fixture.Atoms {
+		t.Fatalf("per-line evidence was not written: width=%d references=%d atoms=%d", fixture.CoverageRangeWidth, fixture.References, fixture.Atoms)
+	}
+	if fixture.CoverageTargets != 2 || fixture.DiffFiles != 2 {
+		t.Fatalf("evidence reached %d targets in %d diff files, want 2 of each", fixture.CoverageTargets, fixture.DiffFiles)
+	}
+	if got, want := fixture.MaxTargetReferences, fixture.Atoms/2; got != want {
+		t.Fatalf("the largest target owns %d references, want %d", got, want)
+	}
+
+	document, validation, err := saga.Load(fixture.Root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !validation.Valid {
+		t.Fatalf("concentrated per-line saga is invalid: %#v", validation.Issues)
+	}
+	changes, err := gitdiff.Read(context.Background(), fixture.Repository, document.Manifest.Source.Repository, fixture.Base, fixture.Head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := coverage.Evaluate(document, validation, changes)
+	if !report.Complete || report.Summary.Covered != fixture.Atoms || report.Summary.Overlapping != 0 || report.Summary.Orphaned != 0 {
+		t.Fatalf("concentrating evidence changed what it covers: %#v", report.Summary)
+	}
+}
+
+// TestDefaultLargeSagaOptionsKeepTheirSpreadRangedShape pins the default,
+// because the budgets in internal/server and internal/cli are byte counts over
+// a saga generated from it.
+func TestDefaultLargeSagaOptionsKeepTheirSpreadRangedShape(t *testing.T) {
+	options := DefaultLargeSagaOptions()
+	if options.CoverageRangeWidth != 0 || options.CoverageTargets != 0 {
+		t.Fatalf("the default fixture no longer selects the default coverage shape: %#v", options)
+	}
+	fixture, err := GenerateLargeSaga(context.Background(), filepath.Join(t.TempDir(), "default"), options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fragments := options.Chapters * options.SectionsPerChapter * options.FragmentsPerSection
+	if fixture.CoverageRangeWidth != coverageRangeWidth || fixture.CoverageTargets != fragments || fixture.MaxTargetReferences > coverageRangeWidth*2 {
+		t.Fatalf("the default fixture stopped spreading ranged evidence over every fragment: %#v", fixture)
+	}
+}
+
+func TestGenerateLargeSagaRejectsImpossibleCoverageShapes(t *testing.T) {
+	base := LargeSagaOptions{
+		Chapters: 1, SectionsPerChapter: 1, FragmentsPerSection: 2,
+		SourceFiles: 1, ChangedLinesPerFile: 1, ReviewsPerFragment: 0,
+		Threads: 0, DiffReviews: 0,
+	}
+	cases := map[string]LargeSagaOptions{
+		"negative range width":        {CoverageRangeWidth: -1},
+		"negative coverage targets":   {CoverageTargets: -1},
+		"more targets than fragments": {CoverageTargets: 3},
+	}
+	for name, overrides := range cases {
+		t.Run(name, func(t *testing.T) {
+			options := base
+			options.CoverageRangeWidth = overrides.CoverageRangeWidth
+			options.CoverageTargets = overrides.CoverageTargets
+			if _, err := GenerateLargeSaga(context.Background(), filepath.Join(t.TempDir(), "rejected"), options); err == nil {
+				t.Fatal("an impossible coverage shape was accepted")
+			}
+		})
+	}
+}
+
 func TestDefaultLargeSagaScaleBudget(t *testing.T) {
 	options := DefaultLargeSagaOptions()
 	atoms := options.SourceFiles * options.ChangedLinesPerFile * 2
