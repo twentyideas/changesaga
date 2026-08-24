@@ -219,3 +219,58 @@ func treeDigest(t *testing.T, root string) [sha256.Size]byte {
 	copy(result[:], hash.Sum(nil))
 	return result
 }
+
+// TestScalingChangedLinesWithRangeWidthHoldsEvidenceConstant pins the fixture
+// property the server's first-load budgets are built on. Those budgets separate
+// two things a real comparison changes together: how much code changed, and how
+// much evidence a reviewer authored about it. Widening the range in step with
+// the changed lines is what isolates them, so a page that grows must be growing
+// with the code it is supposed to be describing rather than carrying.
+//
+// The saga has to stay fully covered at every step, or a smaller page would
+// only mean a saga that explains less.
+func TestScalingChangedLinesWithRangeWidthHoldsEvidenceConstant(t *testing.T) {
+	base := LargeSagaOptions{
+		Chapters: 2, SectionsPerChapter: 2, FragmentsPerSection: 3,
+		SourceFiles: 4, ChangedLinesPerFile: 8, ReviewsPerFragment: 1,
+		Threads: 1, DiffReviews: 1, CoverageRangeWidth: 2,
+	}
+	deeper := base
+	deeper.ChangedLinesPerFile *= 4
+	deeper.CoverageRangeWidth *= 4
+
+	shapes := map[string]LargeSagaOptions{"base": base, "deeper": deeper}
+	references := map[string]int{}
+	for name, options := range shapes {
+		fixture, err := GenerateLargeSaga(context.Background(), filepath.Join(t.TempDir(), name), options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got, want := fixture.Atoms, options.SourceFiles*options.ChangedLinesPerFile*2; got != want {
+			t.Fatalf("%s: atoms = %d, want %d", name, got, want)
+		}
+		document, validation, err := saga.Load(fixture.Root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !validation.Valid {
+			t.Fatalf("%s saga is invalid: %#v", name, validation.Issues)
+		}
+		changes, err := gitdiff.Read(context.Background(), fixture.Repository, document.Manifest.Source.Repository, fixture.Base, fixture.Head)
+		if err != nil {
+			t.Fatal(err)
+		}
+		report := coverage.Evaluate(document, validation, changes)
+		if !report.Complete || report.Summary.Covered != fixture.Atoms ||
+			report.Summary.Uncovered != 0 || report.Summary.Overlapping != 0 || report.Summary.Orphaned != 0 {
+			t.Fatalf("%s: scaling the fixture stopped covering it exactly once: %#v", name, report.Summary)
+		}
+		references[name] = fixture.References
+	}
+
+	if references["base"] != references["deeper"] {
+		t.Fatalf("quadrupling changed lines and range width together authored %d evidence ranges against %d;\n"+
+			"  the server's first-load budgets read a change in page size as inlined code, and this would make it mean coverage instead",
+			references["deeper"], references["base"])
+	}
+}

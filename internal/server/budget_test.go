@@ -21,10 +21,16 @@ import (
 // reviewer opens that file.
 //
 // The numbers below are hard ceilings over a deterministic fixture, so they are
-// exact and stable rather than timing-sensitive. Wall-clock and allocation
-// figures are diagnostic, are reported by the benchmarks in this package, and
-// are recorded in docs/performance.md; they are deliberately not asserted,
-// because CI machines vary far more than any real regression would.
+// exact and stable rather than timing-sensitive. Wall-clock figures are
+// diagnostic, are reported by the benchmarks in this package, and are recorded
+// in docs/performance.md; they are deliberately not asserted, because CI
+// machines vary far more than any real regression would.
+//
+// A ceiling over one fixture cannot see a payload that grows with the size of
+// the comparison, which is the failure diagnosed in docs/large-saga-diagnosis.md.
+// firstload_budget_test.go measures the same first load across fixtures that
+// move one axis each and budgets the slopes, including the allocation and
+// retained-heap figures that do reproduce.
 //
 // Measured on the fixture these budgets use (8 chapters, 145 fragments, 144
 // changed files, 4,096 changed lines, 4,096 exact mappings):
