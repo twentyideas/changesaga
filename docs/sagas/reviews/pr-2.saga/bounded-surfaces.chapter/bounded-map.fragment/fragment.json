@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "bounded-map",
+  "title": "Bounded review surfaces",
+  "media_type": "image/svg+xml",
+  "entrypoint": "bounded-map.svg",
+  "order": 1
+}

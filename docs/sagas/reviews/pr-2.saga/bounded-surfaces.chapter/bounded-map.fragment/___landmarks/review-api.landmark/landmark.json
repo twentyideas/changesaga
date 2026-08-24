@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "review-api",
+  "label": "Review APIs",
+  "description": "Focused mutation endpoints preserving review state",
+  "selector": {
+    "type": "element",
+    "element_id": "review-api"
+  },
+  "target": ""
+}

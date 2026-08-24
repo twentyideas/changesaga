@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "reverse-navigation",
+  "label": "Reverse navigation",
+  "description": "Bidirectional jumps between code and narrative evidence",
+  "selector": {
+    "type": "element",
+    "element_id": "reverse-navigation"
+  },
+  "target": ""
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "selector-index",
+  "label": "Selector index",
+  "description": "Constant-time selector ownership lookup",
+  "selector": {
+    "type": "element",
+    "element_id": "selector-index"
+  },
+  "target": ""
+}

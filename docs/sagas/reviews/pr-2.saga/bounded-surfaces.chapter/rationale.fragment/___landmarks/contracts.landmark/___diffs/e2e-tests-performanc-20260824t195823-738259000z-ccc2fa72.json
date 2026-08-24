@@ -1,0 +1,377 @@
+{
+  "version": 2,
+  "diffs": [
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=6\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=6",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=7\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=7",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=6\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=6",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=7\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=7",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=8\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=8",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=9\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=9",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=21\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=21",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=22\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=22",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=23\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=23",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=23\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=23",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=24\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=24",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=26\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=26",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=27\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=27",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=28\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=28",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=27\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=27",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=68\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=68",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=69\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=69",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=70\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=70",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=71\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=71",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=72\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=72",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=73\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=73",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=74\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=74",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=75\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=75",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=76\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=76",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=77\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=77",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=67\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=67",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=68\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=68",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=69\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=69",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=70\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=70",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=71\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=71",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=79\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=79",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=80\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=80",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=81\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=81",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=82\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=82",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=83\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=83",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=84\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=84",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=85\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=85",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=86\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=86",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=87\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=87",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=88\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=88",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=89\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=89",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=90\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=90",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=91\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=91",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=92\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=92",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=93\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=93",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=94\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=94",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=95\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=95",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=96\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=96",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=97\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=97",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=98\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=98",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=99\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=99",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=100\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=100",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=101\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=101",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=102\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=102",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=103\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=103",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=104\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=104",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=105\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=105",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=106\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=106",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=107\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=107",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=108\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=108",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=109\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=109",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=110\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=110",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=111\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=111",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=112\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=112",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=113\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=113",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=114\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=114",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=115\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=115",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=116\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=116",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=117\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=117",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=118\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=118",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=119\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=119",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=120\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=120",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=121\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=121",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=122\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=122",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=123\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=123",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=124\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=124",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=125\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=125",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=126\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=126",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=127\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=127",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=128\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=128",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=129\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=129",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=130\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=130",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=131\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=131",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=132\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=132",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=100\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=100",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=148\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=148",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=149\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=149",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=103\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=103",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=152\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=152",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=110\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=110",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=159\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=159",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=180\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=180",
+      "note": "First-load and browser performance budgets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=181\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=e2e%2Ftests%2Fperformance.spec.ts\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=181",
+      "note": "First-load and browser performance budgets."
+    }
+  ]
+}

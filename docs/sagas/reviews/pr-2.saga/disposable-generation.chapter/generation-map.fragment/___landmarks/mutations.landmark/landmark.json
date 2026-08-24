@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "mutations",
+  "label": "Focused mutations",
+  "description": "Review writes stay outside immutable generations",
+  "selector": {
+    "type": "element",
+    "element_id": "mutations"
+  },
+  "target": ""
+}

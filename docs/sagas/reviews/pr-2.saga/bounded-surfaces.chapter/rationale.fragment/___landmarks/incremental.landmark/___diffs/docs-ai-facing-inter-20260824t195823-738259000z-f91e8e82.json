@@ -1,0 +1,41 @@
+{
+  "version": 2,
+  "diffs": [
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=372\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=docs%2Fai-facing-interface.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=372",
+      "note": "Bounded structured-query guidance."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=373\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=docs%2Fai-facing-interface.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=373",
+      "note": "Bounded structured-query guidance."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=372\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=docs%2Fai-facing-interface.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=372",
+      "note": "Bounded structured-query guidance."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=373\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=docs%2Fai-facing-interface.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=373",
+      "note": "Bounded structured-query guidance."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=374\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=docs%2Fai-facing-interface.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=374",
+      "note": "Bounded structured-query guidance."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=375\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=docs%2Fai-facing-interface.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=375",
+      "note": "Bounded structured-query guidance."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=376\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=docs%2Fai-facing-interface.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=376",
+      "note": "Bounded structured-query guidance."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=377\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=docs%2Fai-facing-interface.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=377",
+      "note": "Bounded structured-query guidance."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=378\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=docs%2Fai-facing-interface.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=378",
+      "note": "Bounded structured-query guidance."
+    }
+  ]
+}

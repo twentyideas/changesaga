@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "compatibility",
+  "label": "Compatibility",
+  "description": "Isolation of experimental dependencies",
+  "selector": {
+    "type": "element",
+    "element_id": "compatibility"
+  },
+  "target": ""
+}

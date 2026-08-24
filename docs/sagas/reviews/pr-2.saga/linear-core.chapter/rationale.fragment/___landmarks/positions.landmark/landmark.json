@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "positions",
+  "label": "Evidence: positions",
+  "selector": {
+    "type": "text",
+    "exact": "Coverage evaluation indexes parsed atoms by integer position and materializes detailed ownership only for callers that request it."
+  },
+  "target": ""
+}

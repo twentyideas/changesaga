@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "fingerprint",
+  "label": "Evidence: fingerprint",
+  "selector": {
+    "type": "text",
+    "exact": "Snapshot generations are content-addressed by exact source and saga inputs, so invalidation is represented by a different key."
+  },
+  "target": ""
+}

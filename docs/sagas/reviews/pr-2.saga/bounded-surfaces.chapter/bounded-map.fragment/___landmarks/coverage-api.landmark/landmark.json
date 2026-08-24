@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "coverage-api",
+  "label": "Coverage APIs",
+  "description": "Paged summaries with lazy ownership and diff details",
+  "selector": {
+    "type": "element",
+    "element_id": "coverage-api"
+  },
+  "target": ""
+}

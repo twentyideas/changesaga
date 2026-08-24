@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "reviewer-rationale",
+  "title": "Spend work where intent points",
+  "media_type": "text/markdown",
+  "entrypoint": "reviewer.md",
+  "order": 2
+}

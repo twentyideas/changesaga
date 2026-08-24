@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "verification-1e16c714de9b8b806788",
+  "claim": "intent-driven-browser",
+  "status": "verified",
+  "method": "test",
+  "summary": "The production server suite passes the bounded-browser regressions for speculative summaries, cancellation, immediate count installation, lazy file bodies, and continuously appended coverage summaries.",
+  "command": "go test ./...",
+  "created_at": "2026-08-24T20:02:05.891314Z"
+}

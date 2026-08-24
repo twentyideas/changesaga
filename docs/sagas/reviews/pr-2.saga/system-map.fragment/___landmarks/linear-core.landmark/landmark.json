@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "linear-core",
+  "label": "Linear review core",
+  "description": "Positional coverage and indexed ownership construction",
+  "selector": {
+    "type": "element",
+    "element_id": "linear-core"
+  },
+  "target": ""
+}

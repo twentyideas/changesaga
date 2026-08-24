@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "coverage",
+  "label": "Evidence: coverage",
+  "selector": {
+    "type": "text",
+    "exact": "Coverage endpoints page compact file or target summaries and defer ownership ranges and diff rows until an item is opened."
+  },
+  "target": ""
+}

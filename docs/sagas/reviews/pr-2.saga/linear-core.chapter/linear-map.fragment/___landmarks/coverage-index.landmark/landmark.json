@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "coverage-index",
+  "label": "Coverage index",
+  "description": "Dense positional ownership and sparse overlaps",
+  "selector": {
+    "type": "element",
+    "element_id": "coverage-index"
+  },
+  "target": ""
+}

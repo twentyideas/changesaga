@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "linear-rationale",
+  "title": "Remove quadratic work",
+  "media_type": "text/markdown",
+  "entrypoint": "linear.md",
+  "order": 2
+}

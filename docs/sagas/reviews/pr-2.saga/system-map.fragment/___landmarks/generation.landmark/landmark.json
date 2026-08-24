@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "generation",
+  "label": "Disposable generation",
+  "description": "Content-addressed immutable comparison generations",
+  "selector": {
+    "type": "element",
+    "element_id": "generation"
+  },
+  "target": ""
+}

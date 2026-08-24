@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "bounded-rationale",
+  "title": "Scale as an API contract",
+  "media_type": "text/markdown",
+  "entrypoint": "bounded.md",
+  "order": 2
+}

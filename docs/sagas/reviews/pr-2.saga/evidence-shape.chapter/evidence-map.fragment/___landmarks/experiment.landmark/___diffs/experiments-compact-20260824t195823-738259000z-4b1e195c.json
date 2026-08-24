@@ -1,0 +1,1209 @@
+{
+  "version": 2,
+  "diffs": [
+    {
+      "uri": "saga-diff://v1/event?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026event=add\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=1\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=1",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=2\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=2",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=3\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=3",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=4\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=4",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=5\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=5",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=6\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=6",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=7\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=7",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=8\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=8",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=9\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=9",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=10\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=10",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=11\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=11",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=12\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=12",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=13\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=13",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=14\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=14",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=15\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=15",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=16\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=16",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=17\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=17",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=18\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=18",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=19\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=19",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=20\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=20",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=21\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=21",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=22\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=22",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=23\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=23",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=24\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=24",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=25\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=25",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=26\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=26",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=27\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=27",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=28\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=28",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=29\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=29",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=30\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=30",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=31\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=31",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=32\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=32",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=33\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=33",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=34\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=34",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=35\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=35",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=36\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=36",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=37\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=37",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=38\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=38",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=39\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=39",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=40\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=40",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=41\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=41",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=42\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=42",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=43\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=43",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=44\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=44",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=45\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=45",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=46\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=46",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=47\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=47",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=48\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=48",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=49\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=49",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=50\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=50",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=51\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=51",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=52\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=52",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=53\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=53",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=54\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=54",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=55\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=55",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=56\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=56",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=57\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=57",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=58\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=58",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=59\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=59",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=60\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=60",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=61\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=61",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=62\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=62",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=63\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=63",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=64\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=64",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=65\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=65",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=66\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=66",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=67\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=67",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=68\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=68",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=69\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=69",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=70\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=70",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=71\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=71",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=72\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=72",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=73\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=73",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=74\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=74",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=75\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=75",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=76\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=76",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=77\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=77",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=78\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=78",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=79\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=79",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=80\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=80",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=81\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=81",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=82\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=82",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=83\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=83",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=84\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=84",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=85\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=85",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=86\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=86",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=87\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=87",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=88\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=88",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=89\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=89",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=90\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=90",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=91\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=91",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=92\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=92",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=93\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=93",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=94\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=94",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=95\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=95",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=96\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=96",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=97\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=97",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=98\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=98",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=99\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=99",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=100\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=100",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=101\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=101",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=102\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=102",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=103\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=103",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=104\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=104",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=105\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=105",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=106\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=106",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=107\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=107",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=108\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=108",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=109\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=109",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=110\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=110",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=111\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=111",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=112\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=112",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=113\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=113",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=114\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=114",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=115\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=115",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=116\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=116",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=117\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=117",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=118\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=118",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=119\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=119",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=120\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=120",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=121\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=121",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=122\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=122",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=123\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=123",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=124\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=124",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=125\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=125",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=126\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=126",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=127\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=127",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=128\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=128",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=129\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=129",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=130\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=130",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=131\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=131",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=132\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=132",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=133\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=133",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=134\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=134",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=135\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=135",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=136\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=136",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=137\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=137",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=138\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=138",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=139\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=139",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=140\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=140",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=141\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=141",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=142\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=142",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=143\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=143",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=144\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=144",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=145\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=145",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=146\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=146",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=147\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=147",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=148\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=148",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=149\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=149",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=150\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=150",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=151\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=151",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=152\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=152",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=153\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=153",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=154\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=154",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=155\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=155",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=156\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=156",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=157\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=157",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=158\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=158",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=159\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=159",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=160\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=160",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=161\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=161",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=162\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=162",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=163\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=163",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=164\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=164",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=165\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=165",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=166\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=166",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=167\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=167",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=168\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=168",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=169\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=169",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=170\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=170",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=171\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=171",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=172\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=172",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=173\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=173",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=174\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=174",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=175\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=175",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=176\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=176",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=177\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=177",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=178\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=178",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=179\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=179",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=180\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=180",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=181\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=181",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=182\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=182",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=183\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=183",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=184\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=184",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=185\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=185",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=186\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=186",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=187\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=187",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=188\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=188",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=189\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=189",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=190\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=190",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=191\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=191",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=192\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=192",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=193\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=193",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=194\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=194",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=195\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=195",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=196\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=196",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=197\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=197",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=198\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=198",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=199\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=199",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=200\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=200",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=201\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=201",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=202\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=202",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=203\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=203",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=204\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=204",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=205\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=205",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=206\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=206",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=207\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=207",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=208\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=208",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=209\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=209",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=210\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=210",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=211\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=211",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=212\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=212",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=213\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=213",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=214\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=214",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=215\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=215",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=216\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=216",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=217\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=217",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=218\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=218",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=219\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=219",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=220\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=220",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=221\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=221",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=222\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=222",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=223\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=223",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=224\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=224",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=225\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=225",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=226\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=226",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=227\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=227",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=228\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=228",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=229\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=229",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=230\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=230",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=231\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=231",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=232\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=232",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=233\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=233",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=234\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=234",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=235\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=235",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=236\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=236",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=237\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=237",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=238\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=238",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=239\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=239",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=240\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=240",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=241\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=241",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=242\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=242",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=243\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=243",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=244\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=244",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=245\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=245",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=246\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=246",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=247\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=247",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=248\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=248",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=249\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=249",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=250\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=250",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=251\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=251",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=252\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=252",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=253\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=253",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=254\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=254",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=255\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=255",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=256\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=256",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=257\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=257",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=258\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=258",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=259\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=259",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=260\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=260",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=261\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=261",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=262\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=262",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=263\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=263",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=264\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=264",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=265\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=265",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=266\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=266",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=267\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=267",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=268\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=268",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=269\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=269",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=270\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=270",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=271\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=271",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=272\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=272",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=273\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=273",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=274\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=274",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=275\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=275",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=276\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=276",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=277\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=277",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=278\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=278",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=279\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=279",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=280\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=280",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=281\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=281",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=282\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=282",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=283\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=283",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=284\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=284",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=285\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=285",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=286\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=286",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=287\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=287",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=288\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=288",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=289\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=289",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=290\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=290",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=291\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=291",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=292\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=292",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=293\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=293",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=294\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=294",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=295\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=295",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=296\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=296",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=297\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=297",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=298\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=298",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=299\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=299",
+      "note": "Compact connector encoding."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=300\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=experiments%2Fcompact-connectors%2Fconnector%2Fconnector.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=300",
+      "note": "Compact connector encoding."
+    }
+  ]
+}

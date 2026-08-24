@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "streaming",
+  "label": "Evidence: streaming",
+  "selector": {
+    "type": "text",
+    "exact": "Coverage automatically appends all compact summary pages and defers ownership ranges and file diffs until expansion."
+  },
+  "target": ""
+}

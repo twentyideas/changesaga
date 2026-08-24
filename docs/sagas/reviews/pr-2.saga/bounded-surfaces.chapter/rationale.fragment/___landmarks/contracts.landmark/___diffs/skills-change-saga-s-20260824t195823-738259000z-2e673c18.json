@@ -1,0 +1,41 @@
+{
+  "version": 2,
+  "diffs": [
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=162\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=skills%2Fchange-saga%2FSKILL.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=162",
+      "note": "Author guidance for scale-safe saga workflows."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=163\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=skills%2Fchange-saga%2FSKILL.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=163",
+      "note": "Author guidance for scale-safe saga workflows."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=164\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=skills%2Fchange-saga%2FSKILL.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=old\u0026start=164",
+      "note": "Author guidance for scale-safe saga workflows."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=162\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=skills%2Fchange-saga%2FSKILL.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=162",
+      "note": "Author guidance for scale-safe saga workflows."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=163\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=skills%2Fchange-saga%2FSKILL.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=163",
+      "note": "Author guidance for scale-safe saga workflows."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=164\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=skills%2Fchange-saga%2FSKILL.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=164",
+      "note": "Author guidance for scale-safe saga workflows."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=165\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=skills%2Fchange-saga%2FSKILL.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=165",
+      "note": "Author guidance for scale-safe saga workflows."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=166\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=skills%2Fchange-saga%2FSKILL.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=166",
+      "note": "Author guidance for scale-safe saga workflows."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=167\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=skills%2Fchange-saga%2FSKILL.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=167",
+      "note": "Author guidance for scale-safe saga workflows."
+    }
+  ]
+}

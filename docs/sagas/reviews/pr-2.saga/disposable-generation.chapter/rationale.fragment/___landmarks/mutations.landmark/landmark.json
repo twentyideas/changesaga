@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "mutations",
+  "label": "Evidence: mutations",
+  "selector": {
+    "type": "text",
+    "exact": "Review writes use focused mutation paths and do not rebuild or rewrite the shared comparison snapshot."
+  },
+  "target": ""
+}

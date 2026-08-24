@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "verification-20ae027b4c7a2f81a838",
+  "claim": "bounded-first-load",
+  "status": "verified",
+  "method": "test",
+  "summary": "The production suite passes first-load response, allocation, retained-memory, and continuation budget tests.",
+  "command": "go test ./...",
+  "created_at": "2026-08-24T20:02:05.719732Z"
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "evidence-shape",
+  "label": "Evidence representation",
+  "description": "Canonical range evidence and format decision",
+  "selector": {
+    "type": "element",
+    "element_id": "evidence-shape"
+  },
+  "target": ""
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "fingerprint",
+  "label": "Content fingerprint",
+  "description": "Exact source and saga inputs address generations",
+  "selector": {
+    "type": "element",
+    "element_id": "fingerprint"
+  },
+  "target": ""
+}

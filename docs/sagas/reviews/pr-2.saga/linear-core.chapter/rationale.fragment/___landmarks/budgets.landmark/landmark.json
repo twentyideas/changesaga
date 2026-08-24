@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "budgets",
+  "label": "Evidence: budgets",
+  "selector": {
+    "type": "text",
+    "exact": "Large generated fixtures and benchmarks assert result equivalence while rejecting superlinear growth and unbounded allocation."
+  },
+  "target": ""
+}

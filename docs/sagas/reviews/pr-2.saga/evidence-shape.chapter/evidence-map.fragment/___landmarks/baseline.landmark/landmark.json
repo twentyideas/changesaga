@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "baseline",
+  "label": "Measured pathology",
+  "description": "Whole-codebase baseline measurements",
+  "selector": {
+    "type": "element",
+    "element_id": "baseline"
+  },
+  "target": ""
+}

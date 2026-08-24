@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "shell",
+  "label": "Evidence: shell",
+  "selector": {
+    "type": "text",
+    "exact": "The initial renderer loads structural saga metadata without invoking comparison generation or materializing explanation bodies."
+  },
+  "target": ""
+}

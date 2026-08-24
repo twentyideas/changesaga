@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "lazy-detail",
+  "label": "Lazy detail",
+  "description": "Detailed review projection initialized on demand",
+  "selector": {
+    "type": "element",
+    "element_id": "lazy-detail"
+  },
+  "target": ""
+}

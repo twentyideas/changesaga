@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "hover-intent",
+  "label": "Hover intent",
+  "description": "Fragment hover or focus begins delayed speculative loading",
+  "selector": {
+    "type": "element",
+    "element_id": "hover-intent"
+  },
+  "target": ""
+}

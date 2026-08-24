@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "conflicts",
+  "label": "Evidence: conflicts",
+  "selector": {
+    "type": "text",
+    "exact": "Coverage record names hash the canonical selector set and deliberately exclude the human explanation note."
+  },
+  "target": ""
+}

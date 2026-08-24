@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "intent-driven-browser",
+  "target": "urn:change-saga:compact-saga-connectors:fragment:reviewer-map:landmark:prefetch-queue",
+  "kind": "ux",
+  "statement": "The browser speculatively fetches bounded target summaries from fragment intent, cancels abandoned work, updates code-link counts on completion, and keeps file diff bodies click-lazy.",
+  "evidence": [
+    "saga-diff://v1/line?base=4823e6887676cda35cc43bd9acdfef9cd2cd8c83\u0026end=1841\u0026head=product-69f17dbfa02c8c52a36544f168efb85c5ed68f9a55ceec2ecb195dd376374bb0\u0026path=internal%2Fserver%2Fappjs.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=1433"
+  ],
+  "created_at": "2026-08-24T20:01:26.064645Z"
+}

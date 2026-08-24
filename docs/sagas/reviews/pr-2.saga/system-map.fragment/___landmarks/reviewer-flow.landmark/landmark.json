@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "reviewer-flow",
+  "label": "Reviewer flow",
+  "description": "Intent-driven browser hydration and navigation",
+  "selector": {
+    "type": "element",
+    "element_id": "reviewer-flow"
+  },
+  "target": ""
+}

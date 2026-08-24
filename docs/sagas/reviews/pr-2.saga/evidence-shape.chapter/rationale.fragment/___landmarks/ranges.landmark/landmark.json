@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "ranges",
+  "label": "Evidence: ranges",
+  "selector": {
+    "type": "text",
+    "exact": "Changed-line coverage is coalesced only across consecutive atoms with the same immutable comparison identity, path, and side."
+  },
+  "target": ""
+}

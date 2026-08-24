@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "prefetch-queue",
+  "label": "Prefetch queue",
+  "description": "Bounded cancellable target-summary scheduling",
+  "selector": {
+    "type": "element",
+    "element_id": "prefetch-queue"
+  },
+  "target": ""
+}
