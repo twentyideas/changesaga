@@ -84,17 +84,10 @@ func TestLargeSagaFirstLoadStaysWithinPayloadBudgets(t *testing.T) {
 	checkBudget(t, "first-load HTML elements", strings.Count(page, "<"), firstLoadElementBudget,
 		"every element here is parsed, laid out, and retained by the browser")
 
-	// The Code Diff tab renders exactly one file. Every other changed file is
-	// summarised and fetched on demand, so the page's diff rows must stay
-	// proportional to that one file and not to the whole comparison.
-	options := testfixture.DefaultLargeSagaOptions()
-	rowBudget := 2*options.ChangedLinesPerFile + pageDiffRowContextAllowance
 	rows := strings.Count(page, `class="diff-row`)
-	if rows == 0 {
-		t.Fatal("first load rendered no diff rows at all; the Code Diff tab has lost its selected file")
+	if rows != 0 {
+		t.Fatalf("first load rendered %d diff rows; all comparison data must arrive incrementally", rows)
 	}
-	checkBudget(t, "diff rows in first-load HTML", rows, rowBudget,
-		fmt.Sprintf("only the selected file may be inlined, and it changes %d lines", options.ChangedLinesPerFile))
 	t.Logf("fixture: %d changed lines across %d files, %d mappings", fixture.Atoms, fixture.DiffFiles, fixture.Mappings)
 }
 
@@ -128,8 +121,8 @@ func TestLargeSagaFirstLoadShipsOnlyTheChapterShell(t *testing.T) {
 			t.Fatalf("the shell carried explanation content it was only asked to describe: %q", content)
 		}
 	}
-	if !strings.Contains(document, "data-coverage-totals") {
-		t.Fatal("the shell stopped stating the coverage totals it stands in for")
+	if !strings.Contains(page, "data-coverage-loading") {
+		t.Fatal("the shell stopped exposing the incremental coverage surface")
 	}
 
 	checkBudget(t, "saga document bytes on first load", len(document), sagaShellHTMLBudget,
@@ -217,30 +210,15 @@ func TestLargeSagaFirstLoadOmitsUnopenedDiffBodies(t *testing.T) {
 	_, application, handler := budgetFixture(t, testfixture.DefaultLargeSagaOptions())
 	page := budgetRequest(t, handler, "/")
 
-	selected := selectedFilePath(t, page)
 	changes := budgetChanges(t, application)
 	inlined := inlinedCodeLines(page)
-	var leaked []string
-	for _, atom := range changes.Atoms {
-		path := effectiveAtomPath(atom)
-		if path == selected || atom.Content == "" || !inlined[atom.Content] {
-			continue
-		}
-		leaked = append(leaked, fmt.Sprintf("%s:%d %q", path, atom.Line, atom.Content))
-		if len(leaked) == 3 {
-			break
-		}
-	}
-	if len(leaked) > 0 {
-		t.Fatalf("first load shipped changed lines from files the reviewer has not opened; the Code Diff tab selected %q and these arrived anyway:\n  %s",
-			selected, strings.Join(leaked, "\n  "))
+	if len(inlined) != 0 {
+		t.Fatalf("first load shipped %d changed code lines before a file was requested", len(inlined))
 	}
 
-	// Every changed file must still be reachable, or the payload only shrank by
-	// losing the audit.
-	surfaces := strings.Count(page, "data-manifest-diff-href")
-	if surfaces < changesFileCount(changes) {
-		t.Fatalf("coverage offered %d on-demand file diffs for %d changed files; some file lost its body entirely", surfaces, changesFileCount(changes))
+	code := budgetRequest(t, handler, "/api/code?limit=1")
+	if !strings.Contains(code, "data-tree-file") || changesFileCount(changes) == 0 {
+		t.Fatal("incremental code navigation did not preserve access to changed files")
 	}
 }
 
@@ -358,6 +336,7 @@ func TestReviewSnapshotIsReusedUntilTheSagaChanges(t *testing.T) {
 	}
 
 	page := budgetRequest(t, handler, "/")
+	budgetRequest(t, handler, "/api/code?limit=1")
 	if application.cache.builds != 2 {
 		t.Fatalf("a recorded review decision did not invalidate the snapshot (builds=%d); the reviewer would keep reading the saga as it was before their own decision", application.cache.builds)
 	}

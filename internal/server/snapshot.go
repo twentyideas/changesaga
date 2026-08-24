@@ -8,10 +8,12 @@ import (
 	"io/fs"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
 	"github.com/twentyideas/changesaga/internal/coverage"
+	"github.com/twentyideas/changesaga/internal/diffuri"
 	"github.com/twentyideas/changesaga/internal/gitattribution"
 	"github.com/twentyideas/changesaga/internal/gitdiff"
 	"github.com/twentyideas/changesaga/internal/saga"
@@ -35,6 +37,16 @@ type reviewSnapshot struct {
 	report          coverage.Report
 	diffErr         error
 	changesByTarget map[string][]gitdiff.Atom
+	fileOrder       []string
+	fileAtoms       map[string][]gitdiff.Atom
+	fileLines       map[string][]gitdiff.DisplayLine
+	atomByKey       map[string]*gitdiff.Atom
+	atomPathByURI   map[string]string
+	targetOrder     []string
+	fileReviews     map[string]saga.DiffReview
+	fileOwners      map[string][]string
+	fileSummaries   map[string]FileDiffView
+	fileCoverage    map[string]ManifestFileView
 }
 
 // snapshotCache serves a snapshot for as long as its inputs are observably
@@ -68,7 +80,7 @@ func (a *app) snapshot(ctx context.Context) *reviewSnapshot {
 		}
 	}
 	a.cache.saga, a.cache.source, a.cache.current = "", "", nil
-	built, err := a.buildSnapshot(ctx)
+	built, err := a.loadComparison(ctx)
 	if err != nil {
 		// A load failure is reported by the handler, never cached: the next
 		// request must see the repaired saga immediately.
@@ -81,6 +93,13 @@ func (a *app) snapshot(ctx context.Context) *reviewSnapshot {
 		a.cache.saga, a.cache.source, a.cache.current = sagaPrint, sourcePrint, built
 	}
 	return built
+}
+
+func (a *app) loadComparison(ctx context.Context) (*reviewSnapshot, error) {
+	if a.comparisonLoader != nil {
+		return a.comparisonLoader(ctx)
+	}
+	return a.buildSnapshot(ctx)
 }
 
 // fingerprints reads both halves of the freshness check at once. Every request
@@ -134,7 +153,124 @@ func (a *app) buildSnapshot(ctx context.Context) (*reviewSnapshot, error) {
 			}
 		}
 	}
+	built.indexComparison()
 	return built, nil
+}
+
+func (s *reviewSnapshot) indexComparison() {
+	s.fileAtoms = map[string][]gitdiff.Atom{}
+	s.fileLines = map[string][]gitdiff.DisplayLine{}
+	s.atomByKey = make(map[string]*gitdiff.Atom, len(s.changes.Atoms))
+	s.atomPathByURI = make(map[string]string, len(s.changes.Atoms))
+	s.fileReviews = map[string]saga.DiffReview{}
+	renameTo := map[string]string{}
+	for index := range s.changes.Atoms {
+		atom := &s.changes.Atoms[index]
+		if atom.Kind == "event" && atom.Event == "rename" && atom.OldPath != "" && atom.NewPath != "" {
+			renameTo[atom.OldPath] = atom.NewPath
+		}
+	}
+	for index := range s.changes.Atoms {
+		atom := &s.changes.Atoms[index]
+		path := atom.Path
+		if path == "" {
+			path = atom.NewPath
+		}
+		if renamed := renameTo[path]; renamed != "" {
+			path = renamed
+		}
+		s.fileAtoms[path] = append(s.fileAtoms[path], *atom)
+		s.atomByKey[atom.Key], s.atomPathByURI[atom.URI] = atom, path
+	}
+	for _, line := range s.changes.DisplayLines {
+		path := line.Path
+		if renamed := renameTo[path]; renamed != "" {
+			path = renamed
+		}
+		line.Path = path
+		s.fileLines[path] = append(s.fileLines[path], line)
+	}
+	for path := range s.fileAtoms {
+		s.fileOrder = append(s.fileOrder, path)
+	}
+	sort.Strings(s.fileOrder)
+	for _, review := range s.document.DiffReviews {
+		reference, err := diffuri.Parse(review.URI)
+		if err != nil || reference.Kind != "file" {
+			continue
+		}
+		previous, ok := s.fileReviews[reference.Path]
+		if !ok || previous.CreatedAt.Before(review.CreatedAt) || previous.CreatedAt.Equal(review.CreatedAt) && previous.ID < review.ID {
+			s.fileReviews[reference.Path] = review
+		}
+	}
+	s.fileSummaries = make(map[string]FileDiffView, len(s.fileOrder))
+	s.fileCoverage = make(map[string]ManifestFileView, len(s.fileOrder))
+	for _, path := range s.fileOrder {
+		uri, _ := diffuri.Build(diffuri.Reference{Repository: s.changes.Repository, Base: s.changes.BaseOID, Head: s.changes.HeadOID, Kind: "file", Path: path})
+		digest := sha256.Sum256([]byte(path))
+		file := FileDiffView{ID: fmt.Sprintf("diff-%x", digest[:8]), Path: path, URI: uri}
+		for _, atom := range s.fileAtoms[path] {
+			if atom.Side == "new" {
+				file.Added++
+			} else if atom.Side == "old" {
+				file.Deleted++
+			}
+		}
+		if review, ok := s.fileReviews[path]; ok {
+			file.Reviewed, file.Reviewer, file.ReviewerDetail = review.State == "reviewed", review.Author, review.AttributionDetail
+		}
+		s.fileSummaries[path] = file
+		coverageFile := ManifestFileView{Path: path, HasDiff: true}
+		for _, atom := range s.fileAtoms[path] {
+			coverageFile.AtomCount++
+			if atom.Kind == "event" {
+				coverageFile.Events++
+			} else if atom.Side == "old" {
+				coverageFile.Deleted++
+			} else {
+				coverageFile.Added++
+			}
+			if len(s.report.Ownership[atom.Key]) == 0 {
+				coverageFile.Uncovered++
+			} else {
+				coverageFile.Covered++
+			}
+		}
+		s.fileCoverage[path] = coverageFile
+	}
+	locations := indexManifestTargets(s.document)
+	s.fileOwners = map[string][]string{}
+	for path, atoms := range s.fileAtoms {
+		seen := map[string]bool{}
+		for _, atom := range atoms {
+			for _, assignment := range s.report.Ownership[atom.Key] {
+				seen[assignment.Target] = true
+			}
+		}
+		for target := range seen {
+			s.fileOwners[path] = append(s.fileOwners[path], target)
+		}
+		sort.SliceStable(s.fileOwners[path], func(i, j int) bool {
+			left, leftOK := locations[s.fileOwners[path][i]]
+			right, rightOK := locations[s.fileOwners[path][j]]
+			if leftOK && rightOK && left.order != right.order {
+				return left.order < right.order
+			}
+			return s.fileOwners[path][i] < s.fileOwners[path][j]
+		})
+	}
+	for target := range s.changesByTarget {
+		s.targetOrder = append(s.targetOrder, target)
+	}
+	sort.SliceStable(s.targetOrder, func(i, j int) bool {
+		left, leftOK := locations[s.targetOrder[i]]
+		right, rightOK := locations[s.targetOrder[j]]
+		if leftOK && rightOK && left.order != right.order {
+			return left.order < right.order
+		}
+		return s.targetOrder[i] < s.targetOrder[j]
+	})
 }
 
 // treeFingerprint hashes the name, size, and modification time of every entry

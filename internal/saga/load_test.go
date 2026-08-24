@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/twentyideas/changesaga/internal/diffuri"
@@ -53,6 +54,27 @@ func TestLoadRecursiveFragmentsAndReviewOverlay(t *testing.T) {
 	}
 	if len(document.Threads) != 1 || len(document.Threads[0].Messages) != 1 || document.Threads[0].Target != flow.Target || document.Threads[0].State != "withdrawn" || document.Threads[0].Anchor.Shapes[0].X != .2 {
 		t.Fatalf("review overlay was not loaded: %#v", document.Threads)
+	}
+}
+
+func TestLoadOutlineDoesNotOpenCoverageOrContentTrees(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "outline.saga")
+	writeTestFile(t, filepath.Join(root, "saga.json"), `{"version":2,"id":"outline","title":"Outline","source":{"repository":"https://example.test/acme/app.git","base":"main","head":"HEAD"}}`)
+	writeTestFile(t, filepath.Join(root, "overview.fragment", "fragment.json"), `{"version":2,"id":"overview","title":"Overview","media_type":"text/markdown","entrypoint":"content.md"}`)
+	writeTestFile(t, filepath.Join(root, "overview.fragment", "content.md"), strings.Repeat("large narrative body\n", 1024))
+	writeTestFile(t, filepath.Join(root, "overview.fragment", "___diffs", "broken.json"), `{this is deliberately not JSON`)
+	writeTestFile(t, filepath.Join(root, "overview.fragment", "___landmarks", "broken.landmark", "landmark.json"), `{this is deliberately not JSON`)
+
+	document, validation, err := LoadOutline(root)
+	if err != nil || !validation.Valid {
+		t.Fatalf("outline load = valid %v, err %v, issues %#v", validation.Valid, err, validation.Issues)
+	}
+	fragment := document.Section.Fragments[0]
+	if len(fragment.Diffs) != 0 || len(fragment.Landmarks) != 0 {
+		t.Fatalf("outline materialized deferred metadata: diffs=%d landmarks=%d", len(fragment.Diffs), len(fragment.Landmarks))
+	}
+	if _, full, err := Load(root); err != nil || full.Valid {
+		t.Fatalf("full load did not observe malformed deferred metadata: valid=%v err=%v", full.Valid, err)
 	}
 }
 
