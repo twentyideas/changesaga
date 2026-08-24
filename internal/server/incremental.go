@@ -271,53 +271,29 @@ type coveragePageView struct {
 }
 
 type coverageCodeItem struct {
-	File   *ManifestFileView
-	Chunks []*ManifestChunkView
+	File *ManifestFileView
 }
 
 type coverageSagaItem struct {
-	Target *ManifestOwnerView
-	File   *ManifestTargetFileView
-	Chunks []*ManifestChunkView
+	Target    *ManifestOwnerView
+	AtomCount int
+	FileCount int
 }
 
-func coverageAtomTotal(groups map[string][]int, order []string) int {
-	total := 0
-	for _, key := range order {
-		total += len(groups[key])
-	}
-	return total
+type coverageFilePageView struct {
+	File       string
+	Chunks     []*ManifestChunkView
+	NextCursor string
+	HasMore    bool
+	Returned   int
 }
 
-type atomPageGroup struct {
-	key     string
-	indexes []int
-}
-
-func atomPage(groups map[string][]int, order []string, start, end int) []atomPageGroup {
-	var result []atomPageGroup
-	offset := 0
-	for _, key := range order {
-		indexes := groups[key]
-		groupStart, groupEnd := offset, offset+len(indexes)
-		if groupEnd <= start {
-			offset = groupEnd
-			continue
-		}
-		if groupStart >= end {
-			break
-		}
-		left, right := 0, len(indexes)
-		if start > groupStart {
-			left = start - groupStart
-		}
-		if end < groupEnd {
-			right = end - groupStart
-		}
-		result = append(result, atomPageGroup{key: key, indexes: indexes[left:right]})
-		offset = groupEnd
-	}
-	return result
+type coverageTargetPageView struct {
+	Target     string
+	Files      []*ManifestTargetFileView
+	NextCursor string
+	HasMore    bool
+	Returned   int
 }
 
 func (a *app) coveragePage(w http.ResponseWriter, r *http.Request) {
@@ -337,9 +313,9 @@ func (a *app) coveragePage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "The source comparison could not be loaded.", http.StatusInternalServerError)
 		return
 	}
-	total := coverageAtomTotal(current.fileAtoms, current.fileOrder)
+	total := len(current.fileOrder)
 	if mode == "saga" {
-		total = coverageAtomTotal(current.targetAtoms, current.targetOrder) + len(current.report.Orphans)
+		total = len(current.targetOrder) + len(current.report.Orphans)
 	}
 	window, err := pageRequest(r, "coverage\x00"+current.identity+"\x00"+mode, total, defaultSurfacePageLimit, maxSurfacePageLimit)
 	if err != nil {
@@ -353,43 +329,25 @@ func (a *app) coveragePage(w http.ResponseWriter, r *http.Request) {
 	}, NextCursor: window.next, HasMore: window.hasMore(), Returned: window.end - window.start}
 	locations := current.locations
 	if mode == "code" {
-		for _, group := range atomPage(current.fileAtoms, current.fileOrder, window.start, window.end) {
-			fileValue := current.fileCoverage[group.key]
+		start, end := boundedSlice(window.start, window.end, len(current.fileOrder))
+		for _, path := range current.fileOrder[start:end] {
+			fileValue := current.fileCoverage[path]
 			file := &fileValue
-			atoms := atomsForIndexes(current, group.indexes)
-			result.Code = append(result.Code, coverageCodeItem{File: file, Chunks: makeManifestChunks(atoms, current.report.Ownership, locations, true)})
+			result.Code = append(result.Code, coverageCodeItem{File: file})
 		}
 	} else {
-		atomTotal := coverageAtomTotal(current.targetAtoms, current.targetOrder)
-		atomEnd := window.end
-		if atomEnd > atomTotal {
-			atomEnd = atomTotal
+		targetTotal := len(current.targetOrder)
+		targetStart, targetEnd := boundedSlice(window.start, window.end, targetTotal)
+		for _, target := range current.targetOrder[targetStart:targetEnd] {
+			result.Saga = append(result.Saga, coverageSagaItem{
+				Target: manifestOwner(target, locations), AtomCount: len(current.targetAtoms[target]), FileCount: len(current.targetFiles[target]),
+			})
 		}
-		if window.start < atomTotal {
-			for _, group := range atomPage(current.targetAtoms, current.targetOrder, window.start, atomEnd) {
-				owner := manifestOwner(group.key, locations)
-				byPath := map[string][]gitdiff.Atom{}
-				var paths []string
-				for _, index := range group.indexes {
-					atom := current.changes.Atoms[index]
-					filePath := effectiveAtomPath(atom)
-					if _, ok := byPath[filePath]; !ok {
-						paths = append(paths, filePath)
-					}
-					byPath[filePath] = append(byPath[filePath], atom)
-				}
-				sort.Strings(paths)
-				for _, filePath := range paths {
-					file := &ManifestTargetFileView{Path: filePath, Href: CodeDiffURL(filePath, ""), HasDiff: true}
-					result.Saga = append(result.Saga, coverageSagaItem{Target: owner, File: file, Chunks: makeManifestChunks(byPath[filePath], nil, locations, false)})
-				}
-			}
-		}
-		orphanStart := window.start - atomTotal
+		orphanStart := window.start - targetTotal
 		if orphanStart < 0 {
 			orphanStart = 0
 		}
-		orphanEnd := window.end - atomTotal
+		orphanEnd := window.end - targetTotal
 		if orphanEnd > len(current.report.Orphans) {
 			orphanEnd = len(current.report.Orphans)
 		}
@@ -402,6 +360,74 @@ func (a *app) coveragePage(w http.ResponseWriter, r *http.Request) {
 	writePageHeaders(w, window)
 	if err := a.template.ExecuteTemplate(w, "coverage-page", result); err != nil {
 		http.Error(w, "The coverage page could not be rendered.", http.StatusInternalServerError)
+	}
+}
+
+func (a *app) coverageFilePage(w http.ResponseWriter, r *http.Request) {
+	current := a.requestSnapshot(w, r)
+	if current == nil {
+		return
+	}
+	filePath := r.URL.Query().Get("file")
+	indexes, ok := current.fileAtoms[filePath]
+	if !ok {
+		http.Error(w, "changed file not found", http.StatusNotFound)
+		return
+	}
+	window, err := pageRequest(r, "coverage-file\x00"+current.identity+"\x00"+filePath, len(indexes), maxSurfacePageLimit, maxSurfacePageLimit)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	result := coverageFilePageView{
+		File: filePath, Chunks: makeManifestChunks(atomsForIndexes(current, indexes[window.start:window.end]), current.report.Ownership, current.locations, true),
+		NextCursor: window.next, HasMore: window.hasMore(), Returned: window.end - window.start,
+	}
+	writeIncrementalHeaders(w, "text/html; charset=utf-8")
+	writePageHeaders(w, window)
+	if err := a.template.ExecuteTemplate(w, "coverage-file-page", result); err != nil {
+		http.Error(w, "The file coverage could not be rendered.", http.StatusInternalServerError)
+	}
+}
+
+func (a *app) coverageTargetPage(w http.ResponseWriter, r *http.Request) {
+	current := a.requestSnapshot(w, r)
+	if current == nil {
+		return
+	}
+	target := r.URL.Query().Get("target")
+	paths, ok := current.targetFiles[target]
+	if !ok {
+		http.Error(w, "coverage target not found", http.StatusNotFound)
+		return
+	}
+	window, err := pageRequest(r, "coverage-target\x00"+current.identity+"\x00"+target, len(paths), defaultSurfacePageLimit, maxSurfacePageLimit)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	start, end := boundedSlice(window.start, window.end, len(paths))
+	result := coverageTargetPageView{Target: target, NextCursor: window.next, HasMore: window.hasMore(), Returned: window.end - window.start}
+	for _, filePath := range paths[start:end] {
+		atoms := atomsForIndexes(current, current.targetFileAtoms[target][filePath])
+		file := &ManifestTargetFileView{Path: filePath, Href: CodeDiffURL(filePath, ""), HasDiff: true, Chunks: makeManifestChunks(atoms, nil, current.locations, false)}
+		for _, atom := range atoms {
+			file.AtomCount++
+			switch {
+			case atom.Kind == "event":
+				file.Events++
+			case atom.Side == "old":
+				file.Deleted++
+			default:
+				file.Added++
+			}
+		}
+		result.Files = append(result.Files, file)
+	}
+	writeIncrementalHeaders(w, "text/html; charset=utf-8")
+	writePageHeaders(w, window)
+	if err := a.template.ExecuteTemplate(w, "coverage-target-page", result); err != nil {
+		http.Error(w, "The target coverage could not be rendered.", http.StatusInternalServerError)
 	}
 }
 

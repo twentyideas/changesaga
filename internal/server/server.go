@@ -332,6 +332,8 @@ func newMux(application *app) *http.ServeMux {
 	mux.HandleFunc("GET /app.js", application.javascript)
 	mux.HandleFunc("GET /api/code", application.codePage)
 	mux.HandleFunc("GET /api/coverage", application.coveragePage)
+	mux.HandleFunc("GET /api/coverage-file", application.coverageFilePage)
+	mux.HandleFunc("GET /api/coverage-target", application.coverageTargetPage)
 	mux.HandleFunc("GET /api/file-diff", application.fileDiffFragment)
 	mux.HandleFunc("GET /api/target-code", application.targetCode)
 	mux.HandleFunc("GET /api/file-owners", application.fileOwners)

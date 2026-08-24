@@ -932,6 +932,7 @@ const appJavaScript = `(() => {
   const reviewSurfaceRetries = new Map();
   const codeFileRequests = new WeakMap();
   const codeFileRetries = new WeakMap();
+  const continuousCoverageLoads = new WeakMap();
   let relatedOwnersRequest = null;
 
   function reviewSurfaceURL(name, explicitHref = '') {
@@ -990,9 +991,11 @@ const appJavaScript = `(() => {
   }
 
   function prepareReviewSurface(name, root) {
-    highlightCode(root);
-    prepareContext(root);
-    applyDiffLayout(diffLayout);
+    if (name !== 'manifest') {
+      highlightCode(root);
+      prepareContext(root);
+      applyDiffLayout(diffLayout);
+    }
     if (name === 'manifest') {
       const requested = new URL(location.href).searchParams.get('mode');
       const current = q('[data-manifest-mode][aria-pressed="true"]')?.dataset.manifestMode;
@@ -1115,9 +1118,30 @@ const appJavaScript = `(() => {
     button.type = 'button';
     button.dataset.surfaceNext = url.pathname + url.search;
     if (pageKey) button.dataset.pageTarget = pageKey;
-    button.textContent = 'Load more';
-    button.setAttribute('aria-label', 'Load the next page');
+    button.textContent = name === 'manifest' ? 'Loading more coverage…' : 'Load more';
+    button.setAttribute('aria-label', name === 'manifest' ? 'Loading more coverage' : 'Load the next page');
     return button;
+  }
+
+  async function streamCoveragePages(surface, token) {
+    let button = q('[data-surface-next]', surface);
+    while (button && button.isConnected && continuousCoverageLoads.get(surface) === token) {
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      const next = await loadReviewSurfacePage(button);
+      if (!next) break;
+      button = next;
+      // Yield after every append so the browser paints useful coverage while
+      // the following page is in flight instead of presenting one huge swap.
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+  }
+
+  function beginContinuousCoverageLoad(surface) {
+    if (!surface) return;
+    const token = {};
+    continuousCoverageLoads.set(surface, token);
+    void streamCoveragePages(surface, token);
   }
 
   function installReviewSurface(name, surface, html, headerCursor = '') {
@@ -1139,6 +1163,7 @@ const appJavaScript = `(() => {
     if (response.dataset.returned) surface.dataset.returned = response.dataset.returned;
     surface.dataset.surfaceState = 'ready';
     prepareReviewSurface(name, surface);
+    if (name === 'manifest') beginContinuousCoverageLoad(surface);
   }
 
   async function hydrateReviewSurface(name, options = {}) {
@@ -1152,11 +1177,11 @@ const appJavaScript = `(() => {
     previous?.controller.abort();
     clearTimeout(reviewSurfaceRetries.get(name));
     const controller = new AbortController();
-    surfaceStatus(surface, 'loading', name === 'code' ? 'Loading Code Diff…' : 'Loading Coverage…', 'Fetching a bounded page of the comparison.');
+    surfaceStatus(surface, 'loading', name === 'code' ? 'Loading Code Diff…' : 'Loading Coverage…', name === 'code' ? 'Loading changed files.' : 'Loading files and explanations.');
     const promise = fetch(url, {headers:{Accept:'text/html','X-Change-Saga-Async':'true'},credentials:'same-origin',signal:controller.signal}).then(async response => {
       if (response.status === 202) {
         const delay = retryDelay(response);
-        surfaceStatus(surface, 'building', 'Building the source comparison…', 'This view will retry automatically. Your deep link is preserved.', true);
+        surfaceStatus(surface, 'building', 'Building the source comparison…', 'This view will update automatically when it is ready.', true);
         const timer = setTimeout(() => {
           if (q('[data-view="'+name+'"]').classList.contains('active')) void hydrateReviewSurface(name, {force:true});
         }, delay);
@@ -1182,12 +1207,13 @@ const appJavaScript = `(() => {
     const surface = button.closest('[data-review-surface]');
     const name = surface?.dataset.reviewSurface;
     const href = button.dataset.surfaceNext || button.getAttribute('href');
-    if (!surface || !name || !href || button.dataset.pageLoading === 'true') return;
+    if (!surface || !name || !href || button.dataset.pageLoading === 'true') return null;
     button.dataset.pageLoading = 'true';
     button.setAttribute('aria-busy', 'true');
     try {
       const response = await fetch(reviewSurfaceURL(name, href), {headers:{Accept:'text/html','X-Change-Saga-Async':'true'},credentials:'same-origin'});
       if (!response.ok) throw new Error('page request failed');
+      if (!button.isConnected || button.closest('[data-review-surface]') !== surface) return null;
       const wrapper = parseShellHTML(await response.text());
       const page = q('[data-review-surface-page]', wrapper) || q('[data-review-surface-response="'+name+'"]', wrapper) || wrapper;
       const key = page.dataset?.pageKey || button.dataset.pageTarget || '';
@@ -1212,10 +1238,14 @@ const appJavaScript = `(() => {
       const next = q('[data-surface-next]', page) || surfaceNextButton(name, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset?.nextCursor, key);
       if (next) button.replaceWith(next); else button.remove();
       prepareReviewSurface(name, surface);
+      return next;
     } catch (_) {
-      button.textContent = 'Could not load more — try again';
+      button.textContent = name === 'manifest' ? 'Coverage paused — try again' : 'Could not load more — try again';
       delete button.dataset.pageLoading;
       button.removeAttribute('aria-busy');
+      button.disabled = false;
+      button.setAttribute('aria-label', name === 'manifest' ? 'Resume loading coverage' : 'Load the next page');
+      return null;
     }
   }
 
@@ -1867,6 +1897,84 @@ const appJavaScript = `(() => {
     } finally {
       delete surface.dataset.manifestDiffLoading;
       surface.classList.remove('loading');
+    }
+  }
+
+  function continuedCoverageURL(href, cursor) {
+    if (!cursor) return '';
+    const url = new URL(href, location.href);
+    url.searchParams.set('cursor', cursor);
+    return url.pathname + url.search;
+  }
+
+  async function hydrateCoverageFile(details) {
+    if (!details?.open || details.dataset.coverageFileLoaded === 'true' || details.dataset.coverageFileLoading === 'true') return;
+    let href = details.dataset.coverageFileHref;
+    const destination = q('[data-coverage-file-mappings]', details);
+    if (!href || !destination) return;
+    details.dataset.coverageFileLoading = 'true';
+    let first = true;
+    try {
+      while (href && details.isConnected) {
+        const response = await fetch(href, {headers:{Accept:'text/html','X-Change-Saga-Async':'true'},credentials:'same-origin'});
+        if (response.status === 202) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay(response)));
+          continue;
+        }
+        if (!response.ok) throw new Error('file coverage request failed');
+        const page = q('[data-coverage-file-response]', parseShellHTML(await response.text()));
+        if (!page) throw new Error('file coverage response was incomplete');
+        const items = q('[data-page-items="coverage-file"]', page);
+        if (!items) throw new Error('file coverage response was incomplete');
+        const inserted = Array.from(items.childNodes);
+        if (first) destination.replaceChildren(...inserted); else destination.append(...inserted);
+        first = false;
+        href = continuedCoverageURL(href, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset.nextCursor);
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      details.dataset.coverageFileLoaded = 'true';
+      if (!destination.childNodes.length) destination.innerHTML = '<p class="diff-placeholder">This file is not explained yet.</p>';
+    } catch (_) {
+      const placeholder = q('.diff-placeholder', destination);
+      if (placeholder) placeholder.textContent = 'Coverage details could not be loaded. Close and reopen to try again.';
+    } finally {
+      delete details.dataset.coverageFileLoading;
+    }
+  }
+
+  async function hydrateCoverageTarget(details) {
+    if (!details?.open || details.dataset.coverageTargetLoaded === 'true' || details.dataset.coverageTargetLoading === 'true') return;
+    let href = details.dataset.coverageTargetHref;
+    const destination = q('[data-coverage-target-files]', details);
+    if (!href || !destination) return;
+    details.dataset.coverageTargetLoading = 'true';
+    let first = true;
+    try {
+      while (href && details.isConnected) {
+        const response = await fetch(href, {headers:{Accept:'text/html','X-Change-Saga-Async':'true'},credentials:'same-origin'});
+        if (response.status === 202) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay(response)));
+          continue;
+        }
+        if (!response.ok) throw new Error('target coverage request failed');
+        const page = q('[data-coverage-target-response]', parseShellHTML(await response.text()));
+        if (!page) throw new Error('target coverage response was incomplete');
+        const items = q('[data-page-items="target-files"]', page);
+        if (!items) throw new Error('target coverage response was incomplete');
+        const inserted = Array.from(items.childNodes);
+        if (first) destination.replaceChildren(...inserted); else destination.append(...inserted);
+        first = false;
+        href = continuedCoverageURL(href, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset.nextCursor);
+        filterManifest();
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      details.dataset.coverageTargetLoaded = 'true';
+      if (!destination.childNodes.length) destination.innerHTML = '<p class="diff-placeholder">This part of the story has no linked files.</p>';
+    } catch (_) {
+      const placeholder = q('.diff-placeholder', destination);
+      if (placeholder) placeholder.textContent = 'Linked files could not be loaded. Close and reopen to try again.';
+    } finally {
+      delete details.dataset.coverageTargetLoading;
     }
   }
 
@@ -2644,7 +2752,9 @@ const appJavaScript = `(() => {
     const nextSurfacePage = event.target.closest?.('[data-surface-next]');
     if (nextSurfacePage) {
       event.preventDefault();
-      void loadReviewSurfacePage(nextSurfacePage);
+      const surface = nextSurfacePage.closest('[data-review-surface]');
+      if (surface?.dataset.reviewSurface === 'manifest') beginContinuousCoverageLoad(surface);
+      else void loadReviewSurfacePage(nextSurfacePage);
       return;
     }
     const boundedLink = event.target.closest?.('a[href]');
@@ -2773,6 +2883,8 @@ const appJavaScript = `(() => {
     const details = event.target.closest?.('details');
     if (!details?.open) return;
     if (details.dataset.fullDiffHref) hydrateAttachedFile(details);
+    if (details.dataset.coverageFileHref) void hydrateCoverageFile(details);
+    if (details.dataset.coverageTargetHref) void hydrateCoverageTarget(details);
     hydrateOpenedManifestDiffs(details);
   }, true);
 

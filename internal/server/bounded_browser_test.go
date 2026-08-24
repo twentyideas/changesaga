@@ -97,3 +97,23 @@ func TestFragmentIntentPrefetchIsBoundedCancellableAndClickPromotable(t *testing
 		}
 	}
 }
+
+func TestCoverageContinuouslyLoadsSummariesAndDefersDetails(t *testing.T) {
+	for _, contract := range []string{
+		"beginContinuousCoverageLoad(surface)",
+		"await loadReviewSurfacePage(button)",
+		"await new Promise(resolve => setTimeout(resolve, 0))",
+		"hydrateCoverageFile(details)",
+		"hydrateCoverageTarget(details)",
+		`data-coverage-file-href="/api/coverage-file?file=`,
+		`data-coverage-target-href="/api/coverage-target?target=`,
+		"Files appear automatically as they are ready.",
+	} {
+		if !strings.Contains(appJavaScript+pageTemplate, contract) {
+			t.Errorf("continuous coverage loading is missing %q", contract)
+		}
+	}
+	if strings.Contains(appJavaScript+pageTemplate, "Fetching a bounded page of the comparison.") || strings.Contains(pageTemplate, "The audit stays out of the initial page.") {
+		t.Fatal("Coverage exposes implementation constraints instead of loading state")
+	}
+}

@@ -63,6 +63,10 @@ tool, and what they have to do about it.
   counts on its heading, marked-place menu, SVG hotspot, and citation controls.
   Summaries remain in a bounded session cache, while full file diff bodies stay
   click-only.
+- Coverage now fills itself in continuously after it opens. Code → Saga lists
+  changed files first and Saga → Code lists explanations first; opening one
+  then loads its ownership ranges and linked files as needed, while source diff
+  contents remain deferred until their file is opened.
 
 ## [0.0.7] - 2026-08-22
 

@@ -186,7 +186,7 @@ func TestCodeCatalogListsEveryExplanationThatUsesTheSelectedFile(t *testing.T) {
 }
 
 func TestIncrementalComparisonEndpointsArePaginated(t *testing.T) {
-	_, _, handler := boundedFixture(t)
+	_, application, handler := boundedFixture(t)
 
 	code := getPage(t, handler, "/api/code?limit=2")
 	if got := strings.Count(code.Body.String(), "data-tree-file"); got != 2 {
@@ -199,11 +199,30 @@ func TestIncrementalComparisonEndpointsArePaginated(t *testing.T) {
 	getPage(t, handler, "/api/code?limit=2&cursor="+url.QueryEscape(codeCursor))
 
 	coverage := getPage(t, handler, "/api/coverage?mode=code&limit=3")
-	if got := strings.Count(coverage.Body.String(), `manifest-page-row`); got < 1 || got > 3 {
-		t.Fatalf("coverage page returned %d grouped audit rows, want 1..3", got)
+	if got := strings.Count(coverage.Body.String(), `manifest-page-row`); got != 3 {
+		t.Fatalf("coverage page returned %d file summaries, want 3", got)
 	}
 	if coverage.Header().Get("X-Change-Saga-Next-Cursor") == "" || !strings.Contains(coverage.Body.String(), `data-returned="3"`) {
 		t.Fatal("coverage page did not advertise its continuation")
+	}
+	if strings.Contains(coverage.Body.String(), `class="manifest-row`) || !strings.Contains(coverage.Body.String(), `data-coverage-file-href=`) {
+		t.Fatal("coverage file summaries eagerly rendered their ownership ranges")
+	}
+	current := application.snapshot(context.Background())
+	if current == nil || len(current.fileOrder) == 0 || len(current.targetOrder) == 0 {
+		t.Fatal("coverage snapshot did not expose indexed files and targets")
+	}
+	fileCoverage := getPage(t, handler, "/api/coverage-file?file="+url.QueryEscape(current.fileOrder[0]))
+	if !strings.Contains(fileCoverage.Body.String(), `data-coverage-file-response`) || !strings.Contains(fileCoverage.Body.String(), `class="manifest-row`) {
+		t.Fatal("opening a coverage file did not load its ownership ranges")
+	}
+	targetCoverage := getPage(t, handler, "/api/coverage-target?limit=2&target="+url.QueryEscape(current.targetOrder[0]))
+	if !strings.Contains(targetCoverage.Body.String(), `data-coverage-target-response`) || !strings.Contains(targetCoverage.Body.String(), `class="manifest-target-file`) {
+		t.Fatal("opening a coverage target did not load its linked files")
+	}
+	sagaCoverage := getPage(t, handler, "/api/coverage?mode=saga&limit=1")
+	if strings.Count(sagaCoverage.Body.String(), `data-coverage-target-href=`) != 1 || strings.Contains(sagaCoverage.Body.String(), `class="manifest-target-file"`) {
+		t.Fatal("Saga-first coverage did not defer the selected target's linked files")
 	}
 
 	invalid := httptest.NewRecorder()

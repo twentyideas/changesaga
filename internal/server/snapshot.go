@@ -31,26 +31,28 @@ import (
 // review generation and are projected onto the structure without rebuilding
 // any of these fields.
 type reviewSnapshot struct {
-	document      *saga.Saga
-	validation    saga.Validation
-	changes       gitdiff.ChangeSet
-	report        coverage.Report
-	diffErr       error
-	identity      string
-	fileOrder     []string
-	fileAtoms     map[string][]int
-	fileLines     map[string][]int
-	atomByKey     map[string]int
-	atomPathByURI map[string]string
-	targetAtoms   map[string][]int
-	targetOrder   []string
-	fileReviews   map[string]saga.DiffReview
-	reviewedFiles int
-	fileOwners    map[string][]string
-	fileSummaries map[string]FileDiffView
-	fileCoverage  map[string]ManifestFileView
-	locations     map[string]manifestTargetLocation
-	mutationIndex saga.MutationIndex
+	document        *saga.Saga
+	validation      saga.Validation
+	changes         gitdiff.ChangeSet
+	report          coverage.Report
+	diffErr         error
+	identity        string
+	fileOrder       []string
+	fileAtoms       map[string][]int
+	fileLines       map[string][]int
+	atomByKey       map[string]int
+	atomPathByURI   map[string]string
+	targetAtoms     map[string][]int
+	targetOrder     []string
+	targetFiles     map[string][]string
+	targetFileAtoms map[string]map[string][]int
+	fileReviews     map[string]saga.DiffReview
+	reviewedFiles   int
+	fileOwners      map[string][]string
+	fileSummaries   map[string]FileDiffView
+	fileCoverage    map[string]ManifestFileView
+	locations       map[string]manifestTargetLocation
+	mutationIndex   saga.MutationIndex
 }
 
 // reviewState contains only mutable review-overlay records. Keeping it apart
@@ -532,6 +534,22 @@ func (s *reviewSnapshot) indexComparison() {
 		}
 		return s.targetOrder[i] < s.targetOrder[j]
 	})
+	s.targetFiles = make(map[string][]string, len(s.targetAtoms))
+	s.targetFileAtoms = make(map[string]map[string][]int, len(s.targetAtoms))
+	for target, indexes := range s.targetAtoms {
+		byPath := map[string][]int{}
+		for _, index := range indexes {
+			path := effectiveAtomPath(s.changes.Atoms[index])
+			byPath[path] = append(byPath[path], index)
+		}
+		paths := make([]string, 0, len(byPath))
+		for path := range byPath {
+			paths = append(paths, path)
+		}
+		sort.Strings(paths)
+		s.targetFiles[target] = paths
+		s.targetFileAtoms[target] = byPath
+	}
 }
 
 const (
