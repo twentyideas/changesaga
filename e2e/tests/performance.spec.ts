@@ -3,11 +3,10 @@ import { largeSagaChangedLines, largeSagaScale } from "../support/fixture-builde
 
 /**
  * Budgets for a large saga in a real browser. The page describes the whole
- * comparison and the whole story, and carries neither: it carries the one file
- * the reviewer is already looking at, and the saga as a shell of chapter
- * summaries. Every other diff body arrives from /api/file-diff when that file
- * is opened, and every chapter body and explanation from /api/section and
- * /api/fragment when the reviewer reaches it.
+ * comparison and the whole story, and carries neither: it is only the saga
+ * identity, overview descriptors, chapter summaries, and navigation shell.
+ * Code, coverage, diff bodies, chapter bodies, and explanations all arrive
+ * through bounded endpoints when the reviewer reaches them.
  *
  * Byte and element counts are hard budgets: the fixture is fixed, so they are
  * deterministic and a breach always means the payload changed shape. Times are
@@ -21,18 +20,11 @@ import { largeSagaChangedLines, largeSagaScale } from "../support/fixture-builde
  *
  * Measured on this fixture (1,536 changed lines across 32 files):
  *
- *   document bytes   6,851,463 -> 555,974 -> 414,626
- *   DOM elements        73,835 ->   6,315 ->   4,978
- *   diff rows in DOM     6,240 ->      96 ->      96
- *
- * The third column is the shell. Of those 4,978 elements the saga document
- * itself is 434: the rest are the coverage audit, the Code Diff tab, and the
- * navigation outline.
+ * The current shell contains no comparison rows or coverage file models at
+ * all. Separate endpoint tests below prove those surfaces still exist.
  */
 const documentByteBudget = 1_200_000;
 const domElementBudget = 6_000;
-/** The Code Diff tab inlines one file; nothing else may bring rows with it. */
-const domDiffRowBudget = 2 * largeSagaScale.changedLinesPerFile + 64;
 /** A generous smoke ceiling, not a performance target. */
 const interactiveCeilingMs = 10_000;
 
@@ -72,16 +64,11 @@ test("a large saga's first load stays within its payload budgets", async ({ page
     measured.elements,
     budgetMessage("first-load DOM elements", measured.elements, domElementBudget, "Every element here is parsed, laid out, and retained by the browser.")
   ).toBeLessThanOrEqual(domElementBudget);
-  expect(
-    measured.diffRows,
-    budgetMessage("diff rows in the first-load DOM", measured.diffRows, domDiffRowBudget, `Only the file the Code Diff tab selected may be inlined, and it changes ${largeSagaScale.changedLinesPerFile} lines.`)
-  ).toBeLessThanOrEqual(domDiffRowBudget);
-  // The payload must have shrunk by deferring the audit, not by dropping it.
-  expect(measured.diffRows).toBeGreaterThan(0);
-  // Coverage lists each changed file in both directions, so every file offers
-  // its body from the code-first tree and again from its explanation.
-  expect(measured.changedFiles, "coverage must still list every changed file").toBe(largeSagaScale.sourceFiles);
-  expect(measured.lazyCoverageFiles, "every changed file must still offer its diff on demand").toBeGreaterThanOrEqual(largeSagaScale.sourceFiles);
+  expect(measured.diffRows, "the root shell must not contain source comparison rows").toBe(0);
+  expect(measured.changedFiles, "the root shell must not contain the coverage file model").toBe(0);
+  expect(measured.lazyCoverageFiles, "the root shell must not contain deferred coverage-file descriptors").toBe(0);
+  await expect(page.getByRole("tab", { name: "Code Diff" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Coverage" })).toBeVisible();
 
   expect(
     measured.domInteractive,
@@ -158,17 +145,18 @@ test("loads a coverage file diff only once the reviewer opens that file", async 
 
   const rows = file.locator("[data-manifest-diff-rows] .diff-row");
   await rows.first().waitFor();
-  // Each fixture module rewrites every line, so the body is the whole file.
+  await expect(rows).toHaveCount(50);
+  await file.getByRole("button", { name: "Load the next file chunk" }).click();
   await expect(rows).toHaveCount(2 * largeSagaScale.changedLinesPerFile);
   await expect(file.locator("[data-diff-placeholder]")).toHaveCount(0);
-  expect(requested).toHaveLength(1);
+  expect(requested).toHaveLength(2);
   expect(requested[0]).toContain("view=manifest");
 
   // Reopening the same file must not ask the server again.
   await file.locator("summary").click();
   await file.locator("summary").click();
   await expect(rows).toHaveCount(2 * largeSagaScale.changedLinesPerFile);
-  expect(requested).toHaveLength(1);
+  expect(requested).toHaveLength(2);
 });
 
 test("loads a linked-code file diff on demand and keeps it answerable to its explanation", async ({ page, largeSaga }) => {
@@ -189,6 +177,8 @@ test("loads a linked-code file diff on demand and keeps it answerable to its exp
   // The server marks the rows this explanation owns, so the drawer still shows
   // its own evidence inside the surrounding file it fetched for context.
   const linked = attached.locator(".diff-row.linked-evidence");
+  await expect(linked).toHaveCount(50);
+  await attached.getByRole("button", { name: "Load the next file chunk" }).click();
   await expect(linked).toHaveCount(2 * largeSagaScale.changedLinesPerFile);
 
   // A comment written here must carry this file's exact line identity and the

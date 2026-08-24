@@ -355,7 +355,10 @@ func (a *app) buildSnapshot(ctx context.Context) (*reviewSnapshot, reviewState, 
 	}
 
 	treePrint, sourcePrint := a.fingerprints(ctx, structural.Manifest)
-	key := snapshotcache.Key{Saga: a.root, Tree: treePrint, Source: sourcePrint}
+	// The derived representation is disposable. Include its format in the
+	// content key so a release that changes the on-disk shape builds a fresh
+	// generation instead of opening an older generation and failing in place.
+	key := snapshotcache.Key{Saga: a.root, Tree: derivedSnapshotFormat + "\x00" + treePrint, Source: sourcePrint}
 	populated := false
 	dir, _, buildErr := a.generations.Build(key, func(stage string) error {
 		if err := a.populateDerivedSnapshot(ctx, built); err != nil {
@@ -530,7 +533,10 @@ func (s *reviewSnapshot) indexComparison() {
 	})
 }
 
-const derivedSnapshotName = "review-index.json"
+const (
+	derivedSnapshotFormat = "review-index-v2"
+	derivedSnapshotName   = derivedSnapshotFormat + ".json"
+)
 
 type persistedDerivedSnapshot struct {
 	Version      int                              `json:"version"`

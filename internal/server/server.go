@@ -153,7 +153,7 @@ type sectionView struct {
 	// body arrives from /api/section the first time the chapter is opened.
 	Deferred      bool
 	DOMID         string
-	Changes       []*diffAtomView
+	ChangeCount   int
 	Attached      *attachedCodeView
 	Threads       []*threadView
 	FragmentViews []*fragmentView
@@ -177,7 +177,7 @@ type fragmentView struct {
 	Image         bool
 	AspectRatio   string
 	LandmarkViews []*landmarkView
-	Changes       []*diffAtomView
+	ChangeCount   int
 	Attached      *attachedCodeView
 	// Threads keeps its historical meaning: comments that belong to the
 	// fragment as a whole, listed under the content. Comments drawn onto the
@@ -192,12 +192,12 @@ type fragmentView struct {
 
 type landmarkView struct {
 	saga.Landmark
-	DOMID    string
-	Title    string
-	Changes  []*diffAtomView
-	Attached *attachedCodeView
-	Threads  []*threadView
-	Region   *saga.LandmarkRegion
+	DOMID       string
+	Title       string
+	ChangeCount int
+	Attached    *attachedCodeView
+	Threads     []*threadView
+	Region      *saga.LandmarkRegion
 }
 
 type diffAtomView struct {
@@ -251,6 +251,11 @@ func ListenManaged(ctx context.Context, root, sourceDir, addr string, openBrowse
 	}
 	if sourceDir == "" {
 		sourceDir = abs
+	}
+	if _, validation, err := saga.LoadMutationIndex(abs); err != nil {
+		return err
+	} else if !validation.Valid {
+		return fmt.Errorf("saga is structurally invalid; run change-saga validate")
 	}
 	tmpl, err := newPageTemplate()
 	if err != nil {
@@ -439,7 +444,7 @@ func threadViews(document *saga.Saga) (byTarget, byDiff map[string][]*threadView
 // by that one chapter, and it renders at the same scope the page renders its
 // root at, so an opened chapter reads exactly as the shell around it.
 func (a *app) sectionBody(w http.ResponseWriter, r *http.Request) {
-	document := a.outlineDocument(r.Context())
+	document := a.narrativeDocument(r.Context())
 	if document == nil {
 		http.Error(w, "The saga could not be loaded.", http.StatusInternalServerError)
 		return
@@ -462,18 +467,18 @@ func (a *app) sectionBody(w http.ResponseWriter, r *http.Request) {
 // only place fragment content is produced, so the size of a first load no longer
 // tracks the size of the story.
 func (a *app) fragmentContent(w http.ResponseWriter, r *http.Request) {
-	document := a.narrativeDocument(r.Context())
-	if document == nil {
-		http.Error(w, "The saga could not be loaded.", http.StatusInternalServerError)
+	current := a.requestSnapshot(w, r)
+	if current == nil {
 		return
 	}
+	document := current.document
 	fragment := findFragmentByTarget(document, r.URL.Query().Get("target"))
 	if fragment == nil {
 		http.Error(w, "unknown fragment", http.StatusNotFound)
 		return
 	}
-	threadsByTarget, _ := threadViews(document)
-	scope := viewScope{threads: threadsByTarget}
+	threadsByTarget, threadsByDiff := threadViews(document)
+	scope := viewScope{snapshot: current, threads: threadsByTarget, diffThreads: threadsByDiff}
 	writeIncrementalHeaders(w, "text/html; charset=utf-8")
 	if err := a.template.ExecuteTemplate(w, "fragment", makeFragmentView(fragment, scope)); err != nil {
 		http.Error(w, "The explanation could not be rendered.", http.StatusInternalServerError)
@@ -805,18 +810,6 @@ func (a *app) narrativeDocument(ctx context.Context) *saga.Saga {
 	return document
 }
 
-// writeBuildingCache is intentionally independent of the review template and
-// snapshot. A cold request can render it without constructing any part of the
-// full review page, and the browser retries once the atomic generation is
-// published.
-func writeBuildingCache(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Retry-After", "1")
-	w.WriteHeader(http.StatusServiceUnavailable)
-	_, _ = io.WriteString(w, `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="1"><title>Building review cache</title></head><body><main><h1>Building review cache</h1><p>Change Saga is indexing the document and source comparison. This page will retry automatically.</p></main></body></html>`)
-}
-
 func requestedChapter(r *http.Request) (string, bool) {
 	if value := r.PathValue("chapter"); value != "" {
 		return value, true
@@ -1120,6 +1113,7 @@ func makeAnnotationThreadView(thread *threadView) *annotationThreadView {
 // exactly the code that built the page around it.
 type viewScope struct {
 	changes     map[string][]gitdiff.Atom
+	snapshot    *reviewSnapshot
 	threads     map[string][]*threadView
 	diffThreads map[string][]*threadView
 	// summary stops the render at this section's own head: its body arrives
@@ -1142,9 +1136,10 @@ func (scope viewScope) shell() viewScope {
 }
 
 func makeSectionView(section *saga.Section, scope viewScope) *sectionView {
+	changeCount, attached := scopedAttachedCode(scope, section.Title, section.Target, section.Diffs)
 	view := &sectionView{
-		Section: section, DOMID: domID(section.Target), Changes: makeAtomViews(scope.changes[section.Target], section.Target, scope.diffThreads),
-		Attached: makeAttachedCodeView(section.Title, section.Target, scope.changes[section.Target], section.Diffs), Threads: scope.threads[section.Target],
+		Section: section, DOMID: domID(section.Target), ChangeCount: changeCount,
+		Attached: attached, Threads: scope.threads[section.Target],
 	}
 	view.ReviewState, view.ReviewAuthor, view.ReviewDetail, view.ReviewBody = latestReview(section.Reviews)
 	if scope.summary {
@@ -1177,9 +1172,8 @@ func makeFragmentView(fragment *saga.Fragment, scope viewScope) *fragmentView {
 		view.Deferred = true
 		return view
 	}
-	changes, threads, diffThreads := scope.changes[fragment.Target], scope.threads[fragment.Target], scope.diffThreads
-	view.Changes = makeAtomViews(changes, fragment.Target, diffThreads)
-	view.Attached = makeAttachedCodeView(title, fragment.Target, changes, fragment.Diffs)
+	threads := scope.threads[fragment.Target]
+	view.ChangeCount, view.Attached = scopedAttachedCode(scope, title, fragment.Target, fragment.Diffs)
 	for _, thread := range threads {
 		if annotationAnchor(thread.Anchor.Type) {
 			view.AnnotationThreads = append(view.AnnotationThreads, makeAnnotationThreadView(thread))
@@ -1192,12 +1186,12 @@ func makeFragmentView(fragment *saga.Fragment, scope viewScope) *fragmentView {
 		if region == nil && landmark.Selector.Type == "region" {
 			region = &saga.LandmarkRegion{X: landmark.Selector.X, Y: landmark.Selector.Y, Width: landmark.Selector.Width, Height: landmark.Selector.Height}
 		}
-		landmarkChanges := scope.changes[landmark.Target]
+		changeCount, attached := scopedAttachedCode(scope, landmark.Label, landmark.Target, landmark.Diffs)
 		view.LandmarkViews = append(view.LandmarkViews, &landmarkView{
 			Landmark: landmark, DOMID: view.DOMID + "--" + landmark.ID, Title: landmark.Label,
-			Changes:  makeAtomViews(landmarkChanges, landmark.Target, diffThreads),
-			Attached: makeAttachedCodeView(landmark.Label, landmark.Target, landmarkChanges, landmark.Diffs),
-			Threads:  scope.threads[landmark.Target], Region: region,
+			ChangeCount: changeCount,
+			Attached:    attached,
+			Threads:     scope.threads[landmark.Target], Region: region,
 		})
 	}
 	switch fragment.MediaType {
@@ -1223,6 +1217,15 @@ func makeFragmentView(fragment *saga.Fragment, scope viewScope) *fragmentView {
 		view.Image = strings.HasPrefix(fragment.MediaType, "image/")
 	}
 	return view
+}
+
+func scopedAttachedCode(scope viewScope, title, target string, evidence []saga.DiffFile) (int, *attachedCodeView) {
+	if scope.snapshot != nil {
+		indexes := scope.snapshot.targetAtoms[target]
+		return len(indexes), makeAttachedCodeViewIndexed(title, target, scope.snapshot, indexes, evidence)
+	}
+	atoms := scope.changes[target]
+	return len(atoms), makeAttachedCodeView(title, target, atoms, evidence)
 }
 
 var svgViewBoxPattern = regexp.MustCompile(`(?i)\bviewBox\s*=\s*["']([^"']+)["']`)
@@ -1260,14 +1263,6 @@ func makeThreadView(thread *saga.Thread) *threadView {
 		view.MessageViews = append(view.MessageViews, fragments)
 	}
 	return view
-}
-
-func makeAtomViews(atoms []gitdiff.Atom, target string, threads map[string][]*threadView) []*diffAtomView {
-	views := make([]*diffAtomView, 0, len(atoms))
-	for _, atom := range atoms {
-		views = append(views, &diffAtomView{Atom: atom, Threads: threads[atom.URI], Target: target})
-	}
-	return views
 }
 
 func makeFileViews(changes gitdiff.ChangeSet, target string, reviews []saga.DiffReview, threads map[string][]*threadView) []*fileDiffView {

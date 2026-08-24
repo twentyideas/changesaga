@@ -919,8 +919,8 @@ const appJavaScript = `(() => {
   }
 
   function toggleChapter(button) {
-    const chapter = button.closest('[data-chapter]');
-    void setChapterOpen(chapter, button.getAttribute('aria-expanded') !== 'true');
+	const chapter = button.closest('[data-chapter]');
+	void setChapterOpen(chapter, button.getAttribute('aria-expanded') !== 'true');
   }
 
   // Code Diff and Coverage are deliberately absent from the root document.
@@ -1353,10 +1353,15 @@ const appJavaScript = `(() => {
   function fetchFileDiff(href) {
     let request = fileDiffCache.get(href);
     if (!request) {
-      request = fetch(href, {headers:{Accept:'text/html'}}).then(async response => {
+      const load = () => fetch(href, {headers:{Accept:'text/html'}}).then(async response => {
+        if (response.status === 202) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay(response)));
+          return load();
+        }
         if (!response.ok) throw new Error('diff request failed');
-        return response.text();
+        return {html:await response.text(), next:response.headers.get('X-Change-Saga-Next-Cursor') || ''};
       });
+      request = load();
       fileDiffCache.set(href, request);
       request.catch(() => fileDiffCache.delete(href));
     }
@@ -1373,10 +1378,15 @@ const appJavaScript = `(() => {
   function fetchShell(href) {
     let request = shellCache.get(href);
     if (!request) {
-      request = fetch(href, {headers:{Accept:'text/html'}}).then(response => {
+      const load = () => fetch(href, {headers:{Accept:'text/html'}}).then(async response => {
+        if (response.status === 202) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay(response)));
+          return load();
+        }
         if (!response.ok) throw new Error('shell request failed');
         return response.text();
       });
+      request = load();
       shellCache.set(href, request);
       request.catch(() => shellCache.delete(href));
     }
@@ -1387,6 +1397,40 @@ const appJavaScript = `(() => {
     const wrapper = document.createElement('div');
     wrapper.innerHTML = html;
     return wrapper;
+  }
+
+  function installAuxiliaryDiffNext(container, href, cursor) {
+    q('[data-aux-file-next]', container)?.remove();
+    if (!cursor) return;
+    const url = new URL(href, location.href);
+    url.searchParams.set('cursor', cursor);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.auxFileNext = url.pathname + url.search;
+    button.textContent = 'Load more lines';
+    button.setAttribute('aria-label', 'Load the next file chunk');
+    container.append(button);
+  }
+
+  async function appendAuxiliaryDiff(button) {
+    const container = button.parentElement;
+    const href = button.dataset.auxFileNext;
+    if (!container || !href || button.dataset.loading === 'true') return;
+    button.dataset.loading = 'true';
+    try {
+      const result = await fetchFileDiff(href);
+      const wrapper = parseShellHTML(result.html);
+      const items = q('[data-page-items="lines"]', wrapper);
+      const rows = items ? qa('.diff-row', items) : [];
+      button.before(...rows);
+      installAuxiliaryDiffNext(container, href, result.next);
+      highlightCode(container);
+      prepareContext(container);
+      applyDiffLayout(diffLayout);
+    } catch (_) {
+      button.textContent = 'Could not load more — try again';
+      delete button.dataset.loading;
+    }
   }
 
   async function hydrateChapter(chapter) {
@@ -1522,9 +1566,11 @@ const appJavaScript = `(() => {
       // target that a new comment belongs to, and the server has marked the
       // rows this explanation is answerable for.
       const wrapper = document.createElement('div');
-      wrapper.innerHTML = await fetchFileDiff(href);
+      const result = await fetchFileDiff(href);
+      wrapper.innerHTML = result.html;
       if (!q('[data-attached-full-diff]', wrapper)) throw new Error('diff response was incomplete');
       linkedRows.replaceChildren(...Array.from(wrapper.childNodes));
+	  installAuxiliaryDiffNext(linkedRows, href, result.next);
       details.dataset.fullDiffLoaded = 'true';
       if (status) status.textContent = 'Full file diff · linked changes highlighted';
       highlightCode(linkedRows);
@@ -1551,8 +1597,10 @@ const appJavaScript = `(() => {
     surface.classList.add('loading');
     try {
       const wrapper = document.createElement('div');
-      wrapper.innerHTML = await fetchFileDiff(href);
+      const result = await fetchFileDiff(href);
+      wrapper.innerHTML = result.html;
       rows.replaceChildren(...Array.from(wrapper.childNodes));
+	  installAuxiliaryDiffNext(rows, href, result.next);
       surface.dataset.manifestDiffLoaded = 'true';
       highlightCode(rows);
     } catch (_) {
@@ -1572,6 +1620,7 @@ const appJavaScript = `(() => {
   }
 
   async function openFragmentDrawer(anchor, opener) {
+	anchor = decodeURIComponent(String(anchor || '').replace(/^#/, ''));
     const destination = await revealAnchor(anchor);
     const fragment = destination?.matches('.fragment') ? destination : destination?.closest('.fragment');
     if (!fragment) return;
@@ -2314,6 +2363,11 @@ const appJavaScript = `(() => {
       void hydrateCodeFile(nextFilePage.closest('[data-code-file-href]'), {href:nextFilePage.dataset.fileNext, append:true});
       return;
     }
+	const nextAuxiliaryPage = event.target.closest?.('[data-aux-file-next]');
+	if (nextAuxiliaryPage) {
+	  void appendAuxiliaryDiff(nextAuxiliaryPage);
+	  return;
+	}
     const retrySurface = event.target.closest?.('[data-retry-surface]');
     if (retrySurface) {
       void hydrateReviewSurface(retrySurface.dataset.retrySurface, {force:true});
@@ -2326,11 +2380,12 @@ const appJavaScript = `(() => {
       return;
     }
     const boundedLink = event.target.closest?.('a[href]');
-    if (boundedLink && !event.defaultPrevented && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && (!boundedLink.target || boundedLink.target === '_self')) {
+    if (boundedLink && !boundedLink.hasAttribute('data-open-fragment') && !boundedLink.getAttribute('href')?.startsWith('#') && !event.defaultPrevented && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && (!boundedLink.target || boundedLink.target === '_self')) {
       const destination = new URL(boundedLink.href, location.href);
       const view = destination.searchParams.get('view');
       if (destination.origin === location.origin && destination.pathname === location.pathname && (view === 'code' || view === 'manifest')) {
         event.preventDefault();
+		if (boundedLink.closest('.diff-drawer.open')) closeDrawer();
         history.pushState({view}, '', destination);
         setView(view, false);
         return;
@@ -2344,13 +2399,18 @@ const appJavaScript = `(() => {
     }
     const sagaLink = event.target.closest?.('a[href^="#"]');
     if (sagaLink) {
+	  event.preventDefault();
       const id = decodeURIComponent(sagaLink.getAttribute('href').slice(1));
+	  const sagaURL = new URL(location.href);
+	  ['view', 'file', 'diff', 'mode'].forEach(key => sagaURL.searchParams.delete(key));
+	  sagaURL.hash = id;
+	  history.pushState({view:'saga'}, '', sagaURL);
       // The destination can live in a chapter that has not been fetched yet.
       // Resolving it here opens that chapter; the hash change that follows is
       // what scrolls to it, exactly as it does for content already on the page.
-      if (id) void revealAnchor(id).then(destination => {
-        if (destination?.closest('[data-view="saga"]')) setView('saga', false);
-      });
+	  if (id) void revealAnchor(id).then(destination => {
+		if (destination?.closest('[data-view="saga"]')) setView('saga', false);
+	  });
     }
     const bubbleToggle = event.target.closest?.('[data-annotation-bubble-toggle]');
     if (bubbleToggle) { pinAnnotationBubble(bubbleToggle.closest('[data-annotation-bubble]')); return; }

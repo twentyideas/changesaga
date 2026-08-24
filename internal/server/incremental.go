@@ -237,7 +237,10 @@ func (a *app) codePage(w http.ResponseWriter, r *http.Request) {
 	ownerStart, ownerEnd := boundedSlice(window.start, window.end, len(current.fileOwners[selectedPath]))
 	owners := make([]*ManifestOwnerView, 0, ownerEnd-ownerStart)
 	for _, target := range current.fileOwners[selectedPath][ownerStart:ownerEnd] {
-		owners = append(owners, manifestOwner(target, current.locations))
+		owner := manifestOwner(target, current.locations)
+		if owner.Kind == "Fragment" || owner.Kind == "Landmark" {
+			owners = append(owners, owner)
+		}
 	}
 	var selected *FileDiffView
 	if selectedPath != "" {
@@ -267,14 +270,14 @@ type coveragePageView struct {
 }
 
 type coverageCodeItem struct {
-	File  *ManifestFileView
-	Chunk *ManifestChunkView
+	File   *ManifestFileView
+	Chunks []*ManifestChunkView
 }
 
 type coverageSagaItem struct {
 	Target *ManifestOwnerView
 	File   *ManifestTargetFileView
-	Chunk  *ManifestChunkView
+	Chunks []*ManifestChunkView
 }
 
 func coverageAtomTotal(groups map[string][]int, order []string) int {
@@ -353,9 +356,7 @@ func (a *app) coveragePage(w http.ResponseWriter, r *http.Request) {
 			fileValue := current.fileCoverage[group.key]
 			file := &fileValue
 			atoms := atomsForIndexes(current, group.indexes)
-			for _, chunk := range makeManifestChunks(atoms, current.report.Ownership, locations, true) {
-				result.Code = append(result.Code, coverageCodeItem{File: file, Chunk: chunk})
-			}
+			result.Code = append(result.Code, coverageCodeItem{File: file, Chunks: makeManifestChunks(atoms, current.report.Ownership, locations, true)})
 		}
 	} else {
 		atomTotal := coverageAtomTotal(current.targetAtoms, current.targetOrder)
@@ -379,9 +380,7 @@ func (a *app) coveragePage(w http.ResponseWriter, r *http.Request) {
 				sort.Strings(paths)
 				for _, filePath := range paths {
 					file := &ManifestTargetFileView{Path: filePath, Href: CodeDiffURL(filePath, ""), HasDiff: true}
-					for _, chunk := range makeManifestChunks(byPath[filePath], nil, locations, false) {
-						result.Saga = append(result.Saga, coverageSagaItem{Target: owner, File: file, Chunk: chunk})
-					}
+					result.Saga = append(result.Saga, coverageSagaItem{Target: owner, File: file, Chunks: makeManifestChunks(byPath[filePath], nil, locations, false)})
 				}
 			}
 		}

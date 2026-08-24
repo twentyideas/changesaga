@@ -105,7 +105,7 @@ func TestIncrementalComparisonEndpointsArePaginated(t *testing.T) {
 	getPage(t, handler, "/api/code?limit=2&cursor="+url.QueryEscape(codeCursor))
 
 	coverage := getPage(t, handler, "/api/coverage?mode=code&limit=3")
-	if got := strings.Count(coverage.Body.String(), `class="manifest-page-row"`); got < 1 || got > 3 {
+	if got := strings.Count(coverage.Body.String(), `manifest-page-row`); got < 1 || got > 3 {
 		t.Fatalf("coverage page returned %d grouped audit rows, want 1..3", got)
 	}
 	if coverage.Header().Get("X-Change-Saga-Next-Cursor") == "" || !strings.Contains(coverage.Body.String(), `data-returned="3"`) {
