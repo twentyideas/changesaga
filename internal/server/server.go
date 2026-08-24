@@ -362,7 +362,7 @@ func (a *app) fileDiffFragment(w http.ResponseWriter, r *http.Request) {
 		if total == 0 {
 			total = len(current.fileAtoms[filePath])
 		}
-		window, err := pageRequest(r, "file-diff\x00"+filePath+"\x00"+target+"\x00"+r.URL.Query().Get("view"), total, defaultDiffPageLimit, maxDiffPageLimit)
+		window, err := pageRequest(r, "file-diff\x00"+current.identity+"\x00"+filePath+"\x00"+target+"\x00"+r.URL.Query().Get("view"), total, defaultDiffPageLimit, maxDiffPageLimit)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return

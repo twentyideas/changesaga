@@ -31,22 +31,25 @@ import (
 // Every field is immutable once published. Handlers read a snapshot
 // concurrently and must not mutate the document, the change set, or the report.
 type reviewSnapshot struct {
-	document        *saga.Saga
-	validation      saga.Validation
-	changes         gitdiff.ChangeSet
-	report          coverage.Report
-	diffErr         error
-	changesByTarget map[string][]gitdiff.Atom
-	fileOrder       []string
-	fileAtoms       map[string][]gitdiff.Atom
-	fileLines       map[string][]gitdiff.DisplayLine
-	atomByKey       map[string]*gitdiff.Atom
-	atomPathByURI   map[string]string
-	targetOrder     []string
-	fileReviews     map[string]saga.DiffReview
-	fileOwners      map[string][]string
-	fileSummaries   map[string]FileDiffView
-	fileCoverage    map[string]ManifestFileView
+	document      *saga.Saga
+	validation    saga.Validation
+	changes       gitdiff.ChangeSet
+	report        coverage.Report
+	diffErr       error
+	identity      string
+	fileOrder     []string
+	fileAtoms     map[string][]int
+	fileLines     map[string][]int
+	atomByKey     map[string]int
+	atomPathByURI map[string]string
+	targetAtoms   map[string][]int
+	targetOrder   []string
+	fileReviews   map[string]saga.DiffReview
+	reviewedFiles int
+	fileOwners    map[string][]string
+	fileSummaries map[string]FileDiffView
+	fileCoverage  map[string]ManifestFileView
+	locations     map[string]manifestTargetLocation
 }
 
 // snapshotCache serves a snapshot for as long as its inputs are observably
@@ -143,24 +146,27 @@ func (a *app) buildSnapshot(ctx context.Context) (*reviewSnapshot, error) {
 		return built, nil
 	}
 	built.report = coverage.Evaluate(document, validation, built.changes)
-	built.changesByTarget = map[string][]gitdiff.Atom{}
-	for _, atom := range built.changes.Atoms {
+	built.targetAtoms = map[string][]int{}
+	for index := range built.changes.Atoms {
+		atom := &built.changes.Atoms[index]
 		seen := map[string]bool{}
 		for _, owner := range built.report.Ownership[atom.Key] {
 			if !seen[owner.Target] {
-				built.changesByTarget[owner.Target] = append(built.changesByTarget[owner.Target], atom)
+				built.targetAtoms[owner.Target] = append(built.targetAtoms[owner.Target], index)
 				seen[owner.Target] = true
 			}
 		}
 	}
+	digest := sha256.Sum256([]byte(built.changes.Repository + "\x00" + built.changes.BaseOID + "\x00" + built.changes.HeadOID))
+	built.identity = hex.EncodeToString(digest[:16])
 	built.indexComparison()
 	return built, nil
 }
 
 func (s *reviewSnapshot) indexComparison() {
-	s.fileAtoms = map[string][]gitdiff.Atom{}
-	s.fileLines = map[string][]gitdiff.DisplayLine{}
-	s.atomByKey = make(map[string]*gitdiff.Atom, len(s.changes.Atoms))
+	s.fileAtoms = map[string][]int{}
+	s.fileLines = map[string][]int{}
+	s.atomByKey = make(map[string]int, len(s.changes.Atoms))
 	s.atomPathByURI = make(map[string]string, len(s.changes.Atoms))
 	s.fileReviews = map[string]saga.DiffReview{}
 	renameTo := map[string]string{}
@@ -179,16 +185,17 @@ func (s *reviewSnapshot) indexComparison() {
 		if renamed := renameTo[path]; renamed != "" {
 			path = renamed
 		}
-		s.fileAtoms[path] = append(s.fileAtoms[path], *atom)
-		s.atomByKey[atom.Key], s.atomPathByURI[atom.URI] = atom, path
+		s.fileAtoms[path] = append(s.fileAtoms[path], index)
+		s.atomByKey[atom.Key], s.atomPathByURI[atom.URI] = index, path
 	}
-	for _, line := range s.changes.DisplayLines {
+	for index := range s.changes.DisplayLines {
+		line := &s.changes.DisplayLines[index]
 		path := line.Path
 		if renamed := renameTo[path]; renamed != "" {
 			path = renamed
 		}
 		line.Path = path
-		s.fileLines[path] = append(s.fileLines[path], line)
+		s.fileLines[path] = append(s.fileLines[path], index)
 	}
 	for path := range s.fileAtoms {
 		s.fileOrder = append(s.fileOrder, path)
@@ -204,13 +211,19 @@ func (s *reviewSnapshot) indexComparison() {
 			s.fileReviews[reference.Path] = review
 		}
 	}
+	for _, review := range s.fileReviews {
+		if review.State == "reviewed" {
+			s.reviewedFiles++
+		}
+	}
 	s.fileSummaries = make(map[string]FileDiffView, len(s.fileOrder))
 	s.fileCoverage = make(map[string]ManifestFileView, len(s.fileOrder))
 	for _, path := range s.fileOrder {
 		uri, _ := diffuri.Build(diffuri.Reference{Repository: s.changes.Repository, Base: s.changes.BaseOID, Head: s.changes.HeadOID, Kind: "file", Path: path})
 		digest := sha256.Sum256([]byte(path))
 		file := FileDiffView{ID: fmt.Sprintf("diff-%x", digest[:8]), Path: path, URI: uri}
-		for _, atom := range s.fileAtoms[path] {
+		for _, index := range s.fileAtoms[path] {
+			atom := &s.changes.Atoms[index]
 			if atom.Side == "new" {
 				file.Added++
 			} else if atom.Side == "old" {
@@ -222,7 +235,8 @@ func (s *reviewSnapshot) indexComparison() {
 		}
 		s.fileSummaries[path] = file
 		coverageFile := ManifestFileView{Path: path, HasDiff: true}
-		for _, atom := range s.fileAtoms[path] {
+		for _, index := range s.fileAtoms[path] {
+			atom := &s.changes.Atoms[index]
 			coverageFile.AtomCount++
 			if atom.Kind == "event" {
 				coverageFile.Events++
@@ -239,11 +253,12 @@ func (s *reviewSnapshot) indexComparison() {
 		}
 		s.fileCoverage[path] = coverageFile
 	}
-	locations := indexManifestTargets(s.document)
+	s.locations = indexManifestTargets(s.document)
 	s.fileOwners = map[string][]string{}
-	for path, atoms := range s.fileAtoms {
+	for path, indexes := range s.fileAtoms {
 		seen := map[string]bool{}
-		for _, atom := range atoms {
+		for _, index := range indexes {
+			atom := &s.changes.Atoms[index]
 			for _, assignment := range s.report.Ownership[atom.Key] {
 				seen[assignment.Target] = true
 			}
@@ -252,20 +267,20 @@ func (s *reviewSnapshot) indexComparison() {
 			s.fileOwners[path] = append(s.fileOwners[path], target)
 		}
 		sort.SliceStable(s.fileOwners[path], func(i, j int) bool {
-			left, leftOK := locations[s.fileOwners[path][i]]
-			right, rightOK := locations[s.fileOwners[path][j]]
+			left, leftOK := s.locations[s.fileOwners[path][i]]
+			right, rightOK := s.locations[s.fileOwners[path][j]]
 			if leftOK && rightOK && left.order != right.order {
 				return left.order < right.order
 			}
 			return s.fileOwners[path][i] < s.fileOwners[path][j]
 		})
 	}
-	for target := range s.changesByTarget {
+	for target := range s.targetAtoms {
 		s.targetOrder = append(s.targetOrder, target)
 	}
 	sort.SliceStable(s.targetOrder, func(i, j int) bool {
-		left, leftOK := locations[s.targetOrder[i]]
-		right, rightOK := locations[s.targetOrder[j]]
+		left, leftOK := s.locations[s.targetOrder[i]]
+		right, rightOK := s.locations[s.targetOrder[j]]
 		if leftOK && rightOK && left.order != right.order {
 			return left.order < right.order
 		}

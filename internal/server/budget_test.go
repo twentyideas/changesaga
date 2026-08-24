@@ -298,9 +298,9 @@ func TestFileDiffEndpointServesCoverageAndTargetedBodies(t *testing.T) {
 func busiestTarget(tb testing.TB, snapshot *reviewSnapshot) (string, []gitdiff.Atom) {
 	tb.Helper()
 	best, bestAtoms := "", []gitdiff.Atom(nil)
-	for target, atoms := range snapshot.changesByTarget {
-		if len(atoms) > len(bestAtoms) || (len(atoms) == len(bestAtoms) && target < best) {
-			best, bestAtoms = target, atoms
+	for target, indexes := range snapshot.targetAtoms {
+		if len(indexes) > len(bestAtoms) || (len(indexes) == len(bestAtoms) && target < best) {
+			best, bestAtoms = target, atomsForIndexes(snapshot, indexes)
 		}
 	}
 	if best == "" {

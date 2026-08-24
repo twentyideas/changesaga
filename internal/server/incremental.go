@@ -45,9 +45,11 @@ type fileDiffPageView struct {
 
 func makeFileDiffPage(current *reviewSnapshot, filePath, owner, linkedTarget string, manifest bool, window pageWindow) *FileDiffView {
 	file := fileSummary(current, filePath)
-	lines := current.fileLines[filePath]
-	if len(lines) == 0 {
-		for _, atom := range current.fileAtoms[filePath][window.start:window.end] {
+	lineIndexes := current.fileLines[filePath]
+	lines := make([]gitdiff.DisplayLine, 0, window.end-window.start)
+	if len(lineIndexes) == 0 {
+		for _, index := range current.fileAtoms[filePath][window.start:window.end] {
+			atom := current.changes.Atoms[index]
 			line := gitdiff.DisplayLine{Kind: atom.Side, Path: filePath, Content: atom.Content, Event: atom.Event, OldPath: atom.OldPath, NewPath: atom.NewPath, AtomKey: atom.Key}
 			if atom.Kind == "event" {
 				line.Kind = "event"
@@ -59,12 +61,14 @@ func makeFileDiffPage(current *reviewSnapshot, filePath, owner, linkedTarget str
 			lines = append(lines, line)
 		}
 	} else {
-		lines = lines[window.start:window.end]
+		for _, index := range lineIndexes[window.start:window.end] {
+			lines = append(lines, current.changes.DisplayLines[index])
+		}
 	}
 	needed := map[string]bool{}
 	for _, line := range lines {
-		if atom := current.atomByKey[line.AtomKey]; atom != nil {
-			needed[atom.URI] = true
+		if index, ok := current.atomByKey[line.AtomKey]; ok {
+			needed[current.changes.Atoms[index].URI] = true
 		}
 	}
 	threads := map[string][]*threadView{}
@@ -78,7 +82,8 @@ func makeFileDiffPage(current *reviewSnapshot, filePath, owner, linkedTarget str
 	}
 	for _, line := range lines {
 		view := &DiffLineView{Kind: line.Kind, Path: filePath, OldLine: line.OldLine, NewLine: line.NewLine, Content: line.Content, Event: line.Event, OldPath: line.OldPath, NewPath: line.NewPath}
-		if atom := current.atomByKey[line.AtomKey]; atom != nil {
+		if index, ok := current.atomByKey[line.AtomKey]; ok {
+			atom := &current.changes.Atoms[index]
 			view.Atom = &diffAtomView{Atom: *atom, Threads: threads[atom.URI], Target: owner}
 			if linkedTarget != "" {
 				for _, assignment := range current.report.Ownership[atom.Key] {
@@ -214,29 +219,22 @@ func (a *app) codePage(w http.ResponseWriter, r *http.Request) {
 	if owners := len(current.fileOwners[selectedPath]); owners > total {
 		total = owners
 	}
-	window, err := pageRequest(r, "code\x00"+r.URL.Query().Get("file")+"\x00"+r.URL.Query().Get("diff"), total, defaultSurfacePageLimit, maxSurfacePageLimit)
+	window, err := pageRequest(r, "code\x00"+current.identity+"\x00"+r.URL.Query().Get("file")+"\x00"+r.URL.Query().Get("diff"), total, defaultSurfacePageLimit, maxSurfacePageLimit)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	fileStart, fileEnd := boundedSlice(window.start, window.end, len(current.fileOrder))
 	files := make([]*FileDiffView, 0, fileEnd-fileStart)
-	reviewed := 0
-	for _, filePath := range current.fileOrder {
-		if review, ok := current.fileReviews[filePath]; ok && review.State == "reviewed" {
-			reviewed++
-		}
-	}
 	for _, filePath := range current.fileOrder[fileStart:fileEnd] {
 		file := fileSummary(current, filePath)
 		file.Selected = filePath == selectedPath
 		files = append(files, file)
 	}
 	ownerStart, ownerEnd := boundedSlice(window.start, window.end, len(current.fileOwners[selectedPath]))
-	locations := indexManifestTargets(current.document)
 	owners := make([]*ManifestOwnerView, 0, ownerEnd-ownerStart)
 	for _, target := range current.fileOwners[selectedPath][ownerStart:ownerEnd] {
-		owners = append(owners, manifestOwner(target, locations))
+		owners = append(owners, manifestOwner(target, current.locations))
 	}
 	var selected *FileDiffView
 	if selectedPath != "" {
@@ -245,7 +243,7 @@ func (a *app) codePage(w http.ResponseWriter, r *http.Request) {
 	}
 	result := codePageView{
 		Tree: makeChangedFileTree(files), Selected: selected, Owners: owners,
-		TotalFiles: len(current.fileOrder), ReviewedFiles: reviewed, NextCursor: window.next, HasMore: window.hasMore(), Returned: window.end - window.start,
+		TotalFiles: len(current.fileOrder), ReviewedFiles: current.reviewedFiles, NextCursor: window.next, HasMore: window.hasMore(), Returned: window.end - window.start,
 	}
 	writeIncrementalHeaders(w, "text/html; charset=utf-8")
 	writePageHeaders(w, window)
@@ -276,7 +274,7 @@ type coverageSagaItem struct {
 	Chunk  *ManifestChunkView
 }
 
-func coverageAtomTotal(groups map[string][]gitdiff.Atom, order []string) int {
+func coverageAtomTotal(groups map[string][]int, order []string) int {
 	total := 0
 	for _, key := range order {
 		total += len(groups[key])
@@ -285,16 +283,16 @@ func coverageAtomTotal(groups map[string][]gitdiff.Atom, order []string) int {
 }
 
 type atomPageGroup struct {
-	key   string
-	atoms []gitdiff.Atom
+	key     string
+	indexes []int
 }
 
-func atomPage(groups map[string][]gitdiff.Atom, order []string, start, end int) []atomPageGroup {
+func atomPage(groups map[string][]int, order []string, start, end int) []atomPageGroup {
 	var result []atomPageGroup
 	offset := 0
 	for _, key := range order {
-		atoms := groups[key]
-		groupStart, groupEnd := offset, offset+len(atoms)
+		indexes := groups[key]
+		groupStart, groupEnd := offset, offset+len(indexes)
 		if groupEnd <= start {
 			offset = groupEnd
 			continue
@@ -302,14 +300,14 @@ func atomPage(groups map[string][]gitdiff.Atom, order []string, start, end int) 
 		if groupStart >= end {
 			break
 		}
-		left, right := 0, len(atoms)
+		left, right := 0, len(indexes)
 		if start > groupStart {
 			left = start - groupStart
 		}
 		if end < groupEnd {
 			right = end - groupStart
 		}
-		result = append(result, atomPageGroup{key: key, atoms: atoms[left:right]})
+		result = append(result, atomPageGroup{key: key, indexes: indexes[left:right]})
 		offset = groupEnd
 	}
 	return result
@@ -331,9 +329,9 @@ func (a *app) coveragePage(w http.ResponseWriter, r *http.Request) {
 	}
 	total := coverageAtomTotal(current.fileAtoms, current.fileOrder)
 	if mode == "saga" {
-		total = coverageAtomTotal(current.changesByTarget, current.targetOrder) + len(current.report.Orphans)
+		total = coverageAtomTotal(current.targetAtoms, current.targetOrder) + len(current.report.Orphans)
 	}
-	window, err := pageRequest(r, "coverage\x00"+mode, total, defaultSurfacePageLimit, maxSurfacePageLimit)
+	window, err := pageRequest(r, "coverage\x00"+current.identity+"\x00"+mode, total, defaultSurfacePageLimit, maxSurfacePageLimit)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -343,27 +341,29 @@ func (a *app) coveragePage(w http.ResponseWriter, r *http.Request) {
 		Uncovered: current.report.Summary.Uncovered, Overlapping: current.report.Summary.Overlapping,
 		Orphaned: current.report.Summary.Orphaned, Complete: current.report.Complete,
 	}, NextCursor: window.next, HasMore: window.hasMore(), Returned: window.end - window.start}
-	locations := indexManifestTargets(current.document)
+	locations := current.locations
 	if mode == "code" {
 		for _, group := range atomPage(current.fileAtoms, current.fileOrder, window.start, window.end) {
 			fileValue := current.fileCoverage[group.key]
 			file := &fileValue
-			for _, chunk := range makeManifestChunks(group.atoms, current.report.Ownership, locations, true) {
+			atoms := atomsForIndexes(current, group.indexes)
+			for _, chunk := range makeManifestChunks(atoms, current.report.Ownership, locations, true) {
 				result.Code = append(result.Code, coverageCodeItem{File: file, Chunk: chunk})
 			}
 		}
 	} else {
-		atomTotal := coverageAtomTotal(current.changesByTarget, current.targetOrder)
+		atomTotal := coverageAtomTotal(current.targetAtoms, current.targetOrder)
 		atomEnd := window.end
 		if atomEnd > atomTotal {
 			atomEnd = atomTotal
 		}
 		if window.start < atomTotal {
-			for _, group := range atomPage(current.changesByTarget, current.targetOrder, window.start, atomEnd) {
+			for _, group := range atomPage(current.targetAtoms, current.targetOrder, window.start, atomEnd) {
 				owner := manifestOwner(group.key, locations)
 				byPath := map[string][]gitdiff.Atom{}
 				var paths []string
-				for _, atom := range group.atoms {
+				for _, index := range group.indexes {
+					atom := current.changes.Atoms[index]
 					filePath := effectiveAtomPath(atom)
 					if _, ok := byPath[filePath]; !ok {
 						paths = append(paths, filePath)
@@ -397,6 +397,14 @@ func (a *app) coveragePage(w http.ResponseWriter, r *http.Request) {
 	if err := a.template.ExecuteTemplate(w, "coverage-page", result); err != nil {
 		http.Error(w, "The coverage page could not be rendered.", http.StatusInternalServerError)
 	}
+}
+
+func atomsForIndexes(current *reviewSnapshot, indexes []int) []gitdiff.Atom {
+	atoms := make([]gitdiff.Atom, 0, len(indexes))
+	for _, index := range indexes {
+		atoms = append(atoms, current.changes.Atoms[index])
+	}
+	return atoms
 }
 
 func boundedSlice(start, end, length int) (int, int) {
