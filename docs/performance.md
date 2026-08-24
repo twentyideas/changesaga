@@ -55,6 +55,11 @@ proves the concentrated shape still covers every atom exactly once, and
 `TestDefaultLargeSagaOptionsKeepTheirSpreadRangedShape` pins the default the
 byte budgets above are measured against.
 
+The first-load budgets scale that same generator along one axis at a time —
+more changed lines per file, more changed files, or the same code explained one
+reference per line — and check each shape for complete coverage before measuring
+it. The shapes are listed under "Scale-relative first-load budgets" below.
+
 The browser suite builds its own fixed saga through the real CLI
 (`largeSagaScale` in `e2e/support/fixture-builder.ts`): 6 chapters, 18
 fragments, and 1,536 changed lines across 32 files, fully covered.
@@ -65,21 +70,26 @@ targets, which is roughly nine times the generated fixture.
 
 ## Budgets
 
-Budgets come in two kinds, and the difference matters when one fails.
+Budgets come in kinds, and the difference matters when one fails.
 
-**Hard budgets** are byte counts, element counts, and request counts over a
-fixed fixture. They are deterministic, so CI asserts them and a breach always
-means the payload changed shape. They live in
-`internal/server/budget_test.go` and `e2e/tests/performance.spec.ts`, and each
-failure prints what was measured, what the budget was, and why the budget
-exists.
+**Hard budgets** are byte counts, element counts, request counts, and growth
+ratios over deterministic fixtures. CI asserts them and a breach always means
+the payload changed shape. They live in `internal/server/budget_test.go`,
+`internal/server/firstload_budget_test.go`, and
+`e2e/tests/performance.spec.ts`, and each failure prints what was measured, what
+the budget was, and why the budget exists.
 
-**Diagnostic metrics** are wall-clock times and allocation counts. A shared CI
-runner varies far more than any regression worth catching, so these are
-reported rather than asserted: the Go benchmarks print them, the browser suite
-attaches `first-load-metrics.json` to its result, and the reference numbers are
-recorded below. A repeatable slowdown or an allocation increase should be
-investigated before a budget is adjusted.
+**Diagnostic metrics** are wall-clock times. A shared CI runner varies far more
+than any regression worth catching — repeated first loads of one unchanged
+fixture varied by 3.9x on an idle machine — so these are reported rather than
+asserted: the Go benchmarks print them, the browser suite attaches
+`first-load-metrics.json` to its result, and the reference numbers are recorded
+below. A repeatable slowdown should be investigated before a budget is adjusted.
+
+Allocation sits between the two. Bytes allocated and retained heap over the same
+warm request are reproducible to within 0.1% in one process, so the scale-relative
+budgets do assert them; the absolute figures are skipped under `-race`, which
+roughly doubles them.
 
 ### Hard budgets
 
@@ -115,6 +125,80 @@ either fetches nothing again.
 sixteen concurrent requests share one loaded saga, and under `-race` it fails if
 any handler writes to the shared model.
 
+### Scale-relative first-load budgets
+
+Every budget above is a level over one fixed fixture, and the whole-codebase
+failure in [large-saga-diagnosis.md](large-saga-diagnosis.md) is not a level. A
+page that costs 5 MB for 4,096 atoms and 5 MB for 65,536 atoms is healthy; a
+page that costs 5 MB and then 80 MB is the defect, and both pass any ceiling the
+small fixture passes.
+
+`internal/server/firstload_budget_test.go` therefore measures the same first
+load over four fully covered fixtures that each move one axis, and budgets what
+may and may not grow with them:
+
+| Shape | Files | Changed lines each | Atoms | Authored ranges |
+| --- | ---: | ---: | ---: | ---: |
+| `base` | 32 | 64 | 4,096 | 1,024 |
+| `deeper` | 32 | 256 | 16,384 | 1,024 |
+| `wider` | 128 | 64 | 16,384 | 4,096 |
+| `per-line` | 32 | 64 | 4,096 | 4,096 |
+
+`deeper` quadruples the changed code and widens the range in step, so the
+document and the authored evidence are unchanged and only the code moved.
+`wider` quadruples the whole comparison. `per-line` explains exactly the same
+code as `base` one line at a time, which is how the diagnosed saga was authored.
+`TestScalingChangedLinesWithRangeWidthHoldsEvidenceConstant` pins the fixture
+property `deeper` depends on, and every shape is checked for complete coverage
+before it is measured — a saga that explains less would otherwise buy a smaller
+page.
+
+| Invariant | Budget | Measured | Axis |
+| --- | ---: | ---: | --- |
+| First-load bytes, 4x the changed code | 1.35x | 1.09x | `base` -> `deeper` |
+| First-load elements, 4x the changed code | 1.25x | 1.06x | `base` -> `deeper` |
+| Coverage rows rendered | = authored ranges | = authored ranges | all four |
+| Coverage rows, 4x the changed code | unchanged | 1,024 -> 1,024 | `base` -> `deeper` |
+| Inlined diff rows, 4x the changed files | unchanged | 128 -> 128 | `base` -> `wider` |
+| Inlined diff rows, per-line evidence | unchanged | 128 -> 128 | `base` -> `per-line` |
+| First-load bytes per authored range | 4,096 B | 3,357 B | `base` -> `per-line` |
+| Bytes allocated, warm first load | 125,000,000 | 104,142,528 | `base` |
+| Bytes allocated, 4x the changed code | 2.5x | 1.60x | `base` -> `deeper` |
+| Bytes allocated, 4x the comparison | 5x | 3.54x | `base` -> `wider` |
+| Retained heap after first load | 16,000,000 B | 11,233,064 B | `base` |
+| Retained heap per changed atom | 4,096 B | 2,742 B | `base` |
+| Retained heap per extra authored range | 5,120 B | 3,640 B | `base` -> `per-line` |
+| Retained heap, 4x the comparison | 5x | 3.11x | `base` -> `wider` |
+| Diff nodes materialized by first load | 2n + d | 2n + d | `base` |
+
+Two of these are the coefficients the diagnosed saga was extreme on. Each
+authored evidence range costs about 3.4 KB of page and about 3.6 KB of resident
+memory; that saga authored 529,599 of them for code that needed 5,330, which is
+most of both its 230 MB on disk and its 1.49 GB peak. The budgets fail with that
+extrapolation printed, so a breach names the real failure rather than a number.
+
+The coverage-row invariant is the sharpest statement of the boundary: the audit
+renders one row per range a reviewer wrote and never one per atom, at every
+scale. `deeper` proves it by quadrupling the atoms and leaving the row count
+untouched.
+
+Wall time is measured and never asserted, here as elsewhere. Repeated first
+loads of one unchanged fixture on an idle machine varied by 3.9x, which is wider
+than any regression worth catching, so `BenchmarkFirstLoadScale` reports it
+instead. Allocated bytes and retained heap over the same requests varied by
+under 0.1%, which is what makes them safe to assert; the absolute allocation
+budget is skipped under `-race`, which roughly doubles it, while the growth
+ratios hold either way because both sides pay the same overhead.
+
+`TestFirstLoadMaterializesBoundedDiffNodes` budgets what the page cannot show.
+`makeFileViews` builds one `*diffAtomView` per changed atom and one
+`*DiffLineView` per display line across every changed file, and `makeSectionView`
+builds another `*diffAtomView` per atom per owning target, so first load
+materializes `2n + d` nodes and renders about 1% of them. That is a real cost —
+532,290 atoms is over 1.5 million nodes — and removing it is listed under
+remaining bottlenecks. The budget pins the accounting exactly, so a third
+per-atom projection added to first load fails.
+
 ### Diagnostic reference results
 
 Recorded on Apple M3 Pro, darwin/arm64, Go 1.26, `-benchtime=5x -count=3`,
@@ -122,12 +206,16 @@ reporting medians. Run the set with:
 
 ```sh
 go test ./internal/coverage ./internal/cli ./internal/gitattribution ./internal/reviewapp ./internal/server \
-  -run '^$' -bench 'LargeSaga|LargeMappedDiff' -benchmem -benchtime=5x -count=3
+  -run '^$' -bench 'LargeSaga|LargeMappedDiff|FirstLoadScale' -benchmem -benchtime=5x -count=3
 ```
 
 | Benchmark | Time | Allocated | Output |
 | --- | ---: | ---: | ---: |
 | `BenchmarkLargeSagaRealisticHTTP/first_load` | 137 ms | 98.8 MB | 5,260,628 B |
+| `BenchmarkFirstLoadScale/base` | 152 ms | 98.7 MB | 5,260,613 B |
+| `BenchmarkFirstLoadScale/deeper` | 204 ms | 160.6 MB | 5,759,076 B |
+| `BenchmarkFirstLoadScale/wider` | 416 ms | 352.7 MB | 15,729,946 B |
+| `BenchmarkFirstLoadScale/per_line` | 251 ms | 197.1 MB | 15,573,829 B |
 | `BenchmarkLargeSagaRealisticHTTP/file_diff` | 29.0 ms | 6.38 MB | 162,399 B |
 | `BenchmarkLargeSagaRealisticHTTP/coverage_diff` | 27.6 ms | 5.50 MB | 32,238 B |
 | `BenchmarkLargeSagaHTTP/first_load` | 19.5 ms | 7.85 MB | 638,337 B |
@@ -142,7 +230,11 @@ go test ./internal/coverage ./internal/cli ./internal/gitattribution ./internal/
 
 `BenchmarkLargeSagaHTTP` uses a coverage-free saga and so exercises document
 rendering only. `BenchmarkLargeSagaRealisticHTTP` uses the fully covered
-fixture and is the one that reflects a real comparison. Keep the fixture and
+fixture and is the one that reflects a real comparison. `BenchmarkFirstLoadScale`
+runs the same request over the four shapes the scale-relative budgets assert on,
+and is the diagnostic companion to them: `deeper` costs 1.6x `base` for four
+times the code, while `wider` costs 3.6x for four times the whole comparison and
+`per_line` costs 2.0x for the same code explained one line at a time. Keep the fixture and
 `-benchtime` identical for before-and-after comparisons, use `benchstat` when
 it is available, and never include fixture construction in the timed region.
 
@@ -302,6 +394,14 @@ range authoring and direct selector identity indexing now fix them; the history
 and measurements remain in [large-saga-diagnosis.md](large-saga-diagnosis.md),
 and the benchmark above retains the pathological shape as a regression case.
 
+- First load materializes every changed atom twice and every display line once,
+  and renders about 1% of the result. `makeFileViews` builds a `*diffAtomView`
+  per atom and a `*DiffLineView` per display line for every changed file when
+  only the selected file is rendered, and `makeSectionView` builds another
+  `*diffAtomView` per atom per owning target although the templates only read
+  `len`. On the diagnosed saga that is over 1.5 million nodes.
+  `TestFirstLoadMaterializesBoundedDiffNodes` budgets the accounting exactly so
+  it cannot grow, and it is the largest remaining first-load allocation.
 - `attachedFileNotes` is the largest single cost left in first load: 32% of CPU
   and about 143 MB of the 313 MB a warm page allocates for this repository's
   saga. Nearly all of it is `diffuri.Parse` re-deriving references that
