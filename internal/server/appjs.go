@@ -601,8 +601,16 @@ const appJavaScript = `(() => {
     globalThis.requestAnimationFrame?.(() => target.scrollIntoView({block:'center'}));
   }
 
-  function prepareLandmarks() {
-    qa('.fragment-frame').forEach(frame => {
+  // within lets a preparation pass run over one hydrated fragment as well as
+  // over the whole page, including when the root is the fragment itself.
+  function within(root, selector) {
+    const scope = root || document;
+    const self = scope.matches?.(selector) ? [scope] : [];
+    return [...self, ...qa(selector, scope)];
+  }
+
+  function prepareLandmarks(root = document) {
+    within(root, '.fragment-frame').forEach(frame => {
       const aspect = Number(new URL(frame.src, location.href).searchParams.get('saga_aspect'));
       if (aspect > 0) {
         frame.style.minHeight = '0';
@@ -610,8 +618,8 @@ const appJavaScript = `(() => {
       }
       frame.addEventListener('load', positionFragmentOverlays);
     });
-    qa('.fragment-image').forEach(image => image.addEventListener('load', positionFragmentOverlays));
-    qa('[data-landmark-target]').forEach(target => {
+    within(root, '.fragment-image').forEach(image => image.addEventListener('load', positionFragmentOverlays));
+    within(root, '[data-landmark-target]').forEach(target => {
       const anchor = target.dataset.landmarkAnchor;
       const fragment = target.closest('.fragment');
       if (!anchor || !fragment) return;
@@ -631,16 +639,32 @@ const appJavaScript = `(() => {
         if (affordance) mark.append(affordance);
       }
     });
-    qa('.fragment').forEach(fragment => { void prepareSVGElementHotspots(fragment).catch(() => {}); });
+    within(root, '.fragment').forEach(fragment => { void prepareSVGElementHotspots(fragment).catch(() => {}); });
     globalThis.requestAnimationFrame?.(positionFragmentOverlays);
+  }
+
+  // Text highlights are drawn onto content, so they are applied once per piece
+  // of content: over the page at load, and over each explanation as it arrives.
+  function prepareTextHighlights(root = document) {
+    within(root, '[data-text-target]').forEach(label => {
+      const target = document.querySelector('[data-target="'+CSS.escape(label.dataset.textTarget)+'"] [data-selectable]');
+      if (!target) return;
+      const exact = label.dataset.exact;
+      const color = normalizedAnnotationColor(label.dataset.textColor);
+      const mark = markExactText(target, exact);
+      if (!mark) return;
+      mark.style.backgroundColor = colorWithAlpha(color);
+      mark.dataset.textMark = 'true';
+      mark.dataset.threadId = label.dataset.threadId || '';
+    });
   }
 
   // Markdown citations are ordinary footnotes until their reference entry is
   // made into an exact-text landmark. When that landmark owns code evidence,
   // promote every inline citation marker into a direct diff-drawer control.
   // Footnotes without evidence keep their normal jump-to-reference behavior.
-  function prepareDiffCitations() {
-    qa('a.footnote-ref').forEach(reference => {
+  function prepareDiffCitations(root = document) {
+    within(root, 'a.footnote-ref').forEach(reference => {
       const href = reference.getAttribute('href') || '';
       if (!href.startsWith('#')) return;
       const definition = document.getElementById(decodeURIComponent(href.slice(1)));
@@ -653,13 +677,14 @@ const appJavaScript = `(() => {
     });
   }
 
-  function activateLandmark() {
+  async function activateLandmark() {
     qa('[data-landmark-visual].active').forEach(element => element.classList.remove('active'));
     qa('.content-landmark-active').forEach(element => element.classList.remove('content-landmark-active'));
     const id = decodeURIComponent(location.hash.replace(/^#/, ''));
-    const destination = id ? document.getElementById(id) : null;
+    // The anchor may name something inside a chapter or an explanation that has
+    // not been fetched yet, so it is resolved before it is scrolled to.
+    const destination = await revealAnchor(id);
     if (destination) {
-      setChapterOpen(destination.closest('[data-chapter]'), true);
       setView('saga', false);
     }
     const target = id ? q('[data-landmark-anchor="' + CSS.escape(id) + '"]') : null;
@@ -874,7 +899,10 @@ const appJavaScript = `(() => {
     children.hidden = expanded;
   }
 
-  function setChapterOpen(chapter, open) {
+  // Opening a chapter is what fetches it. The disclosure state is applied at
+  // once so the control never feels unresponsive, and the body arrives from
+  // /api/section behind the placeholder the shell rendered in its place.
+  async function setChapterOpen(chapter, open) {
     if (!chapter) return;
     const body = q('[data-chapter-body]', chapter);
     const toggle = q('[data-chapter-toggle]', chapter);
@@ -883,12 +911,14 @@ const appJavaScript = `(() => {
     toggle.setAttribute('aria-expanded', String(open));
     toggle.setAttribute('aria-label', (open ? 'Close ' : 'Open ') + (q('.chapter-head h2', chapter)?.textContent.trim() || 'chapter'));
     chapter.classList.toggle('open', open);
-    if (open) positionLandmarkHotspots();
+    if (!open) return;
+    await hydrateChapter(chapter);
+    positionLandmarkHotspots();
   }
 
   function toggleChapter(button) {
     const chapter = button.closest('[data-chapter]');
-    setChapterOpen(chapter, button.getAttribute('aria-expanded') !== 'true');
+    void setChapterOpen(chapter, button.getAttribute('aria-expanded') !== 'true');
   }
 
   function setView(name, updateURL = true) {
@@ -955,6 +985,9 @@ const appJavaScript = `(() => {
     activeFragment.classList.add('active-fragment');
     const label = q('[data-tool-target]');
     if (label) label.textContent = fragment.dataset.fragmentTitle || 'Selected';
+    // Pointing at an explanation is the clearest signal that it is about to be
+    // read or annotated, so it is fetched now rather than when it scrolls.
+    if (fragment.dataset.fragmentHref) void hydrateFragment(fragment);
   }
 
   function cancelDrawing() {
@@ -1048,6 +1081,150 @@ const appJavaScript = `(() => {
     return request;
   }
 
+  // The page ships the saga as a shell: saga identity, coverage totals, the
+  // overview's explanations as descriptors, one summary per chapter, and the
+  // navigation outline. Chapter bodies and explanation content arrive from
+  // /api/section and /api/fragment as a reviewer reaches them, so first load
+  // stays proportional to what is on screen rather than to the whole story.
+  const shellCache = new Map();
+
+  function fetchShell(href) {
+    let request = shellCache.get(href);
+    if (!request) {
+      request = fetch(href, {headers:{Accept:'text/html'}}).then(response => {
+        if (!response.ok) throw new Error('shell request failed');
+        return response.text();
+      });
+      shellCache.set(href, request);
+      request.catch(() => shellCache.delete(href));
+    }
+    return request;
+  }
+
+  function parseShellHTML(html) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html;
+    return wrapper;
+  }
+
+  async function hydrateChapter(chapter) {
+    const href = chapter?.dataset.sectionHref;
+    const body = chapter ? q('[data-chapter-body]', chapter) : null;
+    if (!href || !body) return;
+    if (chapter.dataset.sectionLoading === 'true') { await fetchShell(href).catch(() => {}); return; }
+    chapter.dataset.sectionLoading = 'true';
+    try {
+      const wrapper = parseShellHTML(await fetchShell(href));
+      body.replaceChildren(...Array.from(wrapper.childNodes));
+      delete chapter.dataset.sectionHref;
+      observeDeferredFragments(body);
+    } catch (_) {
+      const placeholder = q('[data-section-placeholder]', body);
+      if (placeholder) placeholder.textContent = 'This chapter could not be loaded. Close and reopen to try again.';
+    } finally {
+      delete chapter.dataset.sectionLoading;
+    }
+  }
+
+  async function hydrateFragment(article) {
+    const href = article?.dataset.fragmentHref;
+    if (!href) return article || null;
+    if (article.dataset.fragmentLoading === 'true') { await fetchShell(href).catch(() => {}); return article; }
+    article.dataset.fragmentLoading = 'true';
+    try {
+      const replacement = q('.fragment', parseShellHTML(await fetchShell(href)));
+      if (!replacement) throw new Error('explanation response was incomplete');
+      // A decision the reviewer has already made is not undone by content
+      // arriving after it: the live controls move into the rendered explanation
+      // instead of being replaced by the state its snapshot was built from.
+      const live = q(':scope > .fragment-head [data-review-controls]', article);
+      const rendered = q(':scope > .fragment-head [data-review-controls]', replacement);
+      if (live && rendered) rendered.replaceWith(live);
+      // The article itself is never swapped out. A reviewer can be part way
+      // through clicking a descriptor's controls when its content arrives, and
+      // replacing the element under the pointer loses that click: the detached
+      // node no longer reaches the document that handles it. Filling the article
+      // in place keeps its head where it was and every live control attached,
+      // and keeps this explanation the active one without re-selecting it.
+      for (const attribute of Array.from(replacement.attributes)) article.setAttribute(attribute.name, attribute.value);
+      article.removeAttribute('data-fragment-href');
+      delete article.dataset.fragmentLoading;
+      article.replaceChildren(...Array.from(replacement.childNodes));
+      prepareLandmarks(article);
+      prepareDiffCitations(article);
+      prepareTextHighlights(article);
+      highlightCode(article);
+      positionFragmentOverlays();
+      return article;
+    } catch (_) {
+      delete article.dataset.fragmentLoading;
+      const placeholder = q('[data-fragment-placeholder]', article);
+      if (placeholder) placeholder.textContent = 'This explanation could not be loaded. Reload the page to try again.';
+      return article;
+    }
+  }
+
+  // A fragment is fetched when it is close enough to be read. Chapter bodies
+  // stay hidden until they are opened, so nothing inside a closed chapter is
+  // observed and nothing inside it is fetched.
+  const fragmentObserver = typeof IntersectionObserver === 'function' ? new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      fragmentObserver.unobserve(entry.target);
+      void hydrateFragment(entry.target);
+    });
+  }, {rootMargin:'400px'}) : null;
+
+  // Returns when everything this call decided to fetch has arrived, so the page
+  // can say when it has finished filling itself in.
+  function observeDeferredFragments(root = document) {
+    const arriving = [];
+    within(root, '[data-fragment-href]').forEach(article => {
+      if (!fragmentObserver) { arriving.push(hydrateFragment(article)); return; }
+      // What is already on screen is fetched now rather than one frame later.
+      // The observer's first callback costs a frame the reviewer would spend
+      // looking at a placeholder, and reflowing under a pointer that has
+      // already arrived is worse than fetching a little too eagerly.
+      if (article.getBoundingClientRect().top <= innerHeight + 400) { arriving.push(hydrateFragment(article)); return; }
+      fragmentObserver.observe(article);
+    });
+    return Promise.all(arriving);
+  }
+
+  // A permalink can name a heading, a marked place, or a comment inside a
+  // chapter nobody has opened yet. The server answers where one anchor lives;
+  // shipping the same answer as an index would put every anchor in the document
+  // into every first load, which is the cost this shell exists to remove.
+  const anchorPlaces = new Map();
+
+  function locateAnchor(id) {
+    let request = anchorPlaces.get(id);
+    if (!request) {
+      request = fetch('/api/locate?anchor=' + encodeURIComponent(id), {headers:{Accept:'application/json'}})
+        .then(response => response.ok ? response.json() : null)
+        .catch(() => null);
+      anchorPlaces.set(id, request);
+    }
+    return request;
+  }
+
+  async function revealAnchor(id) {
+    if (!id) return null;
+    let element = document.getElementById(id);
+    const pending = !element ||
+      element.closest('[data-section-href]') !== null ||
+      element.closest('[data-fragment-href]') !== null;
+    if (pending) {
+      const place = await locateAnchor(id);
+      if (place?.chapter) await hydrateChapter(document.getElementById(place.chapter));
+      if (place?.fragment) await hydrateFragment(document.getElementById(place.fragment));
+      element = document.getElementById(id);
+    }
+    const chapter = element?.closest('[data-chapter]');
+    if (chapter) await setChapterOpen(chapter, true);
+    return document.getElementById(id);
+  }
+
   async function hydrateAttachedFile(details) {
     if (!details?.open || details.dataset.fullDiffLoaded === 'true' || details.dataset.fullDiffLoading === 'true') return;
     const href = details.dataset.fullDiffHref;
@@ -1112,8 +1289,8 @@ const appJavaScript = `(() => {
       .forEach(hydrateManifestDiff);
   }
 
-  function openFragmentDrawer(anchor, opener) {
-    const destination = document.getElementById(anchor);
+  async function openFragmentDrawer(anchor, opener) {
+    const destination = await revealAnchor(anchor);
     const fragment = destination?.matches('.fragment') ? destination : destination?.closest('.fragment');
     if (!fragment) return;
     restoreDrawerContent();
@@ -1755,7 +1932,7 @@ const appJavaScript = `(() => {
     }
   }
 
-  function useTool(mode) {
+  async function useTool(mode) {
     cancelDrawing();
     clearAnnotationSelection();
     // An open comment covers the surface the reviewer is about to draw on, so
@@ -1766,6 +1943,15 @@ const appJavaScript = `(() => {
     if (!activeFragment) {
       const label = q('[data-tool-target]');
       if (label) label.textContent = 'Point at content first';
+      resetTool();
+      return;
+    }
+    // There is nothing to draw on until the explanation has arrived, so arming
+    // a tool waits for its content rather than silently disarming itself.
+    if (activeFragment.dataset.fragmentHref) await hydrateFragment(activeFragment);
+    if (!activeFragment || activeFragment.dataset.fragmentHref) {
+      const label = q('[data-tool-target]');
+      if (label) label.textContent = 'This explanation is still loading';
       resetTool();
       return;
     }
@@ -1845,11 +2031,12 @@ const appJavaScript = `(() => {
     const sagaLink = event.target.closest?.('a[href^="#"]');
     if (sagaLink) {
       const id = decodeURIComponent(sagaLink.getAttribute('href').slice(1));
-      const destination = id ? document.getElementById(id) : null;
-      if (destination?.closest('[data-view="saga"]')) {
-        setChapterOpen(destination.closest('[data-chapter]'), true);
-        setView('saga', false);
-      }
+      // The destination can live in a chapter that has not been fetched yet.
+      // Resolving it here opens that chapter; the hash change that follows is
+      // what scrolls to it, exactly as it does for content already on the page.
+      if (id) void revealAnchor(id).then(destination => {
+        if (destination?.closest('[data-view="saga"]')) setView('saga', false);
+      });
     }
     const bubbleToggle = event.target.closest?.('[data-annotation-bubble-toggle]');
     if (bubbleToggle) { pinAnnotationBubble(bubbleToggle.closest('[data-annotation-bubble]')); return; }
@@ -1926,7 +2113,7 @@ const appJavaScript = `(() => {
     if (diffAction) { openDiffComposer(diffActionContext(diffAction)); return; }
     if (event.target.closest('[data-close-diff-compose]')) { q('.diff-compose').classList.remove('open'); return; }
     const tool = event.target.closest('[data-tool]');
-    if (tool) { useTool(tool.dataset.tool); return; }
+    if (tool) { void useTool(tool.dataset.tool); return; }
     const fragment = event.target.closest('.fragment');
     if (fragment) setActiveFragment(fragment);
   });
@@ -2217,17 +2404,8 @@ const appJavaScript = `(() => {
   updateReviewProgress();
   prepareLandmarks();
   prepareDiffCitations();
-  qa('[data-text-target]').forEach(label => {
-    const target = document.querySelector('[data-target="'+CSS.escape(label.dataset.textTarget)+'"] [data-selectable]');
-    if (!target) return;
-    const exact = label.dataset.exact;
-    const color = normalizedAnnotationColor(label.dataset.textColor);
-    const mark = markExactText(target, exact);
-    if (!mark) return;
-    mark.style.backgroundColor = colorWithAlpha(color);
-    mark.dataset.textMark = 'true';
-    mark.dataset.threadId = label.dataset.threadId || '';
-  });
+  prepareTextHighlights();
+  const shellArriving = observeDeferredFragments();
 
   const firstFragment = q('.fragment');
   if (firstFragment) setActiveFragment(firstFragment);
@@ -2264,11 +2442,16 @@ const appJavaScript = `(() => {
   const initialView = requestedView === 'code' || requestedView === 'manifest' ? requestedView : 'saga';
   setView(initialView, false);
   setManifestMode('code');
-  activateLandmark();
+  const anchorResolving = activateLandmark().then(revealHashedAnnotationBubble);
+  // The page arrives as a shell and fills in what is on screen. Saying when
+  // that has finished is the difference between a reviewer who can see the
+  // page has settled and automation that would otherwise have to guess.
+  void Promise.all([shellArriving, anchorResolving]).then(() => {
+    document.body.dataset.shellReady = 'true';
+  });
   positionFragmentOverlays();
   globalThis.requestAnimationFrame?.(positionFragmentOverlays);
-  revealHashedAnnotationBubble();
-  addEventListener('hashchange', () => { activateLandmark(); revealHashedAnnotationBubble(); });
+  addEventListener('hashchange', () => { void activateLandmark().then(revealHashedAnnotationBubble); });
   addEventListener('popstate', () => {
     const view = new URL(location.href).searchParams.get('view');
     setView(view === 'code' || view === 'manifest' ? view : 'saga', false);

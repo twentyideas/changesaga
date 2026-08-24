@@ -38,12 +38,27 @@ import (
 // means a diff body has been inlined again, and is the regression these tests
 // exist to catch.
 const (
-	// firstLoadHTMLBudget covers the whole document, both coverage directions,
-	// and one selected file diff, with room for ordinary content growth.
-	firstLoadHTMLBudget = 6_500_000
+	// firstLoadHTMLBudget covers the navigation outline, the coverage audit, and
+	// one selected file diff, with room for ordinary content growth. The saga
+	// document itself is now a shell, so this no longer covers the story.
+	firstLoadHTMLBudget = 3_400_000
 	// firstLoadElementBudget keeps browser parse, layout, and memory bounded.
 	// The baseline needed 1.87 million elements for the same fixture.
-	firstLoadElementBudget = 200_000
+	firstLoadElementBudget = 90_000
+	// sagaShellHTMLBudget covers the saga document as the shell renders it:
+	// identity, coverage totals, the overview's explanations as descriptors, and
+	// one summary per chapter. It is a budget over the *document*, so it must
+	// track the number of chapters and never the number of explanations.
+	sagaShellHTMLBudget = 60_000
+	// sagaShellElementBudget is the same rule as a count the browser pays.
+	sagaShellElementBudget = 1_600
+	// chapterBodyBudget covers one opened chapter: its comments, its sections,
+	// and its explanations as descriptors. It is what a reviewer waits for after
+	// clicking a chapter open.
+	chapterBodyBudget = 140_000
+	// fragmentContentBudget covers one explanation with its marked places, its
+	// annotations, and the summaries of the code it explains.
+	fragmentContentBudget = 40_000
 	// fileDiffBodyBudget covers one changed file rendered with review actions.
 	fileDiffBodyBudget = 200_000
 	// coverageDiffBodyBudget covers the same file rendered read-only for the
@@ -75,6 +90,117 @@ func TestLargeSagaFirstLoadStaysWithinPayloadBudgets(t *testing.T) {
 	checkBudget(t, "diff rows in first-load HTML", rows, rowBudget,
 		fmt.Sprintf("only the selected file may be inlined, and it changes %d lines", options.ChangedLinesPerFile))
 	t.Logf("fixture: %d changed lines across %d files, %d mappings", fixture.Atoms, fixture.DiffFiles, fixture.Mappings)
+}
+
+// The saga document a reviewer receives on first load is a shell: saga identity,
+// coverage totals, the overview's explanations as descriptors, one summary per
+// chapter, and the navigation outline beside it. Chapter bodies and explanation
+// content arrive from /api/section and /api/fragment as the reviewer reaches
+// them, so the document describes the story rather than containing it.
+//
+// This is stated as content first and as size second. A byte budget can be met
+// by markup that shrank for an unrelated reason; a page that still contains one
+// explanation's prose has lost the boundary whatever it weighs.
+func TestLargeSagaFirstLoadShipsOnlyTheChapterShell(t *testing.T) {
+	fixture, _, handler := budgetFixture(t, testfixture.DefaultLargeSagaOptions())
+	page := budgetRequest(t, handler, "/")
+	document := sagaDocumentOf(t, page)
+
+	if summaries := strings.Count(document, "data-section-href="); summaries != fixture.Chapters {
+		t.Fatalf("the shell rendered %d fetchable chapter summaries for %d chapters", summaries, fixture.Chapters)
+	}
+	if bodies := strings.Count(document, "data-chapter-body"); bodies != fixture.Chapters {
+		t.Fatalf("the shell rendered %d chapter bodies for %d chapters", bodies, fixture.Chapters)
+	}
+	// Only the overview's own explanations are described inline; every other
+	// explanation is named by a chapter summary that has not been opened.
+	if descriptors := strings.Count(document, "data-fragment-href="); descriptors == 0 || descriptors >= fixture.Fragments {
+		t.Fatalf("the shell described %d explanations; it must describe the overview's own and no more, of %d", descriptors, fixture.Fragments)
+	}
+	for _, content := range []string{`<article class="fragment"`, "fragment-markdown", "data-landmark-target", "fragment-frame"} {
+		if strings.Contains(document, content) {
+			t.Fatalf("the shell carried explanation content it was only asked to describe: %q", content)
+		}
+	}
+	if !strings.Contains(document, "data-coverage-totals") {
+		t.Fatal("the shell stopped stating the coverage totals it stands in for")
+	}
+
+	checkBudget(t, "saga document bytes on first load", len(document), sagaShellHTMLBudget,
+		"the document must grow with the number of chapters, never with the number of explanations")
+	checkBudget(t, "saga document elements on first load", strings.Count(document, "<"), sagaShellElementBudget,
+		"every element here is parsed, laid out, and retained by the browser")
+
+	// The payload must shrink by deferring the story, not by losing it. Every
+	// destination is still named in the navigation outline and still counted in
+	// the review progress map, both of which read the document rather than the
+	// rendered page.
+	destinations := fixture.Chapters + fixture.Sections + fixture.Fragments
+	if segments := strings.Count(page, "data-review-progress-target="); segments != destinations+1 {
+		t.Fatalf("review progress counted %d destinations, want %d including the overview", segments, destinations+1)
+	}
+	if links := strings.Count(page, `class="doc-link"`); links < fixture.Chapters+fixture.Sections {
+		t.Fatalf("the navigation outline named %d destinations; it lost chapters or sections of %d", links, fixture.Chapters+fixture.Sections)
+	}
+}
+
+// The endpoints the shell defers to are bounded by one node each: a chapter body
+// carries that chapter's structure and no explanation content, and an
+// explanation response carries exactly one explanation.
+func TestChapterAndExplanationEndpointsStayWithinBudgets(t *testing.T) {
+	fixture, _, handler := budgetFixture(t, testfixture.DefaultLargeSagaOptions())
+	page := budgetRequest(t, handler, "/")
+
+	chapterHref := firstAttributeValue(t, page, "data-section-href")
+	body := budgetRequest(t, handler, chapterHref)
+	checkBudget(t, "chapter body bytes", len(body), chapterBodyBudget,
+		"one opened chapter is what a reviewer waits for after clicking it open")
+	perChapter := fixture.Fragments / fixture.Chapters
+	if descriptors := strings.Count(body, "data-fragment-href="); descriptors != perChapter {
+		t.Fatalf("chapter body described %d explanations, want %d", descriptors, perChapter)
+	}
+	if strings.Contains(body, `<article class="fragment"`) || strings.Contains(body, "fragment-markdown") {
+		t.Fatal("a chapter body carried explanation content instead of describing it")
+	}
+
+	content := budgetRequest(t, handler, firstAttributeValue(t, body, "data-fragment-href"))
+	checkBudget(t, "explanation bytes", len(content), fragmentContentBudget,
+		"one explanation is what a reviewer waits for when it comes into view")
+	if strings.Count(content, `<article class="fragment"`) != 1 {
+		t.Fatalf("the explanation endpoint returned %d explanations, want exactly 1", strings.Count(content, `<article class="fragment"`))
+	}
+	if strings.Contains(content, "data-fragment-href=") {
+		t.Fatal("a rendered explanation was still marked as needing to be fetched")
+	}
+}
+
+// sagaDocumentOf isolates the saga document from the tabs beside it. The Code
+// Diff and Coverage tabs answer different questions and carry their own bounded
+// contracts; this change is about the story.
+func sagaDocumentOf(tb testing.TB, page string) string {
+	tb.Helper()
+	start, end := strings.Index(page, `id="view-saga"`), strings.Index(page, `id="view-code"`)
+	if start < 0 || end <= start {
+		tb.Fatal("the page no longer contains a saga document followed by the Code Diff tab")
+	}
+	return page[start:end]
+}
+
+// firstAttributeValue reads a URL the shell told the browser to fetch, so the
+// budgets exercise the exact requests the page asks for.
+func firstAttributeValue(tb testing.TB, markup, attribute string) string {
+	tb.Helper()
+	opening := attribute + `="`
+	start := strings.Index(markup, opening)
+	if start < 0 {
+		tb.Fatalf("markup carries no %s to follow", attribute)
+	}
+	rest := markup[start+len(opening):]
+	end := strings.Index(rest, `"`)
+	if end < 0 {
+		tb.Fatalf("unterminated %s", attribute)
+	}
+	return stdhtml.UnescapeString(rest[:end])
 }
 
 // TestLargeSagaFirstLoadOmitsUnopenedDiffBodies states the same rule as content

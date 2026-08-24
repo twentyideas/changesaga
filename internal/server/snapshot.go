@@ -39,8 +39,9 @@ type reviewSnapshot struct {
 
 // snapshotCache serves a snapshot for as long as its inputs are observably
 // unchanged. A miss is always safe; a hit must never be stale, so the recorded
-// fingerprint commits to the saga bytes and to the exact source comparison
-// identity, and any input it cannot describe exactly disables caching.
+// fingerprint commits to the saga bytes, to the saga repository's history that
+// review identity is read from, and to the exact source comparison identity.
+// Any input it cannot describe exactly disables caching.
 type snapshotCache struct {
 	mutex   sync.Mutex
 	saga    string
@@ -93,7 +94,12 @@ func (a *app) fingerprints(ctx context.Context, manifest saga.Manifest) (sagaPri
 	go func() {
 		defer group.Done()
 		if print, err := treeFingerprint(a.root); err == nil {
-			sagaPrint = print
+			// Attribution is read from the saga's own repository, and committing
+			// review records changes who a comment is attributed to without
+			// changing a single byte under the saga root. A saga that is not in
+			// a repository at all is legitimate; record the absence.
+			head, _ := gitOutput(ctx, a.root, "rev-parse", "HEAD")
+			sagaPrint = print + "\x00" + head
 		}
 	}()
 	if print, err := a.sourceFingerprint(ctx, manifest); err == nil {

@@ -31,8 +31,10 @@ func TestLargeSagaCoverageAndDrawerNavigationContracts(t *testing.T) {
 		t.Fatalf("large target range lost its exact deep link: url=%q selection=%#v error=%v", chunkURL, selection, err)
 	}
 
-	rootView := makeSectionView(document.Section, changesByTarget, nil, nil)
-	nav := makeNavTree(document.Manifest.Title, rootView)
+	// The linked drawer is built at full scope: this measures the construction
+	// the /api/section and /api/fragment endpoints perform, not the shell.
+	rootView := makeSectionView(document.Section, viewScope{changes: changesByTarget})
+	nav := makeNavTree(document.Section, nil)
 	if len(nav) != benchmarkCoverageChapters+1 {
 		t.Fatalf("large navigation lost chapters: %d", len(nav))
 	}
@@ -91,7 +93,7 @@ func BenchmarkLargeSagaLinkedDrawerConstruction(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		view := makeSectionView(document.Section, changesByTarget, nil, nil)
+		view := makeSectionView(document.Section, viewScope{changes: changesByTarget})
 		if len(view.ChildViews) != benchmarkCoverageChapters {
 			b.Fatal("drawer view lost chapters")
 		}

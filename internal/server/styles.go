@@ -118,6 +118,9 @@ a{color:var(--accent)}
 .view.active{display:block}
 .page-heading{margin:0 0 18px}
 .page-heading h2{margin:0;font:600 22px/1.25 var(--ui);letter-spacing:-.01em}
+.coverage-totals{margin:6px 0 0;color:var(--faint);font:11px var(--mono)}
+.coverage-totals .gap{color:var(--red);font-weight:600}
+.fragment-placeholder,.section-placeholder{margin:0;padding:8px 10px;color:var(--faint);font:11px var(--mono)}
 .breadcrumbs{display:flex;align-items:center;gap:6px;margin:0 0 14px;color:var(--muted);font-size:12px}
 .breadcrumbs a{color:var(--muted);text-decoration:none}
 .breadcrumbs a:hover{color:var(--accent);text-decoration:underline}

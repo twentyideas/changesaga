@@ -92,12 +92,13 @@ test("@critical keeps an annotation comment on its mark across a reload", async 
   const rectangle = page.locator(`[data-annotation-entity][data-thread-id="${stored.id}"] .annotation`).first();
   expectPinnedToCorner(await boxOf(bubble, "the reloaded bubble"), await boxOf(rectangle, "the reloaded rectangle"));
 
-  // The bubble above was measured after script ran. The served markup itself
-  // already carries the placement, so the mark and its comment agree from the
-  // first paint rather than jumping into position.
-  const markup = await serverRequest(saga.baseURL, "/");
+  // The bubble above was measured after script ran. The explanation the page
+  // fetches already carries the placement, so the mark and its comment agree
+  // from the first paint of that content rather than jumping into position.
+  const target = await page.locator(overviewSelector).getAttribute("data-target");
+  const markup = await serverRequest(saga.baseURL, `/api/fragment?target=${encodeURIComponent(target!)}`);
   const served = new RegExp(`data-thread-id="${stored.id}"[^>]*style="left:([\\d.]+)%;top:([\\d.]+)%"`).exec(markup.body);
-  expect(served, "the served page placed the bubble itself").not.toBeNull();
+  expect(served, "the served explanation placed the bubble itself").not.toBeNull();
   expect(Number(served?.[1])).toBeCloseTo((stored.anchor.shapes[0].x + stored.anchor.shapes[0].width) * 100, 3);
   expect(Number(served?.[2])).toBeCloseTo(stored.anchor.shapes[0].y * 100, 3);
 
@@ -151,12 +152,19 @@ test("@critical leaves comments that were not drawn on the content in the list b
   await expect(fragmentThread).toContainText("A comment on the whole explanation.");
   await expect(page.locator("[data-annotation-bubble]")).toHaveCount(0);
 
-  // A chapter comment keeps the same placement it always had.
+  // A chapter comment keeps the same placement it always had: in the list
+  // inside the chapter. The page ships that chapter as a summary, so reading
+  // the comment means opening the chapter, exactly as seeing it always did.
   const chapter = page.locator("section.chapter", { has: page.getByRole("link", { name: "Architecture" }) });
   await chapter.getByRole("button", { name: "Open Architecture" }).click();
   await chapter.getByRole("button", { name: "Comment on Architecture" }).first().click();
   await composer.locator('textarea[name="body"]').fill("A comment on the whole chapter.");
   await Promise.all([page.waitForNavigation(), composer.getByRole("button", { name: "Comment" }).click()]);
+
+  // Navigating to the chapter opens it, which is what reading anything inside
+  // it has always meant; the page now fetches the body at the same moment.
+  await page.goto(`${saga.baseURL}/#${await chapter.getAttribute("id")}`);
+  await expect(chapter.getByRole("button", { name: "Close Architecture" })).toHaveAttribute("aria-expanded", "true");
 
   const chapterThread = page.locator("article.thread").filter({ hasText: "A comment on the whole chapter." });
   await expect(chapterThread).toHaveCount(1);

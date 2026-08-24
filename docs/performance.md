@@ -1,15 +1,30 @@
 # Large-saga performance
 
-The reviewer server sends one page. That page describes the whole comparison —
-every chapter, every changed file, and both directions of the coverage audit —
-and it carries the code of only the one file the Code Diff tab has selected.
-Every other diff body arrives from `/api/file-diff` when a reviewer opens that
-file, and the loaded saga, Git comparison, and coverage report behind those
-requests are reused until the bytes they were built from change.
+The reviewer server sends one page. That page describes the whole comparison and
+the whole story — every chapter, every changed file, and both directions of the
+coverage audit — and it carries almost none of either.
 
-That boundary is the thing the budgets below defend. A payload that grows with
-the size of the comparison rather than with the size of the document means a
-diff body has been inlined again.
+The saga document on that page is a shell: the saga's identity, the coverage
+totals, the overview's explanations as descriptors, one summary per chapter, and
+the navigation outline beside it. The code it carries is the one file the Code
+Diff tab has selected. Everything else arrives on demand, from an endpoint
+bounded by one node:
+
+| Endpoint | Bounded by | Fetched when |
+| --- | --- | --- |
+| `/api/file-diff` | one changed file | a reviewer opens that file |
+| `/api/section` | one chapter's structure | a reviewer opens that chapter |
+| `/api/fragment` | one explanation | that explanation comes into view |
+| `/api/locate` | one anchor | a permalink names something not on the page |
+
+The loaded saga, Git comparison, and coverage report behind all of those are
+reused until the bytes they were built from change.
+
+That boundary is the thing the budgets below defend, and it has two halves. A
+payload that grows with the size of the comparison means a diff body has been
+inlined again. A payload that grows with the size of the *document* means the
+narrative tree is being rendered eagerly again — one explanation's prose on the
+first load is the whole of that regression, whatever the page happens to weigh.
 
 ## Fixtures
 
@@ -70,23 +85,31 @@ investigated before a budget is adjusted.
 
 | Surface | Budget | Measured | Where |
 | --- | ---: | ---: | --- |
-| First-load HTML, 4,096-line comparison | 6,500,000 B | 5,260,613 B | `TestLargeSagaFirstLoadStaysWithinPayloadBudgets` |
-| First-load HTML elements | 200,000 | 145,103 | same |
+| First-load HTML, 4,096-line comparison | 3,400,000 B | 2,890,860 B | `TestLargeSagaFirstLoadStaysWithinPayloadBudgets` |
+| First-load HTML elements | 90,000 | 75,127 | same |
 | Diff rows in first-load HTML | 256 | 128 | same |
+| Saga document bytes on first load | 60,000 B | 39,126 B | `TestLargeSagaFirstLoadShipsOnlyTheChapterShell` |
+| Saga document elements on first load | 1,600 | 1,048 | same |
+| Explanation content in the first-load document | 0 | 0 | same |
 | Changed lines from unopened files in the page | 0 | 0 | `TestLargeSagaFirstLoadOmitsUnopenedDiffBodies` |
 | One file diff response | 200,000 B | 162,399 B | `TestLargeSagaFileDiffEndpointStaysWithinBudgets` |
 | One coverage diff response | 45,000 B | 32,238 B | same |
+| One chapter body response | 140,000 B | 93,144 B | `TestChapterAndExplanationEndpointsStayWithinBudgets` |
+| One explanation response | 40,000 B | 18,303 B | same |
 | Snapshot builds across 5 unchanged requests | 1 | 1 | `TestReviewSnapshotIsReusedUntilTheSagaChanges` |
 | Snapshot builds after a review decision | 2 | 2 | same |
-| First-load document, browser, 1,536-line comparison | 1,200,000 B | 555,974 B | `a large saga's first load stays within its payload budgets` |
-| First-load DOM elements, browser | 20,000 | 6,315 | same |
+| First-load document, browser, 1,536-line comparison | 1,200,000 B | 414,626 B | `a large saga's first load stays within its payload budgets` |
+| First-load DOM elements, browser | 6,000 | 4,978 | same |
 | Diff rows in the first-load DOM | 160 | 96 | same |
 | Diff-body requests before a file is opened | 0 | 0 | `loads a coverage file diff only once the reviewer opens that file` |
 | Diff-body requests when reopening the same file | 1 | 1 | same |
+| Chapter-body requests before a chapter is opened | 0 | 0 | `ships the saga as a shell and fetches each chapter and explanation once, when it is reached` |
+| Chapter-body requests when reopening the same chapter | 1 | 1 | same |
 
-The two request-count budgets are the boundary stated as behaviour rather than
-as a size: switching to Coverage fetches nothing, opening one file fetches
-exactly that file, and reopening it fetches nothing again.
+The request-count budgets are the boundary stated as behaviour rather than as a
+size: switching to Coverage fetches nothing, opening one file fetches exactly
+that file, opening one chapter fetches exactly that chapter, and reopening
+either fetches nothing again.
 
 `TestConcurrentRequestsShareOneSnapshotSafely` is the cost of reuse, not a size:
 sixteen concurrent requests share one loaded saga, and under `-race` it fails if
@@ -211,6 +234,33 @@ The old budgets could not have caught this. `BenchmarkLargeSagaHTTP` used a
 coverage-free fixture, so its "1 MiB HTML" output budget was measured against a
 638 KB page while the same product served 45 MB for a comparison of the same
 shape with coverage attached.
+
+### The saga document, deferred
+
+The audit and the drawers were the payload's first half. The narrative tree was
+the second: the page rendered every chapter, every section, and every
+explanation, with each explanation's Markdown read from disk, rendered, and
+inlined behind a chapter disclosure that starts closed. That work was
+proportional to the size of the story and none of it was on screen.
+
+The document is now a shell, and the same recursion that renders the page
+renders one chapter body: `viewScope.shell()` renders this node's own
+explanations as descriptors and any chapter beneath it as a summary, and both
+the page's root render and `/api/section` use it. Navigation and the review
+progress map read the saga's manifests directly rather than the rendered views,
+so they still name and count every destination in the document while the
+chapters holding those destinations remain unfetched.
+
+On the 4,096-line fixture, the saga document went from roughly 2.41 MB and
+71,000 elements to 39,126 bytes and 1,048 elements — 62× smaller — and the
+number tracks the eight chapters rather than the 145 explanations. In the
+browser the whole first-load DOM fell from 6,315 elements to 4,978, of which the
+saga document is 434.
+
+A permalink into a chapter nobody has opened is the cost of this boundary, and
+`/api/locate` is what pays it: the browser asks where one anchor lives, fetches
+that chapter and that explanation, and then scrolls. Shipping the same answer as
+an index would put every anchor in the document back into every first load.
 
 ### What each change contributed
 

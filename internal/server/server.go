@@ -72,6 +72,34 @@ type pageData struct {
 	ReviewTotal   int
 	ReviewItems   []*reviewProgressItem
 	MutationToken string
+	// CoverageTotals is the audit reduced to the numbers the shell states
+	// outright. The audit itself stays on the Coverage tab.
+	CoverageTotals *coverageTotalsView
+}
+
+// coverageTotalsView is the coverage state a reviewer needs before deciding
+// whether to open the audit: how much changed, how much of it the story
+// explains, and whether anything is still unaccounted for.
+type coverageTotalsView struct {
+	Files       int
+	Total       int
+	Covered     int
+	Uncovered   int
+	Overlapping int
+	Orphaned    int
+	Mappings    int
+	Complete    bool
+}
+
+func makeCoverageTotals(manifest *CoverageManifestView) *coverageTotalsView {
+	if manifest == nil {
+		return nil
+	}
+	return &coverageTotalsView{
+		Files: len(manifest.Files), Total: manifest.Total, Covered: manifest.Covered,
+		Uncovered: manifest.Uncovered, Overlapping: manifest.Overlapping,
+		Orphaned: manifest.Orphaned, Mappings: manifest.MappingCount, Complete: manifest.Complete,
+	}
 }
 
 type reviewProgressItem struct {
@@ -100,6 +128,9 @@ type navNodeView struct {
 
 type sectionView struct {
 	*saga.Section
+	// Deferred marks a chapter summary whose body has not been rendered. The
+	// body arrives from /api/section the first time the chapter is opened.
+	Deferred      bool
 	DOMID         string
 	Changes       []*diffAtomView
 	Attached      *attachedCodeView
@@ -114,6 +145,9 @@ type sectionView struct {
 
 type fragmentView struct {
 	*saga.Fragment
+	// Deferred marks a descriptor: the fragment is named, linked, and
+	// reviewable, and its content arrives from /api/fragment.
+	Deferred      bool
 	DOMID         string
 	URL           string
 	Markdown      template.HTML
@@ -260,6 +294,9 @@ func newMux(application *app) *http.ServeMux {
 	mux.HandleFunc("GET /", application.page)
 	mux.HandleFunc("GET /app.js", application.javascript)
 	mux.HandleFunc("GET /api/file-diff", application.fileDiffFragment)
+	mux.HandleFunc("GET /api/section", application.sectionBody)
+	mux.HandleFunc("GET /api/fragment", application.fragmentContent)
+	mux.HandleFunc("GET /api/locate", application.locateAnchor)
 	mux.HandleFunc("GET /api/runtime", application.runtimeStatus)
 	mux.HandleFunc("POST /api/runtime-stop", application.runtimeStop)
 	mux.HandleFunc("GET /f/{id}/{path...}", application.fragmentFile)
@@ -340,6 +377,213 @@ func (a *app) fileDiffFragment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Error(w, "changed file not found", http.StatusNotFound)
+}
+
+// threadViews indexes the live comments the way the renderer consumes them: by
+// the narrative target they belong to, and by the diff line they were written
+// on. The page and the incremental endpoints share it so a comment reads the
+// same whether it arrives on first load or with the chapter it lives in.
+func threadViews(document *saga.Saga) (byTarget, byDiff map[string][]*threadView) {
+	byTarget, byDiff = map[string][]*threadView{}, map[string][]*threadView{}
+	for _, thread := range document.Threads {
+		if thread.State == "withdrawn" {
+			continue
+		}
+		view := makeThreadView(thread)
+		if thread.Anchor.Type == "diff" && thread.Anchor.Diff != nil {
+			byDiff[thread.Anchor.Diff.URI] = append(byDiff[thread.Anchor.Diff.URI], view)
+		} else {
+			byTarget[thread.Target] = append(byTarget[thread.Target], view)
+		}
+	}
+	return byTarget, byDiff
+}
+
+// sectionBody renders one chapter's body on demand: its comments, its
+// explanations as descriptors, and the sections nested inside it. It is bounded
+// by that one chapter, and it renders at the same scope the page renders its
+// root at, so an opened chapter reads exactly as the shell around it.
+func (a *app) sectionBody(w http.ResponseWriter, r *http.Request) {
+	current := a.snapshot(r.Context())
+	if current == nil {
+		http.Error(w, "The saga could not be loaded.", http.StatusInternalServerError)
+		return
+	}
+	section := findSection(current.document, r.URL.Query().Get("target"))
+	if section == nil {
+		http.Error(w, "unknown section", http.StatusNotFound)
+		return
+	}
+	threadsByTarget, threadsByDiff := threadViews(current.document)
+	scope := viewScope{changes: current.changesByTarget, threads: threadsByTarget, diffThreads: threadsByDiff}.shell()
+	writeIncrementalHeaders(w, "text/html; charset=utf-8")
+	if err := a.template.ExecuteTemplate(w, "section-body", makeSectionView(section, scope)); err != nil {
+		http.Error(w, "The chapter could not be rendered.", http.StatusInternalServerError)
+	}
+}
+
+// fragmentContent renders one explanation in full: its content, its marked
+// places, its annotations, and the summaries of the code it explains. It is the
+// only place fragment content is produced, so the size of a first load no longer
+// tracks the size of the story.
+func (a *app) fragmentContent(w http.ResponseWriter, r *http.Request) {
+	current := a.snapshot(r.Context())
+	if current == nil {
+		http.Error(w, "The saga could not be loaded.", http.StatusInternalServerError)
+		return
+	}
+	fragment := findFragmentByTarget(current.document, r.URL.Query().Get("target"))
+	if fragment == nil {
+		http.Error(w, "unknown fragment", http.StatusNotFound)
+		return
+	}
+	threadsByTarget, threadsByDiff := threadViews(current.document)
+	scope := viewScope{changes: current.changesByTarget, threads: threadsByTarget, diffThreads: threadsByDiff}
+	writeIncrementalHeaders(w, "text/html; charset=utf-8")
+	if err := a.template.ExecuteTemplate(w, "fragment", makeFragmentView(fragment, scope)); err != nil {
+		http.Error(w, "The explanation could not be rendered.", http.StatusInternalServerError)
+	}
+}
+
+// locateAnchor answers where a page anchor lives. A permalink can name a
+// heading, a marked place, or a comment inside a chapter nobody has opened yet,
+// and the browser has to know which chapter to fetch before it can scroll to it.
+// Answering here costs one small request on a deep link; shipping the same
+// answer as an index would cost every reviewer the whole document on every load.
+func (a *app) locateAnchor(w http.ResponseWriter, r *http.Request) {
+	anchor := r.URL.Query().Get("anchor")
+	if anchor == "" {
+		http.Error(w, "missing anchor", http.StatusBadRequest)
+		return
+	}
+	current := a.snapshot(r.Context())
+	if current == nil {
+		http.Error(w, "The saga could not be loaded.", http.StatusInternalServerError)
+		return
+	}
+	place, ok := locateAnchorIn(current.document, anchor)
+	if !ok {
+		http.Error(w, "unknown anchor", http.StatusNotFound)
+		return
+	}
+	response := map[string]string{}
+	if place.chapter != "" {
+		response["chapter"] = domID(place.chapter)
+	}
+	if place.fragment != "" {
+		response["fragment"] = domID(place.fragment)
+	}
+	writeIncrementalHeaders(w, "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "The anchor could not be resolved.", http.StatusInternalServerError)
+	}
+}
+
+// writeIncrementalHeaders answers a request for part of the page. What comes
+// back carries live review state — decisions, comments, and the identity behind
+// them — so it is never reused from a cache: a reviewer would otherwise open a
+// chapter and read it as it was before their own last comment.
+func writeIncrementalHeaders(w http.ResponseWriter, contentType string) {
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Cache-Control", "no-store")
+}
+
+// anchorPlace names the two things a deferred anchor needs before it can be
+// scrolled to: the chapter whose body must be fetched, and the fragment whose
+// content must be rendered. Either can be empty — an anchor in the overview has
+// no chapter, and a chapter's own anchor has no fragment.
+type anchorPlace struct {
+	chapter  string
+	fragment string
+}
+
+// locateAnchorIn resolves an anchor exactly when the document names it, and
+// otherwise by the "owner--detail" shape every derived anchor uses: a heading,
+// a footnote, a marked place, and a comment bubble are all suffixes of the DOM
+// id of the thing that owns them.
+func locateAnchorIn(document *saga.Saga, anchor string) (anchorPlace, bool) {
+	places := anchorPlaces(document)
+	if place, ok := places[anchor]; ok {
+		return place, true
+	}
+	for cut := strings.LastIndex(anchor, "--"); cut > 0; cut = strings.LastIndex(anchor[:cut], "--") {
+		if place, ok := places[anchor[:cut]]; ok {
+			return place, true
+		}
+	}
+	return anchorPlace{}, false
+}
+
+func anchorPlaces(document *saga.Saga) map[string]anchorPlace {
+	places, byTarget := map[string]anchorPlace{}, map[string]anchorPlace{}
+	var walk func(*saga.Section, string)
+	walk = func(section *saga.Section, chapter string) {
+		if section.Kind == "chapter" {
+			chapter = section.Target
+		}
+		place := anchorPlace{chapter: chapter}
+		byTarget[section.Target], places[domID(section.Target)] = place, place
+		for _, fragment := range section.Fragments {
+			within := anchorPlace{chapter: chapter, fragment: fragment.Target}
+			byTarget[fragment.Target], places[domID(fragment.Target)] = within, within
+			for index := range fragment.Landmarks {
+				byTarget[fragment.Landmarks[index].Target] = within
+			}
+		}
+		for _, child := range section.Children {
+			walk(child, chapter)
+		}
+	}
+	walk(document.Section, "")
+	for _, thread := range document.Threads {
+		place, ok := byTarget[thread.Target]
+		if !ok {
+			continue
+		}
+		places[domID("thread:"+thread.ID)] = place
+		for _, message := range thread.Messages {
+			places[domID("message:"+message.ID)] = place
+		}
+	}
+	return places
+}
+
+func findSection(document *saga.Saga, target string) *saga.Section {
+	if target == "" {
+		return nil
+	}
+	var found *saga.Section
+	var walk func(*saga.Section)
+	walk = func(section *saga.Section) {
+		if section.Target == target {
+			found = section
+		}
+		for _, child := range section.Children {
+			walk(child)
+		}
+	}
+	walk(document.Section)
+	return found
+}
+
+func findFragmentByTarget(document *saga.Saga, target string) *saga.Fragment {
+	if target == "" {
+		return nil
+	}
+	var found *saga.Fragment
+	var walk func(*saga.Section)
+	walk = func(section *saga.Section) {
+		for _, fragment := range section.Fragments {
+			if fragment.Target == target {
+				found = fragment
+			}
+		}
+		for _, child := range section.Children {
+			walk(child)
+		}
+	}
+	walk(document.Section)
+	return found
 }
 
 // markLinkedEvidence flags the rows of a whole-file diff that a single
@@ -499,19 +743,7 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 	}
 	changes, report, diffErr := current.changes, current.report, current.diffErr
 	changesByTarget := current.changesByTarget
-	threadsByTarget := map[string][]*threadView{}
-	threadsByDiff := map[string][]*threadView{}
-	for _, thread := range document.Threads {
-		if thread.State == "withdrawn" {
-			continue
-		}
-		view := makeThreadView(thread)
-		if thread.Anchor.Type == "diff" && thread.Anchor.Diff != nil {
-			threadsByDiff[thread.Anchor.Diff.URI] = append(threadsByDiff[thread.Anchor.Diff.URI], view)
-		} else {
-			threadsByTarget[thread.Target] = append(threadsByTarget[thread.Target], view)
-		}
-	}
+	threadsByTarget, threadsByDiff := threadViews(document)
 	code, selectionErr := makeCodeReviewView(document, changes, report, threadsByDiff, codeSelectionFromRequest(r))
 	if selectionErr != nil && diffErr == nil {
 		http.Error(w, selectionErr.Error(), selectionErr.status)
@@ -520,18 +752,23 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 	if code != nil {
 		rebaseCodeReviewURLs(code, "/")
 	}
-	rootView := makeSectionView(document.Section, changesByTarget, threadsByTarget, threadsByDiff)
+	// The saga view is a shell: identity, coverage totals, the overview's
+	// fragments as descriptors, one summary per chapter, and the navigation
+	// outline. Everything below that arrives from /api/section and
+	// /api/fragment as a reviewer opens it.
+	rootView := makeSectionView(document.Section, viewScope{changes: changesByTarget, threads: threadsByTarget, diffThreads: threadsByDiff}.shell())
 	data := pageData{
 		Saga:          document,
 		Root:          rootView,
 		Code:          code,
 		MutationToken: a.mutationToken,
 	}
-	data.ReviewItems = makeReviewProgressItems(rootView)
+	data.ReviewItems = makeReviewProgressItems(document.Section)
 	data.ReviewDecided, data.ReviewTotal = reviewProgressSummary(data.ReviewItems)
-	data.Nav = makeNavTree(document.Manifest.Title, rootView)
+	data.Nav = makeNavTree(document.Section, threadsByTarget)
 	if diffErr == nil {
 		data.Manifest = makeCoverageManifestView(document, changes, report)
+		data.CoverageTotals = makeCoverageTotals(data.Manifest)
 	}
 	if code != nil {
 		data.Files, data.ReviewedFiles = code.Files, code.ReviewedFiles
@@ -559,37 +796,33 @@ func requestedChapter(r *http.Request) (string, bool) {
 	return value, value != "" && !strings.Contains(value, "/")
 }
 
-func cloneSectionWithoutChildren(view *sectionView) *sectionView {
-	clone := *view
-	clone.ChildViews = nil
-	return &clone
-}
-
 // reviewProgress reports resume state for one chapter. It is deliberately
 // coarse: reviewers need to know where to continue, not a completion score.
-func reviewProgress(view *sectionView) (status, class, icon string) {
-	if view.ReviewState == "approved" {
+func reviewProgress(section *saga.Section, threads map[string][]*threadView) (status, class, icon string) {
+	if state, _, _, _ := latestReview(section.Reviews); state == "approved" {
 		return "Approved", "approved", "check"
 	}
-	if sectionHasActivity(view) {
+	if sectionHasActivity(section, threads) {
 		return "In progress", "progress", "half"
 	}
 	return "Unreviewed", "", "circle"
 }
 
-// makeNavTree builds a documentation outline for the one-page saga. Chapter
-// children are present for instant navigation but collapsed until requested.
-func makeNavTree(title string, root *sectionView) []*navNodeView {
-	overviewOnly := cloneSectionWithoutChildren(root)
+// makeNavTree builds a documentation outline for the one-page saga. It reads the
+// document rather than the rendered views: the page ships chapter summaries, and
+// the outline still has to name every destination beneath them so a reviewer can
+// navigate into a chapter that has not been fetched yet. Titles and targets come
+// from the saga's own manifests, so building the whole outline reads no content.
+func makeNavTree(root *saga.Section, threads map[string][]*threadView) []*navNodeView {
 	overview := &navNodeView{Title: "Overview", Href: sagaHref(root.Target), NodeID: "nav-overview", Active: true}
-	overview.Children = withoutRedundantLead(documentOutline(overviewOnly), overview.Title)
+	overview.Children = withoutRedundantLead(fragmentOutline(root), overview.Title)
 	overview.Expanded = len(overview.Children) > 0
 	nodes := []*navNodeView{overview}
-	for _, child := range root.ChildViews {
+	for _, child := range root.Children {
 		if child.Kind != "chapter" {
 			continue
 		}
-		status, class, icon := reviewProgress(child)
+		status, class, icon := reviewProgress(child, threads)
 		node := &navNodeView{
 			Title: child.Title, Href: sagaHref(child.Target),
 			NodeID:     "nav-" + domID(child.Target),
@@ -604,23 +837,33 @@ func makeNavTree(title string, root *sectionView) []*navNodeView {
 // documentOutline turns the open page into headings a reader recognises. Titled
 // content becomes an entry; untitled content is skipped rather than exposed
 // under an internal identifier.
-func documentOutline(view *sectionView) []*navNodeView {
-	var nodes []*navNodeView
-	for _, fragment := range view.FragmentViews {
-		// A lead-in that repeats the page title is not a separate destination.
-		if fragment.Title == "" || strings.EqualFold(fragment.Title, view.Title) {
-			continue
-		}
-		nodes = append(nodes, &navNodeView{Title: fragment.Title, Href: "#" + fragment.DOMID, NodeID: "nav-" + fragment.DOMID})
-	}
-	for _, child := range view.ChildViews {
+func documentOutline(section *saga.Section) []*navNodeView {
+	nodes := fragmentOutline(section)
+	for _, child := range section.Children {
 		if child.Title == "" {
 			continue
 		}
-		node := &navNodeView{Title: child.Title, Href: "#" + child.DOMID, NodeID: "nav-" + child.DOMID}
+		id := domID(child.Target)
+		node := &navNodeView{Title: child.Title, Href: "#" + id, NodeID: "nav-" + id}
 		node.Children = documentOutline(child)
 		node.Expanded = len(node.Children) > 0
 		nodes = append(nodes, node)
+	}
+	return nodes
+}
+
+// fragmentOutline lists one section's own explanations, which is the whole of
+// the overview's outline: the overview is the root, and its chapters are
+// separate top-level entries rather than children of it.
+func fragmentOutline(section *saga.Section) []*navNodeView {
+	var nodes []*navNodeView
+	for _, fragment := range section.Fragments {
+		// A lead-in that repeats the page title is not a separate destination.
+		if fragment.Title == "" || strings.EqualFold(fragment.Title, section.Title) {
+			continue
+		}
+		id := domID(fragment.Target)
+		nodes = append(nodes, &navNodeView{Title: fragment.Title, Href: "#" + id, NodeID: "nav-" + id})
 	}
 	return nodes
 }
@@ -635,50 +878,65 @@ func withoutRedundantLead(nodes []*navNodeView, label string) []*navNodeView {
 	return nodes[1:]
 }
 
-func sectionHasActivity(view *sectionView) bool {
-	if view.ReviewState != "" || len(view.Threads) > 0 {
+// sectionHasActivity answers the resume question from the document and the
+// thread index, so a collapsed chapter reports the same state whether or not its
+// body has been rendered. Comments drawn onto content are annotations rather
+// than section activity, exactly as when this walked the rendered views.
+func sectionHasActivity(section *saga.Section, threads map[string][]*threadView) bool {
+	if state, _, _, _ := latestReview(section.Reviews); state != "" || len(threads[section.Target]) > 0 {
 		return true
 	}
-	for _, fragment := range view.FragmentViews {
-		if fragment.ReviewState != "" || len(fragment.Threads) > 0 {
+	for _, fragment := range section.Fragments {
+		if state, _, _, _ := latestReview(fragment.Reviews); state != "" {
 			return true
 		}
+		for _, thread := range threads[fragment.Target] {
+			if !annotationAnchor(thread.Anchor.Type) {
+				return true
+			}
+		}
 	}
-	for _, child := range view.ChildViews {
-		if sectionHasActivity(child) {
+	for _, child := range section.Children {
+		if sectionHasActivity(child, threads) {
 			return true
 		}
 	}
 	return false
 }
 
-func makeReviewProgressItems(root *sectionView) []*reviewProgressItem {
+// makeReviewProgressItems counts decisions over the whole document, not over the
+// part of it the page happens to have rendered. It reads review records and
+// titles only, so the progress map stays complete while chapter bodies are still
+// deferred.
+func makeReviewProgressItems(root *saga.Section) []*reviewProgressItem {
 	if root == nil {
 		return nil
 	}
 	var result []*reviewProgressItem
-	var walk func(*sectionView, string)
-	walk = func(view *sectionView, base string) {
-		if view == nil {
+	var walk func(*saga.Section)
+	walk = func(section *saga.Section) {
+		if section == nil {
 			return
 		}
-		title := view.Title
+		title := section.Title
 		if title == "" {
-			title = view.ID
+			title = section.ID
 		}
-		result = append(result, makeReviewProgressItem(view.Target, title, "#"+view.DOMID, view.ReviewState, view.ReviewBody))
-		for _, fragment := range view.FragmentViews {
+		state, _, _, body := latestReview(section.Reviews)
+		result = append(result, makeReviewProgressItem(section.Target, title, "#"+domID(section.Target), state, body))
+		for _, fragment := range section.Fragments {
 			fragmentTitle := fragment.Title
 			if fragmentTitle == "" {
 				fragmentTitle = fragment.ID
 			}
-			result = append(result, makeReviewProgressItem(fragment.Target, fragmentTitle, "#"+fragment.DOMID, fragment.ReviewState, fragment.ReviewBody))
+			fragmentState, _, _, fragmentBody := latestReview(fragment.Reviews)
+			result = append(result, makeReviewProgressItem(fragment.Target, fragmentTitle, "#"+domID(fragment.Target), fragmentState, fragmentBody))
 		}
-		for _, child := range view.ChildViews {
-			walk(child, base)
+		for _, child := range section.Children {
+			walk(child)
 		}
 	}
-	walk(root, "/")
+	walk(root)
 	return result
 }
 
@@ -819,30 +1077,76 @@ func makeAnnotationThreadView(thread *threadView) *annotationThreadView {
 	return view
 }
 
-func makeSectionView(section *saga.Section, changes map[string][]gitdiff.Atom, threads map[string][]*threadView, diffThreads map[string][]*threadView) *sectionView {
+// viewScope carries everything a narrative view needs from the snapshot, and how
+// much of the tree this render is allowed to materialise. The page renders a
+// shell — the overview, its fragments as descriptors, and one summary per
+// chapter — because rendering the whole document eagerly made first load grow
+// with the size of the story rather than with what a reviewer can see. The
+// bounded /api/section and /api/fragment endpoints render one node each, and
+// /api/section reuses the page's own scope so a chapter body is built by
+// exactly the code that built the page around it.
+type viewScope struct {
+	changes     map[string][]gitdiff.Atom
+	threads     map[string][]*threadView
+	diffThreads map[string][]*threadView
+	// summary stops the render at this section's own head: its body arrives
+	// from /api/section when a reviewer opens it.
+	summary bool
+	// summarizeChapters turns this section's direct chapter children into
+	// summaries. It applies to one level only, so a chapter body still renders
+	// the sections nested inside it as the page always did.
+	summarizeChapters bool
+	// deferContent renders every fragment as a descriptor whose content arrives
+	// from /api/fragment.
+	deferContent bool
+}
+
+// shell is the scope both the page and /api/section render at: this node in
+// full, its fragments as descriptors, and any chapter beneath it as a summary.
+func (scope viewScope) shell() viewScope {
+	scope.summary, scope.summarizeChapters, scope.deferContent = false, true, true
+	return scope
+}
+
+func makeSectionView(section *saga.Section, scope viewScope) *sectionView {
 	view := &sectionView{
-		Section: section, DOMID: domID(section.Target), Changes: makeAtomViews(changes[section.Target], section.Target, diffThreads),
-		Attached: makeAttachedCodeView(section.Title, section.Target, changes[section.Target], section.Diffs), Threads: threads[section.Target],
+		Section: section, DOMID: domID(section.Target), Changes: makeAtomViews(scope.changes[section.Target], section.Target, scope.diffThreads),
+		Attached: makeAttachedCodeView(section.Title, section.Target, scope.changes[section.Target], section.Diffs), Threads: scope.threads[section.Target],
 	}
 	view.ReviewState, view.ReviewAuthor, view.ReviewDetail, view.ReviewBody = latestReview(section.Reviews)
+	if scope.summary {
+		view.Deferred = true
+		return view
+	}
 	for _, fragment := range section.Fragments {
-		view.FragmentViews = append(view.FragmentViews, makeFragmentView(fragment, changes[fragment.Target], threads[fragment.Target], diffThreads, changes, threads))
+		view.FragmentViews = append(view.FragmentViews, makeFragmentView(fragment, scope))
 	}
 	for _, child := range section.Children {
-		view.ChildViews = append(view.ChildViews, makeSectionView(child, changes, threads, diffThreads))
+		childScope := scope
+		childScope.summary, childScope.summarizeChapters = scope.summarizeChapters && child.Kind == "chapter", false
+		view.ChildViews = append(view.ChildViews, makeSectionView(child, childScope))
 	}
 	return view
 }
 
-func makeFragmentView(fragment *saga.Fragment, changes []gitdiff.Atom, threads []*threadView, diffThreads map[string][]*threadView, changesByTarget map[string][]gitdiff.Atom, threadsByTarget map[string][]*threadView) *fragmentView {
+func makeFragmentView(fragment *saga.Fragment, scope viewScope) *fragmentView {
 	title := fragment.Title
 	if title == "" {
 		title = fragment.ID
 	}
-	view := &fragmentView{
-		Fragment: fragment, DOMID: domID(fragment.Target), Changes: makeAtomViews(changes, fragment.Target, diffThreads),
-		Attached: makeAttachedCodeView(title, fragment.Target, changes, fragment.Diffs),
+	view := &fragmentView{Fragment: fragment, DOMID: domID(fragment.Target)}
+	view.ReviewState, view.ReviewAuthor, view.ReviewDetail, view.ReviewBody = latestReview(fragment.Reviews)
+	view.URL = "/f/" + url.PathEscape(fragment.ID) + "/" + strings.Join(pathEscapeParts(fragment.Entrypoint), "/")
+	if scope.deferContent {
+		// A descriptor names the explanation and carries its review controls.
+		// The content, its landmarks, and its linked code arrive from
+		// /api/fragment once the reviewer can actually see this fragment.
+		view.Deferred = true
+		return view
 	}
+	changes, threads, diffThreads := scope.changes[fragment.Target], scope.threads[fragment.Target], scope.diffThreads
+	view.Changes = makeAtomViews(changes, fragment.Target, diffThreads)
+	view.Attached = makeAttachedCodeView(title, fragment.Target, changes, fragment.Diffs)
 	for _, thread := range threads {
 		if annotationAnchor(thread.Anchor.Type) {
 			view.AnnotationThreads = append(view.AnnotationThreads, makeAnnotationThreadView(thread))
@@ -855,16 +1159,14 @@ func makeFragmentView(fragment *saga.Fragment, changes []gitdiff.Atom, threads [
 		if region == nil && landmark.Selector.Type == "region" {
 			region = &saga.LandmarkRegion{X: landmark.Selector.X, Y: landmark.Selector.Y, Width: landmark.Selector.Width, Height: landmark.Selector.Height}
 		}
-		landmarkChanges := changesByTarget[landmark.Target]
+		landmarkChanges := scope.changes[landmark.Target]
 		view.LandmarkViews = append(view.LandmarkViews, &landmarkView{
 			Landmark: landmark, DOMID: view.DOMID + "--" + landmark.ID, Title: landmark.Label,
 			Changes:  makeAtomViews(landmarkChanges, landmark.Target, diffThreads),
 			Attached: makeAttachedCodeView(landmark.Label, landmark.Target, landmarkChanges, landmark.Diffs),
-			Threads:  threadsByTarget[landmark.Target], Region: region,
+			Threads:  scope.threads[landmark.Target], Region: region,
 		})
 	}
-	view.ReviewState, view.ReviewAuthor, view.ReviewDetail, view.ReviewBody = latestReview(fragment.Reviews)
-	view.URL = "/f/" + url.PathEscape(fragment.ID) + "/" + strings.Join(pathEscapeParts(fragment.Entrypoint), "/")
 	switch fragment.MediaType {
 	case "text/markdown":
 		if data, err := os.ReadFile(filepath.Join(fragment.Directory, filepath.FromSlash(fragment.Entrypoint))); err == nil {
@@ -920,7 +1222,7 @@ func makeThreadView(thread *saga.Thread) *threadView {
 	for _, message := range thread.Messages {
 		var fragments []*fragmentView
 		for _, fragment := range message.Fragments {
-			fragments = append(fragments, makeFragmentView(fragment, nil, nil, nil, nil, nil))
+			fragments = append(fragments, makeFragmentView(fragment, viewScope{}))
 		}
 		view.MessageViews = append(view.MessageViews, fragments)
 	}

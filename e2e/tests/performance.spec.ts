@@ -3,8 +3,11 @@ import { largeSagaChangedLines, largeSagaScale } from "../support/fixture-builde
 
 /**
  * Budgets for a large saga in a real browser. The page describes the whole
- * comparison and carries only the file the reviewer is already looking at;
- * every other diff body arrives from /api/file-diff when that file is opened.
+ * comparison and the whole story, and carries neither: it carries the one file
+ * the reviewer is already looking at, and the saga as a shell of chapter
+ * summaries. Every other diff body arrives from /api/file-diff when that file
+ * is opened, and every chapter body and explanation from /api/section and
+ * /api/fragment when the reviewer reaches it.
  *
  * Byte and element counts are hard budgets: the fixture is fixed, so they are
  * deterministic and a breach always means the payload changed shape. Times are
@@ -18,12 +21,16 @@ import { largeSagaChangedLines, largeSagaScale } from "../support/fixture-builde
  *
  * Measured on this fixture (1,536 changed lines across 32 files):
  *
- *   document bytes   6,851,463 -> 555,974
- *   DOM elements        73,835 ->   6,315
- *   diff rows in DOM     6,240 ->      96
+ *   document bytes   6,851,463 -> 555,974 -> 414,626
+ *   DOM elements        73,835 ->   6,315 ->   4,978
+ *   diff rows in DOM     6,240 ->      96 ->      96
+ *
+ * The third column is the shell. Of those 4,978 elements the saga document
+ * itself is 434: the rest are the coverage audit, the Code Diff tab, and the
+ * navigation outline.
  */
 const documentByteBudget = 1_200_000;
-const domElementBudget = 20_000;
+const domElementBudget = 6_000;
 /** The Code Diff tab inlines one file; nothing else may bring rows with it. */
 const domDiffRowBudget = 2 * largeSagaScale.changedLinesPerFile + 64;
 /** A generous smoke ceiling, not a performance target. */
@@ -80,6 +87,60 @@ test("a large saga's first load stays within its payload budgets", async ({ page
     measured.domInteractive,
     budgetMessage("time to interactive", measured.domInteractive, interactiveCeilingMs, "This is a smoke ceiling; see the attached metrics for the real number.")
   ).toBeLessThanOrEqual(interactiveCeilingMs);
+});
+
+test("ships the saga as a shell and fetches each chapter and explanation once, when it is reached", async ({ page, largeSaga }, testInfo) => {
+  const sectionRequests: string[] = [];
+  const fragmentRequests: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === "/api/section") sectionRequests.push(url.searchParams.get("target") ?? "");
+    if (url.pathname === "/api/fragment") fragmentRequests.push(url.searchParams.get("target") ?? "");
+  });
+  await page.goto(largeSaga.baseURL, { waitUntil: "load" });
+
+  const sagaView = page.locator('[data-view="saga"]');
+  await expect(sagaView.locator("section.chapter")).toHaveCount(largeSagaScale.chapters);
+  await expect(sagaView.locator("[data-section-href]")).toHaveCount(largeSagaScale.chapters);
+  // The overview owns its own explanation; every other one is inside a chapter
+  // nobody has opened, so it is named by a summary and nothing more.
+  const shell = await page.evaluate(() => ({
+    elements: window.document.querySelector('[data-view="saga"]')!.getElementsByTagName("*").length,
+    explanations: window.document.querySelectorAll('[data-view="saga"] article.fragment').length
+  }));
+  await testInfo.attach("shell-metrics.json", {
+    body: `${JSON.stringify({ chapters: largeSagaScale.chapters, ...shell }, null, 2)}\n`,
+    contentType: "application/json"
+  });
+  expect(shell.explanations, "only the overview's own explanations are on the page").toBeLessThan(largeSagaScale.chapters);
+  expect(sectionRequests, "no chapter is fetched before it is opened").toEqual([]);
+
+  // The overview's own explanation is fetched because it is on screen, and it
+  // is the only one: the rest are inside chapters that are still closed.
+  await expect(page.locator(".fragment-markdown").first()).toBeVisible();
+  expect(fragmentRequests.length, "only the explanations on screen are fetched").toBeLessThanOrEqual(2);
+
+  const chapter = sagaView.locator("section.chapter").first();
+  await chapter.getByRole("button", { name: /^Open / }).click();
+  const chapterExplanations = chapter.locator("[data-chapter-body] article.fragment");
+  await expect(chapterExplanations.first()).toBeAttached();
+  expect(await chapterExplanations.count(), "an opened chapter names every explanation it holds")
+    .toBeGreaterThanOrEqual(largeSagaScale.fragmentsPerChapter);
+  expect(sectionRequests, "opening one chapter fetches exactly that chapter").toHaveLength(1);
+  await expect(chapter.locator(".fragment-markdown").first()).toBeVisible();
+
+  // Closing and reopening the same chapter asks the server nothing again.
+  await chapter.getByRole("button", { name: /^Close / }).click();
+  await chapter.getByRole("button", { name: /^Open / }).click();
+  expect(sectionRequests, "reopening a chapter must not fetch it again").toHaveLength(1);
+
+  // A deep link into a chapter nobody has opened still resolves: the anchor is
+  // located, its chapter is fetched, and the page scrolls to it.
+  const deepLink = await chapterExplanations.last().getAttribute("id");
+  await page.goto(`${largeSaga.baseURL}/#${deepLink}`, { waitUntil: "load" });
+  const destination = page.locator(`[id="${deepLink}"]`);
+  await expect(destination).toBeVisible();
+  await expect(destination.locator(".fragment-markdown")).toBeVisible();
 });
 
 test("loads a coverage file diff only once the reviewer opens that file", async ({ page, largeSaga }) => {
