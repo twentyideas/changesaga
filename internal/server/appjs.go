@@ -684,7 +684,7 @@ const appJavaScript = `(() => {
     // The anchor may name something inside a chapter or an explanation that has
     // not been fetched yet, so it is resolved before it is scrolled to.
     const destination = await revealAnchor(id);
-    if (destination) {
+    if (destination?.closest('[data-view="saga"]')) {
       setView('saga', false);
     }
     const target = id ? q('[data-landmark-anchor="' + CSS.escape(id) + '"]') : null;
@@ -768,8 +768,10 @@ const appJavaScript = `(() => {
     });
   }
 
-  function prepareContext() {
-    qa('[data-diff-body]').forEach(body => {
+  function prepareContext(root = document) {
+    within(root, '[data-diff-body]').forEach(body => {
+      qa(':scope > .context-expander', body).forEach(button => button.remove());
+      qa(':scope > [data-context-row]', body).forEach(row => { row.hidden = false; });
       const rows = [...body.children].filter(row => row.matches('.diff-row'));
       const hidden = rows.map((row, index) => {
         if (!row.matches('[data-context-row]')) return false;
@@ -921,6 +923,260 @@ const appJavaScript = `(() => {
     void setChapterOpen(chapter, button.getAttribute('aria-expanded') !== 'true');
   }
 
+  // Code Diff and Coverage are deliberately absent from the root document.
+  // Their endpoints return bounded HTML fragments, and a cold comparison may
+  // answer 202 while its snapshot is still being built. Per-surface request
+  // generations keep a late response for one file from replacing a newer deep
+  // link, while the URL remains the source of truth throughout retries.
+  const reviewSurfaceRequests = new Map();
+  const reviewSurfaceRetries = new Map();
+  const codeFileRequests = new WeakMap();
+  const codeFileRetries = new WeakMap();
+
+  function reviewSurfaceURL(name, explicitHref = '') {
+    const surface = q('[data-review-surface="'+name+'"]');
+    const url = new URL(explicitHref || surface?.dataset.surfaceHref || '', location.href);
+    if (!explicitHref) {
+      const current = new URL(location.href);
+      ['file', 'diff', 'mode'].forEach(key => {
+        if (current.searchParams.has(key)) url.searchParams.set(key, current.searchParams.get(key));
+      });
+    }
+    return url;
+  }
+
+  function surfaceStatus(surface, state, title, detail, retry = false) {
+    if (!surface) return;
+    surface.dataset.surfaceState = state;
+    surface.replaceChildren();
+    const status = document.createElement('div');
+    status.className = 'surface-placeholder ' + state;
+    status.dataset.surfaceStatus = '';
+    status.setAttribute('role', state === 'error' ? 'alert' : 'status');
+    status.setAttribute('aria-live', 'polite');
+    if (state === 'loading' || state === 'building') {
+      const spinner = document.createElement('span');
+      spinner.className = 'surface-spinner';
+      spinner.setAttribute('aria-hidden', 'true');
+      status.append(spinner);
+    }
+    const heading = document.createElement('strong');
+    heading.textContent = title;
+    status.append(heading);
+    if (detail) {
+      const message = document.createElement('span');
+      message.textContent = detail;
+      status.append(message);
+    }
+    if (retry) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn-primary';
+      button.dataset.retrySurface = surface.dataset.reviewSurface;
+      button.textContent = 'Try again';
+      status.append(button);
+    }
+    surface.append(status);
+  }
+
+  function retryDelay(response) {
+    const value = response.headers.get('Retry-After');
+    const seconds = Number(value);
+    if (Number.isFinite(seconds) && seconds >= 0) return Math.min(10_000, Math.max(250, seconds * 1000));
+    const date = Date.parse(value || '');
+    if (Number.isFinite(date)) return Math.min(10_000, Math.max(250, date - Date.now()));
+    return 1000;
+  }
+
+  function prepareReviewSurface(name, root) {
+    highlightCode(root);
+    prepareContext(root);
+    applyDiffLayout(diffLayout);
+    if (name === 'manifest') {
+      const requested = new URL(location.href).searchParams.get('mode');
+      const current = q('[data-manifest-mode][aria-pressed="true"]')?.dataset.manifestMode;
+      setManifestMode(requested === 'saga' && q('[data-manifest-panel="saga"]') ? 'saga'
+        : requested === 'code' && q('[data-manifest-panel="code"]') ? 'code'
+        : current && q('[data-manifest-panel="'+current+'"]') ? current
+        : q('[data-manifest-panel="code"]') ? 'code' : 'saga');
+    }
+    if (name === 'code') {
+      const meta = q('[data-code-meta]');
+      const content = q('[data-code-meta-content]', root);
+      if (meta && content) meta.textContent = content.textContent;
+      within(root, '[data-code-file-href]').forEach(file => { void hydrateCodeFile(file); });
+    }
+    const id = decodeURIComponent(location.hash.replace(/^#/, ''));
+    const destination = id ? document.getElementById(id) : null;
+    if (destination?.closest('[data-review-surface="'+name+'"]')) {
+      revealHashedAnnotationBubble();
+      globalThis.requestAnimationFrame?.(() => destination.scrollIntoView({block:'center'}));
+    }
+  }
+
+  function fileNextButton(file, cursor) {
+    if (!cursor) return null;
+    const url = new URL(file.dataset.codeFileHref, location.href);
+    url.searchParams.set('cursor', cursor);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.fileNext = url.pathname + url.search;
+    button.textContent = 'Load more lines';
+    button.setAttribute('aria-label', 'Load the next file chunk');
+    return button;
+  }
+
+  async function hydrateCodeFile(file, options = {}) {
+    if (!file) return;
+    const href = options.href || file.dataset.codeFileHref;
+    if (!href) return;
+    const url = new URL(href, location.href);
+    const key = url.toString();
+    const previous = codeFileRequests.get(file);
+    if (!options.force && previous?.key === key) return previous.promise;
+    if (!options.append && file.dataset.fileLoaded === key) return file;
+    const controller = new AbortController();
+    clearTimeout(codeFileRetries.get(file));
+    const destination = q('[data-diff-body]', file);
+    if (!destination) return;
+    const promise = fetch(url, {headers:{Accept:'text/html','X-Change-Saga-Async':'true'},credentials:'same-origin',signal:controller.signal}).then(async response => {
+      if (response.status === 202) {
+        destination.innerHTML = '<p class="diff-placeholder">Building this file… <button type="button" data-retry-file>Try again</button></p>';
+        const timer = setTimeout(() => { if (file.isConnected) void hydrateCodeFile(file, {force:true}); }, retryDelay(response));
+        codeFileRetries.set(file, timer);
+        return file;
+      }
+      if (!response.ok) throw new Error((await response.text()).trim() || 'file request failed');
+      const wrapper = parseShellHTML(await response.text());
+      const page = q('[data-file-diff-page]', wrapper) || q('[data-review-surface-page]', wrapper) || q('[data-attached-full-diff]', wrapper) || wrapper;
+      const items = q('[data-page-items="lines"]', page) || q('[data-diff-body]', page) || page;
+      const inserted = Array.from(items.childNodes);
+      if (options.append) destination.append(...inserted); else destination.replaceChildren(...inserted);
+      q('[data-file-next]', file)?.remove();
+      const next = fileNextButton(file, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset?.nextCursor);
+      if (next) q('[data-diff-surface]', file)?.append(next);
+      file.dataset.fileLoaded = key;
+      highlightCode(destination);
+      prepareContext(destination);
+      applyDiffLayout(diffLayout);
+      revealHashedAnnotationBubble();
+      if (!location.hash && !options.append) {
+        const selected = q('.diff-row.selected', destination);
+        globalThis.requestAnimationFrame?.(() => selected?.scrollIntoView({block:'center'}));
+      }
+      return file;
+    }).catch(error => {
+      if (error.name === 'AbortError') return file;
+      destination.innerHTML = '<p class="diff-placeholder">This file could not be loaded. <button type="button" data-retry-file>Try again</button></p>';
+      return file;
+    }).finally(() => {
+      if (codeFileRequests.get(file)?.promise === promise) codeFileRequests.delete(file);
+    });
+    previous?.controller.abort();
+    codeFileRequests.set(file, {key, controller, promise});
+    return promise;
+  }
+
+  function surfaceNextButton(name, cursor, pageKey = '') {
+    if (!cursor) return null;
+    const url = reviewSurfaceURL(name);
+    url.searchParams.set('cursor', cursor);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.surfaceNext = url.pathname + url.search;
+    if (pageKey) button.dataset.pageTarget = pageKey;
+    button.textContent = 'Load more';
+    button.setAttribute('aria-label', 'Load the next page');
+    return button;
+  }
+
+  function installReviewSurface(name, surface, html, headerCursor = '') {
+    const wrapper = parseShellHTML(html);
+    const response = q('[data-review-surface-response="'+name+'"]', wrapper) || q('[data-view="'+name+'"]', wrapper);
+    if (!response) throw new Error('surface response was incomplete');
+    const next = surfaceNextButton(name, headerCursor || response.dataset.nextCursor, response.dataset.pageKey || (name === 'code' ? 'files' : ''));
+    if (name === 'code') {
+      const sidebarResponse = q('[data-code-sidebar-content]', response);
+      const panelResponse = q('[data-code-panel-content]', response) || response;
+      const sidebar = q('[data-code-sidebar]');
+      if (!sidebarResponse || !sidebar) throw new Error('code response was incomplete');
+      sidebar.replaceChildren(...Array.from(sidebarResponse.childNodes));
+      surface.replaceChildren(...Array.from(panelResponse.childNodes));
+    } else {
+      surface.replaceChildren(...Array.from(response.childNodes));
+    }
+    if (next) surface.append(next);
+    if (response.dataset.returned) surface.dataset.returned = response.dataset.returned;
+    surface.dataset.surfaceState = 'ready';
+    prepareReviewSurface(name, surface);
+  }
+
+  async function hydrateReviewSurface(name, options = {}) {
+    const surface = q('[data-review-surface="'+name+'"]');
+    if (!surface) return null;
+    const url = reviewSurfaceURL(name, options.href || '');
+    const requestKey = url.toString();
+    if (!options.force && surface.dataset.surfaceLoaded === requestKey) return surface;
+    const previous = reviewSurfaceRequests.get(name);
+    if (!options.force && previous?.key === requestKey) return previous.promise;
+    previous?.controller.abort();
+    clearTimeout(reviewSurfaceRetries.get(name));
+    const controller = new AbortController();
+    surfaceStatus(surface, 'loading', name === 'code' ? 'Loading Code Diff…' : 'Loading Coverage…', 'Fetching a bounded page of the comparison.');
+    const promise = fetch(url, {headers:{Accept:'text/html','X-Change-Saga-Async':'true'},credentials:'same-origin',signal:controller.signal}).then(async response => {
+      if (response.status === 202) {
+        const delay = retryDelay(response);
+        surfaceStatus(surface, 'building', 'Building the source comparison…', 'This view will retry automatically. Your deep link is preserved.', true);
+        const timer = setTimeout(() => {
+          if (q('[data-view="'+name+'"]').classList.contains('active')) void hydrateReviewSurface(name, {force:true});
+        }, delay);
+        reviewSurfaceRetries.set(name, timer);
+        return surface;
+      }
+      if (!response.ok) throw new Error((await response.text()).trim() || 'request failed');
+      installReviewSurface(name, surface, await response.text(), response.headers.get('X-Change-Saga-Next-Cursor') || '');
+      surface.dataset.surfaceLoaded = requestKey;
+      return surface;
+    }).catch(error => {
+      if (error.name === 'AbortError') return surface;
+      surfaceStatus(surface, 'error', name === 'code' ? 'Code Diff could not be loaded.' : 'Coverage could not be loaded.', error.message, true);
+      return surface;
+    }).finally(() => {
+      if (reviewSurfaceRequests.get(name)?.promise === promise) reviewSurfaceRequests.delete(name);
+    });
+    reviewSurfaceRequests.set(name, {key:requestKey, controller, promise});
+    return promise;
+  }
+
+  async function loadReviewSurfacePage(button) {
+    const surface = button.closest('[data-review-surface]');
+    const name = surface?.dataset.reviewSurface;
+    const href = button.dataset.surfaceNext || button.getAttribute('href');
+    if (!surface || !name || !href || button.dataset.pageLoading === 'true') return;
+    button.dataset.pageLoading = 'true';
+    button.setAttribute('aria-busy', 'true');
+    try {
+      const response = await fetch(reviewSurfaceURL(name, href), {headers:{Accept:'text/html','X-Change-Saga-Async':'true'},credentials:'same-origin'});
+      if (!response.ok) throw new Error('page request failed');
+      const wrapper = parseShellHTML(await response.text());
+      const page = q('[data-review-surface-page]', wrapper) || q('[data-review-surface-response="'+name+'"]', wrapper) || wrapper;
+      const key = page.dataset?.pageKey || button.dataset.pageTarget || '';
+      const destinationRoot = name === 'code' && key === 'files' ? q('[data-code-sidebar]') : surface;
+      const destination = key ? q('[data-page-items="'+CSS.escape(key)+'"]', destinationRoot) : q('[data-page-items]', destinationRoot);
+      const items = key ? q('[data-page-items="'+CSS.escape(key)+'"]', page) : q('[data-page-items]', page);
+      if (!destination || !items) throw new Error('page response was incomplete');
+      const inserted = Array.from(items.childNodes);
+      destination.append(...inserted);
+      const next = q('[data-surface-next]', page) || surfaceNextButton(name, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset?.nextCursor, key);
+      if (next) button.replaceWith(next); else button.remove();
+      prepareReviewSurface(name, destination);
+    } catch (_) {
+      button.textContent = 'Could not load more — try again';
+      delete button.dataset.pageLoading;
+      button.removeAttribute('aria-busy');
+    }
+  }
+
   function setView(name, updateURL = true) {
     if (!q('[data-view="'+name+'"]')) name = 'saga';
     qa('[data-view]').forEach(view => view.classList.toggle('active', view.dataset.view === name));
@@ -949,6 +1205,7 @@ const appJavaScript = `(() => {
       if (name === 'saga') url.searchParams.delete('view'); else url.searchParams.set('view', name);
       history.pushState({view: name}, '', url);
     }
+    if (name === 'code' || name === 'manifest') void hydrateReviewSurface(name);
   }
 
   function filterManifest() {
@@ -976,6 +1233,19 @@ const appJavaScript = `(() => {
     qa('[data-manifest-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.manifestMode === mode)));
     qa('[data-manifest-panel]').forEach(panel => panel.hidden = panel.dataset.manifestPanel !== mode);
     filterManifest();
+  }
+
+  function activateManifestMode(mode) {
+    const current = new URL(location.href);
+    current.searchParams.set('mode', mode);
+    history.pushState({view:'manifest', mode}, '', current);
+    if (q('[data-manifest-panel="'+mode+'"]')) {
+      setManifestMode(mode);
+      return Promise.resolve();
+    }
+    const url = reviewSurfaceURL('manifest');
+    url.searchParams.set('mode', mode);
+    return hydrateReviewSurface('manifest', {force:true, href:url.toString()});
   }
 
   function setActiveFragment(fragment) {
@@ -2022,6 +2292,38 @@ const appJavaScript = `(() => {
   });
 
   document.addEventListener('click', event => {
+    const retryFile = event.target.closest?.('[data-retry-file]');
+    if (retryFile) {
+      void hydrateCodeFile(retryFile.closest('[data-code-file-href]'), {force:true});
+      return;
+    }
+    const nextFilePage = event.target.closest?.('[data-file-next]');
+    if (nextFilePage) {
+      void hydrateCodeFile(nextFilePage.closest('[data-code-file-href]'), {href:nextFilePage.dataset.fileNext, append:true});
+      return;
+    }
+    const retrySurface = event.target.closest?.('[data-retry-surface]');
+    if (retrySurface) {
+      void hydrateReviewSurface(retrySurface.dataset.retrySurface, {force:true});
+      return;
+    }
+    const nextSurfacePage = event.target.closest?.('[data-surface-next]');
+    if (nextSurfacePage) {
+      event.preventDefault();
+      void loadReviewSurfacePage(nextSurfacePage);
+      return;
+    }
+    const boundedLink = event.target.closest?.('a[href]');
+    if (boundedLink && !event.defaultPrevented && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && (!boundedLink.target || boundedLink.target === '_self')) {
+      const destination = new URL(boundedLink.href, location.href);
+      const view = destination.searchParams.get('view');
+      if (destination.origin === location.origin && destination.pathname === location.pathname && (view === 'code' || view === 'manifest')) {
+        event.preventDefault();
+        history.pushState({view}, '', destination);
+        setView(view, false);
+        return;
+      }
+    }
     const fragmentDrawerLink = event.target.closest?.('[data-open-fragment]');
     if (fragmentDrawerLink) {
       event.preventDefault();
@@ -2070,7 +2372,7 @@ const appJavaScript = `(() => {
     const viewTab = event.target.closest('[data-view-tab]');
     if (viewTab) { setView(viewTab.dataset.viewTab); return; }
     const manifestMode = event.target.closest('[data-manifest-mode]');
-    if (manifestMode) { setManifestMode(manifestMode.dataset.manifestMode); return; }
+    if (manifestMode) { void activateManifestMode(manifestMode.dataset.manifestMode); return; }
     const treeToggle = event.target.closest('[data-toggle-tree]');
     if (treeToggle) {
       const hidden = q('[data-shell]')?.classList.contains('tree-hidden');
@@ -2157,6 +2459,15 @@ const appJavaScript = `(() => {
       }
       returnTo.value = location.pathname + location.search + location.hash;
     }
+  });
+
+  document.addEventListener('input', event => {
+    if (event.target.matches?.('[data-file-filter]')) filterTree();
+    if (event.target.matches?.('[data-manifest-filter]')) filterManifest();
+  });
+
+  document.addEventListener('change', event => {
+    if (event.target.matches?.('[data-hide-reviewed]')) filterTree();
   });
 
   document.addEventListener('keydown', event => {
@@ -2442,7 +2753,9 @@ const appJavaScript = `(() => {
   const initialView = requestedView === 'code' || requestedView === 'manifest' ? requestedView : 'saga';
   setView(initialView, false);
   setManifestMode('code');
-  const anchorResolving = activateLandmark().then(revealHashedAnnotationBubble);
+  const anchorResolving = initialView === 'saga'
+    ? activateLandmark().then(revealHashedAnnotationBubble)
+    : hydrateReviewSurface(initialView).then(revealHashedAnnotationBubble);
   // The page arrives as a shell and fills in what is on screen. Saying when
   // that has finished is the difference between a reviewer who can see the
   // page has settled and automation that would otherwise have to guess.
@@ -2451,7 +2764,11 @@ const appJavaScript = `(() => {
   });
   positionFragmentOverlays();
   globalThis.requestAnimationFrame?.(positionFragmentOverlays);
-  addEventListener('hashchange', () => { void activateLandmark().then(revealHashedAnnotationBubble); });
+  addEventListener('hashchange', () => {
+    const view = new URL(location.href).searchParams.get('view');
+    if (view === 'code' || view === 'manifest') void hydrateReviewSurface(view).then(revealHashedAnnotationBubble);
+    else void activateLandmark().then(revealHashedAnnotationBubble);
+  });
   addEventListener('popstate', () => {
     const view = new URL(location.href).searchParams.get('view');
     setView(view === 'code' || view === 'manifest' ? view : 'saga', false);
