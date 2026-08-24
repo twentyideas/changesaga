@@ -1225,6 +1225,24 @@ func TestPageHandlerShipsAChapterShellAndRedirectsLegacyRoutes(t *testing.T) {
 	}
 }
 
+func TestFragmentContentNeverLoadsTheSourceComparison(t *testing.T) {
+	root := validServerSaga(t)
+	application := &app{root: root, sourceDir: root, template: serverTemplate(t)}
+	application.comparisonLoader = func(context.Context) (*reviewSnapshot, error) {
+		t.Fatal("narrative fragment requested the source comparison")
+		return nil, nil
+	}
+
+	recorder := httptest.NewRecorder()
+	application.fragmentContent(recorder, fragmentRequest("urn:change-saga:test:fragment:overview"))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("explanation status = %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "Story") {
+		t.Fatal("comparison-independent fragment lost its narrative content")
+	}
+}
+
 func TestPageHandlerRendersRealGitComparison(t *testing.T) {
 	repo := t.TempDir()
 	serverGit(t, repo, "init", "-b", "main")

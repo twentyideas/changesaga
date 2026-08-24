@@ -288,16 +288,6 @@ func ListenManaged(ctx context.Context, root, sourceDir, addr string, openBrowse
 	if host, port, err := net.SplitHostPort(listener.Addr().String()); err == nil && host == "127.0.0.1" {
 		serverURL = "http://127.0.0.1:" + port
 	}
-	buildCtx, cancelBuild := context.WithCancel(ctx)
-	defer cancelBuild()
-	fmt.Fprintln(out, "Review cache: building structural and source indexes...")
-	application.startSnapshotBuild(buildCtx, func(err error) {
-		if err != nil {
-			fmt.Fprintf(out, "Review cache: build failed: %v\n", err)
-			return
-		}
-		fmt.Fprintln(out, "Review cache: ready.")
-	})
 	if options.OnReady != nil {
 		if err := options.OnReady(serverURL); err != nil {
 			_ = listener.Close()
@@ -462,23 +452,23 @@ func (a *app) sectionBody(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// fragmentContent renders one explanation in full: its content, its marked
-// places, its annotations, and the summaries of the code it explains. It is the
-// only place fragment content is produced, so the size of a first load no longer
-// tracks the size of the story.
+// fragmentContent renders one explanation's narrative content, marked places,
+// annotations, and review records. Linked source summaries are deliberately a
+// separate lazy surface: reading prose must never start or wait for a source
+// comparison or coverage build.
 func (a *app) fragmentContent(w http.ResponseWriter, r *http.Request) {
-	current := a.requestSnapshot(w, r)
-	if current == nil {
+	document := a.narrativeDocument(r.Context())
+	if document == nil {
+		http.Error(w, "The saga could not be loaded.", http.StatusInternalServerError)
 		return
 	}
-	document := current.document
 	fragment := findFragmentByTarget(document, r.URL.Query().Get("target"))
 	if fragment == nil {
 		http.Error(w, "unknown fragment", http.StatusNotFound)
 		return
 	}
 	threadsByTarget, threadsByDiff := threadViews(document)
-	scope := viewScope{snapshot: current, threads: threadsByTarget, diffThreads: threadsByDiff}
+	scope := viewScope{threads: threadsByTarget, diffThreads: threadsByDiff}
 	writeIncrementalHeaders(w, "text/html; charset=utf-8")
 	if err := a.template.ExecuteTemplate(w, "fragment", makeFragmentView(fragment, scope)); err != nil {
 		http.Error(w, "The explanation could not be rendered.", http.StatusInternalServerError)
