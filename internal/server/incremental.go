@@ -1,0 +1,410 @@
+package server
+
+import (
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"path"
+	"sort"
+	"strconv"
+
+	"github.com/twentyideas/changesaga/internal/diffuri"
+	"github.com/twentyideas/changesaga/internal/gitdiff"
+)
+
+const (
+	defaultSurfacePageLimit = 50
+	maxSurfacePageLimit     = 200
+	defaultDiffPageLimit    = 50
+	maxDiffPageLimit        = 200
+)
+
+type pageCursor struct {
+	Version  int    `json:"v"`
+	Key      string `json:"key"`
+	Offset   int    `json:"offset"`
+	Checksum string `json:"checksum"`
+}
+
+type pageWindow struct {
+	start, end int
+	total      int
+	next       string
+}
+
+type fileDiffPageView struct {
+	File       *FileDiffView
+	NextCursor string
+	HasMore    bool
+	Returned   int
+}
+
+func makeFileDiffPage(current *reviewSnapshot, filePath, owner, linkedTarget string, manifest bool, window pageWindow) *FileDiffView {
+	file := fileSummary(current, filePath)
+	lines := current.fileLines[filePath]
+	if len(lines) == 0 {
+		for _, atom := range current.fileAtoms[filePath][window.start:window.end] {
+			line := gitdiff.DisplayLine{Kind: atom.Side, Path: filePath, Content: atom.Content, Event: atom.Event, OldPath: atom.OldPath, NewPath: atom.NewPath, AtomKey: atom.Key}
+			if atom.Kind == "event" {
+				line.Kind = "event"
+			} else if atom.Side == "old" {
+				line.OldLine = atom.Line
+			} else {
+				line.NewLine = atom.Line
+			}
+			lines = append(lines, line)
+		}
+	} else {
+		lines = lines[window.start:window.end]
+	}
+	needed := map[string]bool{}
+	for _, line := range lines {
+		if atom := current.atomByKey[line.AtomKey]; atom != nil {
+			needed[atom.URI] = true
+		}
+	}
+	threads := map[string][]*threadView{}
+	if !manifest {
+		for _, thread := range current.document.Threads {
+			if thread.State == "withdrawn" || thread.Anchor.Type != "diff" || thread.Anchor.Diff == nil || !needed[thread.Anchor.Diff.URI] {
+				continue
+			}
+			threads[thread.Anchor.Diff.URI] = append(threads[thread.Anchor.Diff.URI], makeThreadView(thread))
+		}
+	}
+	for _, line := range lines {
+		view := &DiffLineView{Kind: line.Kind, Path: filePath, OldLine: line.OldLine, NewLine: line.NewLine, Content: line.Content, Event: line.Event, OldPath: line.OldPath, NewPath: line.NewPath}
+		if atom := current.atomByKey[line.AtomKey]; atom != nil {
+			view.Atom = &diffAtomView{Atom: *atom, Threads: threads[atom.URI], Target: owner}
+			if linkedTarget != "" {
+				for _, assignment := range current.report.Ownership[atom.Key] {
+					if assignment.Target == linkedTarget {
+						view.Linked = true
+						break
+					}
+				}
+			}
+		}
+		file.Lines = append(file.Lines, view)
+	}
+	return file
+}
+
+func (p pageWindow) hasMore() bool { return p.end < p.total }
+
+func pageRequest(r *http.Request, key string, total, defaultLimit, maxLimit int) (pageWindow, error) {
+	limit := defaultLimit
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		value, err := strconv.Atoi(raw)
+		if err != nil || value < 1 {
+			return pageWindow{}, fmt.Errorf("limit must be between 1 and %d", maxLimit)
+		}
+		if value > maxLimit {
+			value = maxLimit
+		}
+		limit = value
+	}
+	start := 0
+	if raw := r.URL.Query().Get("cursor"); raw != "" {
+		data, err := base64.RawURLEncoding.DecodeString(raw)
+		if err != nil {
+			return pageWindow{}, fmt.Errorf("cursor is invalid")
+		}
+		var cursor pageCursor
+		if json.Unmarshal(data, &cursor) != nil || cursor.Version != 1 || cursor.Key != key || cursor.Offset < 0 ||
+			subtle.ConstantTimeCompare([]byte(cursor.Checksum), []byte(pageCursorChecksum(cursor))) != 1 {
+			return pageWindow{}, fmt.Errorf("cursor does not apply to this request")
+		}
+		start = cursor.Offset
+	}
+	if start > total {
+		return pageWindow{}, fmt.Errorf("cursor exceeds the available results")
+	}
+	end := start + limit
+	if end > total {
+		end = total
+	}
+	window := pageWindow{start: start, end: end, total: total}
+	if end < total {
+		cursor := pageCursor{Version: 1, Key: key, Offset: end}
+		cursor.Checksum = pageCursorChecksum(cursor)
+		encoded, _ := json.Marshal(cursor)
+		window.next = base64.RawURLEncoding.EncodeToString(encoded)
+	}
+	return window, nil
+}
+
+func pageCursorChecksum(cursor pageCursor) string {
+	cursor.Checksum = ""
+	data, _ := json.Marshal(cursor)
+	digest := sha256.Sum256(append([]byte("change-saga-http-page-v1\x00"), data...))
+	return hex.EncodeToString(digest[:8])
+}
+
+func writePageHeaders(w http.ResponseWriter, window pageWindow) {
+	w.Header().Set("X-Change-Saga-Total", strconv.Itoa(window.total))
+	w.Header().Set("X-Change-Saga-Returned", strconv.Itoa(window.end-window.start))
+	w.Header().Set("X-Change-Saga-Has-More", strconv.FormatBool(window.hasMore()))
+	if window.next != "" {
+		w.Header().Set("X-Change-Saga-Next-Cursor", window.next)
+	}
+}
+
+type codePageView struct {
+	Tree          ChangedFileTreeView
+	Selected      *FileDiffView
+	Owners        []*ManifestOwnerView
+	TotalFiles    int
+	ReviewedFiles int
+	NextCursor    string
+	HasMore       bool
+	Returned      int
+}
+
+func fileSummary(current *reviewSnapshot, filePath string) *FileDiffView {
+	file := current.fileSummaries[filePath]
+	file.Name, file.Href = path.Base(filePath), CodeDiffURL(filePath, "")
+	return &file
+}
+
+func selectedCodePath(current *reviewSnapshot, r *http.Request) (string, error) {
+	filePath := r.URL.Query().Get("file")
+	if raw := r.URL.Query().Get("diff"); raw != "" {
+		reference, err := diffuri.Parse(raw)
+		if err != nil || reference.Repository != current.changes.Repository || reference.Base != current.changes.BaseOID || reference.Head != current.changes.HeadOID {
+			return "", fmt.Errorf("invalid selected diff URI")
+		}
+		fromDiff := reference.Path
+		if reference.NewPath != "" {
+			fromDiff = reference.NewPath
+		}
+		if filePath == "" {
+			filePath = fromDiff
+		} else if fromDiff != "" && filePath != fromDiff {
+			return "", fmt.Errorf("selected diff is not part of the changed file")
+		}
+	}
+	if filePath == "" && len(current.fileOrder) > 0 {
+		filePath = current.fileOrder[0]
+	}
+	if filePath != "" {
+		if _, ok := current.fileAtoms[filePath]; !ok {
+			return "", fmt.Errorf("changed file not found")
+		}
+	}
+	return filePath, nil
+}
+
+func (a *app) codePage(w http.ResponseWriter, r *http.Request) {
+	current := a.snapshot(r.Context())
+	if current == nil || current.diffErr != nil {
+		http.Error(w, "The source comparison could not be loaded.", http.StatusInternalServerError)
+		return
+	}
+	selectedPath, selectionErr := selectedCodePath(current, r)
+	if selectionErr != nil {
+		http.Error(w, selectionErr.Error(), http.StatusBadRequest)
+		return
+	}
+	total := len(current.fileOrder)
+	if owners := len(current.fileOwners[selectedPath]); owners > total {
+		total = owners
+	}
+	window, err := pageRequest(r, "code\x00"+r.URL.Query().Get("file")+"\x00"+r.URL.Query().Get("diff"), total, defaultSurfacePageLimit, maxSurfacePageLimit)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	fileStart, fileEnd := boundedSlice(window.start, window.end, len(current.fileOrder))
+	files := make([]*FileDiffView, 0, fileEnd-fileStart)
+	reviewed := 0
+	for _, filePath := range current.fileOrder {
+		if review, ok := current.fileReviews[filePath]; ok && review.State == "reviewed" {
+			reviewed++
+		}
+	}
+	for _, filePath := range current.fileOrder[fileStart:fileEnd] {
+		file := fileSummary(current, filePath)
+		file.Selected = filePath == selectedPath
+		files = append(files, file)
+	}
+	ownerStart, ownerEnd := boundedSlice(window.start, window.end, len(current.fileOwners[selectedPath]))
+	locations := indexManifestTargets(current.document)
+	owners := make([]*ManifestOwnerView, 0, ownerEnd-ownerStart)
+	for _, target := range current.fileOwners[selectedPath][ownerStart:ownerEnd] {
+		owners = append(owners, manifestOwner(target, locations))
+	}
+	var selected *FileDiffView
+	if selectedPath != "" {
+		selected = fileSummary(current, selectedPath)
+		selected.Selected = true
+	}
+	result := codePageView{
+		Tree: makeChangedFileTree(files), Selected: selected, Owners: owners,
+		TotalFiles: len(current.fileOrder), ReviewedFiles: reviewed, NextCursor: window.next, HasMore: window.hasMore(), Returned: window.end - window.start,
+	}
+	writeIncrementalHeaders(w, "text/html; charset=utf-8")
+	writePageHeaders(w, window)
+	if err := a.template.ExecuteTemplate(w, "code-page", result); err != nil {
+		http.Error(w, "The code page could not be rendered.", http.StatusInternalServerError)
+	}
+}
+
+type coveragePageView struct {
+	Mode       string
+	Summary    coverageTotalsView
+	Code       []coverageCodeItem
+	Saga       []coverageSagaItem
+	Orphans    []*ManifestOrphanView
+	NextCursor string
+	HasMore    bool
+	Returned   int
+}
+
+type coverageCodeItem struct {
+	File  *ManifestFileView
+	Chunk *ManifestChunkView
+}
+
+type coverageSagaItem struct {
+	Target *ManifestOwnerView
+	File   *ManifestTargetFileView
+	Chunk  *ManifestChunkView
+}
+
+func coverageAtomTotal(groups map[string][]gitdiff.Atom, order []string) int {
+	total := 0
+	for _, key := range order {
+		total += len(groups[key])
+	}
+	return total
+}
+
+type atomPageGroup struct {
+	key   string
+	atoms []gitdiff.Atom
+}
+
+func atomPage(groups map[string][]gitdiff.Atom, order []string, start, end int) []atomPageGroup {
+	var result []atomPageGroup
+	offset := 0
+	for _, key := range order {
+		atoms := groups[key]
+		groupStart, groupEnd := offset, offset+len(atoms)
+		if groupEnd <= start {
+			offset = groupEnd
+			continue
+		}
+		if groupStart >= end {
+			break
+		}
+		left, right := 0, len(atoms)
+		if start > groupStart {
+			left = start - groupStart
+		}
+		if end < groupEnd {
+			right = end - groupStart
+		}
+		result = append(result, atomPageGroup{key: key, atoms: atoms[left:right]})
+		offset = groupEnd
+	}
+	return result
+}
+
+func (a *app) coveragePage(w http.ResponseWriter, r *http.Request) {
+	mode := r.URL.Query().Get("mode")
+	if mode == "" {
+		mode = "code"
+	}
+	if mode != "code" && mode != "saga" {
+		http.Error(w, "mode must be code or saga", http.StatusBadRequest)
+		return
+	}
+	current := a.snapshot(r.Context())
+	if current == nil || current.diffErr != nil {
+		http.Error(w, "The source comparison could not be loaded.", http.StatusInternalServerError)
+		return
+	}
+	total := coverageAtomTotal(current.fileAtoms, current.fileOrder)
+	if mode == "saga" {
+		total = coverageAtomTotal(current.changesByTarget, current.targetOrder) + len(current.report.Orphans)
+	}
+	window, err := pageRequest(r, "coverage\x00"+mode, total, defaultSurfacePageLimit, maxSurfacePageLimit)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	result := coveragePageView{Mode: mode, Summary: coverageTotalsView{
+		Files: len(current.fileOrder), Total: current.report.Summary.Total, Covered: current.report.Summary.Covered,
+		Uncovered: current.report.Summary.Uncovered, Overlapping: current.report.Summary.Overlapping,
+		Orphaned: current.report.Summary.Orphaned, Complete: current.report.Complete,
+	}, NextCursor: window.next, HasMore: window.hasMore(), Returned: window.end - window.start}
+	locations := indexManifestTargets(current.document)
+	if mode == "code" {
+		for _, group := range atomPage(current.fileAtoms, current.fileOrder, window.start, window.end) {
+			fileValue := current.fileCoverage[group.key]
+			file := &fileValue
+			for _, chunk := range makeManifestChunks(group.atoms, current.report.Ownership, locations, true) {
+				result.Code = append(result.Code, coverageCodeItem{File: file, Chunk: chunk})
+			}
+		}
+	} else {
+		atomTotal := coverageAtomTotal(current.changesByTarget, current.targetOrder)
+		atomEnd := window.end
+		if atomEnd > atomTotal {
+			atomEnd = atomTotal
+		}
+		if window.start < atomTotal {
+			for _, group := range atomPage(current.changesByTarget, current.targetOrder, window.start, atomEnd) {
+				owner := manifestOwner(group.key, locations)
+				byPath := map[string][]gitdiff.Atom{}
+				var paths []string
+				for _, atom := range group.atoms {
+					filePath := effectiveAtomPath(atom)
+					if _, ok := byPath[filePath]; !ok {
+						paths = append(paths, filePath)
+					}
+					byPath[filePath] = append(byPath[filePath], atom)
+				}
+				sort.Strings(paths)
+				for _, filePath := range paths {
+					file := &ManifestTargetFileView{Path: filePath, Href: CodeDiffURL(filePath, ""), HasDiff: true}
+					for _, chunk := range makeManifestChunks(byPath[filePath], nil, locations, false) {
+						result.Saga = append(result.Saga, coverageSagaItem{Target: owner, File: file, Chunk: chunk})
+					}
+				}
+			}
+		}
+		orphanStart := window.start - atomTotal
+		if orphanStart < 0 {
+			orphanStart = 0
+		}
+		orphanEnd := window.end - atomTotal
+		if orphanEnd > len(current.report.Orphans) {
+			orphanEnd = len(current.report.Orphans)
+		}
+		for index := orphanStart; index < orphanEnd; index++ {
+			orphan := current.report.Orphans[index]
+			result.Orphans = append(result.Orphans, &ManifestOrphanView{Owner: manifestOwner(orphan.Assignment.Target, locations), URI: orphan.Reference.URI, Reason: orphan.Reason})
+		}
+	}
+	writeIncrementalHeaders(w, "text/html; charset=utf-8")
+	writePageHeaders(w, window)
+	if err := a.template.ExecuteTemplate(w, "coverage-page", result); err != nil {
+		http.Error(w, "The coverage page could not be rendered.", http.StatusInternalServerError)
+	}
+}
+
+func boundedSlice(start, end, length int) (int, int) {
+	if start > length {
+		start = length
+	}
+	if end > length {
+		end = length
+	}
+	return start, end
+}

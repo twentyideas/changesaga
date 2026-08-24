@@ -460,6 +460,19 @@ mark.annotation-revealed{box-shadow:0 0 0 2px var(--ink)}
 .replacement{display:none;grid-column:1/-1}
 .diff-compose.suggesting .replacement{display:block}
 
+/* Deferred review surfaces ---------------------------------------------- */
+.surface-placeholder{display:flex;min-height:240px;align-items:center;justify-content:center;flex-direction:column;gap:7px;padding:28px;color:var(--muted);text-align:center;font-size:12.5px}
+.surface-placeholder strong{color:var(--ink);font-size:14px}
+.surface-placeholder.compact{min-height:120px;padding:18px 8px}
+.surface-placeholder.error{color:var(--red)}
+.surface-placeholder.error strong{color:var(--red)}
+.surface-placeholder .btn-primary{margin-top:6px}
+.surface-spinner{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:surface-spin .8s linear infinite}
+@keyframes surface-spin{to{transform:rotate(360deg)}}
+[data-surface-next]{display:flex;margin:14px auto;padding:6px 12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg);color:var(--accent);font:600 12px var(--ui);text-decoration:none}
+[data-surface-next]:hover,[data-surface-next]:focus-visible{border-color:var(--accent);background:var(--accent-soft)}
+[data-surface-next][aria-busy=true]{cursor:progress;opacity:.65}
+
 /* Coverage view ---------------------------------------------------------- */
 .manifest-view{position:fixed;z-index:20;inset:var(--top) 0 0;background:var(--bg);overflow:auto}
 .manifest-wrap{width:min(1180px,100%);margin:auto;padding:0 clamp(12px,2.5vw,28px) 64px}

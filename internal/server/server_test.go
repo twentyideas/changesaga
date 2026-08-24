@@ -866,8 +866,8 @@ func TestCommittingReviewRecordsInvalidatesTheReviewSnapshot(t *testing.T) {
 	// The cache has to actually be on, or nothing below is a test of anything.
 	render()
 	render()
-	if application.cache.builds != 1 {
-		t.Fatalf("two identical requests rebuilt the snapshot %d times; this fixture does not exercise reuse", application.cache.builds)
+	if application.outline.builds != 1 {
+		t.Fatalf("two identical requests rebuilt the outline %d times; this fixture does not exercise reuse", application.outline.builds)
 	}
 
 	writeServerFile(t, filepath.Join(root, "overview.fragment", "___approvals", "review.json"), `{"version":2,"id":"review","author":"Payload Name","state":"approved","created_at":"2026-08-19T12:00:00Z"}`)
@@ -1231,11 +1231,18 @@ func TestPageHandlerRendersRealGitComparison(t *testing.T) {
 	writeServerFile(t, filepath.Join(root, "overview.fragment", "fragment.json"), `{"version":2,"id":"overview","media_type":"text/markdown","entrypoint":"content.md"}`)
 	writeServerFile(t, filepath.Join(root, "overview.fragment", "content.md"), "# Story\n")
 	application := &app{root: root, sourceDir: repo, template: serverTemplate(t)}
-	request := httptest.NewRequest(http.MethodGet, CodeDiffURL("web/view.js", ""), nil)
+	handler := newMux(application)
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	recorder := httptest.NewRecorder()
-	application.page(recorder, request)
-	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "Review readiness check failed") || !strings.Contains(recorder.Body.String(), "Overview") || !strings.Contains(recorder.Body.String(), "Code Diff") || !strings.Contains(recorder.Body.String(), "app.go") || strings.Contains(recorder.Body.String(), "%</") || strings.Count(recorder.Body.String(), `<article class="file-diff"`) != 1 || !strings.Contains(recorder.Body.String(), `<code>web/view.js</code>`) {
-		t.Fatalf("real page did not render expected diff state: status=%d", recorder.Code)
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "Overview") || !strings.Contains(recorder.Body.String(), "Code Diff") || strings.Contains(recorder.Body.String(), `<code>web/view.js</code>`) {
+		t.Fatalf("root did not render the comparison-free shell: status=%d", recorder.Code)
+	}
+	request = httptest.NewRequest(http.MethodGet, "/api/code?file=web%2Fview.js&limit=200", nil)
+	recorder = httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "app.go") || !strings.Contains(recorder.Body.String(), `data-file-path="web/view.js"`) {
+		t.Fatalf("incremental code page did not render expected file navigation: status=%d body=%s", recorder.Code, recorder.Body.String())
 	}
 	changes, err := gitdiff.Read(t.Context(), repo, repository, base, "HEAD")
 	if err != nil {
@@ -1251,18 +1258,16 @@ func TestPageHandlerRendersRealGitComparison(t *testing.T) {
 	if selectedURI == "" {
 		t.Fatal("missing web/view.js atom")
 	}
-	application.template = template.Must(template.New("page").Parse(`{{define "page"}}{{.Code.SelectedFile.Path}}|{{.Code.SelectedDiff.URI}}|{{len .Code.SelectedDiffs}}{{end}}`))
-	request = httptest.NewRequest(http.MethodGet, CodeDiffURL("", selectedURI), nil)
+	request = httptest.NewRequest(http.MethodGet, "/api/code?diff="+url.QueryEscape(selectedURI), nil)
 	recorder = httptest.NewRecorder()
-	application.page(recorder, request)
-	expectedSelection := "web/view.js|" + strings.ReplaceAll(selectedURI, "&", "&amp;") + "|1"
-	if recorder.Code != http.StatusOK || recorder.Body.String() != expectedSelection {
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `data-file-path="web/view.js"`) {
 		t.Fatalf("exact diff handler selection: status=%d body=%q", recorder.Code, recorder.Body.String())
 	}
-	request = httptest.NewRequest(http.MethodGet, CodeDiffURL("missing.go", ""), nil)
+	request = httptest.NewRequest(http.MethodGet, "/api/code?file=missing.go", nil)
 	recorder = httptest.NewRecorder()
-	application.page(recorder, request)
-	if recorder.Code != http.StatusNotFound {
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("unknown focused file status=%d", recorder.Code)
 	}
 }

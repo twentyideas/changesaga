@@ -102,6 +102,14 @@ func validateChapterManifest(value ChapterManifest, path string, result *Validat
 }
 
 func validateFragmentManifest(value FragmentManifest, path, dir string, result *Validation) {
+	validateFragmentManifestMode(value, path, dir, true, result)
+}
+
+func validateFragmentOutlineManifest(value FragmentManifest, path, dir string, result *Validation) {
+	validateFragmentManifestMode(value, path, dir, false, result)
+}
+
+func validateFragmentManifestMode(value FragmentManifest, path, dir string, validateContent bool, result *Validation) {
 	if value.Version != CurrentVersion {
 		addIssue(result, "error", path, "fragment version must be 2")
 	}
@@ -133,6 +141,9 @@ func validateFragmentManifest(value FragmentManifest, path, dir string, result *
 	rel, relErr := filepath.Rel(realDir, realEntry)
 	if relErr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		addIssue(result, "error", path, "entrypoint cannot escape its fragment package")
+		return
+	}
+	if !validateContent {
 		return
 	}
 	if value.MediaType == "text/markdown" {
@@ -604,6 +615,31 @@ func validateDocument(document *Saga, result *Validation) {
 			addIssue(result, "warning", relativePath(document.Root, claim.Path), "claim has no explicit verification record; append an unverified result when it has not been checked")
 		}
 	}
+}
+
+func validateOutlineDocument(document *Saga, result *Validation) {
+	ids := map[string]string{}
+	var walk func(*Section)
+	walk = func(section *Section) {
+		if section.Path != "" {
+			if previous, exists := ids[section.ID]; exists {
+				addIssue(result, "error", section.Path, fmt.Sprintf("duplicate id %q, first used by %s", section.ID, previous))
+			} else {
+				ids[section.ID] = section.Path
+			}
+		}
+		for _, fragment := range section.Fragments {
+			if previous, exists := ids[fragment.ID]; exists {
+				addIssue(result, "error", fragment.Path, fmt.Sprintf("duplicate id %q, first used by %s", fragment.ID, previous))
+			} else {
+				ids[fragment.ID] = fragment.Path
+			}
+		}
+		for _, child := range section.Children {
+			walk(child)
+		}
+	}
+	walk(document.Section)
 }
 
 func validateVisualMappings(fragment *Fragment, result *Validation) {

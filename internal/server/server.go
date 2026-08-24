@@ -42,6 +42,11 @@ type app struct {
 	shutdownToken string
 	shutdown      func()
 	cache         snapshotCache
+	outline       outlineCache
+	// comparisonLoader is the injectable boundary around the expensive source
+	// diff and coverage build. Root and narrative shell handlers must never call
+	// it; focused comparison endpoints reach it through snapshot().
+	comparisonLoader func(context.Context) (*reviewSnapshot, error)
 }
 
 // ManagedOptions lets the CLI supervise a detached loopback server without
@@ -293,6 +298,8 @@ func newMux(application *app) *http.ServeMux {
 	mux.HandleFunc("GET /chapters/{chapter}", application.page)
 	mux.HandleFunc("GET /", application.page)
 	mux.HandleFunc("GET /app.js", application.javascript)
+	mux.HandleFunc("GET /api/code", application.codePage)
+	mux.HandleFunc("GET /api/coverage", application.coveragePage)
 	mux.HandleFunc("GET /api/file-diff", application.fileDiffFragment)
 	mux.HandleFunc("GET /api/section", application.sectionBody)
 	mux.HandleFunc("GET /api/fragment", application.fragmentContent)
@@ -350,28 +357,25 @@ func (a *app) fileDiffFragment(w http.ResponseWriter, r *http.Request) {
 	if owner == "" {
 		owner = saga.SagaTarget(document.Manifest.ID)
 	}
-	threadsByDiff := map[string][]*threadView{}
-	if !manifestView {
-		for _, thread := range document.Threads {
-			if thread.State == "withdrawn" || thread.Anchor.Type != "diff" || thread.Anchor.Diff == nil {
-				continue
-			}
-			threadsByDiff[thread.Anchor.Diff.URI] = append(threadsByDiff[thread.Anchor.Diff.URI], makeThreadView(thread))
+	if _, ok := current.fileAtoms[filePath]; ok {
+		total := len(current.fileLines[filePath])
+		if total == 0 {
+			total = len(current.fileAtoms[filePath])
 		}
-	}
-	for _, file := range makeFileViews(current.changes, owner, document.DiffReviews, threadsByDiff) {
-		if file.Path != filePath {
-			continue
+		window, err := pageRequest(r, "file-diff\x00"+filePath+"\x00"+target+"\x00"+r.URL.Query().Get("view"), total, defaultDiffPageLimit, maxDiffPageLimit)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
-		if target != "" {
-			markLinkedEvidence(file, current.changesByTarget[target])
-		}
-		name := "attached-file-context"
+		pageFile := makeFileDiffPage(current, filePath, owner, target, manifestView, window)
+		name := "file-diff-page"
 		if manifestView {
-			name = "manifest-file-diff-context"
+			name = "manifest-file-diff-page"
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := a.template.ExecuteTemplate(w, name, file); err != nil {
+		writeIncrementalHeaders(w, "text/html; charset=utf-8")
+		writePageHeaders(w, window)
+		page := fileDiffPageView{File: pageFile, NextCursor: window.next, HasMore: window.hasMore(), Returned: window.end - window.start}
+		if err := a.template.ExecuteTemplate(w, name, page); err != nil {
 			http.Error(w, "The file diff could not be rendered.", http.StatusInternalServerError)
 		}
 		return
@@ -404,18 +408,18 @@ func threadViews(document *saga.Saga) (byTarget, byDiff map[string][]*threadView
 // by that one chapter, and it renders at the same scope the page renders its
 // root at, so an opened chapter reads exactly as the shell around it.
 func (a *app) sectionBody(w http.ResponseWriter, r *http.Request) {
-	current := a.snapshot(r.Context())
-	if current == nil {
+	document := a.outlineDocument(r.Context())
+	if document == nil {
 		http.Error(w, "The saga could not be loaded.", http.StatusInternalServerError)
 		return
 	}
-	section := findSection(current.document, r.URL.Query().Get("target"))
+	section := findSection(document, r.URL.Query().Get("target"))
 	if section == nil {
 		http.Error(w, "unknown section", http.StatusNotFound)
 		return
 	}
-	threadsByTarget, threadsByDiff := threadViews(current.document)
-	scope := viewScope{changes: current.changesByTarget, threads: threadsByTarget, diffThreads: threadsByDiff}.shell()
+	threadsByTarget, _ := threadViews(document)
+	scope := viewScope{threads: threadsByTarget}.shell()
 	writeIncrementalHeaders(w, "text/html; charset=utf-8")
 	if err := a.template.ExecuteTemplate(w, "section-body", makeSectionView(section, scope)); err != nil {
 		http.Error(w, "The chapter could not be rendered.", http.StatusInternalServerError)
@@ -427,18 +431,18 @@ func (a *app) sectionBody(w http.ResponseWriter, r *http.Request) {
 // only place fragment content is produced, so the size of a first load no longer
 // tracks the size of the story.
 func (a *app) fragmentContent(w http.ResponseWriter, r *http.Request) {
-	current := a.snapshot(r.Context())
-	if current == nil {
+	document := a.narrativeDocument(r.Context())
+	if document == nil {
 		http.Error(w, "The saga could not be loaded.", http.StatusInternalServerError)
 		return
 	}
-	fragment := findFragmentByTarget(current.document, r.URL.Query().Get("target"))
+	fragment := findFragmentByTarget(document, r.URL.Query().Get("target"))
 	if fragment == nil {
 		http.Error(w, "unknown fragment", http.StatusNotFound)
 		return
 	}
-	threadsByTarget, threadsByDiff := threadViews(current.document)
-	scope := viewScope{changes: current.changesByTarget, threads: threadsByTarget, diffThreads: threadsByDiff}
+	threadsByTarget, _ := threadViews(document)
+	scope := viewScope{threads: threadsByTarget}
 	writeIncrementalHeaders(w, "text/html; charset=utf-8")
 	if err := a.template.ExecuteTemplate(w, "fragment", makeFragmentView(fragment, scope)); err != nil {
 		http.Error(w, "The explanation could not be rendered.", http.StatusInternalServerError)
@@ -456,12 +460,12 @@ func (a *app) locateAnchor(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing anchor", http.StatusBadRequest)
 		return
 	}
-	current := a.snapshot(r.Context())
-	if current == nil {
+	document := a.narrativeDocument(r.Context())
+	if document == nil {
 		http.Error(w, "The saga could not be loaded.", http.StatusInternalServerError)
 		return
 	}
-	place, ok := locateAnchorIn(current.document, anchor)
+	place, ok := locateAnchorIn(document, anchor)
 	if !ok {
 		http.Error(w, "unknown anchor", http.StatusNotFound)
 		return
@@ -720,12 +724,11 @@ func templateFuncs() template.FuncMap {
 }
 
 func (a *app) page(w http.ResponseWriter, r *http.Request) {
-	current := a.snapshot(r.Context())
-	if current == nil {
+	document := a.outlineDocument(r.Context())
+	if document == nil {
 		http.Error(w, "The saga could not be loaded. Run change-saga validate for details.", http.StatusInternalServerError)
 		return
 	}
-	document := current.document
 	chapterID, chapterRoute := requestedChapter(r)
 	if r.URL.Path != "/" {
 		if !chapterRoute {
@@ -741,47 +744,33 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	changes, report, diffErr := current.changes, current.report, current.diffErr
-	changesByTarget := current.changesByTarget
-	threadsByTarget, threadsByDiff := threadViews(document)
-	code, selectionErr := makeCodeReviewView(document, changes, report, threadsByDiff, codeSelectionFromRequest(r))
-	if selectionErr != nil && diffErr == nil {
-		http.Error(w, selectionErr.Error(), selectionErr.status)
-		return
-	}
-	if code != nil {
-		rebaseCodeReviewURLs(code, "/")
-	}
+	threadsByTarget, _ := threadViews(document)
 	// The saga view is a shell: identity, coverage totals, the overview's
 	// fragments as descriptors, one summary per chapter, and the navigation
 	// outline. Everything below that arrives from /api/section and
 	// /api/fragment as a reviewer opens it.
-	rootView := makeSectionView(document.Section, viewScope{changes: changesByTarget, threads: threadsByTarget, diffThreads: threadsByDiff}.shell())
+	rootView := makeSectionView(document.Section, viewScope{threads: threadsByTarget}.shell())
 	data := pageData{
 		Saga:          document,
 		Root:          rootView,
-		Code:          code,
 		MutationToken: a.mutationToken,
 	}
 	data.ReviewItems = makeReviewProgressItems(document.Section)
 	data.ReviewDecided, data.ReviewTotal = reviewProgressSummary(data.ReviewItems)
 	data.Nav = makeNavTree(document.Section, threadsByTarget)
-	if diffErr == nil {
-		data.Manifest = makeCoverageManifestView(document, changes, report)
-		data.CoverageTotals = makeCoverageTotals(data.Manifest)
-	}
-	if code != nil {
-		data.Files, data.ReviewedFiles = code.Files, code.ReviewedFiles
-	}
-	if diffErr != nil {
-		data.Error = "The source comparison could not be loaded. Run change-saga validate for diagnostic details."
-	} else if !report.Complete {
-		data.Diagnostic = "Review is blocked because this saga does not account for every source change. Run change-saga validate for diagnostic details."
-	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := a.template.ExecuteTemplate(w, "page", data); err != nil {
 		http.Error(w, "The review page could not be rendered.", http.StatusInternalServerError)
 	}
+}
+
+func (a *app) narrativeDocument(ctx context.Context) *saga.Saga {
+	document, validation, err := saga.LoadNarrative(a.root)
+	if err != nil || !validation.Valid {
+		return nil
+	}
+	applyGitAttribution(ctx, gitattribution.New(ctx, a.root), document)
+	return document
 }
 
 func requestedChapter(r *http.Request) (string, bool) {
