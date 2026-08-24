@@ -227,6 +227,13 @@ in the overlay fingerprint, so recording or committing a comment cannot rerun
 Git diff or coverage work. A restart reloads those authoritative review files
 while reusing the content-addressed structural/source generation.
 
+The writer guard uses a manifest/package mutation index and a review-only
+loader. It validates targets and existing review records before and again under
+the saga writer lock, but never parses coverage mappings or authored bodies.
+If the durable commit succeeds and the subsequent memory refresh fails, HTTP
+still acknowledges the write and marks the overlay for reload; returning an
+error there would invite a client retry to duplicate an already stored event.
+
 Twelve tests pin the rules, each stated as the failure it prevents, and all
 pass under `-race`:
 

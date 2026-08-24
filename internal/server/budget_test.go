@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	stdhtml "html"
 	"net/http"
@@ -11,7 +12,9 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/twentyideas/changesaga/internal/diffuri"
 	"github.com/twentyideas/changesaga/internal/gitdiff"
+	"github.com/twentyideas/changesaga/internal/saga"
 	"github.com/twentyideas/changesaga/internal/snapshotcache"
 	"github.com/twentyideas/changesaga/internal/testfixture"
 )
@@ -353,6 +356,9 @@ func TestReviewMutationAdvancesOnlyTheOverlayGeneration(t *testing.T) {
 
 	snapshot := application.snapshot(context.Background())
 	target, _ := busiestTarget(t, snapshot)
+	if _, validation, err := saga.LoadMutationIndex(fixture.Root); err != nil || !validation.Valid {
+		t.Fatalf("large fixture mutation index is invalid: validation=%#v err=%v", validation, err)
+	}
 	values := url.Values{"target": {target}, "state": {"approved"}, "body": {"Budget test decision."}}
 	request := httptest.NewRequest(http.MethodPost, "/api/review", strings.NewReader(values.Encode()))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -369,6 +375,25 @@ func TestReviewMutationAdvancesOnlyTheOverlayGeneration(t *testing.T) {
 	if !strings.Contains(page, "Budget test decision.") {
 		t.Fatal("the page served after a review decision did not contain it")
 	}
+	current := application.snapshot(context.Background())
+	initialDiffReviews := len(current.document.DiffReviews)
+	filePath := effectiveAtomPath(current.changes.Atoms[0])
+	fileURI, err := diffuri.Build(diffuri.Reference{
+		Repository: current.changes.Repository, Base: current.changes.BaseOID, Head: current.changes.HeadOID,
+		Kind: "file", Path: filePath,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	diffValues := url.Values{"uri": {fileURI}, "state": {"reviewed"}, "file": {filePath}}
+	diffRequest := httptest.NewRequest(http.MethodPost, "/api/diff-review", strings.NewReader(diffValues.Encode()))
+	diffRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	diffResult := httptest.NewRecorder()
+	handler.ServeHTTP(diffResult, diffRequest)
+	current = application.snapshot(context.Background())
+	if diffResult.Code != http.StatusSeeOther || application.cache.builds != 1 || len(current.document.DiffReviews) != initialDiffReviews+1 {
+		t.Fatalf("diff-review mutation crossed the structural boundary: status=%d builds=%d reviews=%d", diffResult.Code, application.cache.builds, len(current.document.DiffReviews))
+	}
 
 	initialThreadCount := len(application.snapshot(context.Background()).document.Threads)
 	comment := multipartRequest(t, "/api/thread", map[string]string{
@@ -380,7 +405,7 @@ func TestReviewMutationAdvancesOnlyTheOverlayGeneration(t *testing.T) {
 	if commentResult.Code != http.StatusSeeOther {
 		t.Fatalf("comment mutation failed: %d %s", commentResult.Code, commentResult.Body.String())
 	}
-	current := application.snapshot(context.Background())
+	current = application.snapshot(context.Background())
 	if application.cache.builds != 1 || len(current.document.Threads) != initialThreadCount+1 {
 		t.Fatalf("adding a comment rebuilt structure or missed memory update: builds=%d threads=%d", application.cache.builds, len(current.document.Threads))
 	}
@@ -415,6 +440,30 @@ func TestReviewMutationAdvancesOnlyTheOverlayGeneration(t *testing.T) {
 	removed := current.document.Threads[len(current.document.Threads)-1]
 	if application.cache.builds != 1 || removed.State != "withdrawn" {
 		t.Fatalf("removing a comment rebuilt structure or missed memory update: builds=%d state=%q", application.cache.builds, removed.State)
+	}
+
+	application.reviewRefreshHook = func() error { return errors.New("injected post-commit refresh failure") }
+	reply := multipartRequest(t, "/api/reply", map[string]string{
+		"thread": threadID, "target": target, "body": "Durable even if memory refresh fails.",
+	})
+	replyResult := httptest.NewRecorder()
+	handler.ServeHTTP(replyResult, reply)
+	if replyResult.Code != http.StatusSeeOther || replyResult.Header().Get("X-Change-Saga-Review-State") != "reload-pending" {
+		t.Fatalf("durable reply was reported as failed after refresh error: %d headers=%v body=%s", replyResult.Code, replyResult.Header(), replyResult.Body.String())
+	}
+	application.cache.mutex.Lock()
+	cachedMessages := len(application.cache.review.document.Threads[len(application.cache.review.document.Threads)-1].Messages)
+	application.cache.mutex.Unlock()
+	if cachedMessages != 1 {
+		t.Fatalf("failed refresh published speculative memory state with %d messages", cachedMessages)
+	}
+	persisted, persistedValidation, err := saga.Load(fixture.Root)
+	if err != nil || !persistedValidation.Valid || len(persisted.Threads[len(persisted.Threads)-1].Messages) != 2 {
+		t.Fatalf("acknowledged reply was not durable: validation=%#v err=%v", persistedValidation, err)
+	}
+	application.reviewRefreshHook = nil
+	if refreshed := application.snapshot(context.Background()); len(refreshed.document.Threads[len(refreshed.document.Threads)-1].Messages) != 2 || application.cache.builds != 1 {
+		t.Fatalf("pending overlay did not recover without structural rebuild: builds=%d", application.cache.builds)
 	}
 
 	// A fresh server owns no prior memory generation. Its first load must replay

@@ -45,6 +45,8 @@ type app struct {
 	shutdown      func()
 	cache         snapshotCache
 	generations   *snapshotcache.Store
+	// reviewRefreshHook is a test seam for the post-commit failure boundary.
+	reviewRefreshHook func() error
 }
 
 // ManagedOptions lets the CLI supervise a detached loopback server without
@@ -1543,9 +1545,8 @@ func (a *app) createThread(w http.ResponseWriter, r *http.Request) {
 		writeMutationError(w)
 		return
 	}
-	if err := a.refreshReviewsAfterMutation(r.Context()); err != nil {
-		writeMutationError(w)
-		return
+	if !a.publishReviewsAfterMutation(r.Context()) {
+		w.Header().Set("X-Change-Saga-Review-State", "reload-pending")
 	}
 	redirectAfterReview(w, r, "/#"+domID(target))
 }
@@ -1565,9 +1566,8 @@ func (a *app) reply(w http.ResponseWriter, r *http.Request) {
 		writeMutationError(w)
 		return
 	}
-	if err := a.refreshReviewsAfterMutation(r.Context()); err != nil {
-		writeMutationError(w)
-		return
+	if !a.publishReviewsAfterMutation(r.Context()) {
+		w.Header().Set("X-Change-Saga-Review-State", "reload-pending")
 	}
 	redirectAfterReview(w, r, "/#"+domID(r.FormValue("target")))
 }
@@ -1585,9 +1585,8 @@ func (a *app) threadState(w http.ResponseWriter, r *http.Request) {
 		writeMutationError(w)
 		return
 	}
-	if err := a.refreshReviewsAfterMutation(r.Context()); err != nil {
-		writeMutationError(w)
-		return
+	if !a.publishReviewsAfterMutation(r.Context()) {
+		w.Header().Set("X-Change-Saga-Review-State", "reload-pending")
 	}
 	redirectAfterReview(w, r, "/#"+domID(r.FormValue("target")))
 }
@@ -1610,9 +1609,8 @@ func (a *app) threadAnchor(w http.ResponseWriter, r *http.Request) {
 		writeMutationError(w)
 		return
 	}
-	if err := a.refreshReviewsAfterMutation(r.Context()); err != nil {
-		writeMutationError(w)
-		return
+	if !a.publishReviewsAfterMutation(r.Context()) {
+		w.Header().Set("X-Change-Saga-Review-State", "reload-pending")
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -1640,9 +1638,8 @@ func (a *app) review(w http.ResponseWriter, r *http.Request) {
 		writeMutationError(w)
 		return
 	}
-	if err := a.refreshReviewsAfterMutation(r.Context()); err != nil {
-		writeMutationError(w)
-		return
+	if !a.publishReviewsAfterMutation(r.Context()) {
+		w.Header().Set("X-Change-Saga-Review-State", "reload-pending")
 	}
 	if r.Header.Get("X-Change-Saga-Async") == "true" {
 		w.WriteHeader(http.StatusNoContent)
@@ -1664,9 +1661,8 @@ func (a *app) diffReview(w http.ResponseWriter, r *http.Request) {
 		writeMutationError(w)
 		return
 	}
-	if err := a.refreshReviewsAfterMutation(r.Context()); err != nil {
-		writeMutationError(w)
-		return
+	if !a.publishReviewsAfterMutation(r.Context()) {
+		w.Header().Set("X-Change-Saga-Review-State", "reload-pending")
 	}
 	fallback := "/?view=code#" + url.PathEscape(r.FormValue("file"))
 	if reference, err := diffuri.Parse(r.FormValue("uri")); err == nil && reference.Kind == "file" {

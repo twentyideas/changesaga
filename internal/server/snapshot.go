@@ -32,6 +32,7 @@ type reviewSnapshot struct {
 	report          coverage.Report
 	diffErr         error
 	changesByTarget map[string][]gitdiff.Atom
+	mutationIndex   saga.MutationIndex
 }
 
 // reviewState contains only mutable review-overlay records. Keeping it apart
@@ -186,20 +187,38 @@ func (a *app) refreshReviewsAfterMutation(ctx context.Context) error {
 	if a.cache.current == nil {
 		return nil
 	}
+	if a.reviewRefreshHook != nil {
+		return a.reviewRefreshHook()
+	}
 	return a.reloadReviewsLocked(ctx, a.cache.current)
 }
 
+// publishReviewsAfterMutation acknowledges disk as the source of truth. A
+// failed in-memory refresh invalidates only the overlay generation so the next
+// read retries it; it must not turn an already durable mutation into an HTTP
+// failure that invites the client to submit a duplicate record.
+func (a *app) publishReviewsAfterMutation(ctx context.Context) bool {
+	if err := a.refreshReviewsAfterMutation(ctx); err == nil {
+		return true
+	}
+	a.cache.mutex.Lock()
+	a.cache.review.fingerprint = ""
+	a.cache.mutex.Unlock()
+	return false
+}
+
 func (a *app) reloadReviewsLocked(ctx context.Context, structural *reviewSnapshot) error {
-	document, validation, print, err := a.loadDocumentWithStableReviews(ctx)
+	loaded, validation, print, err := a.loadReviewStateWithStableFingerprint(ctx, structural.mutationIndex)
 	if err != nil {
 		return err
 	}
 	if !validation.Valid {
 		return fmt.Errorf("saga became structurally invalid while loading review state")
 	}
+	state := reviewState{threads: loaded.Threads, diffReviews: loaded.DiffReviews, byTarget: loaded.ByTarget, fingerprint: print}
+	document := composeReviewDocument(structural.document, state)
 	applyGitAttribution(ctx, gitattribution.New(ctx, a.root), document)
-	state := extractReviewState(document)
-	a.cache.review = reviewGeneration{fingerprint: print, document: composeReviewDocument(structural.document, state)}
+	a.cache.review = reviewGeneration{fingerprint: print, document: document}
 	a.cache.reviewBuilds++
 	return nil
 }
@@ -232,7 +251,7 @@ func (a *app) buildSnapshot(ctx context.Context) (*reviewSnapshot, reviewState, 
 	reviews := extractReviewState(document)
 	reviews.fingerprint = reviewPrint
 	structural := structuralDocument(document)
-	built := &reviewSnapshot{document: structural, validation: validation}
+	built := &reviewSnapshot{document: structural, validation: validation, mutationIndex: saga.MutationIndexFromDocument(structural)}
 	if a.generations == nil {
 		_ = a.populateDerivedSnapshot(ctx, built)
 		return built, reviews, nil
@@ -449,6 +468,27 @@ func (a *app) loadDocumentWithStableReviews(ctx context.Context) (*saga.Saga, sa
 		}
 	}
 	return nil, saga.Validation{}, "", fmt.Errorf("review state kept changing while it was being loaded")
+}
+
+func (a *app) loadReviewStateWithStableFingerprint(ctx context.Context, index saga.MutationIndex) (saga.ReviewState, saga.Validation, string, error) {
+	for attempt := 0; attempt < 3; attempt++ {
+		before, err := reviewFingerprint(ctx, a.root)
+		if err != nil {
+			return saga.ReviewState{}, saga.Validation{}, "", err
+		}
+		state, validation, err := saga.LoadReviewState(index)
+		if err != nil {
+			return saga.ReviewState{}, validation, "", err
+		}
+		after, err := reviewFingerprint(ctx, a.root)
+		if err != nil {
+			return saga.ReviewState{}, validation, "", err
+		}
+		if before == after {
+			return state, validation, after, nil
+		}
+	}
+	return saga.ReviewState{}, saga.Validation{}, "", fmt.Errorf("review state kept changing while it was being loaded")
 }
 
 func reviewOverlayPath(relative string) bool {
