@@ -56,6 +56,13 @@ tool, and what they have to do about it.
   that cites the selected file. Its compact reverse evidence index is built
   independently from the file diff and reused across file navigation, keeping
   the diff responsive without constructing the global coverage snapshot.
+- Dwelling over or focusing an explanation now prefetches its linked-code
+  summary before its marked places, through a two-request speculative queue.
+  Leaving cancels queued and in-flight speculation, clicks promote work to
+  interactive priority, and each completed summary immediately fills the diff
+  counts on its heading, marked-place menu, SVG hotspot, and citation controls.
+  Summaries remain in a bounded session cache, while full file diff bodies stay
+  click-only.
 
 ## [0.0.7] - 2026-08-22
 

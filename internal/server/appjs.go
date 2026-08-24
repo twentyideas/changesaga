@@ -1431,31 +1431,225 @@ const appJavaScript = `(() => {
     return wrapper;
   }
 
+  // Linked-code summaries are small enough to anticipate but expensive enough
+  // that a pointer sweep must not fan out across the story. Two speculative
+  // requests run at once; clicks promote their request above hover work, and a
+  // bounded LRU keeps completed summaries useful without retaining the saga.
+  const maxConcurrentTargetCodeLoads = 2;
+  const targetCodeCacheLimit = 64;
+  const targetCodeResponses = new Map();
+  const targetCodeJobs = new Map();
+  const targetCodeQueue = [];
+  let activeTargetCodeLoads = 0;
+  let targetCodeJobOrder = 0;
+
+  function cachedTargetCode(href) {
+    const html = targetCodeResponses.get(href);
+    if (html === undefined) return null;
+    targetCodeResponses.delete(href);
+    targetCodeResponses.set(href, html);
+    return html;
+  }
+
+  function rememberTargetCode(href, html) {
+    targetCodeResponses.delete(href);
+    targetCodeResponses.set(href, html);
+    while (targetCodeResponses.size > targetCodeCacheLimit) {
+      targetCodeResponses.delete(targetCodeResponses.keys().next().value);
+    }
+  }
+
+  function targetCodeAbortError() {
+    return new DOMException('Linked-code prefetch was cancelled', 'AbortError');
+  }
+
+  function targetCodeRetryDelay(milliseconds, signal) {
+    return new Promise((resolve, reject) => {
+      if (signal.aborted) { reject(targetCodeAbortError()); return; }
+      const timer = setTimeout(resolve, milliseconds);
+      signal.addEventListener('abort', () => { clearTimeout(timer); reject(targetCodeAbortError()); }, {once:true});
+    });
+  }
+
+  async function loadTargetCodeJob(job) {
+    while (true) {
+      const response = await fetch(job.href, {headers:{Accept:'text/html'}, credentials:'same-origin', signal:job.controller.signal});
+      if (response.status === 202) {
+        await targetCodeRetryDelay(retryDelay(response), job.controller.signal);
+        continue;
+      }
+      if (!response.ok) throw new Error('linked-code request failed');
+      return response.text();
+    }
+  }
+
+  function pumpTargetCodeQueue() {
+    targetCodeQueue.sort((left, right) => right.priority-left.priority || left.order-right.order);
+    while (activeTargetCodeLoads < maxConcurrentTargetCodeLoads && targetCodeQueue.length) {
+      const job = targetCodeQueue.shift();
+      if (job.state !== 'queued') continue;
+      job.state = 'running';
+      job.controller = new AbortController();
+      activeTargetCodeLoads++;
+      void loadTargetCodeJob(job).then(html => {
+        if (job.state === 'cancelled') throw targetCodeAbortError();
+        rememberTargetCode(job.href, html);
+        installTargetCodeResponse(job.href, html);
+        job.resolve(html);
+      }).catch(error => job.reject(error)).finally(() => {
+        if (targetCodeJobs.get(job.href) === job) targetCodeJobs.delete(job.href);
+        activeTargetCodeLoads--;
+        pumpTargetCodeQueue();
+      });
+    }
+  }
+
+  function preemptForInteractiveTargetCode(interactiveJob) {
+    if (interactiveJob.state !== 'queued' || activeTargetCodeLoads < maxConcurrentTargetCodeLoads) return;
+    const victim = Array.from(targetCodeJobs.values())
+      .filter(job => job !== interactiveJob && job.state === 'running' && !job.interactive)
+      .sort((left, right) => left.priority-right.priority || right.order-left.order)[0];
+    victim?.controller.abort();
+  }
+
+  function requestTargetCode(href, options = {}) {
+    const cached = cachedTargetCode(href);
+    if (cached !== null) return Promise.resolve(cached);
+    let job = targetCodeJobs.get(href);
+    if (!job) {
+      let resolve, reject;
+      const promise = new Promise((accept, decline) => { resolve = accept; reject = decline; });
+      job = {href, promise, resolve, reject, state:'queued', controller:null, scopes:new Set(), interactive:false, priority:0, order:targetCodeJobOrder++};
+      targetCodeJobs.set(href, job);
+      targetCodeQueue.push(job);
+    }
+    if (options.scope) job.scopes.add(options.scope);
+    if (options.interactive) job.interactive = true;
+    job.priority = Math.max(job.priority, options.interactive ? 100 : Number(options.priority || 0));
+    preemptForInteractiveTargetCode(job);
+    pumpTargetCodeQueue();
+    return job.promise;
+  }
+
+  function cancelTargetCodeScope(scope) {
+    targetCodeJobs.forEach(job => {
+      if (!job.scopes.delete(scope) || job.interactive || job.scopes.size) return;
+      if (job.state === 'running') {
+        job.state = 'cancelled';
+        targetCodeJobs.delete(job.href);
+        job.controller.abort();
+      } else if (job.state === 'queued') {
+        job.state = 'cancelled';
+        targetCodeJobs.delete(job.href);
+        job.reject(targetCodeAbortError());
+      }
+    });
+  }
+
+  const fragmentPrefetchScopes = new WeakMap();
+
+  function fragmentPrefetchScope(fragment) {
+    let scope = fragmentPrefetchScopes.get(fragment);
+    if (!scope) {
+      scope = {fragment, reasons:new Set(), timer:null, started:false};
+      fragmentPrefetchScopes.set(fragment, scope);
+    }
+    return scope;
+  }
+
+  function fragmentTargetCodeHrefs(fragment) {
+    const direct = q(':scope > .fragment-head [data-target-code-href]', fragment)?.dataset.targetCodeHref || '';
+    const seen = new Set();
+    const hrefs = [];
+    const add = href => { if (href && !seen.has(href)) { seen.add(href); hrefs.push(href); } };
+    add(direct);
+    within(fragment, '[data-target-code-href]').forEach(control => add(control.dataset.targetCodeHref));
+    return {direct, hrefs};
+  }
+
+  function beginFragmentPrefetch(fragment, reason) {
+    if (!fragment) return;
+    const scope = fragmentPrefetchScope(fragment);
+    scope.reasons.add(reason);
+    if (scope.timer || scope.started) return;
+    scope.timer = setTimeout(async () => {
+      scope.timer = null;
+      if (!scope.reasons.size) return;
+      scope.started = true;
+      if (fragment.dataset.fragmentHref) await hydrateFragment(fragment);
+      if (!scope.reasons.size || !fragment.isConnected) { scope.started = false; return; }
+      const targets = fragmentTargetCodeHrefs(fragment);
+      targets.hrefs.forEach(href => {
+        void requestTargetCode(href, {scope, priority:href === targets.direct ? 10 : 1}).catch(() => {});
+      });
+    }, 160);
+  }
+
+  function endFragmentPrefetch(fragment, reason) {
+    const scope = fragmentPrefetchScopes.get(fragment);
+    if (!scope) return;
+    scope.reasons.delete(reason);
+    if (scope.reasons.size) return;
+    clearTimeout(scope.timer);
+    scope.timer = null;
+    scope.started = false;
+    cancelTargetCodeScope(scope);
+  }
+
+  function installTargetCodeResponse(href, html, preferredButton = null) {
+    const response = q('[data-target-code-response]', parseShellHTML(html));
+    if (!response) throw new Error('linked-code response was incomplete');
+    const readyButton = q('[data-open-diffs]', response);
+    const readyTemplate = q('template', response);
+    const controls = qa('[data-target-code-href]').filter(candidate => candidate.dataset.targetCodeHref === href);
+    const templateID = readyTemplate?.id || controls.find(candidate => candidate.dataset.targetCodeTemplate)?.dataset.targetCodeTemplate || '';
+    const staleButtons = templateID ? qa('button[data-open-diffs]').filter(candidate =>
+      candidate.dataset.openDiffs === templateID && candidate.getAttribute('aria-label') === 'Open related code') : [];
+    const landmarkMarker = ':landmark:';
+    const landmarkAt = (response.dataset.targetCodeTarget || '').lastIndexOf(landmarkMarker);
+    if (landmarkAt >= 0) {
+      const fragmentTarget = response.dataset.targetCodeTarget.slice(0, landmarkAt);
+      const landmarkID = response.dataset.targetCodeTarget.slice(landmarkAt + landmarkMarker.length);
+      const fragment = qa('.fragment').find(candidate => candidate.dataset.target === fragmentTarget);
+      if (fragment) within(fragment, '.landmark-list > div').forEach(row => {
+        const anchor = q('a[href^="#"]', row)?.getAttribute('href')?.slice(1) || '';
+        const button = q('button[data-open-diffs]', row);
+        if (button && anchor.endsWith('--' + landmarkID) && !staleButtons.includes(button)) staleButtons.push(button);
+      });
+    }
+    if (!readyButton || !readyTemplate) {
+      controls.forEach(candidate => candidate.remove());
+      staleButtons.forEach(candidate => candidate.remove());
+      prepareDiffCitations();
+      return null;
+    }
+    const existingTemplate = document.getElementById(readyTemplate.id);
+    if (existingTemplate) existingTemplate.replaceWith(readyTemplate);
+    else document.body.append(readyTemplate);
+    let opener = null;
+    controls.forEach(candidate => {
+      const replacement = readyButton.cloneNode(true);
+      if (candidate === preferredButton) opener = replacement;
+      candidate.replaceWith(replacement);
+    });
+    staleButtons.forEach(candidate => {
+      const replacement = readyButton.cloneNode(true);
+      if (candidate === preferredButton) opener = replacement;
+      candidate.replaceWith(replacement);
+    });
+    prepareDiffCitations();
+    opener ||= qa('button[data-open-diffs]').find(candidate => candidate.dataset.openDiffs === readyButton.dataset.openDiffs) || null;
+    return {templateID:readyButton.dataset.openDiffs, opener};
+  }
+
   async function hydrateTargetCode(button) {
     const href = button?.dataset.targetCodeHref;
     if (!href || button.dataset.targetCodeLoading === 'true') return;
     button.dataset.targetCodeLoading = 'true';
     button.setAttribute('aria-busy', 'true');
     try {
-      const response = q('[data-target-code-response]', parseShellHTML(await fetchShell(href)));
-      if (!response) throw new Error('linked-code response was incomplete');
-      const readyButton = q('[data-open-diffs]', response);
-      const readyTemplate = q('template', response);
-      const controls = qa('[data-target-code-href]').filter(candidate => candidate.dataset.targetCodeHref === href);
-      if (!readyButton || !readyTemplate) {
-        controls.forEach(candidate => candidate.remove());
-        return;
-      }
-      const existingTemplate = document.getElementById(readyTemplate.id);
-      if (existingTemplate) existingTemplate.replaceWith(readyTemplate);
-      else document.body.append(readyTemplate);
-      let opener = null;
-      controls.forEach(candidate => {
-        const replacement = readyButton.cloneNode(true);
-        if (candidate === button) opener = replacement;
-        candidate.replaceWith(replacement);
-      });
-      openDrawer(readyButton.dataset.openDiffs, opener || readyButton);
+      const installed = installTargetCodeResponse(href, await requestTargetCode(href, {interactive:true}), button);
+      if (installed) openDrawer(installed.templateID, installed.opener);
     } catch (_) {
       delete button.dataset.targetCodeLoading;
       button.removeAttribute('aria-busy');
@@ -2399,20 +2593,30 @@ const appJavaScript = `(() => {
   document.addEventListener('pointerover', event => {
     const fragment = event.target.closest('.fragment');
     if (fragment && !drawing) setActiveFragment(fragment);
+    if (event.pointerType !== 'touch' && fragment && !(event.relatedTarget instanceof Node && fragment.contains(event.relatedTarget))) {
+      beginFragmentPrefetch(fragment, 'pointer');
+    }
     if (!drawing) revealAnnotationBubble(annotationBubbleAt(event.target));
   });
 
   document.addEventListener('pointerout', event => {
+    const fragment = event.target.closest('.fragment');
+    if (event.pointerType !== 'touch' && fragment && !(event.relatedTarget instanceof Node && fragment.contains(event.relatedTarget))) {
+      endFragmentPrefetch(fragment, 'pointer');
+    }
     hideAnnotationBubbleSoon(annotationBubbleAt(event.target));
   });
 
   document.addEventListener('focusin', event => {
     const fragment = event.target.closest('.fragment');
     if (fragment) setActiveFragment(fragment);
+    if (fragment && !(event.relatedTarget instanceof Node && fragment.contains(event.relatedTarget))) beginFragmentPrefetch(fragment, 'focus');
     revealAnnotationBubble(annotationBubbleAt(event.target));
   });
 
   document.addEventListener('focusout', event => {
+    const fragment = event.target.closest('.fragment');
+    if (fragment && !(event.relatedTarget instanceof Node && fragment.contains(event.relatedTarget))) endFragmentPrefetch(fragment, 'focus');
     hideAnnotationBubbleSoon(annotationBubbleAt(event.target));
   });
 

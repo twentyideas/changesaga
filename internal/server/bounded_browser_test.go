@@ -74,3 +74,26 @@ func TestDeferredReviewBrowserSupportsBuildingPaginationAndDeepLinks(t *testing.
 		}
 	}
 }
+
+func TestFragmentIntentPrefetchIsBoundedCancellableAndClickPromotable(t *testing.T) {
+	for _, contract := range []string{
+		"const maxConcurrentTargetCodeLoads = 2",
+		"const targetCodeCacheLimit = 64",
+		"if (fragment.dataset.fragmentHref) await hydrateFragment(fragment)",
+		"priority:href === targets.direct ? 10 : 1",
+		"beginFragmentPrefetch(fragment, 'pointer')",
+		"endFragmentPrefetch(fragment, 'pointer')",
+		"beginFragmentPrefetch(fragment, 'focus')",
+		"cancelTargetCodeScope(scope)",
+		"job.controller.abort()",
+		"requestTargetCode(href, {interactive:true})",
+		"installTargetCodeResponse(job.href, html)",
+		"response.dataset.targetCodeTarget",
+		"anchor.endsWith('--' + landmarkID)",
+		"prepareDiffCitations()",
+	} {
+		if !strings.Contains(appJavaScript, contract) {
+			t.Errorf("fragment intent prefetch is missing %q", contract)
+		}
+	}
+}
