@@ -308,7 +308,7 @@ func TestFirstLoadMaterializesBoundedDiffNodes(t *testing.T) {
 	if selectionErr != nil {
 		t.Fatal(selectionErr)
 	}
-	root := makeSectionView(snapshot.document.Section, snapshot.changesByTarget, nil, nil)
+	root := makeSectionView(snapshot.document.Section, viewScope{changes: snapshot.changesByTarget})
 
 	atomNodes, lineNodes := 0, 0
 	for _, file := range code.Files {

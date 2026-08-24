@@ -24,6 +24,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/twentyideas/changesaga/internal/diffuri"
@@ -31,6 +32,7 @@ import (
 	"github.com/twentyideas/changesaga/internal/gitdiff"
 	"github.com/twentyideas/changesaga/internal/reviewstore"
 	"github.com/twentyideas/changesaga/internal/saga"
+	"github.com/twentyideas/changesaga/internal/snapshotcache"
 	"github.com/twentyideas/changesaga/internal/store"
 )
 
@@ -42,6 +44,7 @@ type app struct {
 	shutdownToken string
 	shutdown      func()
 	cache         snapshotCache
+	generations   *snapshotcache.Store
 }
 
 // ManagedOptions lets the CLI supervise a detached loopback server without
@@ -51,6 +54,17 @@ type app struct {
 type ManagedOptions struct {
 	ShutdownToken string
 	OnReady       func(string) error
+}
+
+type lockedWriter struct {
+	mutex sync.Mutex
+	value io.Writer
+}
+
+func (w *lockedWriter) Write(data []byte) (int, error) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+	return w.value.Write(data)
 }
 
 // OpenBrowser opens a trusted loopback URL using the platform launcher. It is
@@ -215,6 +229,7 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 }
 
 func ListenManaged(ctx context.Context, root, sourceDir, addr string, openBrowser bool, out io.Writer, options ManagedOptions) error {
+	out = &lockedWriter{value: out}
 	if !loopbackListenAddress(addr) {
 		return fmt.Errorf("refusing non-loopback listen address %q; remote serving is disabled", addr)
 	}
@@ -222,10 +237,10 @@ func ListenManaged(ctx context.Context, root, sourceDir, addr string, openBrowse
 	if err != nil {
 		return err
 	}
-	if _, validation, err := saga.Load(abs); err != nil {
+	if info, err := os.Stat(abs); err != nil {
 		return err
-	} else if !validation.Valid {
-		return fmt.Errorf("saga is structurally invalid; run change-saga validate")
+	} else if !info.IsDir() {
+		return fmt.Errorf("%s is not a saga directory", root)
 	}
 	if sourceDir == "" {
 		sourceDir = abs
@@ -238,8 +253,12 @@ func ListenManaged(ctx context.Context, root, sourceDir, addr string, openBrowse
 	if err != nil {
 		return fmt.Errorf("create mutation token: %w", err)
 	}
+	generations, err := snapshotcache.Default()
+	if err != nil {
+		return fmt.Errorf("open review cache: %w", err)
+	}
 	stopCh := make(chan struct{}, 1)
-	application := &app{root: abs, sourceDir: sourceDir, template: tmpl, mutationToken: mutationToken, shutdownToken: options.ShutdownToken}
+	application := &app{root: abs, sourceDir: sourceDir, template: tmpl, mutationToken: mutationToken, shutdownToken: options.ShutdownToken, generations: generations}
 	application.shutdown = func() {
 		select {
 		case stopCh <- struct{}{}:
@@ -257,6 +276,16 @@ func ListenManaged(ctx context.Context, root, sourceDir, addr string, openBrowse
 	if host, port, err := net.SplitHostPort(listener.Addr().String()); err == nil && host == "127.0.0.1" {
 		serverURL = "http://127.0.0.1:" + port
 	}
+	buildCtx, cancelBuild := context.WithCancel(ctx)
+	defer cancelBuild()
+	fmt.Fprintln(out, "Review cache: building structural and source indexes...")
+	application.startSnapshotBuild(buildCtx, func(err error) {
+		if err != nil {
+			fmt.Fprintf(out, "Review cache: build failed: %v\n", err)
+			return
+		}
+		fmt.Fprintln(out, "Review cache: ready.")
+	})
 	if options.OnReady != nil {
 		if err := options.OnReady(serverURL); err != nil {
 			_ = listener.Close()
@@ -310,8 +339,9 @@ func newMux(application *app) *http.ServeMux {
 }
 
 func (a *app) runtimeStatus(w http.ResponseWriter, _ *http.Request) {
+	state, _ := a.snapshotState()
 	w.Header().Set("Content-Type", "application/json")
-	_, _ = io.WriteString(w, `{"ok":true}`+"\n")
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": state != "error", "cache": state})
 }
 
 // fileDiffFragment renders one complete changed file on demand. It is the only
@@ -722,6 +752,10 @@ func templateFuncs() template.FuncMap {
 func (a *app) page(w http.ResponseWriter, r *http.Request) {
 	current := a.snapshot(r.Context())
 	if current == nil {
+		if state, _ := a.snapshotState(); state == "building" {
+			writeBuildingCache(w)
+			return
+		}
 		http.Error(w, "The saga could not be loaded. Run change-saga validate for details.", http.StatusInternalServerError)
 		return
 	}
@@ -782,6 +816,18 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 	if err := a.template.ExecuteTemplate(w, "page", data); err != nil {
 		http.Error(w, "The review page could not be rendered.", http.StatusInternalServerError)
 	}
+}
+
+// writeBuildingCache is intentionally independent of the review template and
+// snapshot. A cold request can render it without constructing any part of the
+// full review page, and the browser retries once the atomic generation is
+// published.
+func writeBuildingCache(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Retry-After", "1")
+	w.WriteHeader(http.StatusServiceUnavailable)
+	_, _ = io.WriteString(w, `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="1"><title>Building review cache</title></head><body><main><h1>Building review cache</h1><p>Change Saga is indexing the document and source comparison. This page will retry automatically.</p></main></body></html>`)
 }
 
 func requestedChapter(r *http.Request) (string, bool) {
@@ -1497,6 +1543,10 @@ func (a *app) createThread(w http.ResponseWriter, r *http.Request) {
 		writeMutationError(w)
 		return
 	}
+	if err := a.refreshReviewsAfterMutation(r.Context()); err != nil {
+		writeMutationError(w)
+		return
+	}
 	redirectAfterReview(w, r, "/#"+domID(target))
 }
 
@@ -1515,6 +1565,10 @@ func (a *app) reply(w http.ResponseWriter, r *http.Request) {
 		writeMutationError(w)
 		return
 	}
+	if err := a.refreshReviewsAfterMutation(r.Context()); err != nil {
+		writeMutationError(w)
+		return
+	}
 	redirectAfterReview(w, r, "/#"+domID(r.FormValue("target")))
 }
 
@@ -1528,6 +1582,10 @@ func (a *app) threadState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := reviewstore.SetState(a.root, r.FormValue("thread"), r.FormValue("state")); err != nil {
+		writeMutationError(w)
+		return
+	}
+	if err := a.refreshReviewsAfterMutation(r.Context()); err != nil {
 		writeMutationError(w)
 		return
 	}
@@ -1549,6 +1607,10 @@ func (a *app) threadAnchor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := reviewstore.SetAnchor(a.root, r.FormValue("thread"), anchor); err != nil {
+		writeMutationError(w)
+		return
+	}
+	if err := a.refreshReviewsAfterMutation(r.Context()); err != nil {
 		writeMutationError(w)
 		return
 	}
@@ -1578,6 +1640,10 @@ func (a *app) review(w http.ResponseWriter, r *http.Request) {
 		writeMutationError(w)
 		return
 	}
+	if err := a.refreshReviewsAfterMutation(r.Context()); err != nil {
+		writeMutationError(w)
+		return
+	}
 	if r.Header.Get("X-Change-Saga-Async") == "true" {
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -1595,6 +1661,10 @@ func (a *app) diffReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := reviewstore.AddDiffReview(a.root, r.FormValue("uri"), r.FormValue("state")); err != nil {
+		writeMutationError(w)
+		return
+	}
+	if err := a.refreshReviewsAfterMutation(r.Context()); err != nil {
 		writeMutationError(w)
 		return
 	}

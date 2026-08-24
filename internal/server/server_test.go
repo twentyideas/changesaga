@@ -199,6 +199,27 @@ func TestManagedRuntimeEndpointsRequireTokenAndSignalShutdown(t *testing.T) {
 	}
 }
 
+func TestColdHTTPReportsBuildingCacheWithoutMaterializingTheReviewPage(t *testing.T) {
+	application := &app{}
+	application.cache.building = true
+	handler := newMux(application)
+
+	page := httptest.NewRecorder()
+	handler.ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/", nil))
+	if page.Code != http.StatusServiceUnavailable || !strings.Contains(page.Body.String(), "Building review cache") {
+		t.Fatalf("cold page = %d %q, want explicit building-cache response", page.Code, page.Body.String())
+	}
+	if page.Header().Get("Retry-After") == "" || !strings.Contains(page.Body.String(), `http-equiv="refresh"`) {
+		t.Fatal("building-cache response did not tell the browser when to retry")
+	}
+
+	status := httptest.NewRecorder()
+	handler.ServeHTTP(status, httptest.NewRequest(http.MethodGet, "/api/runtime", nil))
+	if status.Code != http.StatusOK || !strings.Contains(status.Body.String(), `"cache":"building"`) {
+		t.Fatalf("cold runtime status = %d %q", status.Code, status.Body.String())
+	}
+}
+
 func TestMultipartLimitsSniffingAndCleanup(t *testing.T) {
 	tempDir := t.TempDir()
 	attachmentTempDir = tempDir
@@ -882,6 +903,9 @@ func TestCommittingReviewRecordsInvalidatesTheReviewSnapshot(t *testing.T) {
 	}, "commit", "-m", "record the decision")
 	if body := render(); !strings.Contains(body, "Saga Reviewer") || strings.Contains(body, gitattribution.Uncommitted) {
 		t.Fatalf("a committed decision kept its uncommitted attribution; the snapshot outlived the history it was read from: %q", body)
+	}
+	if application.cache.builds != 1 {
+		t.Fatalf("review file creation or attribution commit rebuilt coverage/diffs: builds=%d", application.cache.builds)
 	}
 }
 

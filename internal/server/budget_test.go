@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/twentyideas/changesaga/internal/gitdiff"
+	"github.com/twentyideas/changesaga/internal/snapshotcache"
 	"github.com/twentyideas/changesaga/internal/testfixture"
 )
 
@@ -331,12 +332,16 @@ func busiestTarget(tb testing.TB, snapshot *reviewSnapshot) (string, []gitdiff.A
 	return best, bestAtoms
 }
 
-// TestReviewSnapshotIsReusedUntilTheSagaChanges is a correctness budget. Serving
-// diff bodies per file only stays fast because the loaded saga, the Git
-// comparison, and the coverage report are reused across requests — and reuse is
-// only acceptable if a mutation is visible on the very next request.
-func TestReviewSnapshotIsReusedUntilTheSagaChanges(t *testing.T) {
-	_, application, handler := budgetFixture(t, testfixture.DefaultLargeSagaOptions())
+// TestReviewMutationAdvancesOnlyTheOverlayGeneration is a correctness budget.
+// A review write must be visible on the next request without rebuilding the
+// structural saga, Git comparison, or coverage report.
+func TestReviewMutationAdvancesOnlyTheOverlayGeneration(t *testing.T) {
+	fixture, application, handler := budgetFixture(t, testfixture.DefaultLargeSagaOptions())
+	generations, err := snapshotcache.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	application.generations = generations
 	path := url.QueryEscape(effectiveAtomPath(budgetChanges(t, application).Atoms[0]))
 	for i := 0; i < 4; i++ {
 		budgetRequest(t, handler, "/")
@@ -358,11 +363,73 @@ func TestReviewSnapshotIsReusedUntilTheSagaChanges(t *testing.T) {
 	}
 
 	page := budgetRequest(t, handler, "/")
-	if application.cache.builds != 2 {
-		t.Fatalf("a recorded review decision did not invalidate the snapshot (builds=%d); the reviewer would keep reading the saga as it was before their own decision", application.cache.builds)
+	if application.cache.builds != 1 {
+		t.Fatalf("a review-only mutation rebuilt structural/source state (builds=%d); comments must not rerun coverage or Git diffs", application.cache.builds)
 	}
 	if !strings.Contains(page, "Budget test decision.") {
 		t.Fatal("the page served after a review decision did not contain it")
+	}
+
+	initialThreadCount := len(application.snapshot(context.Background()).document.Threads)
+	comment := multipartRequest(t, "/api/thread", map[string]string{
+		"target": target, "body": "Keep this comment across generations.",
+		"anchor": `{"type":"target"}`,
+	})
+	commentResult := httptest.NewRecorder()
+	handler.ServeHTTP(commentResult, comment)
+	if commentResult.Code != http.StatusSeeOther {
+		t.Fatalf("comment mutation failed: %d %s", commentResult.Code, commentResult.Body.String())
+	}
+	current := application.snapshot(context.Background())
+	if application.cache.builds != 1 || len(current.document.Threads) != initialThreadCount+1 {
+		t.Fatalf("adding a comment rebuilt structure or missed memory update: builds=%d threads=%d", application.cache.builds, len(current.document.Threads))
+	}
+	threadID := current.document.Threads[len(current.document.Threads)-1].ID
+
+	anchorValues := url.Values{
+		"thread": {threadID},
+		"anchor": {`{"type":"note","coordinate_space":"normalized","note":{"text":"Edited","x":0.25,"y":0.5}}`},
+	}
+	anchorRequest := httptest.NewRequest(http.MethodPost, "/api/thread-anchor", strings.NewReader(anchorValues.Encode()))
+	anchorRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	anchorResult := httptest.NewRecorder()
+	handler.ServeHTTP(anchorResult, anchorRequest)
+	if anchorResult.Code != http.StatusNoContent {
+		t.Fatalf("comment edit failed: %d %s", anchorResult.Code, anchorResult.Body.String())
+	}
+	current = application.snapshot(context.Background())
+	edited := current.document.Threads[len(current.document.Threads)-1]
+	if application.cache.builds != 1 || edited.Anchor.Note == nil || edited.Anchor.Note.Text != "Edited" {
+		t.Fatalf("editing a comment rebuilt structure or missed memory update: builds=%d thread=%#v", application.cache.builds, edited)
+	}
+
+	stateValues := url.Values{"thread": {threadID}, "target": {target}, "state": {"withdrawn"}}
+	stateRequest := httptest.NewRequest(http.MethodPost, "/api/thread-state", strings.NewReader(stateValues.Encode()))
+	stateRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	stateResult := httptest.NewRecorder()
+	handler.ServeHTTP(stateResult, stateRequest)
+	if stateResult.Code != http.StatusSeeOther {
+		t.Fatalf("comment removal failed: %d %s", stateResult.Code, stateResult.Body.String())
+	}
+	current = application.snapshot(context.Background())
+	removed := current.document.Threads[len(current.document.Threads)-1]
+	if application.cache.builds != 1 || removed.State != "withdrawn" {
+		t.Fatalf("removing a comment rebuilt structure or missed memory update: builds=%d state=%q", application.cache.builds, removed.State)
+	}
+
+	// A fresh server owns no prior memory generation. Its first load must replay
+	// the atomic saga records and recover the final edited/withdrawn state.
+	restarted := &app{root: fixture.Root, sourceDir: fixture.Repository, template: application.template, generations: generations}
+	restartedSnapshot := restarted.snapshot(context.Background())
+	if restartedSnapshot == nil || len(restartedSnapshot.document.Threads) != initialThreadCount+1 {
+		t.Fatalf("restart did not recover the persisted comment: %#v", restartedSnapshot)
+	}
+	recovered := restartedSnapshot.document.Threads[len(restartedSnapshot.document.Threads)-1]
+	if recovered.ID != threadID || recovered.State != "withdrawn" || recovered.Anchor.Note == nil || recovered.Anchor.Note.Text != "Edited" {
+		t.Fatalf("restart recovered the wrong review generation: %#v", recovered)
+	}
+	if restarted.cache.builds != 0 {
+		t.Fatalf("restart rebuilt cached coverage/diffs %d times; the structural generation should have been reused", restarted.cache.builds)
 	}
 }
 
