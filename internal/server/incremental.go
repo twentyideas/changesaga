@@ -205,8 +205,11 @@ func selectedCodePath(current *reviewSnapshot, r *http.Request) (string, error) 
 }
 
 func (a *app) codePage(w http.ResponseWriter, r *http.Request) {
-	current := a.snapshot(r.Context())
-	if current == nil || current.diffErr != nil {
+	current := a.requestSnapshot(w, r)
+	if current == nil {
+		return
+	}
+	if current.diffErr != nil {
 		http.Error(w, "The source comparison could not be loaded.", http.StatusInternalServerError)
 		return
 	}
@@ -322,8 +325,11 @@ func (a *app) coveragePage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "mode must be code or saga", http.StatusBadRequest)
 		return
 	}
-	current := a.snapshot(r.Context())
-	if current == nil || current.diffErr != nil {
+	current := a.requestSnapshot(w, r)
+	if current == nil {
+		return
+	}
+	if current.diffErr != nil {
 		http.Error(w, "The source comparison could not be loaded.", http.StatusInternalServerError)
 		return
 	}

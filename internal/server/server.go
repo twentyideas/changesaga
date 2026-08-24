@@ -24,6 +24,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/twentyideas/changesaga/internal/diffuri"
@@ -31,6 +32,7 @@ import (
 	"github.com/twentyideas/changesaga/internal/gitdiff"
 	"github.com/twentyideas/changesaga/internal/reviewstore"
 	"github.com/twentyideas/changesaga/internal/saga"
+	"github.com/twentyideas/changesaga/internal/snapshotcache"
 	"github.com/twentyideas/changesaga/internal/store"
 )
 
@@ -47,6 +49,9 @@ type app struct {
 	// diff and coverage build. Root and narrative shell handlers must never call
 	// it; focused comparison endpoints reach it through snapshot().
 	comparisonLoader func(context.Context) (*reviewSnapshot, error)
+	generations      *snapshotcache.Store
+	// reviewRefreshHook is a test seam for the post-commit failure boundary.
+	reviewRefreshHook func() error
 }
 
 // ManagedOptions lets the CLI supervise a detached loopback server without
@@ -56,6 +61,17 @@ type app struct {
 type ManagedOptions struct {
 	ShutdownToken string
 	OnReady       func(string) error
+}
+
+type lockedWriter struct {
+	mutex sync.Mutex
+	value io.Writer
+}
+
+func (w *lockedWriter) Write(data []byte) (int, error) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+	return w.value.Write(data)
 }
 
 // OpenBrowser opens a trusted loopback URL using the platform launcher. It is
@@ -220,6 +236,7 @@ func Listen(ctx context.Context, root, sourceDir, addr string, openBrowser bool,
 }
 
 func ListenManaged(ctx context.Context, root, sourceDir, addr string, openBrowser bool, out io.Writer, options ManagedOptions) error {
+	out = &lockedWriter{value: out}
 	if !loopbackListenAddress(addr) {
 		return fmt.Errorf("refusing non-loopback listen address %q; remote serving is disabled", addr)
 	}
@@ -227,10 +244,10 @@ func ListenManaged(ctx context.Context, root, sourceDir, addr string, openBrowse
 	if err != nil {
 		return err
 	}
-	if _, validation, err := saga.Load(abs); err != nil {
+	if info, err := os.Stat(abs); err != nil {
 		return err
-	} else if !validation.Valid {
-		return fmt.Errorf("saga is structurally invalid; run change-saga validate")
+	} else if !info.IsDir() {
+		return fmt.Errorf("%s is not a saga directory", root)
 	}
 	if sourceDir == "" {
 		sourceDir = abs
@@ -243,8 +260,12 @@ func ListenManaged(ctx context.Context, root, sourceDir, addr string, openBrowse
 	if err != nil {
 		return fmt.Errorf("create mutation token: %w", err)
 	}
+	generations, err := snapshotcache.Default()
+	if err != nil {
+		return fmt.Errorf("open review cache: %w", err)
+	}
 	stopCh := make(chan struct{}, 1)
-	application := &app{root: abs, sourceDir: sourceDir, template: tmpl, mutationToken: mutationToken, shutdownToken: options.ShutdownToken}
+	application := &app{root: abs, sourceDir: sourceDir, template: tmpl, mutationToken: mutationToken, shutdownToken: options.ShutdownToken, generations: generations}
 	application.shutdown = func() {
 		select {
 		case stopCh <- struct{}{}:
@@ -262,6 +283,16 @@ func ListenManaged(ctx context.Context, root, sourceDir, addr string, openBrowse
 	if host, port, err := net.SplitHostPort(listener.Addr().String()); err == nil && host == "127.0.0.1" {
 		serverURL = "http://127.0.0.1:" + port
 	}
+	buildCtx, cancelBuild := context.WithCancel(ctx)
+	defer cancelBuild()
+	fmt.Fprintln(out, "Review cache: building structural and source indexes...")
+	application.startSnapshotBuild(buildCtx, func(err error) {
+		if err != nil {
+			fmt.Fprintf(out, "Review cache: build failed: %v\n", err)
+			return
+		}
+		fmt.Fprintln(out, "Review cache: ready.")
+	})
 	if options.OnReady != nil {
 		if err := options.OnReady(serverURL); err != nil {
 			_ = listener.Close()
@@ -317,8 +348,9 @@ func newMux(application *app) *http.ServeMux {
 }
 
 func (a *app) runtimeStatus(w http.ResponseWriter, _ *http.Request) {
+	state, _ := a.snapshotState()
 	w.Header().Set("Content-Type", "application/json")
-	_, _ = io.WriteString(w, `{"ok":true}`+"\n")
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": state != "error", "cache": state})
 }
 
 // fileDiffFragment renders one complete changed file on demand. It is the only
@@ -337,9 +369,8 @@ func (a *app) fileDiffFragment(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing changed file", http.StatusBadRequest)
 		return
 	}
-	current := a.snapshot(r.Context())
+	current := a.requestSnapshot(w, r)
 	if current == nil {
-		http.Error(w, "The saga could not be loaded.", http.StatusInternalServerError)
 		return
 	}
 	if current.diffErr != nil {
@@ -751,9 +782,10 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 	// /api/fragment as a reviewer opens it.
 	rootView := makeSectionView(document.Section, viewScope{threads: threadsByTarget}.shell())
 	data := pageData{
-		Saga:          document,
-		Root:          rootView,
-		MutationToken: a.mutationToken,
+		Saga:           document,
+		Root:           rootView,
+		MutationToken:  a.mutationToken,
+		CoverageTotals: a.cachedCoverageTotals(),
 	}
 	data.ReviewItems = makeReviewProgressItems(document.Section)
 	data.ReviewDecided, data.ReviewTotal = reviewProgressSummary(data.ReviewItems)
@@ -771,6 +803,18 @@ func (a *app) narrativeDocument(ctx context.Context) *saga.Saga {
 	}
 	applyGitAttribution(ctx, gitattribution.New(ctx, a.root), document)
 	return document
+}
+
+// writeBuildingCache is intentionally independent of the review template and
+// snapshot. A cold request can render it without constructing any part of the
+// full review page, and the browser retries once the atomic generation is
+// published.
+func writeBuildingCache(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Retry-After", "1")
+	w.WriteHeader(http.StatusServiceUnavailable)
+	_, _ = io.WriteString(w, `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="1"><title>Building review cache</title></head><body><main><h1>Building review cache</h1><p>Change Saga is indexing the document and source comparison. This page will retry automatically.</p></main></body></html>`)
 }
 
 func requestedChapter(r *http.Request) (string, bool) {
@@ -1405,13 +1449,13 @@ func applyGitAttribution(ctx context.Context, resolver *gitattribution.Resolver,
 }
 
 func (a *app) fragmentFile(w http.ResponseWriter, r *http.Request) {
-	document, _, err := saga.Load(a.root)
-	if err != nil {
+	index, validation, err := saga.LoadMutationIndex(a.root)
+	if err != nil || !validation.Valid {
 		http.Error(w, "The saga could not be loaded. Run change-saga validate for details.", http.StatusInternalServerError)
 		return
 	}
-	fragment := findFragment(document, r.PathValue("id"))
-	if fragment == nil {
+	fragmentDir, ok := index.Targets[saga.FragmentTarget(index.Manifest.ID, r.PathValue("id"))]
+	if !ok {
 		http.NotFound(w, r)
 		return
 	}
@@ -1420,8 +1464,8 @@ func (a *app) fragmentFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid fragment path", http.StatusBadRequest)
 		return
 	}
-	path := filepath.Join(fragment.Directory, rel)
-	realRoot, rootErr := filepath.EvalSymlinks(fragment.Directory)
+	path := filepath.Join(fragmentDir, rel)
+	realRoot, rootErr := filepath.EvalSymlinks(fragmentDir)
 	realPath, pathErr := filepath.EvalSymlinks(path)
 	if rootErr != nil || pathErr != nil {
 		http.NotFound(w, r)
@@ -1467,13 +1511,13 @@ func (a *app) createThread(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing or invalid mutation token.", http.StatusForbidden)
 		return
 	}
-	document, _, err := saga.Load(a.root)
-	if err != nil {
+	index, validation, err := saga.LoadMutationIndex(a.root)
+	if err != nil || !validation.Valid {
 		http.Error(w, "The saga could not be loaded. Run change-saga validate for details.", http.StatusConflict)
 		return
 	}
 	target := r.FormValue("target")
-	if !targetExists(document, target) {
+	if _, ok := index.Targets[target]; !ok {
 		http.Error(w, "target does not exist", http.StatusBadRequest)
 		return
 	}
@@ -1485,6 +1529,9 @@ func (a *app) createThread(w http.ResponseWriter, r *http.Request) {
 	if _, err := reviewstore.AddThread(a.root, target, r.FormValue("body"), anchor, r.FormValue("kind"), r.FormValue("replacement"), attachments); err != nil {
 		writeMutationError(w)
 		return
+	}
+	if !a.publishReviewsAfterMutation(r.Context()) {
+		w.Header().Set("X-Change-Saga-Review-State", "reload-pending")
 	}
 	redirectAfterReview(w, r, "/#"+domID(target))
 }
@@ -1504,6 +1551,9 @@ func (a *app) reply(w http.ResponseWriter, r *http.Request) {
 		writeMutationError(w)
 		return
 	}
+	if !a.publishReviewsAfterMutation(r.Context()) {
+		w.Header().Set("X-Change-Saga-Review-State", "reload-pending")
+	}
 	redirectAfterReview(w, r, "/#"+domID(r.FormValue("target")))
 }
 
@@ -1519,6 +1569,9 @@ func (a *app) threadState(w http.ResponseWriter, r *http.Request) {
 	if err := reviewstore.SetState(a.root, r.FormValue("thread"), r.FormValue("state")); err != nil {
 		writeMutationError(w)
 		return
+	}
+	if !a.publishReviewsAfterMutation(r.Context()) {
+		w.Header().Set("X-Change-Saga-Review-State", "reload-pending")
 	}
 	redirectAfterReview(w, r, "/#"+domID(r.FormValue("target")))
 }
@@ -1541,6 +1594,9 @@ func (a *app) threadAnchor(w http.ResponseWriter, r *http.Request) {
 		writeMutationError(w)
 		return
 	}
+	if !a.publishReviewsAfterMutation(r.Context()) {
+		w.Header().Set("X-Change-Saga-Review-State", "reload-pending")
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -1553,19 +1609,22 @@ func (a *app) review(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing or invalid mutation token.", http.StatusForbidden)
 		return
 	}
-	document, _, err := saga.Load(a.root)
-	if err != nil {
+	index, validation, err := saga.LoadMutationIndex(a.root)
+	if err != nil || !validation.Valid {
 		http.Error(w, "The saga could not be loaded. Run change-saga validate for details.", http.StatusConflict)
 		return
 	}
-	dir := findTargetDirectory(document, r.FormValue("target"))
-	if dir == "" {
+	dir, ok := index.ReviewTargets[r.FormValue("target")]
+	if !ok {
 		http.Error(w, "review target does not exist", http.StatusBadRequest)
 		return
 	}
 	if err := reviewstore.AddReview(a.root, dir, r.FormValue("state"), r.FormValue("body")); err != nil {
 		writeMutationError(w)
 		return
+	}
+	if !a.publishReviewsAfterMutation(r.Context()) {
+		w.Header().Set("X-Change-Saga-Review-State", "reload-pending")
 	}
 	if r.Header.Get("X-Change-Saga-Async") == "true" {
 		w.WriteHeader(http.StatusNoContent)
@@ -1586,6 +1645,9 @@ func (a *app) diffReview(w http.ResponseWriter, r *http.Request) {
 	if err := reviewstore.AddDiffReview(a.root, r.FormValue("uri"), r.FormValue("state")); err != nil {
 		writeMutationError(w)
 		return
+	}
+	if !a.publishReviewsAfterMutation(r.Context()) {
+		w.Header().Set("X-Change-Saga-Review-State", "reload-pending")
 	}
 	fallback := "/?view=code#" + url.PathEscape(r.FormValue("file"))
 	if reference, err := diffuri.Parse(r.FormValue("uri")); err == nil && reference.Kind == "file" {

@@ -42,8 +42,11 @@ func AddThread(root, target, body string, anchor saga.Anchor, kind, replacement 
 	}
 	now := time.Now().UTC()
 	id = store.EventID(now)
-	err = mutate(root, func() error {
-		if err := verifyAnchorRepository(root, anchor); err != nil {
+	err = mutate(root, func(index saga.MutationIndex) error {
+		if _, ok := index.Targets[target]; !ok {
+			return fmt.Errorf("target does not exist")
+		}
+		if err := verifyAnchorRepository(index, anchor); err != nil {
 			return err
 		}
 		threadsDir, err := store.EnsureDirWithin(root, filepath.Join(root, "___review", "threads"))
@@ -80,8 +83,8 @@ func AddDiffReview(root, uri, state string) error {
 	if state != "reviewed" && state != "unreviewed" {
 		return fmt.Errorf("diff review requires reviewed or unreviewed state")
 	}
-	return mutate(root, func() error {
-		if err := verifySagaRepository(root, reference); err != nil {
+	return mutate(root, func(index saga.MutationIndex) error {
+		if err := verifySagaRepository(index, reference); err != nil {
 			return err
 		}
 		dir, err := store.EnsureDirWithin(root, filepath.Join(root, "___review", "diffs"))
@@ -107,7 +110,7 @@ func AddReply(root, threadID, body string, attachments []string) (id string, err
 	}
 	now := time.Now().UTC()
 	id = store.EventID(now)
-	err = mutate(root, func() error {
+	err = mutate(root, func(saga.MutationIndex) error {
 		threadDir, err := existingThreadDir(root, threadID)
 		if err != nil {
 			return err
@@ -131,7 +134,7 @@ func SetState(root, threadID, state string) error {
 	if state != "open" && state != "resolved" && state != "withdrawn" {
 		return fmt.Errorf("thread state must be open, resolved, or withdrawn")
 	}
-	return mutate(root, func() error {
+	return mutate(root, func(saga.MutationIndex) error {
 		threadDir, err := existingThreadDir(root, threadID)
 		if err != nil {
 			return err
@@ -151,8 +154,8 @@ func SetAnchor(root, threadID string, anchor saga.Anchor) error {
 	if err := saga.ValidateAnchor(anchor); err != nil {
 		return err
 	}
-	return mutate(root, func() error {
-		if err := verifyAnchorRepository(root, anchor); err != nil {
+	return mutate(root, func(index saga.MutationIndex) error {
+		if err := verifyAnchorRepository(index, anchor); err != nil {
 			return err
 		}
 		threadDir, err := existingThreadDir(root, threadID)
@@ -174,7 +177,21 @@ func AddReview(root, targetDir, state, body string) error {
 	if state != "approved" && state != "rejected" && state != "closed" && state != "open" {
 		return fmt.Errorf("review requires approved, rejected, closed, or open state")
 	}
-	return mutate(root, func() error {
+	return mutate(root, func(index saga.MutationIndex) error {
+		cleanTarget, err := filepath.Abs(targetDir)
+		if err != nil {
+			return err
+		}
+		known := false
+		for _, dir := range index.ReviewTargets {
+			if dir == cleanTarget {
+				known = true
+				break
+			}
+		}
+		if !known {
+			return fmt.Errorf("review target does not exist")
+		}
 		dir, err := store.EnsureDirWithin(root, filepath.Join(targetDir, "___approvals"))
 		if err != nil {
 			return err
@@ -191,12 +208,8 @@ func AddReview(root, targetDir, state, body string) error {
 // repository, base, and head, so without this check a review decision could be
 // filed against a comparison this saga never describes. It runs inside the
 // writer lock and before any write, so a rejected mutation leaves nothing behind.
-func verifySagaRepository(root string, reference diffuri.Reference) error {
-	document, _, err := saga.Load(root)
-	if err != nil {
-		return fmt.Errorf("cannot read the saga source repository: %w", err)
-	}
-	repository, err := diffuri.CanonicalRepository(document.Manifest.Source.Repository)
+func verifySagaRepository(index saga.MutationIndex, reference diffuri.Reference) error {
+	repository, err := diffuri.CanonicalRepository(index.Manifest.Source.Repository)
 	if err != nil {
 		return fmt.Errorf("saga declares an invalid source repository: %w", err)
 	}
@@ -206,7 +219,7 @@ func verifySagaRepository(root string, reference diffuri.Reference) error {
 	return nil
 }
 
-func verifyAnchorRepository(root string, anchor saga.Anchor) error {
+func verifyAnchorRepository(index saga.MutationIndex, anchor saga.Anchor) error {
 	if anchor.Type != "diff" || anchor.Diff == nil {
 		return nil
 	}
@@ -214,33 +227,41 @@ func verifyAnchorRepository(root string, anchor saga.Anchor) error {
 	if err != nil {
 		return fmt.Errorf("diff anchor requires a valid diff URI: %w", err)
 	}
-	return verifySagaRepository(root, reference)
+	return verifySagaRepository(index, reference)
 }
 
-func mutate(root string, operation func() error) error {
-	if err := validateMutableSaga(root); err != nil {
+func mutate(root string, operation func(saga.MutationIndex) error) error {
+	if _, err := validateMutableSaga(root); err != nil {
 		return err
 	}
 	return store.WithSagaLock(root, store.DefaultLockTimeout, func() error {
 		// Validate again under the writer lock so a concurrent supported writer or
 		// external edit cannot turn a previously valid snapshot into a mutation
 		// target between the check and the commit.
-		if err := validateMutableSaga(root); err != nil {
+		index, err := validateMutableSaga(root)
+		if err != nil {
 			return err
 		}
-		return operation()
+		return operation(index)
 	})
 }
 
-func validateMutableSaga(root string) error {
-	_, validation, err := saga.Load(root)
+func validateMutableSaga(root string) (saga.MutationIndex, error) {
+	index, validation, err := saga.LoadMutationIndex(root)
 	if err != nil {
-		return fmt.Errorf("cannot mutate saga: %w", err)
+		return saga.MutationIndex{}, fmt.Errorf("cannot mutate saga: %w", err)
 	}
 	if !validation.Valid {
-		return fmt.Errorf("cannot mutate structurally invalid saga; run change-saga validate")
+		return saga.MutationIndex{}, fmt.Errorf("cannot mutate structurally invalid saga; run change-saga validate")
 	}
-	return nil
+	_, reviewValidation, err := saga.LoadReviewState(index)
+	if err != nil {
+		return saga.MutationIndex{}, fmt.Errorf("cannot mutate saga review state: %w", err)
+	}
+	if !reviewValidation.Valid {
+		return saga.MutationIndex{}, fmt.Errorf("cannot mutate invalid saga review state; run change-saga validate")
+	}
+	return index, nil
 }
 
 func existingThreadDir(root, threadID string) (string, error) {

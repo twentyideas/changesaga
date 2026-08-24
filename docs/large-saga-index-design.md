@@ -211,13 +211,28 @@ answer is.
 
 ## 6. What was built here
 
-`internal/snapshotcache` implements exactly the foundation above — key,
-lifecycle, atomicity, single-flight, prune, discard — and nothing else. It is
-**not wired into the server**: no handler calls it, no response changes, and
-root HTML rendering is untouched, so this commit cannot alter what any reviewer
-sees. Storing the derived state and reading it back per file is the next step,
-and it is the step that should be measured against §2's 37.5 ms before it is
-kept.
+`internal/snapshotcache` implements the foundation above — key, lifecycle,
+atomicity, single-flight, prune, and discard — and the reviewer server now uses
+it for its structural/source generation. The generation stores the parsed Git
+comparison, display lines, coverage report, ownership, and target reverse index
+as JSON outside the saga. Cold builds are explicit in stdout and through a
+small HTTP 503/status response; a complete generation is published atomically
+before the full review page can use it.
+
+Mutable review records are a separate in-memory generation. Threads, replies,
+anchor/state edits, decisions, and file-review events commit to their saga files
+first; only after that succeeds does the server swap a compact overlay onto the
+immutable structure. Review paths and saga-repository `HEAD` participate only
+in the overlay fingerprint, so recording or committing a comment cannot rerun
+Git diff or coverage work. A restart reloads those authoritative review files
+while reusing the content-addressed structural/source generation.
+
+The writer guard uses a manifest/package mutation index and a review-only
+loader. It validates targets and existing review records before and again under
+the saga writer lock, but never parses coverage mappings or authored bodies.
+If the durable commit succeeds and the subsequent memory refresh fails, HTTP
+still acknowledges the write and marks the overlay for reload; returning an
+error there would invite a client retry to duplicate an already stored event.
 
 Twelve tests pin the rules, each stated as the failure it prevents, and all
 pass under `-race`:
