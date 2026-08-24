@@ -73,8 +73,9 @@ so a deep link into an unopened chapter still resolves.
 Three rules follow from that, and breaking any of them is a regression:
 
 - A descriptor is still a destination. It carries the explanation's id, title,
-  target, and review controls, so permalinks, the review progress map, and
-  review decisions all work before the content arrives.
+  and target, so permalinks and the review progress map work before the content
+  arrives. Inside a chapter, its one decision control lives in the chapter
+  review directory rather than being repeated on the descriptor and content.
 - Content arriving never overwrites what the reviewer has already done. A
   decision made on a descriptor moves into the rendered explanation rather than
   being replaced by the state its snapshot was built from.
@@ -90,6 +91,30 @@ Three rules follow from that, and breaking any of them is a regression:
 explanation on screen has arrived and any anchor in the URL has been resolved.
 It is the page saying it has settled, which is what a reviewer can see and what
 the browser suite waits for instead of guessing.
+
+## Chapter review directories
+
+A chapter is a container, not an approval target in the reviewer UI. Opening a
+chapter fetches one directory of the approval-bearing sections and explanations
+inside it as part of the already-bounded `/api/section` response. The initial
+shell never duplicates those rows. The directory is expanded by default,
+collapsible, and sticky within the chapter so it follows only while that chapter
+is being read.
+
+Each row owns the one decision control for its target and projects append-only
+approval events into exactly `Unreviewed`, `Approved`, or `Changes requested`.
+Its discussion count is a separate signal: it combines non-withdrawn comment
+and annotation threads, including threads on an explanation's landmarks, but
+never changes the approval state. Row links use the ordinary anchor resolver,
+so they fetch the chapter or explanation if needed before moving to the exact
+destination.
+
+Existing chapter-level approval records are retained and remain valid format
+data, but they are legacy-only in the reviewer UI: they create no control, row,
+progress segment, or completion credit. No data migration is required. Existing
+`open` and `closed` events on approval-bearing descendants project to
+`Unreviewed`; new UI decisions continue to append the storage-compatible
+`approved`, `rejected`, and undo (`open`) events.
 
 ## Comments and their marks
 

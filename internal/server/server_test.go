@@ -1169,6 +1169,12 @@ func TestPageHandlerShipsAChapterShellAndRedirectsLegacyRoutes(t *testing.T) {
 		!strings.Contains(overviewBody, `data-section-href="/api/section?target=`+template.HTMLEscapeString(url.QueryEscape(alphaTarget))+`"`) {
 		t.Fatal("the shell did not describe its chapters as fetchable summaries")
 	}
+	if strings.Contains(overviewBody, `data-review-target="`+alphaTarget+`"`) {
+		t.Fatal("a chapter still exposed its legacy approval as a current review control")
+	}
+	if strings.Contains(overviewBody, `data-chapter-review-directory`) {
+		t.Fatal("the first-load shell eagerly carried a chapter review directory")
+	}
 	if !strings.Contains(overviewBody, `data-fragment-href="/api/fragment?target=`+template.HTMLEscapeString(url.QueryEscape(overviewFragment))+`"`) {
 		t.Fatal("the overview did not describe its explanations as fetchable descriptors")
 	}
@@ -1187,6 +1193,14 @@ func TestPageHandlerShipsAChapterShellAndRedirectsLegacyRoutes(t *testing.T) {
 	alphaFragment := "urn:change-saga:test:fragment:alpha-story"
 	if !strings.Contains(alphaBody, `data-fragment-href="/api/fragment?target=`+template.HTMLEscapeString(url.QueryEscape(alphaFragment))+`"`) {
 		t.Fatalf("chapter body did not describe its explanations: %s", alphaBody)
+	}
+	if !strings.Contains(alphaBody, `data-chapter-review-directory`) ||
+		!strings.Contains(alphaBody, `data-review-directory-target="`+alphaFragment+`"`) ||
+		!strings.Contains(alphaBody, `href="#`+domID(alphaFragment)+`"`) {
+		t.Fatalf("chapter body did not carry its bounded, navigable review directory: %s", alphaBody)
+	}
+	if strings.Count(alphaBody, `data-review-target="`+alphaFragment+`"`) != 1 {
+		t.Fatalf("chapter explanation did not have exactly one approval control in its directory: %s", alphaBody)
 	}
 	if strings.Contains(alphaBody, "Alpha-exclusive narrative") || strings.Contains(alphaBody, "Beta-exclusive narrative") {
 		t.Fatal("a chapter body carried explanation content, or content from another chapter")
@@ -1395,23 +1409,69 @@ func TestChapterResumeState(t *testing.T) {
 		status, _, _ := reviewProgress(chapter, threads)
 		statuses = append(statuses, status)
 	}
-	if strings.Join(statuses, ",") != "Approved,In progress,In progress,Unreviewed" {
+	if strings.Join(statuses, ",") != "Unreviewed,Needs changes,In progress,Unreviewed" {
 		t.Fatalf("unexpected chapter resume states: %#v", statuses)
 	}
 
-	// A comment drawn onto content is an annotation on the explanation, not
-	// section activity, exactly as when this read the rendered views.
+	// An annotation is activity, but remains a signal separate from approval.
 	drawn := map[string][]*threadView{
 		commented.Fragments[0].Target: {{Thread: &saga.Thread{ID: "drawn", Anchor: saga.Anchor{Type: "region"}}}},
 	}
-	if status, _, _ := reviewProgress(commented, drawn); status != "Unreviewed" {
-		t.Fatalf("a drawn annotation was counted as chapter activity: %q", status)
+	if status, _, _ := reviewProgress(commented, drawn); status != "In progress" {
+		t.Fatalf("a drawn annotation was not counted as separate chapter activity: %q", status)
+	}
+	allApproved := &saga.Section{Kind: "chapter", ID: "complete", Title: "Complete",
+		Fragments: []*saga.Fragment{{ID: "part", Target: "urn:change-saga:test:fragment:complete", Reviews: []saga.Review{approved}}}}
+	if status, _, _ := reviewProgress(allApproved, nil); status != "Approved" {
+		t.Fatalf("a chapter with every child approved reported %q", status)
 	}
 }
 
-// The progress map counts decisions over the whole saga, including the chapters
-// the shell has only summarised, because a reviewer's remaining work does not
-// depend on which chapters they have opened.
+func TestChapterReviewDirectoryProjectsIndependentStatesAndSignals(t *testing.T) {
+	decision := func(state string) []saga.Review {
+		return []saga.Review{{State: state, CreatedAt: time.Unix(10, 0)}}
+	}
+	landmarkTarget := "urn:change-saga:test:landmark:diagram:edge"
+	diagram := &saga.Fragment{
+		ID: "diagram", Title: "Diagram", Target: "urn:change-saga:test:fragment:diagram", Reviews: decision("rejected"),
+		Landmarks: []saga.Landmark{{ID: "edge", Target: landmarkTarget}},
+	}
+	child := &saga.Section{Kind: "section", ID: "details", Title: "Details", Target: "urn:change-saga:test:section:details", Reviews: decision("approved"),
+		Fragments: []*saga.Fragment{{ID: "legacy-open", Title: "Legacy open", Target: "urn:change-saga:test:fragment:legacy-open", Reviews: decision("open")}}}
+	chapter := &saga.Section{Kind: "chapter", ID: "chapter", Title: "Chapter", Target: "urn:change-saga:test:chapter:chapter",
+		Reviews: decision("approved"), Fragments: []*saga.Fragment{diagram}, Children: []*saga.Section{child}}
+	threads := map[string][]*threadView{
+		diagram.Target: {{Thread: &saga.Thread{ID: "comment", Anchor: saga.Anchor{Type: "target"}}}},
+		landmarkTarget: {{Thread: &saga.Thread{ID: "annotation", Anchor: saga.Anchor{Type: "region"}}}},
+		child.Target:   {{Thread: &saga.Thread{ID: "section-comment", Anchor: saga.Anchor{Type: "target"}}}},
+	}
+
+	items := makeChapterReviewDirectory(chapter, threads)
+	if len(items) != 3 {
+		t.Fatalf("chapter directory has %d items, want 3: %#v", len(items), items)
+	}
+	if items[0].Target != diagram.Target || items[0].ReviewState != "rejected" || items[0].Status != "Changes requested" || items[0].CommentCount != 2 {
+		t.Fatalf("diagram directory row lost its decision or combined discussion signal: %#v", items[0])
+	}
+	if items[1].Target != child.Target || items[1].ReviewState != "approved" || items[1].Status != "Approved" || items[1].CommentCount != 1 {
+		t.Fatalf("nested section directory row is wrong: %#v", items[1])
+	}
+	if items[2].ReviewState != "" || items[2].Status != "Unreviewed" || items[2].StateClass != "unreviewed" {
+		t.Fatalf("legacy open state was not projected to unreviewed: %#v", items[2])
+	}
+	for _, item := range items {
+		if item.Target == chapter.Target {
+			t.Fatal("legacy chapter approval became a directory item")
+		}
+		if item.Href != "#"+domID(item.Target) {
+			t.Fatalf("directory item does not navigate to its exact target: %#v", item)
+		}
+	}
+}
+
+// The progress map counts approval-bearing items over the whole saga, including
+// items inside chapters the shell has only summarised. Chapters themselves are
+// containers and their legacy approval events do not add a decision.
 func TestReviewDecisionProgressCountsTheWholeSaga(t *testing.T) {
 	decision := func(state string) []saga.Review {
 		return []saga.Review{{State: state, CreatedAt: time.Unix(10, 0)}}
@@ -1427,11 +1487,16 @@ func TestReviewDecisionProgressCountsTheWholeSaga(t *testing.T) {
 
 	items := makeReviewProgressItems(root)
 	decided, total := reviewProgressSummary(items)
-	if decided != 3 || total != 5 {
-		t.Fatalf("review decision progress = %d/%d, want 3/5", decided, total)
+	if decided != 3 || total != 4 {
+		t.Fatalf("review decision progress = %d/%d, want 3/4", decided, total)
 	}
-	if items[0].Href != "#"+domID(root.Target) || items[3].Href != "#"+domID(chapter.Target) || items[4].Href != "#"+domID(chapter.Fragments[0].Target) {
+	if items[0].Href != "#"+domID(root.Target) || items[3].Href != "#"+domID(chapter.Fragments[0].Target) {
 		t.Fatalf("review progress links do not navigate to their targets: %#v", items)
+	}
+	for _, item := range items {
+		if item.Target == chapter.Target {
+			t.Fatal("legacy chapter approval was counted as a current decision")
+		}
 	}
 	if items[0].StateClass != "approved" || items[1].StateClass != "rejected" || items[2].StateClass != "pending" {
 		t.Fatalf("review progress colors do not match decision state: %#v", items)

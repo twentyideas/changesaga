@@ -135,10 +135,10 @@ func TestLargeSagaFirstLoadShipsOnlyTheChapterShell(t *testing.T) {
 		"every element here is parsed, laid out, and retained by the browser")
 
 	// The payload must shrink by deferring the story, not by losing it. Every
-	// destination is still named in the navigation outline and still counted in
-	// the review progress map, both of which read the document rather than the
-	// rendered page.
-	destinations := fixture.Chapters + fixture.Sections + fixture.Fragments
+	// destination is still named in the navigation outline. Every approval-
+	// bearing destination is counted in the review progress map; chapters are
+	// containers now and deliberately do not add decisions.
+	destinations := fixture.Sections + fixture.Fragments
 	if segments := strings.Count(page, "data-review-progress-target="); segments != destinations+1 {
 		t.Fatalf("review progress counted %d destinations, want %d including the overview", segments, destinations+1)
 	}

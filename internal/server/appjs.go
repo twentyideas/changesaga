@@ -107,6 +107,31 @@ const appJavaScript = `(() => {
     return 'Not reviewed';
   }
 
+  function directoryReviewState(state) {
+    if (state === 'approved') return {state:'approved', status:'Approved'};
+    if (state === 'rejected') return {state:'changes-requested', status:'Changes requested'};
+    return {state:'unreviewed', status:'Unreviewed'};
+  }
+
+  function updateReviewDirectorySummary(directory) {
+    const rows = qa('[data-review-directory-target]', directory);
+    const decided = rows.filter(row => row.dataset.reviewState === 'approved' || row.dataset.reviewState === 'changes-requested').length;
+    const summary = q('[data-review-directory-summary]', directory);
+    if (summary) summary.textContent = decided + '/' + rows.length + ' reviewed';
+  }
+
+  function updateReviewDirectoryState(target, state) {
+    const projected = directoryReviewState(state);
+    qa('[data-review-directory-target]').filter(row => row.dataset.reviewDirectoryTarget === target).forEach(row => {
+      row.dataset.reviewState = projected.state;
+      row.classList.remove('unreviewed', 'approved', 'changes-requested');
+      row.classList.add(projected.state);
+      const status = q('[data-review-directory-status]', row);
+      if (status) status.textContent = projected.status;
+      updateReviewDirectorySummary(row.closest('[data-chapter-review-directory]'));
+    });
+  }
+
   let reviewProgressTimer = null;
   let reviewScrollTimer = null;
 
@@ -194,6 +219,7 @@ const appJavaScript = `(() => {
         tooltipNote.hidden = !note;
       }
     });
+    updateReviewDirectoryState(control.dataset.reviewTarget, state);
     updateReviewProgress(previous, state, animate, control.dataset.reviewTarget, note);
     if (!animate) return;
     control.classList.remove('decision-changed');
