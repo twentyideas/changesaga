@@ -202,8 +202,10 @@ func measureReviewPageAllocations(tb testing.TB, name string, options testfixtur
 	for _, path := range []string{"/api/code?limit=201", "/api/coverage?mode=code&limit=201"} {
 		recorder := httptest.NewRecorder()
 		server.handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
-		if recorder.Code != http.StatusBadRequest {
-			tb.Errorf("GET %s = %d, want %d for the hard page limit", path, recorder.Code, http.StatusBadRequest)
+		if recorder.Code != http.StatusOK {
+			tb.Errorf("GET %s = %d, want %d for the capped page limit", path, recorder.Code, http.StatusOK)
+		} else if returned := returnedItems(tb, recorder.Body.String()); returned > maxSurfacePageLimit {
+			tb.Errorf("GET %s returned %d rows, cap %d", path, returned, maxSurfacePageLimit)
 		}
 	}
 	tb.Logf("%s review pages: code=%d B allocated, coverage/code=%d B, coverage/saga=%d B",
@@ -219,11 +221,12 @@ func requirePagedReviewResponse(tb testing.TB, path string, handler *http.ServeM
 		tb.Fatalf("GET %s = %d: %s", path, recorder.Code, firstLine(recorder.Body.String()))
 	}
 	body := recorder.Body.String()
-	if !strings.Contains(body, `data-returned="50"`) || !strings.Contains(body, "data-next-cursor=") {
-		tb.Fatalf("GET %s did not return a 50-row cursor page", path)
+	returned := returnedItems(tb, body)
+	if returned < 1 || returned > 50 {
+		tb.Fatalf("GET %s returned %d rows, want 1..50", path, returned)
 	}
-	if recorder.Header().Get("X-Change-Saga-Next-Cursor") == "" {
-		tb.Fatalf("GET %s omitted its continuation header", path)
+	if recorder.Header().Get("X-Change-Saga-Has-More") == "true" && recorder.Header().Get("X-Change-Saga-Next-Cursor") == "" {
+		tb.Fatalf("GET %s says it has more rows but omitted its continuation header", path)
 	}
 }
 

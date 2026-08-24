@@ -995,8 +995,13 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	// The page no longer carries diff rows, so the `saga-diff://` scheme it must
 	// keep unmangled is asserted where those rows are now produced, in
 	// TestFileDiffEndpointServesCoverageAndTargetedBodies.
-	if strings.Contains(renderedPage, "ZgotmplZ") || !strings.Contains(renderedPage, "/app.js") || !strings.Contains(renderedPage, `x="100.00"`) || !strings.Contains(renderedPage, `diff=saga-diff%3A%2F%2Fv1%2Fline%3F`) || !strings.Contains(renderedPage, `id="`+domID(fragment.Target)+`--story"`) {
-		t.Fatalf("template produced unsafe or incomplete output")
+	if strings.Contains(renderedPage, "ZgotmplZ") {
+		t.Fatal("template produced an unsafe URL sentinel")
+	}
+	for _, expected := range []string{"/app.js", `x="100.00"`, `id="` + domID(fragment.Target) + `--story"`} {
+		if !strings.Contains(renderedPage, expected) {
+			t.Fatalf("template output is missing %q", expected)
+		}
 	}
 	if strings.Count(renderedPage, `class="annotation-toolbox"`) != 1 || !strings.Contains(renderedPage, `data-review-progress`) || !strings.Contains(renderedPage, `data-review-decided="2" data-review-total="3"`) || !strings.Contains(renderedPage, `aria-label="Review progress: 2 of 3 decisions"`) || !strings.Contains(renderedPage, `class="review-progress-segment approved"`) || !strings.Contains(renderedPage, `class="review-progress-segment rejected"`) || !strings.Contains(renderedPage, `class="review-progress-segment pending"`) || !strings.Contains(renderedPage, `data-review-progress-note="Ready to merge."`) || !strings.Contains(renderedPage, `Comment: Ready to merge.`) || !strings.Contains(renderedPage, `data-review-progress-tooltip`) || !strings.Contains(renderedPage, `href="/#`+domID(fragment.Target)+`"`) || !strings.Contains(renderedPage, `data-review-controls`) || !strings.Contains(renderedPage, `data-review-author="Ada"`) || !strings.Contains(renderedPage, `data-review-detail="ada@example.test · committed abc123"`) || !strings.Contains(renderedPage, `data-review-decision="approved" aria-pressed="true"`) || !strings.Contains(renderedPage, `data-review-decision-tooltip`) || !strings.Contains(renderedPage, `data-review-decision-author title="ada@example.test · committed abc123"`) || !strings.Contains(renderedPage, `data-review-comment`) || !strings.Contains(renderedPage, `data-review-note title="Ready to merge."`) || !strings.Contains(renderedPage, `i-approve-filled`) || !strings.Contains(renderedPage, `i-reject-filled`) || strings.Contains(renderedPage, `decision-dialog`) || strings.Contains(renderedPage, `class="review-form"`) {
 		t.Fatal("fast inline review controls and progress were not rendered")
@@ -1007,8 +1012,11 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	if !strings.Contains(renderedPage, `data-annotation-selection`) || !strings.Contains(renderedPage, `data-annotation-entity`) || !strings.Contains(renderedPage, `data-thread-id="thread"`) || !strings.Contains(renderedPage, `data-shape-index="0"`) {
 		t.Fatal("shape annotations were not rendered as selectable entities")
 	}
-	if !strings.Contains(renderedPage, `data-view-tab="manifest"`) || !strings.Contains(renderedPage, `data-manifest-panel="code"`) || !strings.Contains(renderedPage, "Code → Saga") || !strings.Contains(renderedPage, "Saga → Code") {
-		t.Fatal("bidirectional coverage manifest was not rendered")
+	if !strings.Contains(renderedPage, `data-view-tab="manifest"`) || !strings.Contains(renderedPage, `data-review-surface="manifest"`) || !strings.Contains(renderedPage, `data-surface-href="/api/coverage"`) {
+		t.Fatal("bounded coverage navigation was not rendered")
+	}
+	if strings.Contains(renderedPage, `data-manifest-panel="code"`) || strings.Contains(renderedPage, `class="manifest-range"`) {
+		t.Fatal("the root page eagerly rendered coverage details")
 	}
 	// Coverage is an invariant, so a complete report earns no praise banner —
 	// only failures and stale references are worth a reviewer's attention.
@@ -1016,21 +1024,6 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 		if strings.Contains(renderedPage, celebration) {
 			t.Fatalf("complete coverage still congratulates the reviewer: %q", celebration)
 		}
-	}
-	if !strings.Contains(renderedPage, `<details class="manifest-folder" data-manifest-folder open`) || !strings.Contains(renderedPage, `data-manifest-search="internal/app.go"`) || !strings.Contains(renderedPage, `<use href="#f-go">`) {
-		t.Fatal("coverage was not rendered as a fully expanded repository tree with file-type icons")
-	}
-	// The coverage file stays expandable, but its body is requested when the
-	// reviewer opens it. Inlining every body made the page carry the whole
-	// comparison a second time for markup behind a closed disclosure.
-	if !strings.Contains(renderedPage, `class="manifest-file-diff diff-surface"`) || !strings.Contains(renderedPage, `data-file-path="internal/app.go"`) || !strings.Contains(renderedPage, `data-manifest-diff-href="/api/file-diff?view=manifest&amp;file=internal%2Fapp.go"`) || !strings.Contains(renderedPage, `data-manifest-diff-rows`) || !strings.Contains(renderedPage, `1 changed line`) {
-		t.Fatal("expandable coverage file did not offer its diff on demand with compact mapping metadata")
-	}
-	if strings.Contains(renderedPage, `data-code>package app</code>`) {
-		t.Fatal("coverage inlined a diff body the reviewer had not opened")
-	}
-	if !strings.Contains(renderedPage, `class="manifest-target-file"`) || !strings.Contains(renderedPage, `class="manifest-target-file-detail"`) || !strings.Contains(renderedPage, `Open in Code Diff`) || strings.Contains(renderedPage, `class="manifest-target-row"`) {
-		t.Fatal("saga-to-code coverage did not keep linked diffs expandable in place")
 	}
 	if strings.Contains(renderedPage, "Attached code") || strings.Contains(renderedPage, "Linked diffs</h2>") || !strings.Contains(renderedPage, `<strong>Linked code</strong>`) {
 		t.Fatal("attached-code drawer retained redundant header chrome")
