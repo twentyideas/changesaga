@@ -1161,15 +1161,27 @@ const appJavaScript = `(() => {
       const wrapper = parseShellHTML(await response.text());
       const page = q('[data-review-surface-page]', wrapper) || q('[data-review-surface-response="'+name+'"]', wrapper) || wrapper;
       const key = page.dataset?.pageKey || button.dataset.pageTarget || '';
-      const destinationRoot = name === 'code' && key === 'files' ? q('[data-code-sidebar]') : surface;
-      const destination = key ? q('[data-page-items="'+CSS.escape(key)+'"]', destinationRoot) : q('[data-page-items]', destinationRoot);
-      const items = key ? q('[data-page-items="'+CSS.escape(key)+'"]', page) : q('[data-page-items]', page);
-      if (!destination || !items) throw new Error('page response was incomplete');
-      const inserted = Array.from(items.childNodes);
-      destination.append(...inserted);
+      const groups = within(page, '[data-page-items]');
+      let appended = 0;
+      for (const items of groups) {
+        const groupKey = items.dataset.pageItems;
+        if (!groupKey) continue;
+        const sidebar = q('[data-code-sidebar]');
+        const destination = q('[data-page-items="'+CSS.escape(groupKey)+'"]', surface) || (sidebar ? q('[data-page-items="'+CSS.escape(groupKey)+'"]', sidebar) : null);
+        if (!destination || destination === items) continue;
+        destination.append(...Array.from(items.childNodes));
+        appended++;
+      }
+      if (!appended) {
+        const destinationRoot = name === 'code' && key === 'files' ? q('[data-code-sidebar]') : surface;
+        const destination = key ? q('[data-page-items="'+CSS.escape(key)+'"]', destinationRoot) : q('[data-page-items]', destinationRoot);
+        const items = key ? q('[data-page-items="'+CSS.escape(key)+'"]', page) : q('[data-page-items]', page);
+        if (!destination || !items) throw new Error('page response was incomplete');
+        destination.append(...Array.from(items.childNodes));
+      }
       const next = q('[data-surface-next]', page) || surfaceNextButton(name, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset?.nextCursor, key);
       if (next) button.replaceWith(next); else button.remove();
-      prepareReviewSurface(name, destination);
+      prepareReviewSurface(name, surface);
     } catch (_) {
       button.textContent = 'Could not load more — try again';
       delete button.dataset.pageLoading;
