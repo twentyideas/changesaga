@@ -5,360 +5,399 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"os"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/twentyideas/changesaga/internal/saga"
 	"github.com/twentyideas/changesaga/internal/testfixture"
 )
 
-// First load is the only request a reviewer cannot avoid, and it is the request
-// the whole-codebase saga in docs/large-saga-diagnosis.md failed on: 532,290
-// changed atoms across 2,666 files, authored as 529,599 single-line references.
+// First load is a bounded shell. It may state comparison totals, but every
+// diff row and every coverage row belongs to an async review endpoint. A small
+// response is not sufficient proof: constructing the complete ChangeSet and
+// coverage projection before discarding them still makes GET / scale with a
+// review the browser has not asked to see.
 //
-// The budgets in budget_test.go are absolute counts over one fixed fixture.
-// They cannot catch that failure, because the failure is not a level — it is a
-// slope. A page that costs 5 MB for 4,096 atoms and 5 MB for 65,536 atoms is
-// healthy; a page that costs 5 MB for 4,096 atoms and 80 MB for 65,536 atoms is
-// the diagnosed defect, and both satisfy any single-fixture ceiling the small
-// one passes.
+// These fixtures isolate the two inputs that caused the Daylight failure:
 //
-// So these budgets measure the same first load over four fixtures that differ
-// on one axis each, and assert what may and may not grow with them:
+//	base          8 files x  32 changed lines,   512 atoms,  64 ranges
+//	atom-growth   8 files x 256 changed lines, 4,096 atoms,  64 ranges
+//	range-growth  8 files x  32 changed lines,   512 atoms, 512 ranges
 //
-//	base      32 files x  64 changed lines,  4,096 atoms, 1,024 ranges
-//	deeper    32 files x 256 changed lines, 16,384 atoms, 1,024 ranges
-//	wider    128 files x  64 changed lines, 16,384 atoms, 4,096 ranges
-//	per-line  32 files x  64 changed lines,  4,096 atoms, 4,096 ranges
-//
-// base -> deeper is four times the code with the same document and the same
-// evidence. base -> wider is four times the whole comparison. base -> per-line
-// is the same code explained one line at a time, which is how the diagnosed
-// saga was authored. Every fixture is a real two-commit Git comparison with
-// every atom explained exactly once, so no budget here can be met by a saga
-// that simply covers less.
-//
-// The rule the numbers encode: the page may grow with what it describes — the
-// document, the changed files, and the evidence a reviewer authored — and may
-// never grow with what it deliberately does not contain, which is the code of
-// every file except the one the Code Diff tab has selected.
+// The story, file count, and review overlay stay fixed. Atom-growth widens its
+// authored ranges in step with the code; range-growth explains the same code
+// one line at a time. The fixtures are deliberately smaller than the benchmark
+// fixture so the asserted contract remains practical for ordinary CI. The
+// opt-in Daylight harness at the end of this file exercises roughly 533,000
+// atoms and is documented in docs/performance.md.
 
 const (
-	// firstLoadDeeperByteGrowth bounds what four times the changed code may
-	// cost the page when the document and the evidence are unchanged. Only the
-	// one selected file legitimately grows, so the page grows by a fraction;
-	// re-inlining any other diff body makes this roughly fourfold.
-	firstLoadDeeperByteGrowth    = 1.35
-	firstLoadDeeperElementGrowth = 1.25
+	firstLoadScaleFactor = 8
 
-	// firstLoadRangeByteBudget is the marginal cost of one eagerly rendered
-	// coverage row: its label, its deep link, and its owner links. This is the
-	// coefficient that decided the diagnosed saga's first load, because that
-	// saga authored one reference per changed line.
-	firstLoadRangeByteBudget = 4_096
+	// Response bytes and materialized HTML nodes should move only by a few
+	// digits in the totals. The additive allowance prevents tiny markup changes
+	// from making a ratio noisy while still rejecting a per-atom/range surface.
+	rootResponseGrowthBudget = 1.10
+	rootResponseGrowthSlack  = 8 * 1024
+	rootNodeGrowthBudget     = 1.05
+	rootNodeGrowthSlack      = 16
 
-	// firstLoadAllocBudget is measured over the base fixture with a warm
-	// snapshot, so it describes rendering rather than saga loading. It is
-	// deterministic to within 0.1% across repeated runs in one process, which
-	// makes it safe to assert where wall time is not. It is not asserted under
-	// -race, which roughly doubles it.
-	firstLoadAllocBudget = 125_000_000
+	// Wall time is the median of three cold root renders over one generated
+	// fixture. Ratio plus additive slack accommodates shared runners; the fixed
+	// smoke ceiling catches a uniformly pathological render.
+	rootWallGrowthBudget = 3.0
+	rootWallGrowthSlack  = 50 * time.Millisecond
+	rootWallCeiling      = 2 * time.Second
 
-	// firstLoadRetainedBudget and firstLoadRetainedPerAtomBudget are the
-	// resident-memory proxy: what the server still holds once it has answered,
-	// sampled after two collections. The race detector does not distort it. The
-	// diagnosed saga peaked at 1.49 GB for 532,290 atoms, which is 2.8 KB an
-	// atom, so the per-atom ceiling keeps the fixture in the regime the real
-	// failure was measured in.
-	//
-	// firstLoadRetainedPerReferenceBudget is the second axis. Explaining the
-	// same 4,096 atoms one reference per line instead of one per four holds
-	// 11 MB more, which is about 3.6 KB for each extra reference. That
-	// coefficient, times the diagnosed saga's 529,599 single-line references,
-	// is most of the 1.49 GB it peaked at.
-	firstLoadRetainedBudget             = 16_000_000
-	firstLoadRetainedPerAtomBudget      = 4_096
-	firstLoadRetainedPerReferenceBudget = 5_120
+	// After two collections, a scaled root may retain a little allocator and
+	// summary overhead, but not the scaled ChangeSet or coverage projection.
+	rootRetainedGrowthBudget = 1.50
+	rootRetainedGrowthSlack  = 2 * 1024 * 1024
+	rootRetainedCeiling      = 32 * 1024 * 1024
 
-	// Four times the comparison may cost about four times the work. These
-	// ceilings sit clear of linear noise and far below the quadratic growth
-	// that made the diagnosed saga take 17 minutes.
-	firstLoadDeeperAllocGrowth   = 2.5
-	firstLoadWiderAllocGrowth    = 5.0
-	firstLoadWiderRetainedGrowth = 5.0
+	mutationWallCeiling             = 2 * time.Second
+	reviewPageAllocationGrowth      = 1.50
+	reviewPageAllocationGrowthSlack = 512 * 1024
+
+	daylightScaleEnvironment = "CHANGE_SAGA_DAYLIGHT_SCALE"
 )
 
-// firstLoadShape is one fixture and everything measured from its first load.
 type firstLoadShape struct {
 	name    string
-	options testfixture.LargeSagaOptions
 	fixture testfixture.LargeSaga
 
-	bytes     int
-	elements  int
-	ranges    int
-	diffRows  int
-	codeCells int
-	selected  string
-
-	allocated uint64
-	// retained is this fixture's contribution to the live heap, and is zero
-	// when the sample could not be taken.
-	retained uint64
+	responseBytes int64
+	nodes         int64
+	diffRows      int
+	coverageRows  int
+	wall          time.Duration
+	retained      int64
+	fullBuilds    int64
 }
 
-func baseFirstLoadOptions() testfixture.LargeSagaOptions {
-	options := testfixture.DefaultLargeSagaOptions()
-	// The default already resolves to four, and these budgets compare authored
-	// reference counts across shapes, so the width is stated rather than
-	// inherited.
-	options.CoverageRangeWidth = 4
+func ciFirstLoadOptions() testfixture.LargeSagaOptions {
+	return testfixture.LargeSagaOptions{
+		Chapters:            3,
+		SectionsPerChapter:  2,
+		FragmentsPerSection: 2,
+		SourceFiles:         8,
+		ChangedLinesPerFile: 32,
+		ReviewsPerFragment:  1,
+		Threads:             4,
+		DiffReviews:         4,
+		CoverageRangeWidth:  8,
+	}
+}
+
+func atomGrowthFirstLoadOptions() testfixture.LargeSagaOptions {
+	options := ciFirstLoadOptions()
+	options.ChangedLinesPerFile *= firstLoadScaleFactor
+	options.CoverageRangeWidth *= firstLoadScaleFactor
 	return options
 }
 
-func deeperFirstLoadOptions() testfixture.LargeSagaOptions {
-	options := baseFirstLoadOptions()
-	// Four times the changed code and a proportionally wider range, so the saga
-	// still authors exactly as many references as the base fixture. The only
-	// thing that grew is the code the page must not contain.
-	options.ChangedLinesPerFile *= 4
-	options.CoverageRangeWidth *= 4
-	return options
-}
-
-func widerFirstLoadOptions() testfixture.LargeSagaOptions {
-	options := baseFirstLoadOptions()
-	options.SourceFiles *= 4
-	return options
-}
-
-// perLineFirstLoadOptions is the shape the diagnosed saga was actually authored
-// in: one reference per changed line, over the same code as the base fixture.
-func perLineFirstLoadOptions() testfixture.LargeSagaOptions {
-	options := baseFirstLoadOptions()
+func rangeGrowthFirstLoadOptions() testfixture.LargeSagaOptions {
+	options := ciFirstLoadOptions()
 	options.CoverageRangeWidth = 1
 	return options
 }
 
-func TestFirstLoadBudgetsHoldAcrossComparisonScale(t *testing.T) {
-	t.Skip("superseded by bounded incremental endpoint slope budgets")
-	base := measureFirstLoad(t, "base", baseFirstLoadOptions())
-	deeper := measureFirstLoad(t, "deeper", deeperFirstLoadOptions())
-	wider := measureFirstLoad(t, "wider", widerFirstLoadOptions())
-	perLine := measureFirstLoad(t, "per-line", perLineFirstLoadOptions())
+func TestRootFirstLoadStaysBoundedAsAtomsAndRangesGrow(t *testing.T) {
+	base := measureRootFirstLoad(t, "base", ciFirstLoadOptions())
+	atoms := measureRootFirstLoad(t, "atom-growth", atomGrowthFirstLoadOptions())
+	ranges := measureRootFirstLoad(t, "range-growth", rangeGrowthFirstLoadOptions())
+	requireIsolatedScaleAxes(t, base, atoms, ranges)
 
-	t.Run("bytes_do_not_track_changed_code", func(t *testing.T) {
-		// Four times the code, one unchanged document, one unchanged set of
-		// authored references. The page describes the comparison; a page that
-		// contains it grows by the same fourfold the comparison did.
-		checkGrowth(t, "first-load HTML bytes", base, deeper, base.bytes, deeper.bytes, firstLoadDeeperByteGrowth,
-			"only the selected file's body may grow with the changed code")
-		checkGrowth(t, "first-load HTML elements", base, deeper, base.elements, deeper.elements, firstLoadDeeperElementGrowth,
-			"every element here is parsed, laid out, and retained by the browser")
-	})
+	for _, shape := range []firstLoadShape{base, atoms, ranges} {
+		t.Run(shape.name+"_is_a_shell", func(t *testing.T) {
+			requireBoundedRoot(t, shape)
+		})
+	}
 
-	t.Run("coverage_rows_track_authored_evidence_not_atoms", func(t *testing.T) {
-		// This is the sharpest statement of the rule. The coverage audit renders
-		// one row per authored evidence range at every scale. If it ever
-		// rendered one per changed atom, the diagnosed saga's first load would
-		// carry 532,290 of them.
-		for _, shape := range []firstLoadShape{base, deeper, wider, perLine} {
-			if shape.ranges != shape.fixture.References {
-				t.Errorf("%s rendered %d coverage rows for %d authored evidence ranges over %d changed atoms;\n"+
-					"  the audit must describe the evidence a reviewer wrote, never the atoms it covers",
-					shape.name, shape.ranges, shape.fixture.References, shape.fixture.Atoms)
-			}
-		}
-		// deeper holds evidence constant while quadrupling atoms, so its row
-		// count must not move at all. That is only true while the fixture's
-		// wider range width really does hold the reference count fixed.
-		if deeper.fixture.References != base.fixture.References {
-			t.Fatalf("the deeper fixture authored %d evidence ranges against the base fixture's %d; it no longer isolates changed code from evidence shape",
-				deeper.fixture.References, base.fixture.References)
-		}
-		if deeper.ranges != base.ranges {
-			t.Errorf("quadrupling the changed code moved the coverage audit from %d rows to %d; it is following atoms, not evidence",
-				base.ranges, deeper.ranges)
-		}
-	})
-
-	t.Run("eager_diff_rows_are_bounded_by_the_selected_file", func(t *testing.T) {
-		// wider quadruples the number of changed files. The Code Diff tab still
-		// renders exactly one of them, so the inlined row count must not move.
-		if wider.diffRows != base.diffRows {
-			t.Errorf("quadrupling the changed files moved the inlined diff rows from %d to %d;\n"+
-				"  first load inlines the selected file and summarises every other one",
-				base.diffRows, wider.diffRows)
-		}
-		// Explaining the same code one line at a time must not select more of
-		// it either: evidence shape describes code, it does not open files.
-		if perLine.diffRows != base.diffRows {
-			t.Errorf("fragmenting the evidence moved the inlined diff rows from %d to %d", base.diffRows, perLine.diffRows)
-		}
-		for _, shape := range []firstLoadShape{base, deeper, wider, perLine} {
-			budget := 2*shape.options.ChangedLinesPerFile + pageDiffRowContextAllowance
-			checkBudget(t, shape.name+" inlined diff rows", shape.diffRows, budget,
-				fmt.Sprintf("the selected file %q changes %d lines", shape.selected, shape.options.ChangedLinesPerFile))
-			if shape.diffRows == 0 {
-				t.Errorf("%s inlined no diff rows at all; the Code Diff tab has lost its selected file", shape.name)
-			}
-			if shape.codeCells > shape.diffRows {
-				t.Errorf("%s rendered %d code cells across %d diff rows; code is arriving outside the selected file's rows",
-					shape.name, shape.codeCells, shape.diffRows)
-			}
-		}
-	})
-
-	t.Run("bytes_per_authored_evidence_range", func(t *testing.T) {
-		// Per-line evidence covers exactly the same code as the base fixture and
-		// explains it identically; it simply says so one line at a time. The
-		// marginal bytes each extra row costs is what turned a 530,000-atom saga
-		// into a page nobody could open, so it is budgeted directly.
-		if perLine.fixture.Atoms != base.fixture.Atoms {
-			t.Fatalf("the two shapes must cover the same code: %d atoms against %d", perLine.fixture.Atoms, base.fixture.Atoms)
-		}
-		extra := perLine.ranges - base.ranges
-		if extra <= 0 {
-			t.Fatalf("per-line evidence rendered %d coverage rows against %d; the shapes are not distinguishable", perLine.ranges, base.ranges)
-		}
-		perRange := (perLine.bytes - base.bytes) / extra
-		const diagnosedReferences = 529_599 // counted in docs/large-saga-diagnosis.md
-		checkBudget(t, "first-load bytes per authored evidence range", perRange, firstLoadRangeByteBudget,
-			fmt.Sprintf("the diagnosed saga authored %d single-line references, so this coefficient alone puts about %d MB on its first load",
-				diagnosedReferences, perRange*diagnosedReferences/1_000_000))
-	})
-
-	t.Run("allocation_and_retained_memory_stay_proportional", func(t *testing.T) {
-		// Wall time is not asserted anywhere in this file. Repeated first loads
-		// of one unchanged fixture on an idle machine varied by 3.9x, which is
-		// wider than any regression worth catching; BenchmarkFirstLoadScale
-		// reports it instead. Allocated bytes and retained heap over the same
-		// requests varied by under 0.1%, so they carry the budget.
-		if raceDetectorActive {
-			t.Logf("absolute allocation budget skipped under -race: base allocated %d B, which the race detector roughly doubles", base.allocated)
-		} else {
-			checkBudget(t, "first-load bytes allocated", int(base.allocated), firstLoadAllocBudget,
-				"a warm first load renders; it does not reload the saga or rerun the comparison")
-		}
-		checkGrowth(t, "bytes allocated", base, deeper, int(base.allocated), int(deeper.allocated), firstLoadDeeperAllocGrowth,
-			"four times the code, with the same document and the same evidence")
-		checkGrowth(t, "bytes allocated", base, wider, int(base.allocated), int(wider.allocated), firstLoadWiderAllocGrowth,
-			"four times the comparison may cost about four times the work, and never sixteen")
-
-		if base.retained == 0 {
-			t.Log("retained heap could not be sampled in this run; its budgets are reported by BenchmarkFirstLoadScale")
-			return
-		}
-		checkBudget(t, "retained heap after first load", int(base.retained), firstLoadRetainedBudget,
-			"what the server still holds after answering is what its resident size becomes")
-		// Resident memory has two axes, and they are budgeted separately
-		// because a saga controls them separately. Per changed atom is what a
-		// canonically ranged saga costs; per authored reference is what
-		// explaining the same code one line at a time adds on top, and it is
-		// the axis the diagnosed saga was extreme on.
-		for _, shape := range []firstLoadShape{base, deeper, wider} {
-			if shape.retained == 0 {
-				continue
-			}
-			checkBudget(t, shape.name+" retained heap per changed atom", int(shape.retained)/shape.fixture.Atoms, firstLoadRetainedPerAtomBudget,
-				"the diagnosed saga peaked at 1.49 GB for 532,290 atoms, which is 2.8 KB an atom")
-		}
-		if perLine.retained > base.retained {
-			extra := perLine.fixture.References - base.fixture.References
-			perReference := int(perLine.retained-base.retained) / extra
-			checkBudget(t, "retained heap per extra authored reference", perReference, firstLoadRetainedPerReferenceBudget,
-				fmt.Sprintf("explaining the same %d atoms one line at a time held %d B more, and the diagnosed saga did that %d times",
-					base.fixture.Atoms, perLine.retained-base.retained, 529_599))
-		}
-		if wider.retained > 0 {
-			checkGrowth(t, "retained heap", base, wider, int(base.retained), int(wider.retained), firstLoadWiderRetainedGrowth,
-				"four times the comparison may cost about four times the memory, and never sixteen")
-		}
-	})
+	for _, shape := range []firstLoadShape{atoms, ranges} {
+		t.Run(shape.name+"_growth", func(t *testing.T) {
+			checkBoundedGrowth(t, "root response bytes", base, shape, base.responseBytes, shape.responseBytes,
+				rootResponseGrowthBudget, rootResponseGrowthSlack)
+			checkBoundedGrowth(t, "root materialized nodes", base, shape, base.nodes, shape.nodes,
+				rootNodeGrowthBudget, rootNodeGrowthSlack)
+			checkBoundedGrowth(t, "cold root wall time", base, shape, int64(base.wall), int64(shape.wall),
+				rootWallGrowthBudget, int64(rootWallGrowthSlack))
+			checkBoundedGrowth(t, "retained heap after root", base, shape, base.retained, shape.retained,
+				rootRetainedGrowthBudget, rootRetainedGrowthSlack)
+		})
+	}
 }
 
-// TestFirstLoadMaterializesBoundedDiffNodes budgets what first load builds in
-// memory, which the byte and element budgets above cannot see. The page carries
-// one file's rows; the constructors behind it walk the whole comparison, and
-// that walk is what the allocation and retained-heap budgets measure in
-// aggregate. This states it exactly, as a node census.
-//
-// The accounting today is:
-//
-//	makeFileViews    one *diffAtomView per changed atom and one *DiffLineView
-//	                 per display line, across every changed file
-//	makeSectionView  one *diffAtomView per changed atom, per owning target
-//
-// so a comparison of n atoms with d display lines materializes 2n + d nodes and
-// renders only the selected file's share of them — about 1% on this fixture.
-// That is a real cost at the scale of docs/large-saga-diagnosis.md, where
-// 532,290 atoms is over 1.5 million nodes, and it is the next thing worth
-// removing. It is budgeted rather than fixed here because this work leaves
-// production rendering alone.
-//
-// What the budget defends is that the cost stays exactly that and no worse: a
-// third per-atom projection added to first load, or a per-atom structure that
-// starts fanning out, fails it.
-func TestFirstLoadMaterializesBoundedDiffNodes(t *testing.T) {
-	t.Skip("root no longer materializes comparison nodes")
-	handler, fixture, application := newFirstLoadFixture(t, baseFirstLoadOptions())
-	requireCompleteCoverage(t, "base", application, fixture)
-	page := firstLoadPage(t, handler)
-
-	snapshot := application.snapshot(context.Background())
-	code, selectionErr := makeCodeReviewView(snapshot.document, snapshot.changes, snapshot.report, nil, codeSelection{})
-	if selectionErr != nil {
-		t.Fatal(selectionErr)
-	}
-	root := makeSectionView(snapshot.document.Section, viewScope{changes: snapshot.changesByTarget})
-
-	atomNodes, lineNodes := 0, 0
-	for _, file := range code.Files {
-		atomNodes += len(file.Atoms)
-		lineNodes += len(file.Lines)
-	}
-	sectionNodes := countSectionAtomViews(root)
-
-	atoms, displayLines := len(snapshot.changes.Atoms), len(snapshot.changes.DisplayLines)
-	if atoms != fixture.Atoms {
-		t.Fatalf("the comparison carries %d atoms, the fixture reports %d", atoms, fixture.Atoms)
-	}
-	checkBudget(t, "code-view atom nodes", atomNodes, atoms, "one per changed atom in the comparison")
-	checkBudget(t, "code-view line nodes", lineNodes, displayLines, "one per displayed line of diff")
-	checkBudget(t, "section atom nodes", sectionNodes, atoms, "one per changed atom, per narrative target that owns it")
-	total := atomNodes + lineNodes + sectionNodes
-	checkBudget(t, "diff nodes materialized by first load", total, 2*atoms+displayLines,
-		"first load may walk the comparison once per projection it already has, and must not gain another")
-
-	// The census only means something against what reaches the reviewer. Almost
-	// none of it does, which is the point: the nodes are built, the page is not
-	// made of them.
-	if code.SelectedFile == nil {
-		t.Fatal("first load selected no file, so nothing bounds the rendered rows")
-	}
-	rendered := strings.Count(page, `class="diff-row`)
-	if rendered > len(code.SelectedFile.Lines) {
-		t.Fatalf("first load rendered %d diff rows for a selected file of %d lines; rows are coming from somewhere else",
-			rendered, len(code.SelectedFile.Lines))
-	}
-	t.Logf("first load materialized %d diff nodes for %d atoms and %d display lines, and rendered %d rows (%.2f%% of them)",
-		total, atoms, displayLines, rendered, float64(rendered)/float64(total)*100)
+type reviewPageAllocations struct {
+	name         string
+	fixture      testfixture.LargeSaga
+	code         int64
+	coverageCode int64
+	coverageSaga int64
 }
 
-// BenchmarkFirstLoadScale reports the diagnostic half of these budgets across
-// the same four shapes: wall time and allocations per first load, plus the
-// response size each one produces. Nothing here is asserted — a shared runner
-// varies by more than any regression worth catching — and the reference numbers
-// are recorded in docs/performance.md.
-func BenchmarkFirstLoadScale(b *testing.B) {
+// TestPaginatedReviewEndpointAllocationsStayBoundedAcrossScale is the endpoint
+// half of incremental SSR. A response can contain only 50 rows and still build
+// an eager all-atom projection behind them, so it budgets bytes allocated by a
+// warm page request after the detailed comparison generation has been cached.
+func TestPaginatedReviewEndpointAllocationsStayBoundedAcrossScale(t *testing.T) {
+	base := measureReviewPageAllocations(t, "base", ciFirstLoadOptions())
+	atoms := measureReviewPageAllocations(t, "atom-growth", atomGrowthFirstLoadOptions())
+	ranges := measureReviewPageAllocations(t, "range-growth", rangeGrowthFirstLoadOptions())
+	if atoms.fixture.Atoms != firstLoadScaleFactor*base.fixture.Atoms || atoms.fixture.References != base.fixture.References ||
+		ranges.fixture.Atoms != base.fixture.Atoms || ranges.fixture.References != firstLoadScaleFactor*base.fixture.References {
+		t.Fatalf("review-page fixtures no longer isolate atom and range growth: base=%d/%d, atoms=%d/%d, ranges=%d/%d",
+			base.fixture.Atoms, base.fixture.References, atoms.fixture.Atoms, atoms.fixture.References,
+			ranges.fixture.Atoms, ranges.fixture.References)
+	}
+
+	for _, grown := range []reviewPageAllocations{atoms, ranges} {
+		context := fmt.Sprintf("%s -> %s (%d -> %d atoms, %d -> %d ranges)",
+			base.name, grown.name, base.fixture.Atoms, grown.fixture.Atoms, base.fixture.References, grown.fixture.References)
+		for _, metric := range []struct {
+			name          string
+			before, after int64
+		}{
+			{"code page allocated bytes", base.code, grown.code},
+			{"code-first coverage page allocated bytes", base.coverageCode, grown.coverageCode},
+			{"saga-first coverage page allocated bytes", base.coverageSaga, grown.coverageSaga},
+		} {
+			checkSimpleGrowthWithContext(t, metric.name, metric.before, metric.after,
+				reviewPageAllocationGrowth, reviewPageAllocationGrowthSlack, context)
+		}
+	}
+}
+
+func measureReviewPageAllocations(tb testing.TB, name string, options testfixture.LargeSagaOptions) reviewPageAllocations {
+	tb.Helper()
+	server := newRootTestServer(tb, tb.TempDir(), options)
+	shape := reviewPageAllocations{name: name, fixture: server.fixture}
+
+	measure := func(path string) int64 {
+		tb.Helper()
+		requirePagedReviewResponse(tb, path, server.handler)
+		values := make([]int64, 0, 3)
+		for sample := 0; sample < 3; sample++ {
+			var before, after runtime.MemStats
+			runtime.ReadMemStats(&before)
+			requirePagedReviewResponse(tb, path, server.handler)
+			runtime.ReadMemStats(&after)
+			values = append(values, int64(after.TotalAlloc-before.TotalAlloc))
+		}
+		sort.Slice(values, func(i, j int) bool { return values[i] < values[j] })
+		return values[len(values)/2]
+	}
+
+	shape.code = measure("/api/code?limit=50")
+	shape.coverageCode = measure("/api/coverage?mode=code&limit=50")
+	shape.coverageSaga = measure("/api/coverage?mode=saga&limit=50")
+	if builds := server.application.cache.builds; builds != 1 {
+		tb.Fatalf("%s paginated review requests built %d detailed comparison generations, want one cached generation", name, builds)
+	}
+	for _, path := range []string{"/api/code?limit=201", "/api/coverage?mode=code&limit=201"} {
+		recorder := httptest.NewRecorder()
+		server.handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+		if recorder.Code != http.StatusBadRequest {
+			tb.Errorf("GET %s = %d, want %d for the hard page limit", path, recorder.Code, http.StatusBadRequest)
+		}
+	}
+	tb.Logf("%s review pages: code=%d B allocated, coverage/code=%d B, coverage/saga=%d B",
+		name, shape.code, shape.coverageCode, shape.coverageSaga)
+	return shape
+}
+
+func requirePagedReviewResponse(tb testing.TB, path string, handler *http.ServeMux) {
+	tb.Helper()
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+	if recorder.Code != http.StatusOK {
+		tb.Fatalf("GET %s = %d: %s", path, recorder.Code, firstLine(recorder.Body.String()))
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `data-returned="50"`) || !strings.Contains(body, "data-next-cursor=") {
+		tb.Fatalf("GET %s did not return a 50-row cursor page", path)
+	}
+	if recorder.Header().Get("X-Change-Saga-Next-Cursor") == "" {
+		tb.Fatalf("GET %s omitted its continuation header", path)
+	}
+}
+
+func requireIsolatedScaleAxes(t *testing.T, base, atoms, ranges firstLoadShape) {
+	t.Helper()
+	if atoms.fixture.Atoms != firstLoadScaleFactor*base.fixture.Atoms || atoms.fixture.References != base.fixture.References {
+		t.Fatalf("atom-growth did not isolate atoms: base=%d atoms/%d ranges, grown=%d atoms/%d ranges",
+			base.fixture.Atoms, base.fixture.References, atoms.fixture.Atoms, atoms.fixture.References)
+	}
+	if ranges.fixture.Atoms != base.fixture.Atoms || ranges.fixture.References != firstLoadScaleFactor*base.fixture.References {
+		t.Fatalf("range-growth did not isolate ranges: base=%d atoms/%d ranges, grown=%d atoms/%d ranges",
+			base.fixture.Atoms, base.fixture.References, ranges.fixture.Atoms, ranges.fixture.References)
+	}
+	for _, shape := range []firstLoadShape{base, atoms, ranges} {
+		if shape.fixture.Mappings != shape.fixture.Atoms {
+			t.Fatalf("%s fixture maps %d of %d atoms; a partially covered fixture would make the root artificially cheap",
+				shape.name, shape.fixture.Mappings, shape.fixture.Atoms)
+		}
+	}
+}
+
+func requireBoundedRoot(t *testing.T, shape firstLoadShape) {
+	t.Helper()
+	if shape.diffRows != 0 {
+		t.Errorf("%s root materialized %d diff rows; diff rows belong to an async review endpoint", shape.name, shape.diffRows)
+	}
+	if shape.coverageRows != 0 {
+		t.Errorf("%s root materialized %d coverage rows; coverage rows belong to an async review endpoint", shape.name, shape.coverageRows)
+	}
+	if shape.fullBuilds != 0 {
+		t.Errorf("%s root built the full comparison/coverage model %d times; a small response cannot hide eager server work",
+			shape.name, shape.fullBuilds)
+	}
+	if shape.wall > rootWallCeiling {
+		t.Errorf("%s cold root wall time exceeded its smoke ceiling: %s > %s", shape.name, shape.wall, rootWallCeiling)
+	}
+	if shape.retained > rootRetainedCeiling {
+		t.Errorf("%s root retained %d B, budget %d B; the shell must not retain the full comparison/coverage model",
+			shape.name, shape.retained, rootRetainedCeiling)
+	}
+}
+
+// TestRootMutationStaysBoundedAndIsolated proves that the write path does not
+// smuggle review-surface construction back into the following root request and
+// does not perturb a separate served saga. It intentionally uses two app
+// instances: cache generations and mutation visibility are per saga, not
+// process-global.
+func TestRootMutationStaysBoundedAndIsolated(t *testing.T) {
+	first := newRootTestServer(t, t.TempDir(), ciFirstLoadOptions())
+	peer := newRootTestServer(t, t.TempDir(), ciFirstLoadOptions())
+
+	before := timedRootRequest(t, first.handler)
+	peerBefore := timedRootRequest(t, peer.handler)
+	requireRootMarkup(t, "mutation baseline", before.body)
+	requireRootMarkup(t, "peer baseline", peerBefore.body)
+
+	values := url.Values{
+		"target": {saga.SagaTarget("large-benchmark")},
+		"state":  {"approved"},
+		"body":   {"Bounded mutation decision."},
+	}
+	started := time.Now()
+	request := httptest.NewRequest(http.MethodPost, "/api/review", strings.NewReader(values.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	recorder := httptest.NewRecorder()
+	first.handler.ServeHTTP(recorder, request)
+	mutationWall := time.Since(started)
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("review mutation = %d: %s", recorder.Code, firstLine(recorder.Body.String()))
+	}
+	if mutationWall > mutationWallCeiling {
+		t.Errorf("review mutation exceeded its smoke ceiling: %s > %s", mutationWall, mutationWallCeiling)
+	}
+
+	after := timedRootRequest(t, first.handler)
+	peerAfter := timedRootRequest(t, peer.handler)
+	requireRootMarkup(t, "root after mutation", after.body)
+	if !strings.Contains(after.body, "Bounded mutation decision.") {
+		t.Error("the bounded root did not expose the decision written immediately before it")
+	}
+	if peerAfter.body != peerBefore.body || strings.Contains(peerAfter.body, "Bounded mutation decision.") {
+		t.Error("mutating one saga changed the root response of a separate served saga")
+	}
+	if builds := first.application.cache.builds; builds != 0 {
+		t.Errorf("mutation plus following root built the full comparison/coverage model %d times", builds)
+	}
+	if builds := peer.application.cache.builds; builds != 0 {
+		t.Errorf("unmodified peer root built the full comparison/coverage model %d times", builds)
+	}
+	checkMutationEnvelope(t, before, after)
+	t.Logf("mutation: %s; following root: %s, %d B, %d nodes; peer remained byte-identical",
+		mutationWall, after.wall, len(after.body), rootNodeCount(after.body))
+}
+
+type rootTestServer struct {
+	handler     *http.ServeMux
+	application *app
+	fixture     testfixture.LargeSaga
+}
+
+func newRootTestServer(tb testing.TB, parent string, options testfixture.LargeSagaOptions) rootTestServer {
+	tb.Helper()
+	fixture, err := testfixture.GenerateLargeSaga(context.Background(), parent, options)
+	if err != nil {
+		tb.Fatal(err)
+	}
+	tmpl, err := newPageTemplate()
+	if err != nil {
+		tb.Fatal(err)
+	}
+	application := &app{
+		root: fixture.Root, sourceDir: fixture.Repository, template: tmpl,
+	}
+	return rootTestServer{handler: newMux(application), application: application, fixture: fixture}
+}
+
+type timedResponse struct {
+	body string
+	wall time.Duration
+}
+
+func timedRootRequest(tb testing.TB, handler *http.ServeMux) timedResponse {
+	tb.Helper()
+	started := time.Now()
+	body := firstLoadPage(tb, handler)
+	return timedResponse{body: body, wall: time.Since(started)}
+}
+
+func checkMutationEnvelope(t *testing.T, before, after timedResponse) {
+	t.Helper()
+	checkSimpleGrowth(t, "root response bytes after mutation", int64(len(before.body)), int64(len(after.body)),
+		rootResponseGrowthBudget, rootResponseGrowthSlack)
+	checkSimpleGrowth(t, "root materialized nodes after mutation", rootNodeCount(before.body), rootNodeCount(after.body),
+		rootNodeGrowthBudget, rootNodeGrowthSlack)
+	limit := time.Duration(float64(before.wall)*rootWallGrowthBudget) + rootWallGrowthSlack
+	if after.wall > limit || after.wall > rootWallCeiling {
+		t.Errorf("root wall time after mutation grew from %s to %s, budget %s and ceiling %s",
+			before.wall, after.wall, limit, rootWallCeiling)
+	}
+}
+
+// TestDaylightRootFirstLoadScale is an opt-in local harness, never ordinary CI.
+// The generated comparison closely matches the diagnosed 532,290-atom shape:
+// 2,666 files with 100 replaced lines produce 533,200 old/new line atoms, all
+// authored as single-line references.
+func TestDaylightRootFirstLoadScale(t *testing.T) {
+	if os.Getenv(daylightScaleEnvironment) != "1" {
+		t.Skip("set " + daylightScaleEnvironment + "=1 to run the Daylight-scale root harness")
+	}
+	options := testfixture.DefaultLargeSagaOptions()
+	options.SourceFiles = 2_666
+	options.ChangedLinesPerFile = 100
+	options.CoverageRangeWidth = 1
+	options.CoverageTargets = 8
+	options.ReviewsPerFragment = 0
+	options.Threads = 0
+	options.DiffReviews = 0
+
+	shape := measureRootFirstLoad(t, "daylight", options)
+	requireBoundedRoot(t, shape)
+	t.Logf("DAYLIGHT ROOT: %d atoms, %d ranges | %d B, %d nodes, %s median cold wall, %d B retained, %d full builds",
+		shape.fixture.Atoms, shape.fixture.References, shape.responseBytes, shape.nodes, shape.wall, shape.retained, shape.fullBuilds)
+}
+
+// BenchmarkRootFirstLoadScale is the diagnostic companion to the asserted
+// suite. Fixture construction stays outside the timed region.
+func BenchmarkRootFirstLoadScale(b *testing.B) {
 	shapes := []struct {
 		name    string
 		options testfixture.LargeSagaOptions
 	}{
-		{"base", baseFirstLoadOptions()},
-		{"deeper", deeperFirstLoadOptions()},
-		{"wider", widerFirstLoadOptions()},
-		{"per_line", perLineFirstLoadOptions()},
+		{"base", ciFirstLoadOptions()},
+		{"atom_growth", atomGrowthFirstLoadOptions()},
+		{"range_growth", rangeGrowthFirstLoadOptions()},
 	}
 	for _, shape := range shapes {
 		b.Run(shape.name, func(b *testing.B) {
@@ -372,120 +411,129 @@ func BenchmarkFirstLoadScale(b *testing.B) {
 					b.Fatalf("status = %d", recorder.Code)
 				}
 				b.ReportMetric(float64(recorder.Body.Len()), "response-B")
+				b.ReportMetric(float64(rootNodeCount(recorder.Body.String())), "nodes")
 			}
 		})
 	}
 }
 
-func countSectionAtomViews(view *sectionView) int {
-	total := len(view.Changes)
-	for _, fragment := range view.FragmentViews {
-		total += len(fragment.Changes)
-		for _, landmark := range fragment.LandmarkViews {
-			total += len(landmark.Changes)
-		}
-	}
-	for _, child := range view.ChildViews {
-		total += countSectionAtomViews(child)
-	}
-	return total
-}
-
-func checkGrowth(tb testing.TB, name string, from, to firstLoadShape, before, after int, budget float64, why string) {
+func measureRootFirstLoad(tb testing.TB, name string, options testfixture.LargeSagaOptions) firstLoadShape {
 	tb.Helper()
-	if before <= 0 {
-		tb.Fatalf("%s measured %d on the %s fixture", name, before, from.name)
+	shape := firstLoadShape{name: name}
+	fixture, err := testfixture.GenerateLargeSaga(context.Background(), tb.TempDir(), options)
+	if err != nil {
+		tb.Fatal(err)
 	}
-	ratio := float64(after) / float64(before)
-	comparison := float64(to.fixture.Atoms) / float64(from.fixture.Atoms)
-	if ratio > budget {
-		tb.Fatalf("%s grew %.2fx from %s to %s (%d -> %d) for %.0fx the changed atoms, want at most %.2fx\n  %s\n  See docs/performance.md before raising this budget.",
-			name, ratio, from.name, to.name, before, after, comparison, budget, why)
+	shape.fixture = fixture
+	tmpl, err := newPageTemplate()
+	if err != nil {
+		tb.Fatal(err)
 	}
-	tb.Logf("%s: %.2fx from %s to %s (%d -> %d) for %.0fx the changed atoms, budget %.2fx",
-		name, ratio, from.name, to.name, before, after, comparison, budget)
-}
 
-// measureFirstLoad serves the page twice: once to build the snapshot, and once
-// with memory sampled around it, so what is measured is rendering rather than
-// saga loading, Git diffing, and coverage evaluation.
-func measureFirstLoad(tb testing.TB, name string, options testfixture.LargeSagaOptions) firstLoadShape {
-	tb.Helper()
-	shape := firstLoadShape{name: name, options: options}
-
-	// Retained memory is sampled as this fixture's contribution to the live
-	// heap rather than as the process total: several shapes are measured in one
-	// test binary, and an earlier fixture awaiting collection would otherwise be
-	// charged to a later one.
 	runtime.GC()
 	runtime.GC()
 	var idle runtime.MemStats
 	runtime.ReadMemStats(&idle)
 
-	handler, fixture, application := newFirstLoadFixture(tb, options)
-	shape.fixture = fixture
-	requireCompleteCoverage(tb, name, application, fixture)
-	firstLoadPage(tb, handler)
+	walls := make([]time.Duration, 0, 3)
+	var handler *http.ServeMux
+	var page string
+	for sample := 0; sample < 3; sample++ {
+		application := &app{
+			root: fixture.Root, sourceDir: fixture.Repository, template: tmpl,
+		}
+		handler = newMux(application)
+		started := time.Now()
+		page = firstLoadPage(tb, handler)
+		walls = append(walls, time.Since(started))
+		shape.fullBuilds += int64(application.cache.builds)
+	}
+	shape.wall = medianDuration(walls)
 
-	var before, after runtime.MemStats
-	runtime.GC()
-	runtime.ReadMemStats(&before)
-	page := firstLoadPage(tb, handler)
-	runtime.ReadMemStats(&after)
-	shape.allocated = after.TotalAlloc - before.TotalAlloc
-
-	// Two collections, so nothing counted here is merely uncollected garbage
-	// from rendering. What survives is what the server holds while it waits for
-	// the next request, which is the closest deterministic proxy for resident
-	// size a test can take in process.
 	runtime.GC()
 	runtime.GC()
 	var held runtime.MemStats
 	runtime.ReadMemStats(&held)
 	if held.HeapAlloc > idle.HeapAlloc {
-		shape.retained = held.HeapAlloc - idle.HeapAlloc
+		shape.retained = int64(held.HeapAlloc - idle.HeapAlloc)
 	}
 
-	shape.bytes = len(page)
-	shape.elements = strings.Count(page, "<")
-	shape.ranges = strings.Count(page, `class="manifest-range"`)
+	shape.responseBytes = int64(len(page))
+	shape.nodes = rootNodeCount(page)
 	shape.diffRows = strings.Count(page, `class="diff-row`)
-	shape.codeCells = strings.Count(page, "data-code>")
-	shape.selected = ""
-
-	tb.Logf("%s: %d atoms in %d files, %d authored ranges | %d B, %d elements, %d coverage rows, %d inlined diff rows | %d B allocated, %d B retained",
-		name, fixture.Atoms, options.SourceFiles, fixture.References,
-		shape.bytes, shape.elements, shape.ranges, shape.diffRows, shape.allocated, shape.retained)
-	// The handler must outlive the memory samples taken above.
+	shape.coverageRows = strings.Count(page, `class="manifest-range"`)
+	tb.Logf("%s: %d atoms, %d ranges | %d B, %d nodes, %d diff rows, %d coverage rows | %s median cold wall, %d B retained, %d full builds",
+		name, fixture.Atoms, fixture.References, shape.responseBytes, shape.nodes, shape.diffRows, shape.coverageRows,
+		shape.wall, shape.retained, shape.fullBuilds)
 	runtime.KeepAlive(handler)
 	return shape
 }
 
-// requireCompleteCoverage is what makes every budget above mean something. A
-// page is trivially small for a saga that explains nothing, so each fixture has
-// to be a fully covered large saga before it is measured: every changed atom
-// owned, nothing uncovered, nothing overlapping, and no stale reference.
-func requireCompleteCoverage(tb testing.TB, name string, application *app, fixture testfixture.LargeSaga) {
+func requireRootMarkup(tb testing.TB, name, page string) {
 	tb.Helper()
-	snapshot := application.snapshot(context.Background())
-	if snapshot == nil {
-		tb.Fatalf("%s fixture saga could not be loaded", name)
+	if rows := strings.Count(page, `class="diff-row`); rows != 0 {
+		tb.Errorf("%s materialized %d diff rows", name, rows)
 	}
-	if snapshot.diffErr != nil {
-		tb.Fatalf("%s fixture comparison could not be read: %v", name, snapshot.diffErr)
-	}
-	summary := snapshot.report.Summary
-	if !snapshot.report.Complete || summary.Total != fixture.Atoms || summary.Covered != fixture.Atoms ||
-		summary.Uncovered != 0 || summary.Overlapping != 0 || summary.Orphaned != 0 {
-		tb.Fatalf("%s fixture is not a fully covered large saga, so its first-load budget would prove nothing: %d atoms, %#v",
-			name, fixture.Atoms, summary)
-	}
-	if fixture.Atoms < 4_000 {
-		tb.Fatalf("%s fixture has only %d changed atoms; these budgets describe large comparisons", name, fixture.Atoms)
+	if rows := strings.Count(page, `class="manifest-range"`); rows != 0 {
+		tb.Errorf("%s materialized %d coverage rows", name, rows)
 	}
 }
 
-func newFirstLoadFixture(tb testing.TB, options testfixture.LargeSagaOptions) (*http.ServeMux, testfixture.LargeSaga, *app) {
+// rootNodeCount counts opening tags in the response. It deliberately avoids a
+// browser dependency while measuring the nodes an HTML parser materializes.
+func rootNodeCount(page string) int64 {
+	var nodes int64
+	for offset := 0; offset < len(page); offset++ {
+		if page[offset] != '<' || offset+1 == len(page) {
+			continue
+		}
+		next := page[offset+1]
+		if next >= 'A' && next <= 'Z' || next >= 'a' && next <= 'z' {
+			nodes++
+		}
+	}
+	return nodes
+}
+
+func medianDuration(values []time.Duration) time.Duration {
+	ordered := append([]time.Duration(nil), values...)
+	sort.Slice(ordered, func(i, j int) bool { return ordered[i] < ordered[j] })
+	return ordered[len(ordered)/2]
+}
+
+func checkBoundedGrowth(tb testing.TB, metric string, base, grown firstLoadShape, before, after int64, ratio float64, slack int64) {
+	tb.Helper()
+	context := fmt.Sprintf("%s -> %s (%d -> %d atoms, %d -> %d ranges)",
+		base.name, grown.name, base.fixture.Atoms, grown.fixture.Atoms, base.fixture.References, grown.fixture.References)
+	checkSimpleGrowthWithContext(tb, metric, before, after, ratio, slack, context)
+}
+
+func checkSimpleGrowth(tb testing.TB, metric string, before, after int64, ratio float64, slack int64) {
+	tb.Helper()
+	checkSimpleGrowthWithContext(tb, metric, before, after, ratio, slack, "")
+}
+
+func checkSimpleGrowthWithContext(tb testing.TB, metric string, before, after int64, ratio float64, slack int64, context string) {
+	tb.Helper()
+	if before < 0 || after < 0 {
+		tb.Fatalf("%s produced a negative measurement: %d -> %d", metric, before, after)
+	}
+	limit := int64(float64(before)*ratio) + slack
+	if after > limit {
+		tb.Fatalf("%s is not bounded: %d -> %d, limit %d (%.2fx + %d)%s\n  Incremental SSR must not eagerly materialize the full comparison or coverage audit. See docs/performance.md before raising this budget.",
+			metric, before, after, limit, ratio, slack, formatGrowthContext(context))
+	}
+	tb.Logf("%s: %d -> %d, limit %d%s", metric, before, after, limit, formatGrowthContext(context))
+}
+
+func formatGrowthContext(value string) string {
+	if value == "" {
+		return ""
+	}
+	return " [" + value + "]"
+}
+
+func newFirstLoadHandler(tb testing.TB, options testfixture.LargeSagaOptions) *http.ServeMux {
 	tb.Helper()
 	fixture, err := testfixture.GenerateLargeSaga(context.Background(), tb.TempDir(), options)
 	if err != nil {
@@ -495,13 +543,7 @@ func newFirstLoadFixture(tb testing.TB, options testfixture.LargeSagaOptions) (*
 	if err != nil {
 		tb.Fatal(err)
 	}
-	application := &app{root: fixture.Root, sourceDir: fixture.Repository, template: tmpl}
-	return newMux(application), fixture, application
-}
-
-func newFirstLoadHandler(tb testing.TB, options testfixture.LargeSagaOptions) *http.ServeMux {
-	tb.Helper()
-	handler, _, _ := newFirstLoadFixture(tb, options)
+	handler := newMux(&app{root: fixture.Root, sourceDir: fixture.Repository, template: tmpl})
 	firstLoadPage(tb, handler)
 	return handler
 }

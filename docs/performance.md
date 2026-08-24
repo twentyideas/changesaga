@@ -1,30 +1,35 @@
 # Large-saga performance
 
-The reviewer server sends one page. That page describes the whole comparison and
-the whole story — every chapter, every changed file, and both directions of the
-coverage audit — and it carries almost none of either.
-
-The saga document on that page is a shell: the saga's identity, the coverage
-totals, the overview's explanations as descriptors, one summary per chapter, and
-the navigation outline beside it. The code it carries is the one file the Code
-Diff tab has selected. Everything else arrives on demand, from an endpoint
-bounded by one node:
+The reviewer server's root response is a shell. It carries saga identity,
+aggregate progress and coverage totals, the navigation outline, and descriptors
+for narrative content. It carries zero diff rows and zero coverage rows. Those
+details arrive incrementally from cursor-bounded endpoints only after a reviewer
+asks for them:
 
 | Endpoint | Bounded by | Fetched when |
 | --- | --- | --- |
-| `/api/file-diff` | one changed file | a reviewer opens that file |
+| `/api/code` | one cursor-bounded code page | a reviewer opens Code Diff or selects a file |
+| `/api/coverage` | one cursor-bounded audit page | a reviewer opens or advances Coverage |
+| `/api/file-diff` | one cursor-bounded file page | a reviewer opens linked code |
 | `/api/section` | one chapter's structure | a reviewer opens that chapter |
 | `/api/fragment` | one explanation | that explanation comes into view |
 | `/api/locate` | one anchor | a permalink names something not on the page |
 
-The loaded saga, Git comparison, and coverage report behind all of those are
-reused until the bytes they were built from change.
+Review pages default to 50 rows and reject limits above 200. Continuations use
+`X-Change-Saga-Next-Cursor` together with `data-next-cursor` and
+`data-returned` in the rendered fragment.
 
-That boundary is the thing the budgets below defend, and it has two halves. A
-payload that grows with the size of the comparison means a diff body has been
-inlined again. A payload that grows with the size of the *document* means the
-narrative tree is being rendered eagerly again — one explanation's prose on the
-first load is the whole of that regression, whatever the page happens to weigh.
+The detailed review model is built and retained by those review endpoints, not
+by `GET /`. A small root payload is not enough: eagerly constructing the full
+Git comparison and coverage projection and then discarding their markup still
+violates the contract.
+
+The budgets therefore defend both visible and hidden work. Root response bytes
+and materialized nodes must stay flat as atom and authored-range counts grow;
+the cold request's wall time and retained heap have bounded slopes; and a test
+counter asserts that root never crosses the full-comparison build boundary. The
+narrative side has the same rule: one explanation's prose on first load is the
+whole eager-rendering regression, whatever the page happens to weigh.
 
 ## Fixtures
 
@@ -55,10 +60,11 @@ proves the concentrated shape still covers every atom exactly once, and
 `TestDefaultLargeSagaOptionsKeepTheirSpreadRangedShape` pins the default the
 byte budgets above are measured against.
 
-The first-load budgets scale that same generator along one axis at a time —
-more changed lines per file, more changed files, or the same code explained one
-reference per line — and check each shape for complete coverage before measuring
-it. The shapes are listed under "Scale-relative first-load budgets" below.
+The CI first-load contract uses a smaller instance of that generator and moves
+one axis at a time: eight times the atoms with the authored-range count fixed,
+then eight times the authored ranges with the atom count fixed. The mappings are
+still exact and complete. The default benchmark fixture remains available for
+profiling, while a separate opt-in harness reproduces Daylight scale.
 
 The browser suite builds its own fixed saga through the real CLI
 (`largeSagaScale` in `e2e/support/fixture-builder.ts`): 6 chapters, 18
@@ -72,32 +78,35 @@ targets, which is roughly nine times the generated fixture.
 
 Budgets come in kinds, and the difference matters when one fails.
 
-**Hard budgets** are byte counts, element counts, request counts, and growth
-ratios over deterministic fixtures. CI asserts them and a breach always means
-the payload changed shape. They live in `internal/server/budget_test.go`,
+**Hard budgets** are byte counts, materialized-node counts, request/build
+counts, retained heap, smoke ceilings, and growth ratios over deterministic
+fixtures. CI asserts them. They live in `internal/server/budget_test.go`,
 `internal/server/firstload_budget_test.go`, and
 `e2e/tests/performance.spec.ts`, and each failure prints what was measured, what
 the budget was, and why the budget exists.
 
-**Diagnostic metrics** are wall-clock times. A shared CI runner varies far more
-than any regression worth catching — repeated first loads of one unchanged
-fixture varied by 3.9x on an idle machine — so these are reported rather than
-asserted: the Go benchmarks print them, the browser suite attaches
-`first-load-metrics.json` to its result, and the reference numbers are recorded
-below. A repeatable slowdown should be investigated before a budget is adjusted.
+**Diagnostic metrics** retain precise wall-clock and allocation figures. Shared
+CI runners are noisy, so the scale contract asserts the median of three cold
+requests with both ratio and additive slack plus a generous smoke ceiling; it
+does not pretend that a single millisecond target is portable. Go benchmarks
+print the unrounded values, and the browser suite attaches
+`first-load-metrics.json` to its result.
 
-Allocation sits between the two. Bytes allocated and retained heap over the same
-warm request are reproducible to within 0.1% in one process, so the scale-relative
-budgets do assert them; the absolute figures are skipped under `-race`, which
-roughly doubles them.
+Retained heap is sampled after two collections. It is deliberately paired with
+the detailed-comparison cache build counter: the heap slope catches retained
+hidden work, while a nonzero root build count catches an eager comparison that
+happened to be collected before the sample.
 
 ### Hard budgets
 
 | Surface | Budget | Measured | Where |
 | --- | ---: | ---: | --- |
-| First-load HTML, 4,096-line comparison | 3,400,000 B | 2,890,860 B | `TestLargeSagaFirstLoadStaysWithinPayloadBudgets` |
-| First-load HTML elements | 90,000 | 75,127 | same |
-| Diff rows in first-load HTML | 256 | 128 | same |
+| Diff rows in root HTML | 0 | 0 | `TestRootFirstLoadStaysBoundedAsAtomsAndRangesGrow` |
+| Coverage rows in root HTML | 0 | 0 | same |
+| Full comparison/coverage builds caused by root | 0 | 0 | same |
+| Review-page default / hard maximum | 50 / 200 rows | 50 / 200 | `TestPaginatedReviewEndpointAllocationsStayBoundedAcrossScale` |
+| Cold root wall-time smoke ceiling | 2 s | platform-dependent | `TestRootFirstLoadStaysBoundedAsAtomsAndRangesGrow` |
+| Heap retained after root | 32 MiB | platform-dependent | same |
 | Saga document bytes on first load | 60,000 B | 39,126 B | `TestLargeSagaFirstLoadShipsOnlyTheChapterShell` |
 | Saga document elements on first load | 1,600 | 1,048 | same |
 | Explanation content in the first-load document | 0 | 0 | same |
@@ -106,98 +115,89 @@ roughly doubles them.
 | One coverage diff response | 45,000 B | 32,238 B | same |
 | One chapter body response | 140,000 B | 93,144 B | `TestChapterAndExplanationEndpointsStayWithinBudgets` |
 | One explanation response | 40,000 B | 18,303 B | same |
-| Snapshot builds across 5 unchanged requests | 1 | 1 | `TestReviewSnapshotIsReusedUntilTheSagaChanges` |
-| Snapshot builds after a review decision | 2 | 2 | same |
 | First-load document, browser, 1,536-line comparison | 1,200,000 B | 414,626 B | `a large saga's first load stays within its payload budgets` |
 | First-load DOM elements, browser | 6,000 | 4,978 | same |
-| Diff rows in the first-load DOM | 160 | 96 | same |
+| Diff rows in the first-load DOM | 0 | 0 | same |
+| Coverage rows in the first-load DOM | 0 | 0 | same |
 | Diff-body requests before a file is opened | 0 | 0 | `loads a coverage file diff only once the reviewer opens that file` |
 | Diff-body requests when reopening the same file | 1 | 1 | same |
 | Chapter-body requests before a chapter is opened | 0 | 0 | `ships the saga as a shell and fetches each chapter and explanation once, when it is reached` |
 | Chapter-body requests when reopening the same chapter | 1 | 1 | same |
 
 The request-count budgets are the boundary stated as behaviour rather than as a
-size: switching to Coverage fetches nothing, opening one file fetches exactly
-that file, opening one chapter fetches exactly that chapter, and reopening
-either fetches nothing again.
-
-`TestConcurrentRequestsShareOneSnapshotSafely` is the cost of reuse, not a size:
-sixteen concurrent requests share one loaded saga, and under `-race` it fails if
-any handler writes to the shared model.
+size: root fetches no review detail; opening Code Diff or Coverage fetches one
+cursor-bounded page; opening one chapter fetches exactly that chapter; and a
+previously fetched page is reused until its generation changes.
 
 ### Scale-relative first-load budgets
 
 Every budget above is a level over one fixed fixture, and the whole-codebase
 failure in [large-saga-diagnosis.md](large-saga-diagnosis.md) is not a level. A
-page that costs 5 MB for 4,096 atoms and 5 MB for 65,536 atoms is healthy; a
-page that costs 5 MB and then 80 MB is the defect, and both pass any ceiling the
-small fixture passes.
-
-`internal/server/firstload_budget_test.go` therefore measures the same first
-load over four fully covered fixtures that each move one axis, and budgets what
-may and may not grow with them:
+root that stays small after eagerly allocating and discarding the complete
+review model is also defective. `internal/server/firstload_budget_test.go`
+therefore measures the same cold root over three fully mapped fixtures and
+moves one axis at a time:
 
 | Shape | Files | Changed lines each | Atoms | Authored ranges |
 | --- | ---: | ---: | ---: | ---: |
-| `base` | 32 | 64 | 4,096 | 1,024 |
-| `deeper` | 32 | 256 | 16,384 | 1,024 |
-| `wider` | 128 | 64 | 16,384 | 4,096 |
-| `per-line` | 32 | 64 | 4,096 | 4,096 |
+| `base` | 8 | 32 | 512 | 64 |
+| `atom-growth` | 8 | 256 | 4,096 | 64 |
+| `range-growth` | 8 | 32 | 512 | 512 |
 
-`deeper` quadruples the changed code and widens the range in step, so the
-document and the authored evidence are unchanged and only the code moved.
-`wider` quadruples the whole comparison. `per-line` explains exactly the same
-code as `base` one line at a time, which is how the diagnosed saga was authored.
-`TestScalingChangedLinesWithRangeWidthHoldsEvidenceConstant` pins the fixture
-property `deeper` depends on, and every shape is checked for complete coverage
-before it is measured — a saga that explains less would otherwise buy a smaller
-page.
+The story, file count, and review overlay are identical. `atom-growth` widens
+each authored range with the changed code, holding evidence count fixed.
+`range-growth` explains the base comparison one line at a time, holding atom
+count fixed. The generated fixture reports exact mapping counts, and the test
+rejects any shape that maps fewer atoms than the comparison contains.
 
-| Invariant | Budget | Measured | Axis |
-| --- | ---: | ---: | --- |
-| First-load bytes, 4x the changed code | 1.35x | 1.09x | `base` -> `deeper` |
-| First-load elements, 4x the changed code | 1.25x | 1.06x | `base` -> `deeper` |
-| Coverage rows rendered | = authored ranges | = authored ranges | all four |
-| Coverage rows, 4x the changed code | unchanged | 1,024 -> 1,024 | `base` -> `deeper` |
-| Inlined diff rows, 4x the changed files | unchanged | 128 -> 128 | `base` -> `wider` |
-| Inlined diff rows, per-line evidence | unchanged | 128 -> 128 | `base` -> `per-line` |
-| First-load bytes per authored range | 4,096 B | 3,357 B | `base` -> `per-line` |
-| Bytes allocated, warm first load | 125,000,000 | 104,142,528 | `base` |
-| Bytes allocated, 4x the changed code | 2.5x | 1.60x | `base` -> `deeper` |
-| Bytes allocated, 4x the comparison | 5x | 3.54x | `base` -> `wider` |
-| Retained heap after first load | 16,000,000 B | 11,233,064 B | `base` |
-| Retained heap per changed atom | 4,096 B | 2,742 B | `base` |
-| Retained heap per extra authored range | 5,120 B | 3,640 B | `base` -> `per-line` |
-| Retained heap, 4x the comparison | 5x | 3.11x | `base` -> `wider` |
-| Diff nodes materialized by first load | 2n + d | 2n + d | `base` |
+| Invariant | Budget | Axis |
+| --- | ---: | --- |
+| Diff rows in root | 0 | all three |
+| Coverage rows in root | 0 | all three |
+| Full comparison/coverage builds caused by root | 0 | all three |
+| Root response bytes | 1.10× base + 8 KiB | both growth axes |
+| Materialized root nodes | 1.05× base + 16 | both growth axes |
+| Median cold root wall time | 3× base + 50 ms; 2 s ceiling | both growth axes |
+| Retained heap after root | 1.5× base + 2 MiB; 32 MiB ceiling | both growth axes |
+| Warm 50-row review-page allocation | 1.5× base + 512 KiB | both growth axes, all three review surfaces |
 
-Two of these are the coefficients the diagnosed saga was extreme on. Each
-authored evidence range costs about 3.4 KB of page and about 3.6 KB of resident
-memory; that saga authored 529,599 of them for code that needed 5,330, which is
-most of both its 230 MB on disk and its 1.49 GB peak. The budgets fail with that
-extrapolation printed, so a breach names the real failure rather than a number.
+Response and node budgets defend what reaches the browser. The detailed
+comparison cache build count must remain zero across root requests, so the
+server cannot pass by constructing a `ChangeSet` and coverage report and then
+emitting a small page. The heap sample runs after two collections, so an atom-
+or range-proportional model cannot remain attached to the root handler. Together
+they replace the former contract that explicitly allowed `2n + d` server-side
+diff nodes and one eagerly rendered row per authored range.
 
-The coverage-row invariant is the sharpest statement of the boundary: the audit
-renders one row per range a reviewer wrote and never one per atom, at every
-scale. `deeper` proves it by quadrupling the atoms and leaving the row count
-untouched.
+Pagination has its own hidden-work check. After warming one detailed comparison
+generation, the test measures allocated bytes for 50-row `/api/code`,
+code-first `/api/coverage`, and saga-first `/api/coverage` requests. Eight times
+the atoms or ranges may cost at most 1.5× the base plus 512 KiB. This rejects an
+endpoint that returns 50 rows only after eagerly projecting every row.
 
-Wall time is measured and never asserted, here as elsewhere. Repeated first
-loads of one unchanged fixture on an idle machine varied by 3.9x, which is wider
-than any regression worth catching, so `BenchmarkFirstLoadScale` reports it
-instead. Allocated bytes and retained heap over the same requests varied by
-under 0.1%, which is what makes them safe to assert; the absolute allocation
-budget is skipped under `-race`, which roughly doubles it, while the growth
-ratios hold either way because both sides pay the same overhead.
+Wall time is the median of three independent cold root renders over the same
+generated files. Ratio and additive slack make the assertion tolerant of shared
+runners, while the full-build counter supplies the deterministic failure for
+the regression wall time is meant to expose. `BenchmarkRootFirstLoadScale`
+reports warm allocation, response bytes, and node counts for investigation.
 
-`TestFirstLoadMaterializesBoundedDiffNodes` budgets what the page cannot show.
-`makeFileViews` builds one `*diffAtomView` per changed atom and one
-`*DiffLineView` per display line across every changed file, and `makeSectionView`
-builds another `*diffAtomView` per atom per owning target, so first load
-materializes `2n + d` nodes and renders about 1% of them. That is a real cost —
-532,290 atoms is over 1.5 million nodes — and removing it is listed under
-remaining bottlenecks. The budget pins the accounting exactly, so a third
-per-atom projection added to first load fails.
+### Daylight-scale root harness
+
+Ordinary CI stops at 4,096 atoms. The diagnosed workload is an opt-in generated
+fixture: 2,666 files with 100 replaced lines produce 533,200 old/new line atoms,
+close to Daylight's 532,290, and every atom is authored as a single-line range.
+Run it locally on an otherwise idle machine with a generous timeout:
+
+```sh
+CHANGE_SAGA_DAYLIGHT_SCALE=1 go test ./internal/server \
+  -run '^TestDaylightRootFirstLoadScale$' -count=1 -v -timeout=30m
+```
+
+`TestDaylightRootFirstLoadScale` prints root bytes, materialized nodes, median
+cold wall time, retained heap, and full-comparison build count. Fixture
+generation is intentionally outside the request timing. Do not add this command
+to routine CI or compare its wall time with the smaller fixture; use it for
+before/after measurements on the same machine and commit.
 
 ### Diagnostic reference results
 
@@ -206,19 +206,13 @@ reporting medians. Run the set with:
 
 ```sh
 go test ./internal/coverage ./internal/cli ./internal/gitattribution ./internal/reviewapp ./internal/server \
-  -run '^$' -bench 'LargeSaga|LargeMappedDiff|FirstLoadScale' -benchmem -benchtime=5x -count=3
+  -run '^$' -bench 'LargeSaga|LargeMappedDiff|RootFirstLoadScale' -benchmem -benchtime=5x -count=3
 ```
 
 | Benchmark | Time | Allocated | Output |
 | --- | ---: | ---: | ---: |
-| `BenchmarkLargeSagaRealisticHTTP/first_load` | 137 ms | 98.8 MB | 5,260,628 B |
-| `BenchmarkFirstLoadScale/base` | 152 ms | 98.7 MB | 5,260,613 B |
-| `BenchmarkFirstLoadScale/deeper` | 204 ms | 160.6 MB | 5,759,076 B |
-| `BenchmarkFirstLoadScale/wider` | 416 ms | 352.7 MB | 15,729,946 B |
-| `BenchmarkFirstLoadScale/per_line` | 251 ms | 197.1 MB | 15,573,829 B |
 | `BenchmarkLargeSagaRealisticHTTP/file_diff` | 29.0 ms | 6.38 MB | 162,399 B |
 | `BenchmarkLargeSagaRealisticHTTP/coverage_diff` | 27.6 ms | 5.50 MB | 32,238 B |
-| `BenchmarkLargeSagaHTTP/first_load` | 19.5 ms | 7.85 MB | 638,337 B |
 | `BenchmarkLargeSagaHTTP/chapter_navigation` | 9.41 ms | 0.76 MB | — |
 | `BenchmarkLargeSagaCoverageView` | 9.55 ms | 11.50 MB | — |
 | `BenchmarkLargeSagaCoverageRender` | 6.82 ms | 2.80 MB | — |
@@ -228,15 +222,13 @@ go test ./internal/coverage ./internal/cli ./internal/gitattribution ./internal/
 | `BenchmarkValidateLargeSaga` | 61.0 ms | 15.08 MB | — |
 | `BenchmarkStatusLargeSaga` | 156 ms | 50.0 MB | — |
 
-`BenchmarkLargeSagaHTTP` uses a coverage-free saga and so exercises document
-rendering only. `BenchmarkLargeSagaRealisticHTTP` uses the fully covered
-fixture and is the one that reflects a real comparison. `BenchmarkFirstLoadScale`
-runs the same request over the four shapes the scale-relative budgets assert on,
-and is the diagnostic companion to them: `deeper` costs 1.6x `base` for four
-times the code, while `wider` costs 3.6x for four times the whole comparison and
-`per_line` costs 2.0x for the same code explained one line at a time. Keep the fixture and
-`-benchtime` identical for before-and-after comparisons, use `benchstat` when
-it is available, and never include fixture construction in the timed region.
+The table retains endpoint and component baselines measured before the bounded
+root contract; obsolete eager-root results were removed. Record fresh
+`BenchmarkRootFirstLoadScale` results after the incremental review surfaces are
+integrated. It runs the same three shapes the asserted test uses. Keep the
+fixture and `-benchtime` identical for before-and-after comparisons, use
+`benchstat` when it is available, and never include fixture construction in the
+timed region.
 
 ### Selector construction over fragmented evidence
 
@@ -287,6 +279,11 @@ Before this work, the page carried every changed line twice: once inside a
 coverage audit. Both copies sat behind a closed disclosure, and the linked-code
 copy was discarded and refetched the moment a reviewer actually opened it.
 Together they were 98% of the document.
+
+The measurements below record the first deferral step, when one selected file
+and the coverage index still arrived at root. They are historical evidence, not
+the current contract. The bounded root removes those remaining review details;
+the scale suite and Daylight harness above are the source of truth for it.
 
 ### This repository's own saga, 38,209 changed lines
 
@@ -356,17 +353,12 @@ an index would put every anchor in the document back into every first load.
 
 ### What each change contributed
 
-- Coverage and linked-code drawers load a file's rows from `/api/file-diff`
-  instead of inlining them. This is the whole of the payload reduction, and it
-  took `BenchmarkLargeSagaCoverageRender` from 123.6 ms and 51.69 MB to 6.82 ms
-  and 2.80 MB.
-- A review snapshot — the loaded saga with Git attribution applied, the change
-  set, and the coverage report — is reused while the saga tree and the resolved
-  comparison identity are unchanged. Without it, every file a reviewer opened
-  would pay the full ~490 ms of saga load, Git history walk, `git diff`, and
-  coverage evaluation that first load pays. The freshness check that guards it
-  costs about 10 ms per request on this saga: an 8 ms walk of 814 saga files and
-  two short Git reads, run concurrently.
+- Code, coverage, and linked-code detail load from `/api/code`, `/api/coverage`,
+  and `/api/file-diff` in cursor-bounded pages. Root neither renders their rows
+  nor builds their complete structural projections.
+- Detailed review state is reused by review endpoints while its generation is
+  current. Root uses only bounded summary state, so it does not pay full Git
+  diff and coverage evaluation merely to make the tabs reachable.
 - A diff row carries its exact diff URI once, on the row, instead of once per
   row plus once on each of its two action buttons. The buttons read the row they
   sit in. This took the largest file's body from 4,620,324 B to 2,842,598 B.
@@ -394,20 +386,11 @@ range authoring and direct selector identity indexing now fix them; the history
 and measurements remain in [large-saga-diagnosis.md](large-saga-diagnosis.md),
 and the benchmark above retains the pathological shape as a regression case.
 
-- First load materializes every changed atom twice and every display line once,
-  and renders about 1% of the result. `makeFileViews` builds a `*diffAtomView`
-  per atom and a `*DiffLineView` per display line for every changed file when
-  only the selected file is rendered, and `makeSectionView` builds another
-  `*diffAtomView` per atom per owning target although the templates only read
-  `len`. On the diagnosed saga that is over 1.5 million nodes.
-  `TestFirstLoadMaterializesBoundedDiffNodes` budgets the accounting exactly so
-  it cannot grow, and it is the largest remaining first-load allocation.
-- `attachedFileNotes` is the largest single cost left in first load: 32% of CPU
-  and about 143 MB of the 313 MB a warm page allocates for this repository's
-  saga. Nearly all of it is `diffuri.Parse` re-deriving references that
-  `gitdiff.Read` already built from the same atom fields and then discarded.
-  Carrying the parsed references on the snapshot would remove the cost outright,
-  at the price of threading them through four view constructors.
+- A requested review page can still spend significant time in
+  `attachedFileNotes`. Nearly all of it is `diffuri.Parse` re-deriving
+  references that `gitdiff.Read` already built from the same atom fields and
+  then discarded. Carrying parsed references in the detailed review generation
+  would remove the cost without putting it back on root.
 - Git attribution still runs one `git log --follow` per unique committed record
   to preserve rename-aware authorship. It is now paid once per snapshot rather
   than once per request, but it remains the largest part of a cold first load.
@@ -416,10 +399,8 @@ and the benchmark above retains the pathological shape as a regression case.
 - A `WORKTREE` head is never cached. Its diff depends on uncommitted file
   contents, which no cheap probe describes exactly, so every request rebuilds
   the snapshot. Sagas that pin a commit — the default — are unaffected.
-- Responses are uncompressed. Over loopback that is close to free, and the
-  remaining 3 MB page is dominated by coverage deep links rather than by
-  repeated content, so compression is worth measuring before it is worth adding.
-- One opened file is still rendered in full. The largest file in this
-  repository's comparison is 2.8 MB of markup. Virtualizing a single file's rows
-  is the next lever if that becomes the complaint; nothing measured here
-  suggests it is yet.
+- Responses are uncompressed. Over loopback that is close to free; compression
+  is worth measuring against cursor-bounded pages before adding complexity.
+- A single pathological file can still require many cursor pages. Endpoint
+  budgets must constrain both `limit` and retained generation state so advancing
+  through that file does not recreate a root-scale problem elsewhere.
