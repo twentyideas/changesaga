@@ -356,6 +356,7 @@ func TestReviewMutationAdvancesOnlyTheOverlayGeneration(t *testing.T) {
 
 	snapshot := application.snapshot(context.Background())
 	target, _ := busiestTarget(t, snapshot)
+	fullLoadsBeforeMutations := saga.FullLoadCount()
 	if _, validation, err := saga.LoadMutationIndex(fixture.Root); err != nil || !validation.Valid {
 		t.Fatalf("large fixture mutation index is invalid: validation=%#v err=%v", validation, err)
 	}
@@ -457,13 +458,16 @@ func TestReviewMutationAdvancesOnlyTheOverlayGeneration(t *testing.T) {
 	if cachedMessages != 1 {
 		t.Fatalf("failed refresh published speculative memory state with %d messages", cachedMessages)
 	}
-	persisted, persistedValidation, err := saga.Load(fixture.Root)
+	persisted, persistedValidation, err := saga.LoadReviewState(application.cache.current.mutationIndex)
 	if err != nil || !persistedValidation.Valid || len(persisted.Threads[len(persisted.Threads)-1].Messages) != 2 {
 		t.Fatalf("acknowledged reply was not durable: validation=%#v err=%v", persistedValidation, err)
 	}
 	application.reviewRefreshHook = nil
 	if refreshed := application.snapshot(context.Background()); len(refreshed.document.Threads[len(refreshed.document.Threads)-1].Messages) != 2 || application.cache.builds != 1 {
 		t.Fatalf("pending overlay did not recover without structural rebuild: builds=%d", application.cache.builds)
+	}
+	if fullLoads := saga.FullLoadCount(); fullLoads != fullLoadsBeforeMutations {
+		t.Fatalf("review mutations performed %d full saga loads; want 0 (before=%d after=%d)", fullLoads-fullLoadsBeforeMutations, fullLoadsBeforeMutations, fullLoads)
 	}
 
 	// A fresh server owns no prior memory generation. Its first load must replay

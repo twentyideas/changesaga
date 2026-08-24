@@ -1526,13 +1526,13 @@ func (a *app) createThread(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing or invalid mutation token.", http.StatusForbidden)
 		return
 	}
-	document, _, err := saga.Load(a.root)
-	if err != nil {
+	index, validation, err := saga.LoadMutationIndex(a.root)
+	if err != nil || !validation.Valid {
 		http.Error(w, "The saga could not be loaded. Run change-saga validate for details.", http.StatusConflict)
 		return
 	}
 	target := r.FormValue("target")
-	if !targetExists(document, target) {
+	if _, ok := index.Targets[target]; !ok {
 		http.Error(w, "target does not exist", http.StatusBadRequest)
 		return
 	}
@@ -1624,13 +1624,13 @@ func (a *app) review(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing or invalid mutation token.", http.StatusForbidden)
 		return
 	}
-	document, _, err := saga.Load(a.root)
-	if err != nil {
+	index, validation, err := saga.LoadMutationIndex(a.root)
+	if err != nil || !validation.Valid {
 		http.Error(w, "The saga could not be loaded. Run change-saga validate for details.", http.StatusConflict)
 		return
 	}
-	dir := findTargetDirectory(document, r.FormValue("target"))
-	if dir == "" {
+	dir, ok := index.ReviewTargets[r.FormValue("target")]
+	if !ok {
 		http.Error(w, "review target does not exist", http.StatusBadRequest)
 		return
 	}

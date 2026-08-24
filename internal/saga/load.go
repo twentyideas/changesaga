@@ -11,12 +11,21 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/twentyideas/changesaga/internal/diffuri"
 )
 
+var fullLoadCount atomic.Uint64
+
+// FullLoadCount reports process-local full Saga loads. It is diagnostic
+// instrumentation used by scale budgets to keep review mutations off this
+// path; review-only and mutation-index loads do not increment it.
+func FullLoadCount() uint64 { return fullLoadCount.Load() }
+
 func Load(root string) (*Saga, Validation, error) {
+	fullLoadCount.Add(1)
 	abs, err := filepath.Abs(root)
 	if err != nil {
 		return nil, Validation{}, err
