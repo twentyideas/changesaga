@@ -81,28 +81,32 @@ the comparison identity and path on every atom. That is the same redundancy
 memory. It is worth knowing before choosing a cache format, and it is worth
 more than choosing a database.
 
-## 3. Bounded memory is a partitioning decision
+## 3. Browser bounds and server bounds are separate decisions
 
 The server already reads its state in two very different shapes:
 
 - **`/api/file-diff?file=X`** needs the atoms of one file. At 38,209 atoms over
   183 files that is ~209 atoms — **0.5% of the set**.
-- **`GET /`** needs aggregates over everything: `changesByTarget`,
-  `makeCoverageManifestView`, review-progress rollups.
+- **`/api/coverage`** needs global ownership aggregates, but returns only the
+  requested cursor window. **`GET /`** no longer needs either shape.
 
-Bounding the first is easy and does not need a database: write the derived
-state as **one file per source path**, and a file-diff request becomes one
-`os.ReadFile` of a few kilobytes. Resident memory becomes proportional to what
-was asked for. This is exactly what a directory of independently readable parts
-gives, and it is why the foundation in §5 stores directories.
+Bounding browser work does not require partitioning the server's snapshot. The
+server keeps one immutable comparison generation in memory, while the HTTP
+surface exposes only cursor-bounded projections of it. A file-diff request
+therefore visits the indexed positions for one file and returns at most one
+page; it never constructs or transfers the complete review model.
 
-Bounding the second is a different problem, and it is **out of scope here**:
-the aggregates are what the root page renders, and the brief for this work
-excludes changing root HTML rendering. The path is known and already proven on
-the CLI side — `docs/large-saga-diagnosis.md` describes summary-only sessions
-that keep one small state value per atom in a contiguous slice instead of a
-string-keyed ownership projection. That is an in-memory execution change behind
-an unchanged response, and it does not need an index either.
+The root is now a separate aggregate-only load path. It renders identity,
+overview descriptors, chapter summaries, and navigation without starting or
+waiting for the comparison generation. The detailed generation builds in the
+background and later serves Code, Coverage, fragments, and file bodies.
+
+This does **not** make the server's one-time generation memory-bounded. Doing
+that would require a genuinely lazy, file-partitioned runtime rather than a
+different persistence engine. The product decision here is to keep the much
+simpler in-memory generation because it already makes every browser request
+bounded. Per-file persistence remains an available follow-up if server RSS,
+rather than browser RSS, becomes the limiting resource.
 
 So on the axis the brief cares most about, the honest finding is: **SQLite
 would not have helped, and the thing that does help is available without it.**
@@ -214,10 +218,12 @@ answer is.
 `internal/snapshotcache` implements the foundation above — key, lifecycle,
 atomicity, single-flight, prune, and discard — and the reviewer server now uses
 it for its structural/source generation. The generation stores the parsed Git
-comparison, display lines, coverage report, ownership, and target reverse index
-as JSON outside the saga. Cold builds are explicit in stdout and through a
-small HTTP 503/status response; a complete generation is published atomically
-before the full review page can use it.
+comparison, display lines, coverage report, and ownership as fast-gzip JSON
+outside the saga; compact file and target position indexes are rebuilt in
+memory when it opens. Cold builds are explicit in stdout and through the
+runtime status endpoint. Bounded review endpoints answer `202 Accepted` with a
+retry hint while the generation is building, and a complete generation is
+published atomically before those endpoints can use it.
 
 Mutable review records are a separate in-memory generation. Threads, replies,
 anchor/state edits, decisions, and file-review events commit to their saga files
@@ -292,9 +298,10 @@ have buried it.
    back in 37.5 ms; persistence does not bound memory; and `CGO_ENABLED=0`
    releases plus a one-dependency `go.mod` make the two candidate drivers
    respectively impossible and expensive.
-2. **Persist the derived snapshot, partitioned per source path**, on the
-   `internal/snapshotcache` foundation. That is the 15× first-run win and the
-   bounded-memory win for `/api/file-diff`, together, with no new dependency.
+2. **Persist the derived snapshot as a compressed disposable generation** on
+   the `internal/snapshotcache` foundation. Keep the HTTP endpoints bounded by
+   their compact in-memory position indexes. Partition the runtime per source
+   path only if measured server RSS—not response or browser size—requires it.
 3. **Fix the `WORKTREE` cache hole** (§7). It is worth more than items 1 and 2
    on the configuration sagas are actually authored in.
 4. **Leave the root page's aggregates alone** until 1–3 are measured. If it is

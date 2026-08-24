@@ -1,6 +1,7 @@
 package server
 
 import (
+	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -534,8 +535,8 @@ func (s *reviewSnapshot) indexComparison() {
 }
 
 const (
-	derivedSnapshotFormat = "review-index-v2"
-	derivedSnapshotName   = derivedSnapshotFormat + ".json"
+	derivedSnapshotFormat = "review-index-v3"
+	derivedSnapshotName   = derivedSnapshotFormat + ".json.gz"
 )
 
 type persistedDerivedSnapshot struct {
@@ -548,15 +549,25 @@ type persistedDerivedSnapshot struct {
 
 func writeDerivedSnapshot(path string, snapshot *reviewSnapshot) error {
 	value := persistedDerivedSnapshot{
-		Version: 2, Changes: snapshot.changes, DisplayLines: snapshot.changes.DisplayLines,
+		Version: 3, Changes: snapshot.changes, DisplayLines: snapshot.changes.DisplayLines,
 		Report: snapshot.report, Ownership: snapshot.report.Ownership,
 	}
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
-	encoder := json.NewEncoder(file)
+	compressed, err := gzip.NewWriterLevel(file, gzip.BestSpeed)
+	if err != nil {
+		_ = file.Close()
+		return err
+	}
+	encoder := json.NewEncoder(compressed)
 	if err := encoder.Encode(value); err != nil {
+		_ = compressed.Close()
+		_ = file.Close()
+		return err
+	}
+	if err := compressed.Close(); err != nil {
 		_ = file.Close()
 		return err
 	}
@@ -573,11 +584,16 @@ func readDerivedSnapshot(path string, snapshot *reviewSnapshot) error {
 		return err
 	}
 	defer file.Close()
-	var value persistedDerivedSnapshot
-	if err := json.NewDecoder(file).Decode(&value); err != nil {
+	compressed, err := gzip.NewReader(file)
+	if err != nil {
 		return err
 	}
-	if value.Version != 2 {
+	defer compressed.Close()
+	var value persistedDerivedSnapshot
+	if err := json.NewDecoder(compressed).Decode(&value); err != nil {
+		return err
+	}
+	if value.Version != 3 {
 		return fmt.Errorf("unsupported review index version %d", value.Version)
 	}
 	value.Changes.DisplayLines = value.DisplayLines

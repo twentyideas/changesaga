@@ -199,6 +199,27 @@ generation is intentionally outside the request timing. Do not add this command
 to routine CI or compare its wall time with the smaller fixture; use it for
 before/after measurements on the same machine and commit.
 
+The unreduced 236 MB Daylight saga was also exercised as an end-to-end local
+acceptance fixture on Apple M3 Pro. These are process and loopback measurements,
+not CI budgets:
+
+| Surface | Result |
+| --- | ---: |
+| Cold root, while the comparison builds | 122,729 B, 78 ms, 0 diff rows, 0 coverage-file models |
+| Background comparison generation | ready in 12 s, 3.45 GiB peak RSS |
+| Persisted generation | 36 MiB fast-gzip JSON, outside the saga |
+| Warm restart | ready in 9 s, 3.02 GiB peak RSS |
+| Code index, first 50 of 2,666 files | 39,892 B, 64–91 ms |
+| Coverage, first 50 of 532,290 atoms | 17,371 B, 58 ms |
+| One 11-row file body | 13,386 B, 60 ms |
+| One chapter / one overview fragment | 7,368 B / 26,762 B, 56–65 ms |
+
+The peak server RSS is intentionally recorded rather than hidden by the small
+responses: incremental SSR bounds browser and per-request work, but the current
+background generation still materializes the complete comparison once. A lazy
+file-partitioned server generation is a separate optimization if that peak
+becomes the next limiting resource.
+
 ### Diagnostic reference results
 
 Recorded on Apple M3 Pro, darwin/arm64, Go 1.26, `-benchtime=5x -count=3`,
