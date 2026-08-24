@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/twentyideas/changesaga/internal/saga"
 	"github.com/twentyideas/changesaga/internal/testfixture"
 )
 
@@ -88,6 +89,99 @@ func TestRootNeverCallsTheComparisonLoaderOrFingerprintsEvidence(t *testing.T) {
 	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
 	if recorder.Code != http.StatusOK || application.outline.builds != 1 {
 		t.Fatalf("evidence-only edit invalidated root: status=%d outline builds=%d", recorder.Code, application.outline.builds)
+	}
+}
+
+func TestCodeCatalogNeverCallsTheFullComparisonLoader(t *testing.T) {
+	_, application, handler := boundedFixture(t)
+	application.comparisonLoader = func(context.Context) (*reviewSnapshot, error) {
+		t.Fatal("changed-file catalog requested the full source comparison")
+		return nil, nil
+	}
+
+	first := getPage(t, handler, "/api/code?limit=2")
+	if got := strings.Count(first.Body.String(), "data-tree-file"); got != 2 {
+		t.Fatalf("catalog returned %d files, want 2", got)
+	}
+	if strings.Contains(first.Body.String(), "Explanations load separately from this file.") || !strings.Contains(first.Body.String(), "Loading explanations…") {
+		t.Fatal("code catalog did not expose the live explanations state")
+	}
+	marker := `data-tree-path="`
+	start := strings.Index(first.Body.String(), marker)
+	if start < 0 {
+		t.Fatal("code catalog named no changed file")
+	}
+	rest := first.Body.String()[start+len(marker):]
+	filePath := rest[:strings.Index(rest, `"`)]
+	owners := getPage(t, handler, "/api/file-owners?file="+url.QueryEscape(filePath))
+	if !strings.Contains(owners.Body.String(), `class="related-fragment"`) {
+		t.Fatal("selected file did not expose its narrative owners")
+	}
+	file := getPage(t, handler, "/api/file-diff?limit=2&file="+url.QueryEscape(filePath))
+	if got := strings.Count(file.Body.String(), `class="diff-row`); got != 2 {
+		t.Fatalf("selected file returned %d rows, want 2", got)
+	}
+	if application.cache.builds != 0 || application.catalog.builds != 1 {
+		t.Fatalf("code and selected-file builds: full=%d catalog=%d", application.cache.builds, application.catalog.builds)
+	}
+	reviewFile, ok := catalogFile(application.catalog.value, filePath)
+	if !ok {
+		t.Fatalf("selected path %q was absent from its catalog", filePath)
+	}
+	reviewValues := url.Values{
+		"uri":   {catalogFileView(application.catalog.value, reviewFile, saga.DiffReview{}).URI},
+		"state": {"reviewed"},
+		"file":  {filePath},
+	}
+	reviewRequest := httptest.NewRequest(http.MethodPost, "/api/diff-review", strings.NewReader(reviewValues.Encode()))
+	reviewRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reviewResult := httptest.NewRecorder()
+	handler.ServeHTTP(reviewResult, reviewRequest)
+	if reviewResult.Code != http.StatusSeeOther {
+		t.Fatalf("file review = %d: %s", reviewResult.Code, reviewResult.Body.String())
+	}
+	warm := getPage(t, handler, "/api/code?limit=2")
+	if !strings.Contains(warm.Body.String(), "Reviewed") {
+		t.Fatal("bounded code catalog omitted the disk-backed file-review overlay")
+	}
+	if application.cache.builds != 0 || application.catalog.builds != 1 {
+		t.Fatalf("warm code catalog rebuilt: full=%d catalog=%d", application.cache.builds, application.catalog.builds)
+	}
+}
+
+func TestCodeCatalogListsEveryExplanationThatUsesTheSelectedFile(t *testing.T) {
+	fixture, err := testfixture.GenerateLargeSaga(context.Background(), t.TempDir(), testfixture.LargeSagaOptions{
+		Chapters: 1, SectionsPerChapter: 1, FragmentsPerSection: 3,
+		SourceFiles: 1, ChangedLinesPerFile: 9, CoverageRangeWidth: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl, err := newPageTemplate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	application := &app{root: fixture.Root, sourceDir: fixture.Repository, template: tmpl}
+	application.comparisonLoader = func(context.Context) (*reviewSnapshot, error) {
+		t.Fatal("reverse evidence links requested the full source comparison")
+		return nil, nil
+	}
+	handler := newMux(application)
+	page := getPage(t, handler, "/api/file-owners?file=src%2Fcomponent-000.txt")
+	if got := strings.Count(page.Body.String(), `class="related-fragment"`); got != 3 {
+		t.Fatalf("selected file listed %d explanations, want all 3", got)
+	}
+	for _, title := range []string{"Fragment 00.00.00", "Fragment 00.00.01", "Fragment 00.00.02"} {
+		if !strings.Contains(page.Body.String(), title) {
+			t.Errorf("selected file omitted explanation %q", title)
+		}
+	}
+	getPage(t, handler, "/api/file-owners?file=src%2Fcomponent-000.txt")
+	if application.evidence.builds != 1 {
+		t.Fatalf("reverse evidence index built %d times, want one reusable generation", application.evidence.builds)
+	}
+	if application.cache.builds != 0 {
+		t.Fatalf("reverse evidence links built the global comparison %d times", application.cache.builds)
 	}
 }
 

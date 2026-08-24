@@ -115,6 +115,24 @@ func Evaluate(document *saga.Saga, validation saga.Validation, changes gitdiff.C
 	return report
 }
 
+// SelectTarget returns the changed atoms matched by one narrative target's
+// evidence. It reuses the coverage evaluator's indexed selector semantics but
+// does not construct ownership for any sibling target or retain a whole-report
+// graph. Lazy linked-code endpoints use it after reading only the source files
+// named by that target.
+func SelectTarget(files []saga.DiffFile, changes gitdiff.ChangeSet) []gitdiff.Atom {
+	assignments := make([][]Assignment, len(changes.Atoms))
+	report := Report{Orphans: []Orphan{}}
+	visitDiffs("", files, buildIndex(changes), assignments, &report)
+	matched := make([]gitdiff.Atom, 0)
+	for index, owners := range assignments {
+		if len(owners) > 0 {
+			matched = append(matched, changes.Atoms[index])
+		}
+	}
+	return matched
+}
+
 // EvaluateSummary computes coverage verdicts and per-target rollups without
 // retaining atom-level ownership, uncovered, or overlap details. Overview-style
 // queries use it because their bounded response needs counts, not the complete

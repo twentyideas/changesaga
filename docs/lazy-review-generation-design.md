@@ -1,6 +1,6 @@
 # Lazy, partitioned review generation
 
-Status: **proposed for implementation**
+Status: **implementation in progress**
 
 This design replaces the reviewer server's single eager comparison snapshot
 with independently built, content-addressed parts. Its purpose is not merely to

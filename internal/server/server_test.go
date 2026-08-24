@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"mime/multipart"
 	"net/http"
@@ -153,6 +154,8 @@ func TestWorkspaceTabsAndClosedDrawerCarryAccessibleSemantics(t *testing.T) {
 		"removeAttribute('inert')",
 		"openDrawer(drawerButton.dataset.openDiffs, drawerButton)",
 		"openFragmentDrawer(fragmentDrawerLink.dataset.openFragment, fragmentDrawerLink)",
+		"hydrateTargetCode(targetCodeButton)",
+		"data-target-code-response",
 		"drawer.setAttribute('aria-label', mode === 'fragment' ? 'Related explanation' : 'Linked code')",
 	} {
 		if !strings.Contains(appJavaScript, fragment) {
@@ -205,7 +208,7 @@ func TestColdComparisonEndpointReportsBuildingCacheWithoutMaterializingReviewDat
 	handler := newMux(application)
 
 	page := httptest.NewRecorder()
-	handler.ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/api/code", nil))
+	handler.ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/api/coverage", nil))
 	if page.Code != http.StatusAccepted || !strings.Contains(page.Body.String(), "Building review cache") {
 		t.Fatalf("cold comparison endpoint = %d %q, want explicit building-cache response", page.Code, page.Body.String())
 	}
@@ -1304,6 +1307,70 @@ func TestPageHandlerRendersRealGitComparison(t *testing.T) {
 	handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("unknown focused file status=%d", recorder.Code)
+	}
+}
+
+func TestTargetCodeLoadsOneNarrativeMappingWithoutGlobalSnapshot(t *testing.T) {
+	repo := t.TempDir()
+	serverGit(t, repo, "init", "-b", "main")
+	serverGit(t, repo, "config", "user.name", "Test")
+	serverGit(t, repo, "config", "user.email", "test@example.test")
+	writeServerFile(t, filepath.Join(repo, "base.txt"), "base\n")
+	serverGit(t, repo, "add", "base.txt")
+	serverGit(t, repo, "commit", "-m", "base")
+	base := strings.TrimSpace(serverGit(t, repo, "rev-parse", "HEAD"))
+	writeServerFile(t, filepath.Join(repo, "app.go"), "package app\n\nfunc Ready() bool { return true }\n")
+	writeServerFile(t, filepath.Join(repo, "unrelated.go"), "package app\n")
+	serverGit(t, repo, "add", "app.go", "unrelated.go")
+	serverGit(t, repo, "commit", "-m", "feature")
+	repository, err := diffuri.FileRepository(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes, err := gitdiff.Read(t.Context(), repo, repository, base, "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var appURI string
+	for _, atom := range changes.Atoms {
+		if atom.Path == "app.go" && atom.Kind == "line" {
+			appURI = atom.URI
+			break
+		}
+	}
+	if appURI == "" {
+		t.Fatal("fixture has no app.go change")
+	}
+
+	root := filepath.Join(repo, "linked.saga")
+	writeServerFile(t, filepath.Join(root, "saga.json"), `{"version":2,"id":"linked","title":"Linked","source":{"repository":"`+repository+`","base":"`+base+`","head":"HEAD"}}`)
+	writeServerFile(t, filepath.Join(root, "story.fragment", "fragment.json"), `{"version":2,"id":"story","title":"Story","media_type":"text/markdown","entrypoint":"content.md"}`)
+	writeServerFile(t, filepath.Join(root, "story.fragment", "content.md"), "# Story\n")
+	writeServerFile(t, filepath.Join(root, "story.fragment", "___diffs", "app.json"), fmt.Sprintf(`{"version":2,"diffs":[{"uri":%q,"note":"Implements the ready path."}]}`, appURI))
+	target := saga.FragmentTarget("linked", "story")
+	application := &app{root: root, sourceDir: repo, template: serverTemplate(t)}
+	application.comparisonLoader = func(context.Context) (*reviewSnapshot, error) {
+		t.Fatal("target-scoped linked code requested the global comparison")
+		return nil, nil
+	}
+	handler := newMux(application)
+
+	fragment := httptest.NewRecorder()
+	handler.ServeHTTP(fragment, fragmentRequest(target))
+	if fragment.Code != http.StatusOK || !strings.Contains(fragment.Body.String(), `data-target-code-href="/api/target-code?target=`) || strings.Contains(fragment.Body.String(), `data-open-diffs=`) {
+		t.Fatalf("narrative did not render a lazy linked-code control: status=%d body=%s", fragment.Code, fragment.Body.String())
+	}
+
+	summary := httptest.NewRecorder()
+	handler.ServeHTTP(summary, httptest.NewRequest(http.MethodGet, "/api/target-code?target="+url.QueryEscape(target), nil))
+	if summary.Code != http.StatusOK || !strings.Contains(summary.Body.String(), `data-open-diffs="diffs-`+domID(target)+`"`) || !strings.Contains(summary.Body.String(), "app.go") || !strings.Contains(summary.Body.String(), "Implements the ready path.") || strings.Contains(summary.Body.String(), "unrelated.go") {
+		t.Fatalf("target code was not scoped to the authored mapping: status=%d body=%s", summary.Code, summary.Body.String())
+	}
+
+	file := httptest.NewRecorder()
+	handler.ServeHTTP(file, httptest.NewRequest(http.MethodGet, "/api/file-diff?file=app.go&target="+url.QueryEscape(target), nil))
+	if file.Code != http.StatusOK || !strings.Contains(file.Body.String(), "linked-evidence") || !strings.Contains(file.Body.String(), `data-target="`+target+`"`) || strings.Contains(file.Body.String(), "unrelated.go") {
+		t.Fatalf("target file body lost its scoped evidence: status=%d body=%s", file.Code, file.Body.String())
 	}
 }
 

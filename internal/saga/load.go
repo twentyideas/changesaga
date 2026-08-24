@@ -190,6 +190,9 @@ func loadSection(root, dir string, manifest Manifest, isRoot bool, options loadO
 			continue
 		}
 		if strings.HasPrefix(name, "___") {
+			if name == "___diffs" {
+				section.HasDiffs = true
+			}
 			if !knownReservedDirectory(name, isRoot) {
 				addIssue(validation, "error", displayPath(rel, name), "unknown reserved directory")
 			}
@@ -278,6 +281,9 @@ func loadFragment(root, dir, sagaID string, options loadOptions, validation *Val
 		return nil, err
 	}
 	for _, entry := range entries {
+		if entry.IsDir() && entry.Name() == "___diffs" {
+			fragment.HasDiffs = true
+		}
 		if entry.IsDir() && strings.HasPrefix(entry.Name(), "___") && entry.Name() != "___diffs" && entry.Name() != "___landmarks" && entry.Name() != "___approvals" {
 			addIssue(validation, "error", relativePath(root, filepath.Join(dir, entry.Name())), "unknown reserved directory in fragment")
 		}
@@ -341,6 +347,9 @@ func loadLandmarks(root, dir, sagaID string, fragment *Fragment, options loadOpt
 			return nil, readErr
 		}
 		for _, landmarkEntry := range landmarkEntries {
+			if landmarkEntry.IsDir() && landmarkEntry.Name() == "___diffs" {
+				value.HasDiffs = true
+			}
 			if landmarkEntry.IsDir() && strings.HasPrefix(landmarkEntry.Name(), "___") && landmarkEntry.Name() != "___diffs" {
 				addIssue(validation, "error", relativePath(root, filepath.Join(entryPath, landmarkEntry.Name())), "unknown reserved directory in landmark")
 			}
@@ -381,6 +390,26 @@ func loadDiffs(root, dir string, validation *Validation) ([]DiffFile, error) {
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].Path < result[j].Path })
 	return result, nil
+}
+
+// LoadTargetDiffs reads only one validated narrative target's authored
+// evidence. It is the bounded mapping seam used by linked-code requests: no
+// sibling target's ___diffs directory is opened.
+func LoadTargetDiffs(index MutationIndex, target string) ([]DiffFile, Validation, error) {
+	validation := Validation{Valid: true, Issues: []Issue{}}
+	dir, ok := index.Targets[target]
+	if !ok {
+		addIssue(&validation, "error", ".", "unknown narrative target")
+		validation.Valid = false
+		return nil, validation, nil
+	}
+	if !metadataDirectorySafe(index.Root, dir, "___diffs", &validation) {
+		validation.Valid = false
+		return nil, validation, nil
+	}
+	diffs, err := loadDiffs(index.Root, filepath.Join(dir, "___diffs"), &validation)
+	validation.Valid = !hasErrors(validation.Issues)
+	return diffs, validation, err
 }
 
 func loadReviews(root, dir string, validation *Validation) ([]Review, error) {

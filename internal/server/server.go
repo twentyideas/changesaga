@@ -45,11 +45,17 @@ type app struct {
 	shutdown      func()
 	cache         snapshotCache
 	outline       outlineCache
+	catalog       sourceCatalogCache
+	evidence      evidenceOwnerCache
 	// comparisonLoader is the injectable boundary around the expensive source
 	// diff and coverage build. Root and narrative shell handlers must never call
 	// it; focused comparison endpoints reach it through snapshot().
 	comparisonLoader func(context.Context) (*reviewSnapshot, error)
-	generations      *snapshotcache.Store
+	// catalogLoader is the bounded changed-file metadata seam. Code navigation
+	// uses it instead of comparisonLoader so opening the tab cannot construct
+	// every source atom or the coverage ownership graph.
+	catalogLoader func(context.Context, saga.Manifest) (gitdiff.Catalog, error)
+	generations   *snapshotcache.Store
 	// reviewRefreshHook is a test seam for the post-commit failure boundary.
 	reviewRefreshHook func() error
 }
@@ -327,6 +333,8 @@ func newMux(application *app) *http.ServeMux {
 	mux.HandleFunc("GET /api/code", application.codePage)
 	mux.HandleFunc("GET /api/coverage", application.coveragePage)
 	mux.HandleFunc("GET /api/file-diff", application.fileDiffFragment)
+	mux.HandleFunc("GET /api/target-code", application.targetCode)
+	mux.HandleFunc("GET /api/file-owners", application.fileOwners)
 	mux.HandleFunc("GET /api/section", application.sectionBody)
 	mux.HandleFunc("GET /api/fragment", application.fragmentContent)
 	mux.HandleFunc("GET /api/locate", application.locateAnchor)
@@ -364,49 +372,129 @@ func (a *app) fileDiffFragment(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing changed file", http.StatusBadRequest)
 		return
 	}
-	current := a.requestSnapshot(w, r)
-	if current == nil {
+	// Target-scoped drawers still need the mapping generation to mark the exact
+	// rows owned by that explanation. Ordinary Code and Coverage file bodies do
+	// not: read only the requested catalog entry and leave mapping independent.
+	if r.URL.Query().Get("target") != "" {
+		a.mappedFileDiffFragment(w, r)
 		return
 	}
-	if current.diffErr != nil {
+	document := a.sourceReviewDocument(r.Context())
+	if document == nil {
+		http.Error(w, "The saga could not be loaded.", http.StatusInternalServerError)
+		return
+	}
+	catalog, err := a.sourceCatalog(r.Context(), document.Manifest)
+	if err != nil {
 		http.Error(w, "The source comparison could not be loaded.", http.StatusInternalServerError)
 		return
 	}
-	document := current.document
+	file, ok := catalogFile(catalog, filePath)
+	if !ok {
+		http.Error(w, "changed file not found", http.StatusNotFound)
+		return
+	}
+	changes, err := gitdiff.ReadFile(r.Context(), a.sourceDir, catalog, file)
+	if err != nil {
+		http.Error(w, "The file diff could not be loaded.", http.StatusInternalServerError)
+		return
+	}
+	manifestView := r.URL.Query().Get("view") == "manifest"
+	var threads map[string][]*threadView
+	if !manifestView {
+		_, threads = threadViews(document)
+	}
+	files := makeFileViews(changes, saga.SagaTarget(document.Manifest.ID), document.DiffReviews, threads)
+	var selected *FileDiffView
+	for _, candidate := range files {
+		if candidate.Path == filePath {
+			selected = candidate
+			break
+		}
+	}
+	if selected == nil {
+		// Binary and mode-only entries can have catalog metadata without text
+		// rows. They still render a stable, reviewable file shell.
+		selected = catalogFileView(catalog, file, latestReviewForCatalogFile(document, catalog, filePath))
+	}
+	total := len(selected.Lines)
+	window, err := pageRequest(r, "file-diff\x00"+sourceCatalogIdentity(catalog)+"\x00"+filePath+"\x00\x00"+r.URL.Query().Get("view"), total, defaultDiffPageLimit, maxDiffPageLimit)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	selected.Lines = selected.Lines[window.start:window.end]
+	name := "file-diff-page"
+	if manifestView {
+		name = "manifest-file-diff-page"
+	}
+	writeIncrementalHeaders(w, "text/html; charset=utf-8")
+	writePageHeaders(w, window)
+	page := fileDiffPageView{File: selected, NextCursor: window.next, HasMore: window.hasMore(), Returned: window.end - window.start}
+	if err := a.template.ExecuteTemplate(w, name, page); err != nil {
+		http.Error(w, "The file diff could not be rendered.", http.StatusInternalServerError)
+	}
+}
+
+func (a *app) mappedFileDiffFragment(w http.ResponseWriter, r *http.Request) {
+	filePath := r.URL.Query().Get("file")
+	document := a.sourceReviewDocument(r.Context())
+	if document == nil {
+		http.Error(w, "The saga could not be loaded.", http.StatusInternalServerError)
+		return
+	}
 	manifestView := r.URL.Query().Get("view") == "manifest"
 	target := r.URL.Query().Get("target")
 	if target != "" && !targetExists(document, target) {
 		http.Error(w, "unknown narrative target", http.StatusBadRequest)
 		return
 	}
-	owner := target
-	if owner == "" {
-		owner = saga.SagaTarget(document.Manifest.ID)
-	}
-	if _, ok := current.fileAtoms[filePath]; ok {
-		total := len(current.fileLines[filePath])
-		if total == 0 {
-			total = len(current.fileAtoms[filePath])
-		}
-		window, err := pageRequest(r, "file-diff\x00"+current.identity+"\x00"+filePath+"\x00"+target+"\x00"+r.URL.Query().Get("view"), total, defaultDiffPageLimit, maxDiffPageLimit)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		pageFile := makeFileDiffPage(current, filePath, owner, target, manifestView, window)
-		name := "file-diff-page"
-		if manifestView {
-			name = "manifest-file-diff-page"
-		}
-		writeIncrementalHeaders(w, "text/html; charset=utf-8")
-		writePageHeaders(w, window)
-		page := fileDiffPageView{File: pageFile, NextCursor: window.next, HasMore: window.hasMore(), Returned: window.end - window.start}
-		if err := a.template.ExecuteTemplate(w, name, page); err != nil {
-			http.Error(w, "The file diff could not be rendered.", http.StatusInternalServerError)
-		}
+	selection, err := a.selectTargetCode(r.Context(), document, target, filePath)
+	if err != nil {
+		http.Error(w, "The linked file diff could not be loaded.", http.StatusInternalServerError)
 		return
 	}
-	http.Error(w, "changed file not found", http.StatusNotFound)
+	_, diffThreads := threadViews(document)
+	files := makeFileViews(selection.changes, target, document.DiffReviews, diffThreads)
+	var selected *FileDiffView
+	for _, candidate := range files {
+		if candidate.Path == filePath {
+			selected = candidate
+			break
+		}
+	}
+	if selected == nil {
+		file, ok := catalogFile(selection.catalog, filePath)
+		if !ok {
+			http.Error(w, "changed file not found", http.StatusNotFound)
+			return
+		}
+		selected = catalogFileView(selection.catalog, file, latestReviewForCatalogFile(document, selection.catalog, filePath))
+	}
+	linked := make(map[string]bool, len(selection.matched))
+	for _, atom := range selection.matched {
+		linked[atom.URI] = true
+	}
+	for _, line := range selected.Lines {
+		line.Linked = line.Atom != nil && linked[line.Atom.URI]
+	}
+	total := len(selected.Lines)
+	window, err := pageRequest(r, "file-diff\x00"+sourceCatalogIdentity(selection.catalog)+"\x00"+filePath+"\x00"+target+"\x00"+r.URL.Query().Get("view"), total, defaultDiffPageLimit, maxDiffPageLimit)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	selected.Lines = selected.Lines[window.start:window.end]
+	name := "file-diff-page"
+	if manifestView {
+		name = "manifest-file-diff-page"
+	}
+	writeIncrementalHeaders(w, "text/html; charset=utf-8")
+	writePageHeaders(w, window)
+	page := fileDiffPageView{File: selected, NextCursor: window.next, HasMore: window.hasMore(), Returned: window.end - window.start}
+	if err := a.template.ExecuteTemplate(w, name, page); err != nil {
+		http.Error(w, "The file diff could not be rendered.", http.StatusInternalServerError)
+	}
 }
 
 // threadViews indexes the live comments the way the renderer consumes them: by
@@ -800,6 +888,24 @@ func (a *app) narrativeDocument(ctx context.Context) *saga.Saga {
 	return document
 }
 
+// sourceReviewDocument adds the small, mutable file-review overlay to the
+// narrative generation without opening authored coverage mappings. Code and
+// ordinary file responses need this overlay, while prose-only requests keep
+// using narrativeDocument and never touch diff-review records.
+func (a *app) sourceReviewDocument(ctx context.Context) *saga.Saga {
+	document, validation, err := saga.LoadNarrative(a.root)
+	if err != nil || !validation.Valid {
+		return nil
+	}
+	state, reviewValidation, err := saga.LoadReviewState(saga.MutationIndexFromDocument(document))
+	if err != nil || !reviewValidation.Valid {
+		return nil
+	}
+	document.DiffReviews = state.DiffReviews
+	applyGitAttribution(ctx, gitattribution.New(ctx, a.root), document)
+	return document
+}
+
 func requestedChapter(r *http.Request) (string, bool) {
 	if value := r.PathValue("chapter"); value != "" {
 		return value, true
@@ -1127,6 +1233,7 @@ func (scope viewScope) shell() viewScope {
 
 func makeSectionView(section *saga.Section, scope viewScope) *sectionView {
 	changeCount, attached := scopedAttachedCode(scope, section.Title, section.Target, section.Diffs)
+	changeCount = lazyChangeCount(section.HasDiffs, changeCount)
 	view := &sectionView{
 		Section: section, DOMID: domID(section.Target), ChangeCount: changeCount,
 		Attached: attached, Threads: scope.threads[section.Target],
@@ -1164,6 +1271,7 @@ func makeFragmentView(fragment *saga.Fragment, scope viewScope) *fragmentView {
 	}
 	threads := scope.threads[fragment.Target]
 	view.ChangeCount, view.Attached = scopedAttachedCode(scope, title, fragment.Target, fragment.Diffs)
+	view.ChangeCount = lazyChangeCount(fragment.HasDiffs, view.ChangeCount)
 	for _, thread := range threads {
 		if annotationAnchor(thread.Anchor.Type) {
 			view.AnnotationThreads = append(view.AnnotationThreads, makeAnnotationThreadView(thread))
@@ -1177,6 +1285,7 @@ func makeFragmentView(fragment *saga.Fragment, scope viewScope) *fragmentView {
 			region = &saga.LandmarkRegion{X: landmark.Selector.X, Y: landmark.Selector.Y, Width: landmark.Selector.Width, Height: landmark.Selector.Height}
 		}
 		changeCount, attached := scopedAttachedCode(scope, landmark.Label, landmark.Target, landmark.Diffs)
+		changeCount = lazyChangeCount(landmark.HasDiffs, changeCount)
 		view.LandmarkViews = append(view.LandmarkViews, &landmarkView{
 			Landmark: landmark, DOMID: view.DOMID + "--" + landmark.ID, Title: landmark.Label,
 			ChangeCount: changeCount,
@@ -1207,6 +1316,15 @@ func makeFragmentView(fragment *saga.Fragment, scope viewScope) *fragmentView {
 		view.Image = strings.HasPrefix(fragment.MediaType, "image/")
 	}
 	return view
+}
+
+// A negative count is an internal render state: authored evidence exists, but
+// its exact current-source match count belongs to the lazy target-code request.
+func lazyChangeCount(hasDiffs bool, count int) int {
+	if count == 0 && hasDiffs {
+		return -1
+	}
+	return count
 }
 
 func scopedAttachedCode(scope viewScope, title, target string, evidence []saga.DiffFile) (int, *attachedCodeView) {

@@ -932,6 +932,7 @@ const appJavaScript = `(() => {
   const reviewSurfaceRetries = new Map();
   const codeFileRequests = new WeakMap();
   const codeFileRetries = new WeakMap();
+  let relatedOwnersRequest = null;
 
   function reviewSurfaceURL(name, explicitHref = '') {
     const surface = q('[data-review-surface="'+name+'"]');
@@ -1005,12 +1006,41 @@ const appJavaScript = `(() => {
       const content = q('[data-code-meta-content]', root);
       if (meta && content) meta.textContent = content.textContent;
       within(root, '[data-code-file-href]').forEach(file => { void hydrateCodeFile(file); });
+      void hydrateRelatedOwners(root);
     }
     const id = decodeURIComponent(location.hash.replace(/^#/, ''));
     const destination = id ? document.getElementById(id) : null;
     if (destination?.closest('[data-review-surface="'+name+'"]')) {
       revealHashedAnnotationBubble();
       globalThis.requestAnimationFrame?.(() => destination.scrollIntoView({block:'center'}));
+    }
+  }
+
+  async function hydrateRelatedOwners(root) {
+    const panel = q('#related-saga-panel', root);
+    const file = q('[data-code-file-href]', root);
+    const filePath = file?.dataset.filePath;
+    if (!panel || !filePath) return;
+    const key = filePath;
+    if (panel.dataset.relatedOwnersLoaded === key) return;
+    relatedOwnersRequest?.controller.abort();
+    const controller = new AbortController();
+    const request = {key, controller};
+    relatedOwnersRequest = request;
+    try {
+      const response = await fetch('/api/file-owners?file=' + encodeURIComponent(filePath), {
+        headers:{Accept:'text/html','X-Change-Saga-Async':'true'}, credentials:'same-origin', signal:controller.signal
+      });
+      if (!response.ok) throw new Error('explanations request failed');
+      const content = q('[data-file-owners-response]', parseShellHTML(await response.text()));
+      if (!content) throw new Error('explanations response was incomplete');
+      if (relatedOwnersRequest !== request || !panel.isConnected || q('[data-code-file-href]', root)?.dataset.filePath !== filePath) return;
+      panel.replaceChildren(...Array.from(content.childNodes));
+      panel.dataset.relatedOwnersLoaded = key;
+    } catch (error) {
+      if (error.name !== 'AbortError' && panel.isConnected) panel.innerHTML = '<p>Explanations could not be loaded.</p>';
+    } finally {
+      if (relatedOwnersRequest === request) relatedOwnersRequest = null;
     }
   }
 
@@ -1328,6 +1358,8 @@ const appJavaScript = `(() => {
   }
 
   function openDrawer(templateID, opener) {
+    const lazy = qa('[data-target-code-template]').find(candidate => candidate.dataset.targetCodeTemplate === templateID);
+    if (lazy) { void hydrateTargetCode(lazy); return; }
     const source = document.getElementById(templateID);
     if (!source) return;
     // WebKit does not consistently move document.activeElement to a button
@@ -1397,6 +1429,38 @@ const appJavaScript = `(() => {
     const wrapper = document.createElement('div');
     wrapper.innerHTML = html;
     return wrapper;
+  }
+
+  async function hydrateTargetCode(button) {
+    const href = button?.dataset.targetCodeHref;
+    if (!href || button.dataset.targetCodeLoading === 'true') return;
+    button.dataset.targetCodeLoading = 'true';
+    button.setAttribute('aria-busy', 'true');
+    try {
+      const response = q('[data-target-code-response]', parseShellHTML(await fetchShell(href)));
+      if (!response) throw new Error('linked-code response was incomplete');
+      const readyButton = q('[data-open-diffs]', response);
+      const readyTemplate = q('template', response);
+      const controls = qa('[data-target-code-href]').filter(candidate => candidate.dataset.targetCodeHref === href);
+      if (!readyButton || !readyTemplate) {
+        controls.forEach(candidate => candidate.remove());
+        return;
+      }
+      const existingTemplate = document.getElementById(readyTemplate.id);
+      if (existingTemplate) existingTemplate.replaceWith(readyTemplate);
+      else document.body.append(readyTemplate);
+      let opener = null;
+      controls.forEach(candidate => {
+        const replacement = readyButton.cloneNode(true);
+        if (candidate === button) opener = replacement;
+        candidate.replaceWith(replacement);
+      });
+      openDrawer(readyButton.dataset.openDiffs, opener || readyButton);
+    } catch (_) {
+      delete button.dataset.targetCodeLoading;
+      button.removeAttribute('aria-busy');
+      button.title = 'Linked code could not be loaded — try again';
+    }
   }
 
   function installAuxiliaryDiffNext(container, href, cursor) {
@@ -2405,12 +2469,12 @@ const appJavaScript = `(() => {
 	  ['view', 'file', 'diff', 'mode'].forEach(key => sagaURL.searchParams.delete(key));
 	  sagaURL.hash = id;
 	  history.pushState({view:'saga'}, '', sagaURL);
-      // The destination can live in a chapter that has not been fetched yet.
-      // Resolving it here opens that chapter; the hash change that follows is
-      // what scrolls to it, exactly as it does for content already on the page.
-	  if (id) void revealAnchor(id).then(destination => {
-		if (destination?.closest('[data-view="saga"]')) setView('saga', false);
-	  });
+      // pushState deliberately does not dispatch hashchange or perform native
+      // anchor scrolling. Run the same lazy reveal, view switch, highlight,
+      // and scroll path used for initial and browser-history navigation.
+	  if (id) void activateLandmark().then(revealHashedAnnotationBubble);
+	  else setView('saga', false);
+      return;
     }
     const bubbleToggle = event.target.closest?.('[data-annotation-bubble-toggle]');
     if (bubbleToggle) { pinAnnotationBubble(bubbleToggle.closest('[data-annotation-bubble]')); return; }
@@ -2473,6 +2537,8 @@ const appJavaScript = `(() => {
       return;
     }
     if (event.target.closest('[data-selection-clear]')) { selectionAnchor = null; updateLineSelection([]); return; }
+    const targetCodeButton = event.target.closest('[data-target-code-href]');
+    if (targetCodeButton) { event.preventDefault(); void hydrateTargetCode(targetCodeButton); return; }
     const drawerButton = event.target.closest('[data-open-diffs]');
     if (drawerButton) { event.preventDefault(); openDrawer(drawerButton.dataset.openDiffs, drawerButton); return; }
     if (event.target.closest('[data-close-drawer]')) { closeDrawer(); return; }

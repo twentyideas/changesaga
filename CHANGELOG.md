@@ -43,6 +43,19 @@ tool, and what they have to do about it.
   that only focused queries consume. On the diagnosed 532,290-atom saga, the
   unmigrated overview falls from 1,049.7 seconds to 10.74 seconds; regenerating
   its evidence as dense ranges brings it to 3.80 seconds.
+- Opening Code now builds a changed-file catalog from bounded Git metadata and
+  reads the selected file with a path-scoped diff. Neither request constructs
+  the all-files atom set or coverage ownership graph, while exact comparison
+  identities, rename paths, comments, and disk-backed file-review state remain
+  intact.
+- Narrative linked-code controls now resolve one target's authored evidence and
+  named source files on demand. Opening a contextual drawer or one of its files
+  no longer builds the all-target coverage snapshot, so Saga-to-Code navigation
+  remains available on pathological whole-codebase Sagas.
+- The Code Diff “Explained by” panel now loads every explanation or marked place
+  that cites the selected file. Its compact reverse evidence index is built
+  independently from the file diff and reused across file navigation, keeping
+  the diff responsive without constructing the global coverage snapshot.
 
 ## [0.0.7] - 2026-08-22
 

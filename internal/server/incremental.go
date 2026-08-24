@@ -12,7 +12,6 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/twentyideas/changesaga/internal/diffuri"
 	"github.com/twentyideas/changesaga/internal/gitdiff"
 )
 
@@ -163,6 +162,7 @@ type codePageView struct {
 	Tree          ChangedFileTreeView
 	Selected      *FileDiffView
 	Owners        []*ManifestOwnerView
+	RelatedEmpty  string
 	TotalFiles    int
 	ReviewedFiles int
 	NextCursor    string
@@ -176,85 +176,86 @@ func fileSummary(current *reviewSnapshot, filePath string) *FileDiffView {
 	return &file
 }
 
-func selectedCodePath(current *reviewSnapshot, r *http.Request) (string, error) {
-	filePath := r.URL.Query().Get("file")
-	if raw := r.URL.Query().Get("diff"); raw != "" {
-		reference, err := diffuri.Parse(raw)
-		if err != nil || reference.Repository != current.changes.Repository || reference.Base != current.changes.BaseOID || reference.Head != current.changes.HeadOID {
-			return "", fmt.Errorf("invalid selected diff URI")
-		}
-		fromDiff := reference.Path
-		if reference.NewPath != "" {
-			fromDiff = reference.NewPath
-		}
-		if filePath == "" {
-			filePath = fromDiff
-		} else if fromDiff != "" && filePath != fromDiff {
-			return "", fmt.Errorf("selected diff is not part of the changed file")
-		}
-	}
-	if filePath == "" && len(current.fileOrder) > 0 {
-		filePath = current.fileOrder[0]
-	}
-	if filePath != "" {
-		if _, ok := current.fileAtoms[filePath]; !ok {
-			return "", fmt.Errorf("changed file not found")
-		}
-	}
-	return filePath, nil
-}
-
 func (a *app) codePage(w http.ResponseWriter, r *http.Request) {
-	current := a.requestSnapshot(w, r)
-	if current == nil {
+	document := a.sourceReviewDocument(r.Context())
+	if document == nil {
+		http.Error(w, "The saga could not be loaded.", http.StatusInternalServerError)
 		return
 	}
-	if current.diffErr != nil {
+	catalog, err := a.sourceCatalog(r.Context(), document.Manifest)
+	if err != nil {
 		http.Error(w, "The source comparison could not be loaded.", http.StatusInternalServerError)
 		return
 	}
-	selectedPath, selectionErr := selectedCodePath(current, r)
+	selectedPath, selectionErr := selectedCatalogPath(catalog, r)
 	if selectionErr != nil {
 		http.Error(w, selectionErr.Error(), http.StatusBadRequest)
 		return
 	}
-	total := len(current.fileOrder)
-	if owners := len(current.fileOwners[selectedPath]); owners > total {
-		total = owners
-	}
-	window, err := pageRequest(r, "code\x00"+current.identity+"\x00"+r.URL.Query().Get("file")+"\x00"+r.URL.Query().Get("diff"), total, defaultSurfacePageLimit, maxSurfacePageLimit)
+	total := len(catalog.Files)
+	identity := sourceCatalogIdentity(catalog)
+	window, err := pageRequest(r, "code\x00"+identity+"\x00"+r.URL.Query().Get("file")+"\x00"+r.URL.Query().Get("diff"), total, defaultSurfacePageLimit, maxSurfacePageLimit)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	fileStart, fileEnd := boundedSlice(window.start, window.end, len(current.fileOrder))
+	reviews, reviewedFiles := latestCatalogReviews(document, catalog)
+	fileStart, fileEnd := boundedSlice(window.start, window.end, len(catalog.Files))
 	files := make([]*FileDiffView, 0, fileEnd-fileStart)
-	for _, filePath := range current.fileOrder[fileStart:fileEnd] {
-		file := fileSummary(current, filePath)
-		file.Selected = filePath == selectedPath
+	for _, summary := range catalog.Files[fileStart:fileEnd] {
+		file := catalogFileView(catalog, summary, reviews[summary.Path])
+		file.Selected = summary.Path == selectedPath
 		files = append(files, file)
-	}
-	ownerStart, ownerEnd := boundedSlice(window.start, window.end, len(current.fileOwners[selectedPath]))
-	owners := make([]*ManifestOwnerView, 0, ownerEnd-ownerStart)
-	for _, target := range current.fileOwners[selectedPath][ownerStart:ownerEnd] {
-		owner := manifestOwner(target, current.locations)
-		if owner.Kind == "Fragment" || owner.Kind == "Landmark" {
-			owners = append(owners, owner)
-		}
 	}
 	var selected *FileDiffView
 	if selectedPath != "" {
-		selected = fileSummary(current, selectedPath)
-		selected.Selected = true
+		index := sort.Search(len(catalog.Files), func(index int) bool { return catalog.Files[index].Path >= selectedPath })
+		if index < len(catalog.Files) && catalog.Files[index].Path == selectedPath {
+			selected = catalogFileView(catalog, catalog.Files[index], reviews[selectedPath])
+			selected.Selected = true
+		}
 	}
 	result := codePageView{
-		Tree: makeChangedFileTree(files), Selected: selected, Owners: owners,
-		TotalFiles: len(current.fileOrder), ReviewedFiles: current.reviewedFiles, NextCursor: window.next, HasMore: window.hasMore(), Returned: window.end - window.start,
+		Tree: makeChangedFileTree(files), Selected: selected,
+		RelatedEmpty: "Loading explanations…",
+		TotalFiles:   len(catalog.Files), ReviewedFiles: reviewedFiles, NextCursor: window.next, HasMore: window.hasMore(), Returned: window.end - window.start,
 	}
 	writeIncrementalHeaders(w, "text/html; charset=utf-8")
 	writePageHeaders(w, window)
 	if err := a.template.ExecuteTemplate(w, "code-page", result); err != nil {
 		http.Error(w, "The code page could not be rendered.", http.StatusInternalServerError)
+	}
+}
+
+type fileOwnersView struct {
+	Owners       []*ManifestOwnerView
+	RelatedEmpty string
+}
+
+func (a *app) fileOwners(w http.ResponseWriter, r *http.Request) {
+	document := a.narrativeDocument(r.Context())
+	if document == nil {
+		http.Error(w, "The saga could not be loaded.", http.StatusInternalServerError)
+		return
+	}
+	catalog, err := a.sourceCatalog(r.Context(), document.Manifest)
+	if err != nil {
+		http.Error(w, "The source comparison could not be loaded.", http.StatusInternalServerError)
+		return
+	}
+	filePath := r.URL.Query().Get("file")
+	if filePath == "" {
+		http.Error(w, "file is required", http.StatusBadRequest)
+		return
+	}
+	owners, err := a.catalogFileNarrativeOwners(document, catalog, filePath)
+	if err != nil {
+		http.Error(w, "The explanations for this file could not be loaded.", http.StatusInternalServerError)
+		return
+	}
+	writeIncrementalHeaders(w, "text/html; charset=utf-8")
+	if err := a.template.ExecuteTemplate(w, "file-owners", fileOwnersView{Owners: owners, RelatedEmpty: "Nothing in the story explains this file yet."}); err != nil {
+		http.Error(w, "The explanations for this file could not be rendered.", http.StatusInternalServerError)
 	}
 }
 

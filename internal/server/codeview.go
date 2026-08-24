@@ -353,6 +353,7 @@ type narrativeLocation struct {
 	itemID        string
 	title         string
 	diffs         []saga.DiffFile
+	hasDiffs      bool
 	chapterID     string
 	chapterTitle  string
 	chapterTarget string
@@ -374,13 +375,13 @@ func indexNarrativeFragments(document *saga.Saga) []narrativeLocation {
 				location.chapterTitle, location.chapterTarget, location.chapterHref = "Overview", document.Section.Target, sagaHref(document.Section.Target)
 			}
 			location.fragment = fragment
-			location.target, location.itemID, location.title, location.diffs = fragment.Target, fragment.ID, fragment.Title, fragment.Diffs
+			location.target, location.itemID, location.title, location.diffs, location.hasDiffs = fragment.Target, fragment.ID, fragment.Title, fragment.Diffs, fragment.HasDiffs
 			location.fragmentHref = sagaHref(fragment.Target)
 			result = append(result, location)
 			for index := range fragment.Landmarks {
 				landmark := &fragment.Landmarks[index]
 				landmarkLocation := location
-				landmarkLocation.target, landmarkLocation.itemID, landmarkLocation.title, landmarkLocation.diffs = landmark.Target, landmark.ID, landmark.Label, landmark.Diffs
+				landmarkLocation.target, landmarkLocation.itemID, landmarkLocation.title, landmarkLocation.diffs, landmarkLocation.hasDiffs = landmark.Target, landmark.ID, landmark.Label, landmark.Diffs, landmark.HasDiffs
 				landmarkLocation.fragmentHref = sagaHref(fragment.Target) + "--" + landmark.ID
 				result = append(result, landmarkLocation)
 			}

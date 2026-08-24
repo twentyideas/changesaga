@@ -98,6 +98,7 @@ func attachedFileNotesFromAtoms(atomCount int, atomAt func(int) gitdiff.Atom, ev
 		reference diffuri.Reference
 	}
 	var buckets map[string][]candidate
+	prepared := false
 	for _, diffFile := range evidence {
 		for _, reference := range diffFile.Diffs {
 			note := strings.TrimSpace(reference.Note)
@@ -122,7 +123,27 @@ func attachedFileNotesFromAtoms(atomCount int, atomAt func(int) gitdiff.Atom, ev
 					buckets[key] = append(buckets[key], candidate{path: effectiveAtomPath(atom), reference: parsed})
 				}
 			}
-			for _, entry := range buckets[selectorBucket(selector)] {
+			if !prepared {
+				for key := range buckets {
+					if strings.HasPrefix(key, "line\x00") {
+						sort.SliceStable(buckets[key], func(left, right int) bool {
+							return buckets[key][left].reference.Start < buckets[key][right].reference.Start
+						})
+					}
+				}
+				prepared = true
+			}
+			candidates := buckets[selectorBucket(selector)]
+			if selector.Kind == "line" {
+				start := sort.Search(len(candidates), func(index int) bool {
+					return candidates[index].reference.Start >= selector.Start
+				})
+				end := sort.Search(len(candidates), func(index int) bool {
+					return candidates[index].reference.Start > selector.End
+				})
+				candidates = candidates[start:end]
+			}
+			for _, entry := range candidates {
 				if !diffuri.Matches(selector, entry.reference) {
 					continue
 				}
@@ -139,6 +160,9 @@ func attachedFileNotesFromAtoms(atomCount int, atomAt func(int) gitdiff.Atom, ev
 // succeed. Two references that disagree on it can never match, and every
 // reference that agrees on it is still compared exactly.
 func selectorBucket(reference diffuri.Reference) string {
+	if reference.Kind == "line" {
+		return "line\x00" + reference.Path + "\x00" + reference.Side
+	}
 	if reference.Kind == "event" && reference.Event == "rename" {
 		return "event\x00rename\x00" + reference.OldPath + "\x00" + reference.NewPath
 	}

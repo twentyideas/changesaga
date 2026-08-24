@@ -78,6 +78,31 @@ func TestLoadOutlineDoesNotOpenCoverageOrContentTrees(t *testing.T) {
 	}
 }
 
+func TestLoadNarrativeAdvertisesTargetEvidenceWithoutMaterializingIt(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "narrative.saga")
+	writeTestFile(t, filepath.Join(root, "saga.json"), `{"version":2,"id":"narrative","title":"Narrative","source":{"repository":"https://example.test/acme/app.git","base":"main","head":"HEAD"}}`)
+	writeTestFile(t, filepath.Join(root, "story.fragment", "fragment.json"), `{"version":2,"id":"story","title":"Story","media_type":"text/markdown","entrypoint":"content.md"}`)
+	writeTestFile(t, filepath.Join(root, "story.fragment", "content.md"), "# Story\n")
+	uri, err := diffuri.Build(diffuri.Reference{Repository: "https://example.test/acme/app.git", Base: "aaa", Head: "bbb", Kind: "line", Path: "app.go", Side: "new", Start: 1, End: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(root, "story.fragment", "___diffs", "app.json"), fmt.Sprintf(`{"version":2,"diffs":[{"uri":%q,"note":"Implements the story."}]}`, uri))
+
+	document, validation, err := LoadNarrative(root)
+	if err != nil || !validation.Valid {
+		t.Fatalf("narrative load = valid %v, err %v, issues %#v", validation.Valid, err, validation.Issues)
+	}
+	fragment := document.Section.Fragments[0]
+	if !fragment.HasDiffs || len(fragment.Diffs) != 0 {
+		t.Fatalf("narrative evidence state = has %v, materialized %d", fragment.HasDiffs, len(fragment.Diffs))
+	}
+	diffs, targetValidation, err := LoadTargetDiffs(MutationIndexFromDocument(document), fragment.Target)
+	if err != nil || !targetValidation.Valid || len(diffs) != 1 || len(diffs[0].Diffs) != 1 || diffs[0].Diffs[0].URI != uri {
+		t.Fatalf("target evidence = %#v, valid %v, err %v, issues %#v", diffs, targetValidation.Valid, err, targetValidation.Issues)
+	}
+}
+
 func TestLoadRejectsNestedChapter(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "test.saga")
 	writeTestFile(t, filepath.Join(root, "saga.json"), `{"version":2,"id":"test","title":"A saga","source":{"repository":"https://example.test/a.git","base":"main","head":"HEAD"}}`)
