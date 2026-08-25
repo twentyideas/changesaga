@@ -1,26 +1,18 @@
 name: Feedback
-description: Share what worked, what did not, or anything you would like to see changed.
+description: Tell us what you think.
 body:
   - type: textarea
     id: feedback
     attributes:
-      label: Feedback
-      description: Tell us what happened in whatever form is useful to you.
-    validations:
-      required: true
-  - type: input
-    id: assistant
-    attributes:
-      label: Coding assistant
-      description: For example, OpenCode, Codex, Claude Code, Cursor, or another assistant.
-      placeholder: OpenCode
+      label: What do you think?
+      description: Tell us what worked, what did not, or anything you would like changed.
     validations:
       required: true
   - type: input
     id: model
     attributes:
-      label: AI model and provider
-      description: Use the exact model identifier when possible.
-      placeholder: OpenCode Zen / ox-alpha-free
+      label: Which AI model did you use?
+      description: Include the provider and exact model name when possible.
+      placeholder: Anthropic / Claude Sonnet 4.6
     validations:
       required: true
