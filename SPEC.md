@@ -495,7 +495,11 @@ A thread has kind `comment` or `suggestion`. Suggestions must use a `diff`
 anchor and include explicit replacement text; they remain review proposals and
 are never applied to source code automatically.
 
-Saga-, chapter-, section-, and fragment-level decisions remain separate from discussion threads.
+Saga-, chapter-, section-, and fragment-level decision records remain separate
+from discussion threads. The format continues to accept historical chapter
+decision records for compatibility, while the reviewer UI treats a chapter as
+a container and derives its progress from the independently reviewed sections
+and fragments inside it.
 Append-only approval events live in the target's `___approvals/` directory and
 use state `approved`, `rejected`, `closed`, or `open` as defined by
 [`schema/v2/review.schema.json`](schema/v2/review.schema.json). The latest event, resolving `created_at` ties by the greater `id`, is the

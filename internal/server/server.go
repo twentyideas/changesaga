@@ -139,6 +139,29 @@ type reviewProgressItem struct {
 	Note       string
 }
 
+// chapterReviewItem is one approval-bearing destination inside a chapter. A
+// chapter is only a container: its own historical approval records remain
+// readable for compatibility but never become a row or contribute to current
+// completion. ReviewState is the storage-compatible decision used by the
+// shared controls; State is the deliberately smaller three-state UI contract.
+type chapterReviewItem struct {
+	Target       string
+	Title        string
+	Href         string
+	KindLabel    string
+	Depth        int
+	State        string
+	StateClass   string
+	Status       string
+	CommentCount int
+	CommentLabel string
+	HasActivity  bool
+	ReviewState  string
+	ReviewAuthor string
+	ReviewDetail string
+	ReviewBody   string
+}
+
 // navNodeView is the sidebar documentation tree. It exposes titles, links and a
 // quiet review state only: never counts, never the storage hierarchy.
 type navNodeView struct {
@@ -157,17 +180,20 @@ type sectionView struct {
 	*saga.Section
 	// Deferred marks a chapter summary whose body has not been rendered. The
 	// body arrives from /api/section the first time the chapter is opened.
-	Deferred      bool
-	DOMID         string
-	ChangeCount   int
-	Attached      *attachedCodeView
-	Threads       []*threadView
-	FragmentViews []*fragmentView
-	ChildViews    []*sectionView
-	ReviewState   string
-	ReviewAuthor  string
-	ReviewDetail  string
-	ReviewBody    string
+	Deferred               bool
+	DOMID                  string
+	ChangeCount            int
+	Attached               *attachedCodeView
+	Threads                []*threadView
+	FragmentViews          []*fragmentView
+	ChildViews             []*sectionView
+	ReviewDirectory        []*chapterReviewItem
+	ReviewDirectoryDecided int
+	DirectoryManaged       bool
+	ReviewState            string
+	ReviewAuthor           string
+	ReviewDetail           string
+	ReviewBody             string
 }
 
 type fragmentView struct {
@@ -190,6 +216,7 @@ type fragmentView struct {
 	// content move to AnnotationThreads and render as bubbles on the mark.
 	Threads           []*threadView
 	AnnotationThreads []*annotationThreadView
+	DirectoryManaged  bool
 	ReviewState       string
 	ReviewAuthor      string
 	ReviewDetail      string
@@ -536,6 +563,9 @@ func (a *app) sectionBody(w http.ResponseWriter, r *http.Request) {
 	}
 	threadsByTarget, _ := threadViews(document)
 	scope := viewScope{threads: threadsByTarget}.shell()
+	// The chapter response owns the one set of decision controls for everything
+	// inside it. Fragment bodies can then stay focused on the authored material.
+	scope.directoryManaged = section.Kind == "chapter"
 	writeIncrementalHeaders(w, "text/html; charset=utf-8")
 	if err := a.template.ExecuteTemplate(w, "section-body", makeSectionView(section, scope)); err != nil {
 		http.Error(w, "The chapter could not be rendered.", http.StatusInternalServerError)
@@ -558,7 +588,7 @@ func (a *app) fragmentContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	threadsByTarget, threadsByDiff := threadViews(document)
-	scope := viewScope{threads: threadsByTarget, diffThreads: threadsByDiff}
+	scope := viewScope{threads: threadsByTarget, diffThreads: threadsByDiff, directoryManaged: targetBelongsToChapter(document.Section, fragment.Target)}
 	writeIncrementalHeaders(w, "text/html; charset=utf-8")
 	if err := a.template.ExecuteTemplate(w, "fragment", makeFragmentView(fragment, scope)); err != nil {
 		http.Error(w, "The explanation could not be rendered.", http.StatusInternalServerError)
@@ -704,6 +734,31 @@ func findFragmentByTarget(document *saga.Saga, target string) *saga.Fragment {
 	}
 	walk(document.Section)
 	return found
+}
+
+func targetBelongsToChapter(root *saga.Section, target string) bool {
+	var walk func(*saga.Section, bool) bool
+	walk = func(section *saga.Section, inChapter bool) bool {
+		if section == nil {
+			return false
+		}
+		inChapter = inChapter || section.Kind == "chapter"
+		if inChapter && section.Target == target {
+			return true
+		}
+		for _, fragment := range section.Fragments {
+			if inChapter && fragment.Target == target {
+				return true
+			}
+		}
+		for _, child := range section.Children {
+			if walk(child, inChapter) {
+				return true
+			}
+		}
+		return false
+	}
+	return walk(root, false)
 }
 
 // markLinkedEvidence flags the rows of a whole-file diff that a single
@@ -920,14 +975,27 @@ func requestedChapter(r *http.Request) (string, bool) {
 	return value, value != "" && !strings.Contains(value, "/")
 }
 
-// reviewProgress reports resume state for one chapter. It is deliberately
-// coarse: reviewers need to know where to continue, not a completion score.
+// reviewProgress reduces a chapter's directory to a quiet resume signal. The
+// chapter's own legacy approval is intentionally absent: completion belongs to
+// the individual approval-bearing things inside it.
 func reviewProgress(section *saga.Section, threads map[string][]*threadView) (status, class, icon string) {
-	if state, _, _, _ := latestReview(section.Reviews); state == "approved" {
+	items := makeChapterReviewDirectory(section, threads)
+	allApproved := len(items) > 0
+	for _, item := range items {
+		if item.ReviewState == "rejected" {
+			return "Needs changes", "rejected", "reject"
+		}
+		if item.ReviewState != "approved" {
+			allApproved = false
+		}
+	}
+	if allApproved {
 		return "Approved", "approved", "check"
 	}
-	if sectionHasActivity(section, threads) {
-		return "In progress", "progress", "half"
+	for _, item := range items {
+		if item.HasActivity {
+			return "In progress", "progress", "half"
+		}
 	}
 	return "Unreviewed", "", "circle"
 }
@@ -1002,30 +1070,61 @@ func withoutRedundantLead(nodes []*navNodeView, label string) []*navNodeView {
 	return nodes[1:]
 }
 
-// sectionHasActivity answers the resume question from the document and the
-// thread index, so a collapsed chapter reports the same state whether or not its
-// body has been rendered. Comments drawn onto content are annotations rather
-// than section activity, exactly as when this walked the rendered views.
-func sectionHasActivity(section *saga.Section, threads map[string][]*threadView) bool {
-	if state, _, _, _ := latestReview(section.Reviews); state != "" || len(threads[section.Target]) > 0 {
-		return true
+// makeChapterReviewDirectory walks only authored metadata and the compact
+// thread index. It is therefore safe to build in /api/section without opening
+// fragment bodies, coverage mappings, or the source comparison.
+func makeChapterReviewDirectory(chapter *saga.Section, threads map[string][]*threadView) []*chapterReviewItem {
+	if chapter == nil {
+		return nil
 	}
-	for _, fragment := range section.Fragments {
-		if state, _, _, _ := latestReview(fragment.Reviews); state != "" {
-			return true
+	var result []*chapterReviewItem
+	var walk func(*saga.Section, int, bool)
+	walk = func(section *saga.Section, depth int, includeSection bool) {
+		if section == nil {
+			return
 		}
-		for _, thread := range threads[fragment.Target] {
-			if !annotationAnchor(thread.Anchor.Type) {
-				return true
+		if includeSection && section.Kind != "chapter" {
+			result = append(result, makeChapterReviewItem(section.Target, section.Title, "Section", depth, section.Reviews, len(threads[section.Target])))
+		}
+		for _, fragment := range section.Fragments {
+			title := fragment.Title
+			if title == "" {
+				title = fragment.ID
 			}
+			comments := len(threads[fragment.Target])
+			for _, landmark := range fragment.Landmarks {
+				comments += len(threads[landmark.Target])
+			}
+			result = append(result, makeChapterReviewItem(fragment.Target, title, "Explanation", depth, fragment.Reviews, comments))
+		}
+		for _, child := range section.Children {
+			walk(child, depth+1, true)
 		}
 	}
-	for _, child := range section.Children {
-		if sectionHasActivity(child, threads) {
-			return true
-		}
+	walk(chapter, 0, false)
+	return result
+}
+
+func makeChapterReviewItem(target, title, kind string, depth int, reviews []saga.Review, comments int) *chapterReviewItem {
+	rawState, author, detail, body := latestReview(reviews)
+	item := &chapterReviewItem{
+		Target: target, Title: title, Href: "#" + domID(target), KindLabel: kind, Depth: depth,
+		State: "unreviewed", StateClass: "unreviewed", Status: "Unreviewed",
+		CommentCount: comments, HasActivity: rawState != "" || comments > 0,
+		ReviewAuthor: author, ReviewDetail: detail, ReviewBody: body,
 	}
-	return false
+	if comments == 1 {
+		item.CommentLabel = "1 comment or annotation"
+	} else {
+		item.CommentLabel = fmt.Sprintf("%d comments and annotations", comments)
+	}
+	switch rawState {
+	case "approved":
+		item.State, item.StateClass, item.Status, item.ReviewState = "approved", "approved", "Approved", "approved"
+	case "rejected":
+		item.State, item.StateClass, item.Status, item.ReviewState = "changes-requested", "changes-requested", "Changes requested", "rejected"
+	}
+	return item
 }
 
 // makeReviewProgressItems counts decisions over the whole document, not over the
@@ -1042,12 +1141,14 @@ func makeReviewProgressItems(root *saga.Section) []*reviewProgressItem {
 		if section == nil {
 			return
 		}
-		title := section.Title
-		if title == "" {
-			title = section.ID
+		if section.Kind != "chapter" {
+			title := section.Title
+			if title == "" {
+				title = section.ID
+			}
+			state, _, _, body := latestReview(section.Reviews)
+			result = append(result, makeReviewProgressItem(section.Target, title, "#"+domID(section.Target), state, body))
 		}
-		state, _, _, body := latestReview(section.Reviews)
-		result = append(result, makeReviewProgressItem(section.Target, title, "#"+domID(section.Target), state, body))
 		for _, fragment := range section.Fragments {
 			fragmentTitle := fragment.Title
 			if fragmentTitle == "" {
@@ -1224,6 +1325,9 @@ type viewScope struct {
 	// deferContent renders every fragment as a descriptor whose content arrives
 	// from /api/fragment.
 	deferContent bool
+	// directoryManaged removes duplicate inline decision controls for targets
+	// whose chapter directory owns those controls.
+	directoryManaged bool
 }
 
 // shell is the scope both the page and /api/section render at: this node in
@@ -1238,12 +1342,20 @@ func makeSectionView(section *saga.Section, scope viewScope) *sectionView {
 	changeCount = lazyChangeCount(section.HasDiffs, changeCount)
 	view := &sectionView{
 		Section: section, DOMID: domID(section.Target), ChangeCount: changeCount,
-		Attached: attached, Threads: scope.threads[section.Target],
+		Attached: attached, Threads: scope.threads[section.Target], DirectoryManaged: scope.directoryManaged,
 	}
 	view.ReviewState, view.ReviewAuthor, view.ReviewDetail, view.ReviewBody = latestReview(section.Reviews)
 	if scope.summary {
 		view.Deferred = true
 		return view
+	}
+	if section.Kind == "chapter" && scope.directoryManaged {
+		view.ReviewDirectory = makeChapterReviewDirectory(section, scope.threads)
+		for _, item := range view.ReviewDirectory {
+			if item.ReviewState == "approved" || item.ReviewState == "rejected" {
+				view.ReviewDirectoryDecided++
+			}
+		}
 	}
 	for _, fragment := range section.Fragments {
 		view.FragmentViews = append(view.FragmentViews, makeFragmentView(fragment, scope))
@@ -1261,7 +1373,7 @@ func makeFragmentView(fragment *saga.Fragment, scope viewScope) *fragmentView {
 	if title == "" {
 		title = fragment.ID
 	}
-	view := &fragmentView{Fragment: fragment, DOMID: domID(fragment.Target)}
+	view := &fragmentView{Fragment: fragment, DOMID: domID(fragment.Target), DirectoryManaged: scope.directoryManaged}
 	view.ReviewState, view.ReviewAuthor, view.ReviewDetail, view.ReviewBody = latestReview(fragment.Reviews)
 	view.URL = "/f/" + url.PathEscape(fragment.ID) + "/" + strings.Join(pathEscapeParts(fragment.Entrypoint), "/")
 	if scope.deferContent {
