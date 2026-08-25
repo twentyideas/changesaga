@@ -100,6 +100,19 @@ func TestSelectorIdentityKeepsFirstEntryForDuplicateEvidencePaths(t *testing.T) 
 	}
 }
 
+func TestCleanDiagnosticPathRedactsPortableAbsolutePaths(t *testing.T) {
+	for _, value := range []string{
+		"/private/evidence.json",
+		`C:\private\evidence.json`,
+		"C:/private/evidence.json",
+		`\\server\share\evidence.json`,
+	} {
+		if got := cleanDiagnosticPath(value); got != "" {
+			t.Errorf("cleanDiagnosticPath(%q) = %q, want redacted", value, got)
+		}
+	}
+}
+
 func TestStaleSelectorsReuseCoverageOrphanReasons(t *testing.T) {
 	file := saga.DiffFile{Version: 2, Path: "___diffs/root.json", Diffs: []saga.DiffReference{
 		{URI: "uri-0", Note: "matched"}, {URI: "broken", Note: "unparsable"}, {URI: "uri-missing", Note: "no orphan record"},

@@ -669,10 +669,25 @@ func landmarkValue(value saga.LandmarkSelector) *LandmarkValue {
 }
 
 func cleanDiagnosticPath(value string) string {
-	if value == "" || filepath.IsAbs(value) {
+	if value == "" || diagnosticPathIsAbs(value) {
 		return ""
 	}
 	return filepath.ToSlash(filepath.Clean(value))
+}
+
+// Diagnostic paths can originate from a saga written on a different operating
+// system than the reviewer. Redact every portable absolute form instead of
+// relying only on the host-specific filepath.IsAbs interpretation.
+func diagnosticPathIsAbs(value string) bool {
+	if filepath.IsAbs(value) {
+		return true
+	}
+	portable := strings.ReplaceAll(value, `\`, "/")
+	if strings.HasPrefix(portable, "/") {
+		return true
+	}
+	return len(portable) >= 3 && portable[1] == ':' && portable[2] == '/' &&
+		((portable[0] >= 'a' && portable[0] <= 'z') || (portable[0] >= 'A' && portable[0] <= 'Z'))
 }
 
 func (s *session) validateTargetArgument(value string) error {
