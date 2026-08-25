@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "canonical",
+  "label": "Evidence: canonical",
+  "selector": {
+    "type": "text",
+    "exact": "Manual line lists are parsed, sorted, deduplicated, and re-emitted as canonical dense ranges."
+  },
+  "target": ""
+}

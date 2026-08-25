@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/twentyideas/changesaga/internal/gitdiff"
-	"github.com/twentyideas/changesaga/internal/saga"
 )
 
 func TestFocusedCodeRendererIncludesAccessibleLocalDiffControls(t *testing.T) {
@@ -18,14 +17,16 @@ func TestFocusedCodeRendererIncludesAccessibleLocalDiffControls(t *testing.T) {
 		{Kind: "old", Path: "src/app.go", OldLine: 7, Content: old.Content, Atom: old},
 		{Kind: "new", Path: "src/app.go", NewLine: 7, Content: added.Content, Atom: added},
 	}}
-	code := &CodeReviewView{
-		Files: []*FileDiffView{file}, SelectedFile: file,
-		Tree:        ChangedFileTreeView{Nodes: []*ChangedFileTreeNode{{Name: "src", Kind: "folder", Expanded: true, Children: []*ChangedFileTreeNode{{Name: "app.go", Kind: "file", File: file}}}}, FileCount: 1, Added: 1, Deleted: 1},
-		RelatedSaga: []*RelatedSagaChapterView{{Title: "Backend", Href: "#target-backend", Fragments: []*RelatedSagaFragmentView{{Title: "Request flow", Excerpt: "Explains the new branch.", Href: "#target-flow"}}}},
+	code := codePageView{
+		Tree:     ChangedFileTreeView{Nodes: []*ChangedFileTreeNode{{Name: "src", Kind: "folder", Expanded: true, Children: []*ChangedFileTreeNode{{Name: "app.go", Kind: "file", File: file}}}}, FileCount: 1, Added: 1, Deleted: 1},
+		Selected: file, Owners: []*ManifestOwnerView{{Title: "Request flow", Chapter: "Backend", Href: "#target-flow"}},
+		TotalFiles: 1, Returned: 1,
 	}
-	data := pageData{Saga: &saga.Saga{Manifest: saga.Manifest{ID: "test", Title: "Test"}}, Root: &sectionView{Section: &saga.Section{}}, Code: code, Files: code.Files}
 	var output bytes.Buffer
-	if err := tmpl.ExecuteTemplate(&output, "page", data); err != nil {
+	if err := tmpl.ExecuteTemplate(&output, "code-page", code); err != nil {
+		t.Fatal(err)
+	}
+	if err := tmpl.ExecuteTemplate(&output, "file-diff-page", fileDiffPageView{File: file, Returned: len(file.Lines)}); err != nil {
 		t.Fatal(err)
 	}
 	body := output.String()
@@ -35,8 +36,7 @@ func TestFocusedCodeRendererIncludesAccessibleLocalDiffControls(t *testing.T) {
 		`data-diff-surface`, `data-context-row`, `aria-label="Unchanged line 6"`,
 		`aria-label="Removed old line 7"`, `aria-label="Added new line 7"`,
 		`data-selection-action="comment"`, `data-selection-action="suggestion"`,
-		`class="diff-row new selected"`, `href="#target-flow"`, `Explains the new branch.`,
-		`<script src="/app.js" defer></script>`,
+		`class="diff-row new selected"`, `href="#target-flow"`,
 	} {
 		if !strings.Contains(body, expected) {
 			t.Errorf("renderer omitted %q", expected)

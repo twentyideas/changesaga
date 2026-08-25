@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "range-fix",
+  "label": "Range authoring",
+  "description": "Canonical dense changed-line selectors",
+  "selector": {
+    "type": "element",
+    "element_id": "range-fix"
+  },
+  "target": ""
+}

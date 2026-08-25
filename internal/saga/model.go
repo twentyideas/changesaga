@@ -54,7 +54,11 @@ type Section struct {
 	Children  []*Section  `json:"children,omitempty"`
 	Fragments []*Fragment `json:"fragments,omitempty"`
 	Diffs     []DiffFile  `json:"diffs,omitempty"`
-	Reviews   []Review    `json:"reviews,omitempty"`
+	// HasDiffs records the presence of this target's ___diffs directory without
+	// materializing any evidence records. Narrative-only loads use it to render
+	// a lazy linked-code affordance while keeping coverage metadata unopened.
+	HasDiffs bool     `json:"-"`
+	Reviews  []Review `json:"reviews,omitempty"`
 }
 
 type FragmentManifest struct {
@@ -76,6 +80,7 @@ type Fragment struct {
 	Order      int        `json:"order,omitempty"`
 	Target     string     `json:"target"`
 	Diffs      []DiffFile `json:"diffs,omitempty"`
+	HasDiffs   bool       `json:"-"`
 	Landmarks  []Landmark `json:"landmarks,omitempty"`
 	Reviews    []Review   `json:"reviews,omitempty"`
 }
@@ -91,6 +96,7 @@ type Landmark struct {
 	Hotspot     *LandmarkRegion  `json:"hotspot,omitempty"`
 	Target      string           `json:"target"`
 	Diffs       []DiffFile       `json:"diffs,omitempty"`
+	HasDiffs    bool             `json:"-"`
 }
 
 type LandmarkSelector struct {

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "conflict-fix",
+  "label": "Merge conflicts",
+  "description": "Selector-derived coverage record names",
+  "selector": {
+    "type": "element",
+    "element_id": "conflict-fix"
+  },
+  "target": ""
+}

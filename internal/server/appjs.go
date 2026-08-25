@@ -601,8 +601,16 @@ const appJavaScript = `(() => {
     globalThis.requestAnimationFrame?.(() => target.scrollIntoView({block:'center'}));
   }
 
-  function prepareLandmarks() {
-    qa('.fragment-frame').forEach(frame => {
+  // within lets a preparation pass run over one hydrated fragment as well as
+  // over the whole page, including when the root is the fragment itself.
+  function within(root, selector) {
+    const scope = root || document;
+    const self = scope.matches?.(selector) ? [scope] : [];
+    return [...self, ...qa(selector, scope)];
+  }
+
+  function prepareLandmarks(root = document) {
+    within(root, '.fragment-frame').forEach(frame => {
       const aspect = Number(new URL(frame.src, location.href).searchParams.get('saga_aspect'));
       if (aspect > 0) {
         frame.style.minHeight = '0';
@@ -610,8 +618,8 @@ const appJavaScript = `(() => {
       }
       frame.addEventListener('load', positionFragmentOverlays);
     });
-    qa('.fragment-image').forEach(image => image.addEventListener('load', positionFragmentOverlays));
-    qa('[data-landmark-target]').forEach(target => {
+    within(root, '.fragment-image').forEach(image => image.addEventListener('load', positionFragmentOverlays));
+    within(root, '[data-landmark-target]').forEach(target => {
       const anchor = target.dataset.landmarkAnchor;
       const fragment = target.closest('.fragment');
       if (!anchor || !fragment) return;
@@ -631,16 +639,32 @@ const appJavaScript = `(() => {
         if (affordance) mark.append(affordance);
       }
     });
-    qa('.fragment').forEach(fragment => { void prepareSVGElementHotspots(fragment).catch(() => {}); });
+    within(root, '.fragment').forEach(fragment => { void prepareSVGElementHotspots(fragment).catch(() => {}); });
     globalThis.requestAnimationFrame?.(positionFragmentOverlays);
+  }
+
+  // Text highlights are drawn onto content, so they are applied once per piece
+  // of content: over the page at load, and over each explanation as it arrives.
+  function prepareTextHighlights(root = document) {
+    within(root, '[data-text-target]').forEach(label => {
+      const target = document.querySelector('[data-target="'+CSS.escape(label.dataset.textTarget)+'"] [data-selectable]');
+      if (!target) return;
+      const exact = label.dataset.exact;
+      const color = normalizedAnnotationColor(label.dataset.textColor);
+      const mark = markExactText(target, exact);
+      if (!mark) return;
+      mark.style.backgroundColor = colorWithAlpha(color);
+      mark.dataset.textMark = 'true';
+      mark.dataset.threadId = label.dataset.threadId || '';
+    });
   }
 
   // Markdown citations are ordinary footnotes until their reference entry is
   // made into an exact-text landmark. When that landmark owns code evidence,
   // promote every inline citation marker into a direct diff-drawer control.
   // Footnotes without evidence keep their normal jump-to-reference behavior.
-  function prepareDiffCitations() {
-    qa('a.footnote-ref').forEach(reference => {
+  function prepareDiffCitations(root = document) {
+    within(root, 'a.footnote-ref').forEach(reference => {
       const href = reference.getAttribute('href') || '';
       if (!href.startsWith('#')) return;
       const definition = document.getElementById(decodeURIComponent(href.slice(1)));
@@ -653,13 +677,14 @@ const appJavaScript = `(() => {
     });
   }
 
-  function activateLandmark() {
+  async function activateLandmark() {
     qa('[data-landmark-visual].active').forEach(element => element.classList.remove('active'));
     qa('.content-landmark-active').forEach(element => element.classList.remove('content-landmark-active'));
     const id = decodeURIComponent(location.hash.replace(/^#/, ''));
-    const destination = id ? document.getElementById(id) : null;
-    if (destination) {
-      setChapterOpen(destination.closest('[data-chapter]'), true);
+    // The anchor may name something inside a chapter or an explanation that has
+    // not been fetched yet, so it is resolved before it is scrolled to.
+    const destination = await revealAnchor(id);
+    if (destination?.closest('[data-view="saga"]')) {
       setView('saga', false);
     }
     const target = id ? q('[data-landmark-anchor="' + CSS.escape(id) + '"]') : null;
@@ -743,8 +768,10 @@ const appJavaScript = `(() => {
     });
   }
 
-  function prepareContext() {
-    qa('[data-diff-body]').forEach(body => {
+  function prepareContext(root = document) {
+    within(root, '[data-diff-body]').forEach(body => {
+      qa(':scope > .context-expander', body).forEach(button => button.remove());
+      qa(':scope > [data-context-row]', body).forEach(row => { row.hidden = false; });
       const rows = [...body.children].filter(row => row.matches('.diff-row'));
       const hidden = rows.map((row, index) => {
         if (!row.matches('[data-context-row]')) return false;
@@ -874,7 +901,10 @@ const appJavaScript = `(() => {
     children.hidden = expanded;
   }
 
-  function setChapterOpen(chapter, open) {
+  // Opening a chapter is what fetches it. The disclosure state is applied at
+  // once so the control never feels unresponsive, and the body arrives from
+  // /api/section behind the placeholder the shell rendered in its place.
+  async function setChapterOpen(chapter, open) {
     if (!chapter) return;
     const body = q('[data-chapter-body]', chapter);
     const toggle = q('[data-chapter-toggle]', chapter);
@@ -883,12 +913,340 @@ const appJavaScript = `(() => {
     toggle.setAttribute('aria-expanded', String(open));
     toggle.setAttribute('aria-label', (open ? 'Close ' : 'Open ') + (q('.chapter-head h2', chapter)?.textContent.trim() || 'chapter'));
     chapter.classList.toggle('open', open);
-    if (open) positionLandmarkHotspots();
+    if (!open) return;
+    await hydrateChapter(chapter);
+    positionLandmarkHotspots();
   }
 
   function toggleChapter(button) {
-    const chapter = button.closest('[data-chapter]');
-    setChapterOpen(chapter, button.getAttribute('aria-expanded') !== 'true');
+	const chapter = button.closest('[data-chapter]');
+	void setChapterOpen(chapter, button.getAttribute('aria-expanded') !== 'true');
+  }
+
+  // Code Diff and Coverage are deliberately absent from the root document.
+  // Their endpoints return bounded HTML fragments, and a cold comparison may
+  // answer 202 while its snapshot is still being built. Per-surface request
+  // generations keep a late response for one file from replacing a newer deep
+  // link, while the URL remains the source of truth throughout retries.
+  const reviewSurfaceRequests = new Map();
+  const reviewSurfaceRetries = new Map();
+  const codeFileRequests = new WeakMap();
+  const codeFileRetries = new WeakMap();
+  const continuousCoverageLoads = new WeakMap();
+  let relatedOwnersRequest = null;
+
+  function reviewSurfaceURL(name, explicitHref = '') {
+    const surface = q('[data-review-surface="'+name+'"]');
+    const url = new URL(explicitHref || surface?.dataset.surfaceHref || '', location.href);
+    if (!explicitHref) {
+      const current = new URL(location.href);
+      ['file', 'diff', 'mode'].forEach(key => {
+        if (current.searchParams.has(key)) url.searchParams.set(key, current.searchParams.get(key));
+      });
+    }
+    return url;
+  }
+
+  function surfaceStatus(surface, state, title, detail, retry = false) {
+    if (!surface) return;
+    surface.dataset.surfaceState = state;
+    surface.replaceChildren();
+    const status = document.createElement('div');
+    status.className = 'surface-placeholder ' + state;
+    status.dataset.surfaceStatus = '';
+    status.setAttribute('role', state === 'error' ? 'alert' : 'status');
+    status.setAttribute('aria-live', 'polite');
+    if (state === 'loading' || state === 'building') {
+      const spinner = document.createElement('span');
+      spinner.className = 'surface-spinner';
+      spinner.setAttribute('aria-hidden', 'true');
+      status.append(spinner);
+    }
+    const heading = document.createElement('strong');
+    heading.textContent = title;
+    status.append(heading);
+    if (detail) {
+      const message = document.createElement('span');
+      message.textContent = detail;
+      status.append(message);
+    }
+    if (retry) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn-primary';
+      button.dataset.retrySurface = surface.dataset.reviewSurface;
+      button.textContent = 'Try again';
+      status.append(button);
+    }
+    surface.append(status);
+  }
+
+  function retryDelay(response) {
+    const value = response.headers.get('Retry-After');
+    const seconds = Number(value);
+    if (Number.isFinite(seconds) && seconds >= 0) return Math.min(10_000, Math.max(250, seconds * 1000));
+    const date = Date.parse(value || '');
+    if (Number.isFinite(date)) return Math.min(10_000, Math.max(250, date - Date.now()));
+    return 1000;
+  }
+
+  function prepareReviewSurface(name, root) {
+    if (name !== 'manifest') {
+      highlightCode(root);
+      prepareContext(root);
+      applyDiffLayout(diffLayout);
+    }
+    if (name === 'manifest') {
+      const requested = new URL(location.href).searchParams.get('mode');
+      const current = q('[data-manifest-mode][aria-pressed="true"]')?.dataset.manifestMode;
+      setManifestMode(requested === 'saga' && q('[data-manifest-panel="saga"]') ? 'saga'
+        : requested === 'code' && q('[data-manifest-panel="code"]') ? 'code'
+        : current && q('[data-manifest-panel="'+current+'"]') ? current
+        : q('[data-manifest-panel="code"]') ? 'code' : 'saga');
+    }
+    if (name === 'code') {
+      const meta = q('[data-code-meta]');
+      const content = q('[data-code-meta-content]', root);
+      if (meta && content) meta.textContent = content.textContent;
+      within(root, '[data-code-file-href]').forEach(file => { void hydrateCodeFile(file); });
+      void hydrateRelatedOwners(root);
+    }
+    const id = decodeURIComponent(location.hash.replace(/^#/, ''));
+    const destination = id ? document.getElementById(id) : null;
+    if (destination?.closest('[data-review-surface="'+name+'"]')) {
+      revealHashedAnnotationBubble();
+      globalThis.requestAnimationFrame?.(() => destination.scrollIntoView({block:'center'}));
+    }
+  }
+
+  async function hydrateRelatedOwners(root) {
+    const panel = q('#related-saga-panel', root);
+    const file = q('[data-code-file-href]', root);
+    const filePath = file?.dataset.filePath;
+    if (!panel || !filePath) return;
+    const key = filePath;
+    if (panel.dataset.relatedOwnersLoaded === key) return;
+    relatedOwnersRequest?.controller.abort();
+    const controller = new AbortController();
+    const request = {key, controller};
+    relatedOwnersRequest = request;
+    try {
+      const response = await fetch('/api/file-owners?file=' + encodeURIComponent(filePath), {
+        headers:{Accept:'text/html','X-Change-Saga-Async':'true'}, credentials:'same-origin', signal:controller.signal
+      });
+      if (!response.ok) throw new Error('explanations request failed');
+      const content = q('[data-file-owners-response]', parseShellHTML(await response.text()));
+      if (!content) throw new Error('explanations response was incomplete');
+      if (relatedOwnersRequest !== request || !panel.isConnected || q('[data-code-file-href]', root)?.dataset.filePath !== filePath) return;
+      panel.replaceChildren(...Array.from(content.childNodes));
+      panel.dataset.relatedOwnersLoaded = key;
+    } catch (error) {
+      if (error.name !== 'AbortError' && panel.isConnected) panel.innerHTML = '<p>Explanations could not be loaded.</p>';
+    } finally {
+      if (relatedOwnersRequest === request) relatedOwnersRequest = null;
+    }
+  }
+
+  function fileNextButton(file, cursor) {
+    if (!cursor) return null;
+    const url = new URL(file.dataset.codeFileHref, location.href);
+    url.searchParams.set('cursor', cursor);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.fileNext = url.pathname + url.search;
+    button.textContent = 'Load more lines';
+    button.setAttribute('aria-label', 'Load the next file chunk');
+    return button;
+  }
+
+  async function hydrateCodeFile(file, options = {}) {
+    if (!file) return;
+    const href = options.href || file.dataset.codeFileHref;
+    if (!href) return;
+    const url = new URL(href, location.href);
+    const key = url.toString();
+    const previous = codeFileRequests.get(file);
+    if (!options.force && previous?.key === key) return previous.promise;
+    if (!options.append && file.dataset.fileLoaded === key) return file;
+    const controller = new AbortController();
+    clearTimeout(codeFileRetries.get(file));
+    const destination = q('[data-diff-body]', file);
+    if (!destination) return;
+    const promise = fetch(url, {headers:{Accept:'text/html','X-Change-Saga-Async':'true'},credentials:'same-origin',signal:controller.signal}).then(async response => {
+      if (response.status === 202) {
+        destination.innerHTML = '<p class="diff-placeholder">Building this file… <button type="button" data-retry-file>Try again</button></p>';
+        const timer = setTimeout(() => { if (file.isConnected) void hydrateCodeFile(file, {force:true}); }, retryDelay(response));
+        codeFileRetries.set(file, timer);
+        return file;
+      }
+      if (!response.ok) throw new Error((await response.text()).trim() || 'file request failed');
+      const wrapper = parseShellHTML(await response.text());
+      const page = q('[data-file-diff-page]', wrapper) || q('[data-review-surface-page]', wrapper) || q('[data-attached-full-diff]', wrapper) || wrapper;
+      const items = q('[data-page-items="lines"]', page) || q('[data-diff-body]', page) || page;
+      const inserted = Array.from(items.childNodes);
+      if (options.append) destination.append(...inserted); else destination.replaceChildren(...inserted);
+      q('[data-file-next]', file)?.remove();
+      const next = fileNextButton(file, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset?.nextCursor);
+      if (next) q('[data-diff-surface]', file)?.append(next);
+      file.dataset.fileLoaded = key;
+      highlightCode(destination);
+      prepareContext(destination);
+      applyDiffLayout(diffLayout);
+      revealHashedAnnotationBubble();
+      if (!location.hash && !options.append) {
+        const selected = q('.diff-row.selected', destination);
+        globalThis.requestAnimationFrame?.(() => selected?.scrollIntoView({block:'center'}));
+      }
+      return file;
+    }).catch(error => {
+      if (error.name === 'AbortError') return file;
+      destination.innerHTML = '<p class="diff-placeholder">This file could not be loaded. <button type="button" data-retry-file>Try again</button></p>';
+      return file;
+    }).finally(() => {
+      if (codeFileRequests.get(file)?.promise === promise) codeFileRequests.delete(file);
+    });
+    previous?.controller.abort();
+    codeFileRequests.set(file, {key, controller, promise});
+    return promise;
+  }
+
+  function surfaceNextButton(name, cursor, pageKey = '') {
+    if (!cursor) return null;
+    const url = reviewSurfaceURL(name);
+    url.searchParams.set('cursor', cursor);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.surfaceNext = url.pathname + url.search;
+    if (pageKey) button.dataset.pageTarget = pageKey;
+    button.textContent = name === 'manifest' ? 'Loading more coverage…' : 'Load more';
+    button.setAttribute('aria-label', name === 'manifest' ? 'Loading more coverage' : 'Load the next page');
+    return button;
+  }
+
+  async function streamCoveragePages(surface, token) {
+    let button = q('[data-surface-next]', surface);
+    while (button && button.isConnected && continuousCoverageLoads.get(surface) === token) {
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      const next = await loadReviewSurfacePage(button);
+      if (!next) break;
+      button = next;
+      // Yield after every append so the browser paints useful coverage while
+      // the following page is in flight instead of presenting one huge swap.
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+  }
+
+  function beginContinuousCoverageLoad(surface) {
+    if (!surface) return;
+    const token = {};
+    continuousCoverageLoads.set(surface, token);
+    void streamCoveragePages(surface, token);
+  }
+
+  function installReviewSurface(name, surface, html, headerCursor = '') {
+    const wrapper = parseShellHTML(html);
+    const response = q('[data-review-surface-response="'+name+'"]', wrapper) || q('[data-view="'+name+'"]', wrapper);
+    if (!response) throw new Error('surface response was incomplete');
+    const next = surfaceNextButton(name, headerCursor || response.dataset.nextCursor, response.dataset.pageKey || (name === 'code' ? 'files' : ''));
+    if (name === 'code') {
+      const sidebarResponse = q('[data-code-sidebar-content]', response);
+      const panelResponse = q('[data-code-panel-content]', response) || response;
+      const sidebar = q('[data-code-sidebar]');
+      if (!sidebarResponse || !sidebar) throw new Error('code response was incomplete');
+      sidebar.replaceChildren(...Array.from(sidebarResponse.childNodes));
+      surface.replaceChildren(...Array.from(panelResponse.childNodes));
+    } else {
+      surface.replaceChildren(...Array.from(response.childNodes));
+    }
+    if (next) surface.append(next);
+    if (response.dataset.returned) surface.dataset.returned = response.dataset.returned;
+    surface.dataset.surfaceState = 'ready';
+    prepareReviewSurface(name, surface);
+    if (name === 'manifest') beginContinuousCoverageLoad(surface);
+  }
+
+  async function hydrateReviewSurface(name, options = {}) {
+    const surface = q('[data-review-surface="'+name+'"]');
+    if (!surface) return null;
+    const url = reviewSurfaceURL(name, options.href || '');
+    const requestKey = url.toString();
+    if (!options.force && surface.dataset.surfaceLoaded === requestKey) return surface;
+    const previous = reviewSurfaceRequests.get(name);
+    if (!options.force && previous?.key === requestKey) return previous.promise;
+    previous?.controller.abort();
+    clearTimeout(reviewSurfaceRetries.get(name));
+    const controller = new AbortController();
+    surfaceStatus(surface, 'loading', name === 'code' ? 'Loading Code Diff…' : 'Loading Coverage…', name === 'code' ? 'Loading changed files.' : 'Loading files and explanations.');
+    const promise = fetch(url, {headers:{Accept:'text/html','X-Change-Saga-Async':'true'},credentials:'same-origin',signal:controller.signal}).then(async response => {
+      if (response.status === 202) {
+        const delay = retryDelay(response);
+        surfaceStatus(surface, 'building', 'Building the source comparison…', 'This view will update automatically when it is ready.', true);
+        const timer = setTimeout(() => {
+          if (q('[data-view="'+name+'"]').classList.contains('active')) void hydrateReviewSurface(name, {force:true});
+        }, delay);
+        reviewSurfaceRetries.set(name, timer);
+        return surface;
+      }
+      if (!response.ok) throw new Error((await response.text()).trim() || 'request failed');
+      installReviewSurface(name, surface, await response.text(), response.headers.get('X-Change-Saga-Next-Cursor') || '');
+      surface.dataset.surfaceLoaded = requestKey;
+      return surface;
+    }).catch(error => {
+      if (error.name === 'AbortError') return surface;
+      surfaceStatus(surface, 'error', name === 'code' ? 'Code Diff could not be loaded.' : 'Coverage could not be loaded.', error.message, true);
+      return surface;
+    }).finally(() => {
+      if (reviewSurfaceRequests.get(name)?.promise === promise) reviewSurfaceRequests.delete(name);
+    });
+    reviewSurfaceRequests.set(name, {key:requestKey, controller, promise});
+    return promise;
+  }
+
+  async function loadReviewSurfacePage(button) {
+    const surface = button.closest('[data-review-surface]');
+    const name = surface?.dataset.reviewSurface;
+    const href = button.dataset.surfaceNext || button.getAttribute('href');
+    if (!surface || !name || !href || button.dataset.pageLoading === 'true') return null;
+    button.dataset.pageLoading = 'true';
+    button.setAttribute('aria-busy', 'true');
+    try {
+      const response = await fetch(reviewSurfaceURL(name, href), {headers:{Accept:'text/html','X-Change-Saga-Async':'true'},credentials:'same-origin'});
+      if (!response.ok) throw new Error('page request failed');
+      if (!button.isConnected || button.closest('[data-review-surface]') !== surface) return null;
+      const wrapper = parseShellHTML(await response.text());
+      const page = q('[data-review-surface-page]', wrapper) || q('[data-review-surface-response="'+name+'"]', wrapper) || wrapper;
+      const key = page.dataset?.pageKey || button.dataset.pageTarget || '';
+      const groups = within(page, '[data-page-items]');
+      let appended = 0;
+      for (const items of groups) {
+        const groupKey = items.dataset.pageItems;
+        if (!groupKey) continue;
+        const sidebar = q('[data-code-sidebar]');
+        const destination = q('[data-page-items="'+CSS.escape(groupKey)+'"]', surface) || (sidebar ? q('[data-page-items="'+CSS.escape(groupKey)+'"]', sidebar) : null);
+        if (!destination || destination === items) continue;
+        destination.append(...Array.from(items.childNodes));
+        appended++;
+      }
+      if (!appended) {
+        const destinationRoot = name === 'code' && key === 'files' ? q('[data-code-sidebar]') : surface;
+        const destination = key ? q('[data-page-items="'+CSS.escape(key)+'"]', destinationRoot) : q('[data-page-items]', destinationRoot);
+        const items = key ? q('[data-page-items="'+CSS.escape(key)+'"]', page) : q('[data-page-items]', page);
+        if (!destination || !items) throw new Error('page response was incomplete');
+        destination.append(...Array.from(items.childNodes));
+      }
+      const next = q('[data-surface-next]', page) || surfaceNextButton(name, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset?.nextCursor, key);
+      if (next) button.replaceWith(next); else button.remove();
+      prepareReviewSurface(name, surface);
+      return next;
+    } catch (_) {
+      button.textContent = name === 'manifest' ? 'Coverage paused — try again' : 'Could not load more — try again';
+      delete button.dataset.pageLoading;
+      button.removeAttribute('aria-busy');
+      button.disabled = false;
+      button.setAttribute('aria-label', name === 'manifest' ? 'Resume loading coverage' : 'Load the next page');
+      return null;
+    }
   }
 
   function setView(name, updateURL = true) {
@@ -919,6 +1277,7 @@ const appJavaScript = `(() => {
       if (name === 'saga') url.searchParams.delete('view'); else url.searchParams.set('view', name);
       history.pushState({view: name}, '', url);
     }
+    if (name === 'code' || name === 'manifest') void hydrateReviewSurface(name);
   }
 
   function filterManifest() {
@@ -948,6 +1307,19 @@ const appJavaScript = `(() => {
     filterManifest();
   }
 
+  function activateManifestMode(mode) {
+    const current = new URL(location.href);
+    current.searchParams.set('mode', mode);
+    history.pushState({view:'manifest', mode}, '', current);
+    if (q('[data-manifest-panel="'+mode+'"]')) {
+      setManifestMode(mode);
+      return Promise.resolve();
+    }
+    const url = reviewSurfaceURL('manifest');
+    url.searchParams.set('mode', mode);
+    return hydrateReviewSurface('manifest', {force:true, href:url.toString()});
+  }
+
   function setActiveFragment(fragment) {
     if (!fragment || fragment === activeFragment) return;
     if (activeFragment) activeFragment.classList.remove('active-fragment');
@@ -955,6 +1327,9 @@ const appJavaScript = `(() => {
     activeFragment.classList.add('active-fragment');
     const label = q('[data-tool-target]');
     if (label) label.textContent = fragment.dataset.fragmentTitle || 'Selected';
+    // Pointing at an explanation is the clearest signal that it is about to be
+    // read or annotated, so it is fetched now rather than when it scrolls.
+    if (fragment.dataset.fragmentHref) void hydrateFragment(fragment);
   }
 
   function cancelDrawing() {
@@ -1013,6 +1388,8 @@ const appJavaScript = `(() => {
   }
 
   function openDrawer(templateID, opener) {
+    const lazy = qa('[data-target-code-template]').find(candidate => candidate.dataset.targetCodeTemplate === templateID);
+    if (lazy) { void hydrateTargetCode(lazy); return; }
     const source = document.getElementById(templateID);
     if (!source) return;
     // WebKit does not consistently move document.activeElement to a button
@@ -1038,14 +1415,428 @@ const appJavaScript = `(() => {
   function fetchFileDiff(href) {
     let request = fileDiffCache.get(href);
     if (!request) {
-      request = fetch(href, {headers:{Accept:'text/html'}}).then(async response => {
+      const load = () => fetch(href, {headers:{Accept:'text/html'}}).then(async response => {
+        if (response.status === 202) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay(response)));
+          return load();
+        }
         if (!response.ok) throw new Error('diff request failed');
-        return response.text();
+        return {html:await response.text(), next:response.headers.get('X-Change-Saga-Next-Cursor') || ''};
       });
+      request = load();
       fileDiffCache.set(href, request);
       request.catch(() => fileDiffCache.delete(href));
     }
     return request;
+  }
+
+  // The page ships the saga as a shell: saga identity, coverage totals, the
+  // overview's explanations as descriptors, one summary per chapter, and the
+  // navigation outline. Chapter bodies and explanation content arrive from
+  // /api/section and /api/fragment as a reviewer reaches them, so first load
+  // stays proportional to what is on screen rather than to the whole story.
+  const shellCache = new Map();
+
+  function fetchShell(href) {
+    let request = shellCache.get(href);
+    if (!request) {
+      const load = () => fetch(href, {headers:{Accept:'text/html'}}).then(async response => {
+        if (response.status === 202) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay(response)));
+          return load();
+        }
+        if (!response.ok) throw new Error('shell request failed');
+        return response.text();
+      });
+      request = load();
+      shellCache.set(href, request);
+      request.catch(() => shellCache.delete(href));
+    }
+    return request;
+  }
+
+  function parseShellHTML(html) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html;
+    return wrapper;
+  }
+
+  // Linked-code summaries are small enough to anticipate but expensive enough
+  // that a pointer sweep must not fan out across the story. Two speculative
+  // requests run at once; clicks promote their request above hover work, and a
+  // bounded LRU keeps completed summaries useful without retaining the saga.
+  const maxConcurrentTargetCodeLoads = 2;
+  const targetCodeCacheLimit = 64;
+  const targetCodeResponses = new Map();
+  const targetCodeJobs = new Map();
+  const targetCodeQueue = [];
+  let activeTargetCodeLoads = 0;
+  let targetCodeJobOrder = 0;
+
+  function cachedTargetCode(href) {
+    const html = targetCodeResponses.get(href);
+    if (html === undefined) return null;
+    targetCodeResponses.delete(href);
+    targetCodeResponses.set(href, html);
+    return html;
+  }
+
+  function rememberTargetCode(href, html) {
+    targetCodeResponses.delete(href);
+    targetCodeResponses.set(href, html);
+    while (targetCodeResponses.size > targetCodeCacheLimit) {
+      targetCodeResponses.delete(targetCodeResponses.keys().next().value);
+    }
+  }
+
+  function targetCodeAbortError() {
+    return new DOMException('Linked-code prefetch was cancelled', 'AbortError');
+  }
+
+  function targetCodeRetryDelay(milliseconds, signal) {
+    return new Promise((resolve, reject) => {
+      if (signal.aborted) { reject(targetCodeAbortError()); return; }
+      const timer = setTimeout(resolve, milliseconds);
+      signal.addEventListener('abort', () => { clearTimeout(timer); reject(targetCodeAbortError()); }, {once:true});
+    });
+  }
+
+  async function loadTargetCodeJob(job) {
+    while (true) {
+      const response = await fetch(job.href, {headers:{Accept:'text/html'}, credentials:'same-origin', signal:job.controller.signal});
+      if (response.status === 202) {
+        await targetCodeRetryDelay(retryDelay(response), job.controller.signal);
+        continue;
+      }
+      if (!response.ok) throw new Error('linked-code request failed');
+      return response.text();
+    }
+  }
+
+  function pumpTargetCodeQueue() {
+    targetCodeQueue.sort((left, right) => right.priority-left.priority || left.order-right.order);
+    while (activeTargetCodeLoads < maxConcurrentTargetCodeLoads && targetCodeQueue.length) {
+      const job = targetCodeQueue.shift();
+      if (job.state !== 'queued') continue;
+      job.state = 'running';
+      job.controller = new AbortController();
+      activeTargetCodeLoads++;
+      void loadTargetCodeJob(job).then(html => {
+        if (job.state === 'cancelled') throw targetCodeAbortError();
+        rememberTargetCode(job.href, html);
+        installTargetCodeResponse(job.href, html);
+        job.resolve(html);
+      }).catch(error => job.reject(error)).finally(() => {
+        if (targetCodeJobs.get(job.href) === job) targetCodeJobs.delete(job.href);
+        activeTargetCodeLoads--;
+        pumpTargetCodeQueue();
+      });
+    }
+  }
+
+  function preemptForInteractiveTargetCode(interactiveJob) {
+    if (interactiveJob.state !== 'queued' || activeTargetCodeLoads < maxConcurrentTargetCodeLoads) return;
+    const victim = Array.from(targetCodeJobs.values())
+      .filter(job => job !== interactiveJob && job.state === 'running' && !job.interactive)
+      .sort((left, right) => left.priority-right.priority || right.order-left.order)[0];
+    victim?.controller.abort();
+  }
+
+  function requestTargetCode(href, options = {}) {
+    const cached = cachedTargetCode(href);
+    if (cached !== null) return Promise.resolve(cached);
+    let job = targetCodeJobs.get(href);
+    if (!job) {
+      let resolve, reject;
+      const promise = new Promise((accept, decline) => { resolve = accept; reject = decline; });
+      job = {href, promise, resolve, reject, state:'queued', controller:null, scopes:new Set(), interactive:false, priority:0, order:targetCodeJobOrder++};
+      targetCodeJobs.set(href, job);
+      targetCodeQueue.push(job);
+    }
+    if (options.scope) job.scopes.add(options.scope);
+    if (options.interactive) job.interactive = true;
+    job.priority = Math.max(job.priority, options.interactive ? 100 : Number(options.priority || 0));
+    preemptForInteractiveTargetCode(job);
+    pumpTargetCodeQueue();
+    return job.promise;
+  }
+
+  function cancelTargetCodeScope(scope) {
+    targetCodeJobs.forEach(job => {
+      if (!job.scopes.delete(scope) || job.interactive || job.scopes.size) return;
+      if (job.state === 'running') {
+        job.state = 'cancelled';
+        targetCodeJobs.delete(job.href);
+        job.controller.abort();
+      } else if (job.state === 'queued') {
+        job.state = 'cancelled';
+        targetCodeJobs.delete(job.href);
+        job.reject(targetCodeAbortError());
+      }
+    });
+  }
+
+  const fragmentPrefetchScopes = new WeakMap();
+
+  function fragmentPrefetchScope(fragment) {
+    let scope = fragmentPrefetchScopes.get(fragment);
+    if (!scope) {
+      scope = {fragment, reasons:new Set(), timer:null, started:false};
+      fragmentPrefetchScopes.set(fragment, scope);
+    }
+    return scope;
+  }
+
+  function fragmentTargetCodeHrefs(fragment) {
+    const direct = q(':scope > .fragment-head [data-target-code-href]', fragment)?.dataset.targetCodeHref || '';
+    const seen = new Set();
+    const hrefs = [];
+    const add = href => { if (href && !seen.has(href)) { seen.add(href); hrefs.push(href); } };
+    add(direct);
+    within(fragment, '[data-target-code-href]').forEach(control => add(control.dataset.targetCodeHref));
+    return {direct, hrefs};
+  }
+
+  function beginFragmentPrefetch(fragment, reason) {
+    if (!fragment) return;
+    const scope = fragmentPrefetchScope(fragment);
+    scope.reasons.add(reason);
+    if (scope.timer || scope.started) return;
+    scope.timer = setTimeout(async () => {
+      scope.timer = null;
+      if (!scope.reasons.size) return;
+      scope.started = true;
+      if (fragment.dataset.fragmentHref) await hydrateFragment(fragment);
+      if (!scope.reasons.size || !fragment.isConnected) { scope.started = false; return; }
+      const targets = fragmentTargetCodeHrefs(fragment);
+      targets.hrefs.forEach(href => {
+        void requestTargetCode(href, {scope, priority:href === targets.direct ? 10 : 1}).catch(() => {});
+      });
+    }, 160);
+  }
+
+  function endFragmentPrefetch(fragment, reason) {
+    const scope = fragmentPrefetchScopes.get(fragment);
+    if (!scope) return;
+    scope.reasons.delete(reason);
+    if (scope.reasons.size) return;
+    clearTimeout(scope.timer);
+    scope.timer = null;
+    scope.started = false;
+    cancelTargetCodeScope(scope);
+  }
+
+  function installTargetCodeResponse(href, html, preferredButton = null) {
+    const response = q('[data-target-code-response]', parseShellHTML(html));
+    if (!response) throw new Error('linked-code response was incomplete');
+    const readyButton = q('[data-open-diffs]', response);
+    const readyTemplate = q('template', response);
+    const controls = qa('[data-target-code-href]').filter(candidate => candidate.dataset.targetCodeHref === href);
+    const templateID = readyTemplate?.id || controls.find(candidate => candidate.dataset.targetCodeTemplate)?.dataset.targetCodeTemplate || '';
+    const staleButtons = templateID ? qa('button[data-open-diffs]').filter(candidate =>
+      candidate.dataset.openDiffs === templateID && candidate.getAttribute('aria-label') === 'Open related code') : [];
+    const landmarkMarker = ':landmark:';
+    const landmarkAt = (response.dataset.targetCodeTarget || '').lastIndexOf(landmarkMarker);
+    if (landmarkAt >= 0) {
+      const fragmentTarget = response.dataset.targetCodeTarget.slice(0, landmarkAt);
+      const landmarkID = response.dataset.targetCodeTarget.slice(landmarkAt + landmarkMarker.length);
+      const fragment = qa('.fragment').find(candidate => candidate.dataset.target === fragmentTarget);
+      if (fragment) within(fragment, '.landmark-list > div').forEach(row => {
+        const anchor = q('a[href^="#"]', row)?.getAttribute('href')?.slice(1) || '';
+        const button = q('button[data-open-diffs]', row);
+        if (button && anchor.endsWith('--' + landmarkID) && !staleButtons.includes(button)) staleButtons.push(button);
+      });
+    }
+    if (!readyButton || !readyTemplate) {
+      controls.forEach(candidate => candidate.remove());
+      staleButtons.forEach(candidate => candidate.remove());
+      prepareDiffCitations();
+      return null;
+    }
+    const existingTemplate = document.getElementById(readyTemplate.id);
+    if (existingTemplate) existingTemplate.replaceWith(readyTemplate);
+    else document.body.append(readyTemplate);
+    let opener = null;
+    controls.forEach(candidate => {
+      const replacement = readyButton.cloneNode(true);
+      if (candidate === preferredButton) opener = replacement;
+      candidate.replaceWith(replacement);
+    });
+    staleButtons.forEach(candidate => {
+      const replacement = readyButton.cloneNode(true);
+      if (candidate === preferredButton) opener = replacement;
+      candidate.replaceWith(replacement);
+    });
+    prepareDiffCitations();
+    opener ||= qa('button[data-open-diffs]').find(candidate => candidate.dataset.openDiffs === readyButton.dataset.openDiffs) || null;
+    return {templateID:readyButton.dataset.openDiffs, opener};
+  }
+
+  async function hydrateTargetCode(button) {
+    const href = button?.dataset.targetCodeHref;
+    if (!href || button.dataset.targetCodeLoading === 'true') return;
+    button.dataset.targetCodeLoading = 'true';
+    button.setAttribute('aria-busy', 'true');
+    try {
+      const installed = installTargetCodeResponse(href, await requestTargetCode(href, {interactive:true}), button);
+      if (installed) openDrawer(installed.templateID, installed.opener);
+    } catch (_) {
+      delete button.dataset.targetCodeLoading;
+      button.removeAttribute('aria-busy');
+      button.title = 'Linked code could not be loaded — try again';
+    }
+  }
+
+  function installAuxiliaryDiffNext(container, href, cursor) {
+    q('[data-aux-file-next]', container)?.remove();
+    if (!cursor) return;
+    const url = new URL(href, location.href);
+    url.searchParams.set('cursor', cursor);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.auxFileNext = url.pathname + url.search;
+    button.textContent = 'Load more lines';
+    button.setAttribute('aria-label', 'Load the next file chunk');
+    container.append(button);
+  }
+
+  async function appendAuxiliaryDiff(button) {
+    const container = button.parentElement;
+    const href = button.dataset.auxFileNext;
+    if (!container || !href || button.dataset.loading === 'true') return;
+    button.dataset.loading = 'true';
+    try {
+      const result = await fetchFileDiff(href);
+      const wrapper = parseShellHTML(result.html);
+      const items = q('[data-page-items="lines"]', wrapper);
+      const rows = items ? qa('.diff-row', items) : [];
+      button.before(...rows);
+      installAuxiliaryDiffNext(container, href, result.next);
+      highlightCode(container);
+      prepareContext(container);
+      applyDiffLayout(diffLayout);
+    } catch (_) {
+      button.textContent = 'Could not load more — try again';
+      delete button.dataset.loading;
+    }
+  }
+
+  async function hydrateChapter(chapter) {
+    const href = chapter?.dataset.sectionHref;
+    const body = chapter ? q('[data-chapter-body]', chapter) : null;
+    if (!href || !body) return;
+    if (chapter.dataset.sectionLoading === 'true') { await fetchShell(href).catch(() => {}); return; }
+    chapter.dataset.sectionLoading = 'true';
+    try {
+      const wrapper = parseShellHTML(await fetchShell(href));
+      body.replaceChildren(...Array.from(wrapper.childNodes));
+      delete chapter.dataset.sectionHref;
+      observeDeferredFragments(body);
+    } catch (_) {
+      const placeholder = q('[data-section-placeholder]', body);
+      if (placeholder) placeholder.textContent = 'This chapter could not be loaded. Close and reopen to try again.';
+    } finally {
+      delete chapter.dataset.sectionLoading;
+    }
+  }
+
+  async function hydrateFragment(article) {
+    const href = article?.dataset.fragmentHref;
+    if (!href) return article || null;
+    if (article.dataset.fragmentLoading === 'true') { await fetchShell(href).catch(() => {}); return article; }
+    article.dataset.fragmentLoading = 'true';
+    try {
+      const replacement = q('.fragment', parseShellHTML(await fetchShell(href)));
+      if (!replacement) throw new Error('explanation response was incomplete');
+      // A decision the reviewer has already made is not undone by content
+      // arriving after it: the live controls move into the rendered explanation
+      // instead of being replaced by the state its snapshot was built from.
+      const live = q(':scope > .fragment-head [data-review-controls]', article);
+      const rendered = q(':scope > .fragment-head [data-review-controls]', replacement);
+      if (live && rendered) rendered.replaceWith(live);
+      // The article itself is never swapped out. A reviewer can be part way
+      // through clicking a descriptor's controls when its content arrives, and
+      // replacing the element under the pointer loses that click: the detached
+      // node no longer reaches the document that handles it. Filling the article
+      // in place keeps its head where it was and every live control attached,
+      // and keeps this explanation the active one without re-selecting it.
+      for (const attribute of Array.from(replacement.attributes)) article.setAttribute(attribute.name, attribute.value);
+      article.removeAttribute('data-fragment-href');
+      delete article.dataset.fragmentLoading;
+      article.replaceChildren(...Array.from(replacement.childNodes));
+      prepareLandmarks(article);
+      prepareDiffCitations(article);
+      prepareTextHighlights(article);
+      highlightCode(article);
+      positionFragmentOverlays();
+      return article;
+    } catch (_) {
+      delete article.dataset.fragmentLoading;
+      const placeholder = q('[data-fragment-placeholder]', article);
+      if (placeholder) placeholder.textContent = 'This explanation could not be loaded. Reload the page to try again.';
+      return article;
+    }
+  }
+
+  // A fragment is fetched when it is close enough to be read. Chapter bodies
+  // stay hidden until they are opened, so nothing inside a closed chapter is
+  // observed and nothing inside it is fetched.
+  const fragmentObserver = typeof IntersectionObserver === 'function' ? new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      fragmentObserver.unobserve(entry.target);
+      void hydrateFragment(entry.target);
+    });
+  }, {rootMargin:'400px'}) : null;
+
+  // Returns when everything this call decided to fetch has arrived, so the page
+  // can say when it has finished filling itself in.
+  function observeDeferredFragments(root = document) {
+    const arriving = [];
+    within(root, '[data-fragment-href]').forEach(article => {
+      if (!fragmentObserver) { arriving.push(hydrateFragment(article)); return; }
+      // What is already on screen is fetched now rather than one frame later.
+      // The observer's first callback costs a frame the reviewer would spend
+      // looking at a placeholder, and reflowing under a pointer that has
+      // already arrived is worse than fetching a little too eagerly.
+      if (article.getBoundingClientRect().top <= innerHeight + 400) { arriving.push(hydrateFragment(article)); return; }
+      fragmentObserver.observe(article);
+    });
+    return Promise.all(arriving);
+  }
+
+  // A permalink can name a heading, a marked place, or a comment inside a
+  // chapter nobody has opened yet. The server answers where one anchor lives;
+  // shipping the same answer as an index would put every anchor in the document
+  // into every first load, which is the cost this shell exists to remove.
+  const anchorPlaces = new Map();
+
+  function locateAnchor(id) {
+    let request = anchorPlaces.get(id);
+    if (!request) {
+      request = fetch('/api/locate?anchor=' + encodeURIComponent(id), {headers:{Accept:'application/json'}})
+        .then(response => response.ok ? response.json() : null)
+        .catch(() => null);
+      anchorPlaces.set(id, request);
+    }
+    return request;
+  }
+
+  async function revealAnchor(id) {
+    if (!id) return null;
+    let element = document.getElementById(id);
+    const pending = !element ||
+      element.closest('[data-section-href]') !== null ||
+      element.closest('[data-fragment-href]') !== null;
+    if (pending) {
+      const place = await locateAnchor(id);
+      if (place?.chapter) await hydrateChapter(document.getElementById(place.chapter));
+      if (place?.fragment) await hydrateFragment(document.getElementById(place.fragment));
+      element = document.getElementById(id);
+    }
+    const chapter = element?.closest('[data-chapter]');
+    if (chapter) await setChapterOpen(chapter, true);
+    return document.getElementById(id);
   }
 
   async function hydrateAttachedFile(details) {
@@ -1063,9 +1854,11 @@ const appJavaScript = `(() => {
       // target that a new comment belongs to, and the server has marked the
       // rows this explanation is answerable for.
       const wrapper = document.createElement('div');
-      wrapper.innerHTML = await fetchFileDiff(href);
+      const result = await fetchFileDiff(href);
+      wrapper.innerHTML = result.html;
       if (!q('[data-attached-full-diff]', wrapper)) throw new Error('diff response was incomplete');
       linkedRows.replaceChildren(...Array.from(wrapper.childNodes));
+	  installAuxiliaryDiffNext(linkedRows, href, result.next);
       details.dataset.fullDiffLoaded = 'true';
       if (status) status.textContent = 'Full file diff · linked changes highlighted';
       highlightCode(linkedRows);
@@ -1092,8 +1885,10 @@ const appJavaScript = `(() => {
     surface.classList.add('loading');
     try {
       const wrapper = document.createElement('div');
-      wrapper.innerHTML = await fetchFileDiff(href);
+      const result = await fetchFileDiff(href);
+      wrapper.innerHTML = result.html;
       rows.replaceChildren(...Array.from(wrapper.childNodes));
+	  installAuxiliaryDiffNext(rows, href, result.next);
       surface.dataset.manifestDiffLoaded = 'true';
       highlightCode(rows);
     } catch (_) {
@@ -1105,6 +1900,84 @@ const appJavaScript = `(() => {
     }
   }
 
+  function continuedCoverageURL(href, cursor) {
+    if (!cursor) return '';
+    const url = new URL(href, location.href);
+    url.searchParams.set('cursor', cursor);
+    return url.pathname + url.search;
+  }
+
+  async function hydrateCoverageFile(details) {
+    if (!details?.open || details.dataset.coverageFileLoaded === 'true' || details.dataset.coverageFileLoading === 'true') return;
+    let href = details.dataset.coverageFileHref;
+    const destination = q('[data-coverage-file-mappings]', details);
+    if (!href || !destination) return;
+    details.dataset.coverageFileLoading = 'true';
+    let first = true;
+    try {
+      while (href && details.isConnected) {
+        const response = await fetch(href, {headers:{Accept:'text/html','X-Change-Saga-Async':'true'},credentials:'same-origin'});
+        if (response.status === 202) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay(response)));
+          continue;
+        }
+        if (!response.ok) throw new Error('file coverage request failed');
+        const page = q('[data-coverage-file-response]', parseShellHTML(await response.text()));
+        if (!page) throw new Error('file coverage response was incomplete');
+        const items = q('[data-page-items="coverage-file"]', page);
+        if (!items) throw new Error('file coverage response was incomplete');
+        const inserted = Array.from(items.childNodes);
+        if (first) destination.replaceChildren(...inserted); else destination.append(...inserted);
+        first = false;
+        href = continuedCoverageURL(href, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset.nextCursor);
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      details.dataset.coverageFileLoaded = 'true';
+      if (!destination.childNodes.length) destination.innerHTML = '<p class="diff-placeholder">This file is not explained yet.</p>';
+    } catch (_) {
+      const placeholder = q('.diff-placeholder', destination);
+      if (placeholder) placeholder.textContent = 'Coverage details could not be loaded. Close and reopen to try again.';
+    } finally {
+      delete details.dataset.coverageFileLoading;
+    }
+  }
+
+  async function hydrateCoverageTarget(details) {
+    if (!details?.open || details.dataset.coverageTargetLoaded === 'true' || details.dataset.coverageTargetLoading === 'true') return;
+    let href = details.dataset.coverageTargetHref;
+    const destination = q('[data-coverage-target-files]', details);
+    if (!href || !destination) return;
+    details.dataset.coverageTargetLoading = 'true';
+    let first = true;
+    try {
+      while (href && details.isConnected) {
+        const response = await fetch(href, {headers:{Accept:'text/html','X-Change-Saga-Async':'true'},credentials:'same-origin'});
+        if (response.status === 202) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay(response)));
+          continue;
+        }
+        if (!response.ok) throw new Error('target coverage request failed');
+        const page = q('[data-coverage-target-response]', parseShellHTML(await response.text()));
+        if (!page) throw new Error('target coverage response was incomplete');
+        const items = q('[data-page-items="target-files"]', page);
+        if (!items) throw new Error('target coverage response was incomplete');
+        const inserted = Array.from(items.childNodes);
+        if (first) destination.replaceChildren(...inserted); else destination.append(...inserted);
+        first = false;
+        href = continuedCoverageURL(href, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset.nextCursor);
+        filterManifest();
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      details.dataset.coverageTargetLoaded = 'true';
+      if (!destination.childNodes.length) destination.innerHTML = '<p class="diff-placeholder">This part of the story has no linked files.</p>';
+    } catch (_) {
+      const placeholder = q('.diff-placeholder', destination);
+      if (placeholder) placeholder.textContent = 'Linked files could not be loaded. Close and reopen to try again.';
+    } finally {
+      delete details.dataset.coverageTargetLoading;
+    }
+  }
+
   function hydrateOpenedManifestDiffs(details) {
     if (!details?.open) return;
     qa('[data-manifest-diff-href]', details)
@@ -1112,8 +1985,9 @@ const appJavaScript = `(() => {
       .forEach(hydrateManifestDiff);
   }
 
-  function openFragmentDrawer(anchor, opener) {
-    const destination = document.getElementById(anchor);
+  async function openFragmentDrawer(anchor, opener) {
+	anchor = decodeURIComponent(String(anchor || '').replace(/^#/, ''));
+    const destination = await revealAnchor(anchor);
     const fragment = destination?.matches('.fragment') ? destination : destination?.closest('.fragment');
     if (!fragment) return;
     restoreDrawerContent();
@@ -1755,7 +2629,7 @@ const appJavaScript = `(() => {
     }
   }
 
-  function useTool(mode) {
+  async function useTool(mode) {
     cancelDrawing();
     clearAnnotationSelection();
     // An open comment covers the surface the reviewer is about to draw on, so
@@ -1766,6 +2640,15 @@ const appJavaScript = `(() => {
     if (!activeFragment) {
       const label = q('[data-tool-target]');
       if (label) label.textContent = 'Point at content first';
+      resetTool();
+      return;
+    }
+    // There is nothing to draw on until the explanation has arrived, so arming
+    // a tool waits for its content rather than silently disarming itself.
+    if (activeFragment.dataset.fragmentHref) await hydrateFragment(activeFragment);
+    if (!activeFragment || activeFragment.dataset.fragmentHref) {
+      const label = q('[data-tool-target]');
+      if (label) label.textContent = 'This explanation is still loading';
       resetTool();
       return;
     }
@@ -1818,24 +2701,74 @@ const appJavaScript = `(() => {
   document.addEventListener('pointerover', event => {
     const fragment = event.target.closest('.fragment');
     if (fragment && !drawing) setActiveFragment(fragment);
+    if (event.pointerType !== 'touch' && fragment && !(event.relatedTarget instanceof Node && fragment.contains(event.relatedTarget))) {
+      beginFragmentPrefetch(fragment, 'pointer');
+    }
     if (!drawing) revealAnnotationBubble(annotationBubbleAt(event.target));
   });
 
   document.addEventListener('pointerout', event => {
+    const fragment = event.target.closest('.fragment');
+    if (event.pointerType !== 'touch' && fragment && !(event.relatedTarget instanceof Node && fragment.contains(event.relatedTarget))) {
+      endFragmentPrefetch(fragment, 'pointer');
+    }
     hideAnnotationBubbleSoon(annotationBubbleAt(event.target));
   });
 
   document.addEventListener('focusin', event => {
     const fragment = event.target.closest('.fragment');
     if (fragment) setActiveFragment(fragment);
+    if (fragment && !(event.relatedTarget instanceof Node && fragment.contains(event.relatedTarget))) beginFragmentPrefetch(fragment, 'focus');
     revealAnnotationBubble(annotationBubbleAt(event.target));
   });
 
   document.addEventListener('focusout', event => {
+    const fragment = event.target.closest('.fragment');
+    if (fragment && !(event.relatedTarget instanceof Node && fragment.contains(event.relatedTarget))) endFragmentPrefetch(fragment, 'focus');
     hideAnnotationBubbleSoon(annotationBubbleAt(event.target));
   });
 
   document.addEventListener('click', event => {
+    const retryFile = event.target.closest?.('[data-retry-file]');
+    if (retryFile) {
+      void hydrateCodeFile(retryFile.closest('[data-code-file-href]'), {force:true});
+      return;
+    }
+    const nextFilePage = event.target.closest?.('[data-file-next]');
+    if (nextFilePage) {
+      void hydrateCodeFile(nextFilePage.closest('[data-code-file-href]'), {href:nextFilePage.dataset.fileNext, append:true});
+      return;
+    }
+	const nextAuxiliaryPage = event.target.closest?.('[data-aux-file-next]');
+	if (nextAuxiliaryPage) {
+	  void appendAuxiliaryDiff(nextAuxiliaryPage);
+	  return;
+	}
+    const retrySurface = event.target.closest?.('[data-retry-surface]');
+    if (retrySurface) {
+      void hydrateReviewSurface(retrySurface.dataset.retrySurface, {force:true});
+      return;
+    }
+    const nextSurfacePage = event.target.closest?.('[data-surface-next]');
+    if (nextSurfacePage) {
+      event.preventDefault();
+      const surface = nextSurfacePage.closest('[data-review-surface]');
+      if (surface?.dataset.reviewSurface === 'manifest') beginContinuousCoverageLoad(surface);
+      else void loadReviewSurfacePage(nextSurfacePage);
+      return;
+    }
+    const boundedLink = event.target.closest?.('a[href]');
+    if (boundedLink && !boundedLink.hasAttribute('data-open-fragment') && !boundedLink.getAttribute('href')?.startsWith('#') && !event.defaultPrevented && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && (!boundedLink.target || boundedLink.target === '_self')) {
+      const destination = new URL(boundedLink.href, location.href);
+      const view = destination.searchParams.get('view');
+      if (destination.origin === location.origin && destination.pathname === location.pathname && (view === 'code' || view === 'manifest')) {
+        event.preventDefault();
+		if (boundedLink.closest('.diff-drawer.open')) closeDrawer();
+        history.pushState({view}, '', destination);
+        setView(view, false);
+        return;
+      }
+    }
     const fragmentDrawerLink = event.target.closest?.('[data-open-fragment]');
     if (fragmentDrawerLink) {
       event.preventDefault();
@@ -1843,13 +2776,21 @@ const appJavaScript = `(() => {
       return;
     }
     const sagaLink = event.target.closest?.('a[href^="#"]');
-    if (sagaLink) {
+    // A hydrated Markdown citation is still an in-page link, but linked-code
+    // activation takes precedence over its original footnote navigation.
+    if (sagaLink && !sagaLink.hasAttribute('data-open-diffs')) {
+	  event.preventDefault();
       const id = decodeURIComponent(sagaLink.getAttribute('href').slice(1));
-      const destination = id ? document.getElementById(id) : null;
-      if (destination?.closest('[data-view="saga"]')) {
-        setChapterOpen(destination.closest('[data-chapter]'), true);
-        setView('saga', false);
-      }
+	  const sagaURL = new URL(location.href);
+	  ['view', 'file', 'diff', 'mode'].forEach(key => sagaURL.searchParams.delete(key));
+	  sagaURL.hash = id;
+	  history.pushState({view:'saga'}, '', sagaURL);
+      // pushState deliberately does not dispatch hashchange or perform native
+      // anchor scrolling. Run the same lazy reveal, view switch, highlight,
+      // and scroll path used for initial and browser-history navigation.
+	  if (id) void activateLandmark().then(revealHashedAnnotationBubble);
+	  else setView('saga', false);
+      return;
     }
     const bubbleToggle = event.target.closest?.('[data-annotation-bubble-toggle]');
     if (bubbleToggle) { pinAnnotationBubble(bubbleToggle.closest('[data-annotation-bubble]')); return; }
@@ -1883,7 +2824,7 @@ const appJavaScript = `(() => {
     const viewTab = event.target.closest('[data-view-tab]');
     if (viewTab) { setView(viewTab.dataset.viewTab); return; }
     const manifestMode = event.target.closest('[data-manifest-mode]');
-    if (manifestMode) { setManifestMode(manifestMode.dataset.manifestMode); return; }
+    if (manifestMode) { void activateManifestMode(manifestMode.dataset.manifestMode); return; }
     const treeToggle = event.target.closest('[data-toggle-tree]');
     if (treeToggle) {
       const hidden = q('[data-shell]')?.classList.contains('tree-hidden');
@@ -1912,6 +2853,8 @@ const appJavaScript = `(() => {
       return;
     }
     if (event.target.closest('[data-selection-clear]')) { selectionAnchor = null; updateLineSelection([]); return; }
+    const targetCodeButton = event.target.closest('[data-target-code-href]');
+    if (targetCodeButton) { event.preventDefault(); void hydrateTargetCode(targetCodeButton); return; }
     const drawerButton = event.target.closest('[data-open-diffs]');
     if (drawerButton) { event.preventDefault(); openDrawer(drawerButton.dataset.openDiffs, drawerButton); return; }
     if (event.target.closest('[data-close-drawer]')) { closeDrawer(); return; }
@@ -1926,7 +2869,7 @@ const appJavaScript = `(() => {
     if (diffAction) { openDiffComposer(diffActionContext(diffAction)); return; }
     if (event.target.closest('[data-close-diff-compose]')) { q('.diff-compose').classList.remove('open'); return; }
     const tool = event.target.closest('[data-tool]');
-    if (tool) { useTool(tool.dataset.tool); return; }
+    if (tool) { void useTool(tool.dataset.tool); return; }
     const fragment = event.target.closest('.fragment');
     if (fragment) setActiveFragment(fragment);
   });
@@ -1942,6 +2885,8 @@ const appJavaScript = `(() => {
     const details = event.target.closest?.('details');
     if (!details?.open) return;
     if (details.dataset.fullDiffHref) hydrateAttachedFile(details);
+    if (details.dataset.coverageFileHref) void hydrateCoverageFile(details);
+    if (details.dataset.coverageTargetHref) void hydrateCoverageTarget(details);
     hydrateOpenedManifestDiffs(details);
   }, true);
 
@@ -1970,6 +2915,15 @@ const appJavaScript = `(() => {
       }
       returnTo.value = location.pathname + location.search + location.hash;
     }
+  });
+
+  document.addEventListener('input', event => {
+    if (event.target.matches?.('[data-file-filter]')) filterTree();
+    if (event.target.matches?.('[data-manifest-filter]')) filterManifest();
+  });
+
+  document.addEventListener('change', event => {
+    if (event.target.matches?.('[data-hide-reviewed]')) filterTree();
   });
 
   document.addEventListener('keydown', event => {
@@ -2217,17 +3171,8 @@ const appJavaScript = `(() => {
   updateReviewProgress();
   prepareLandmarks();
   prepareDiffCitations();
-  qa('[data-text-target]').forEach(label => {
-    const target = document.querySelector('[data-target="'+CSS.escape(label.dataset.textTarget)+'"] [data-selectable]');
-    if (!target) return;
-    const exact = label.dataset.exact;
-    const color = normalizedAnnotationColor(label.dataset.textColor);
-    const mark = markExactText(target, exact);
-    if (!mark) return;
-    mark.style.backgroundColor = colorWithAlpha(color);
-    mark.dataset.textMark = 'true';
-    mark.dataset.threadId = label.dataset.threadId || '';
-  });
+  prepareTextHighlights();
+  const shellArriving = observeDeferredFragments();
 
   const firstFragment = q('.fragment');
   if (firstFragment) setActiveFragment(firstFragment);
@@ -2264,11 +3209,22 @@ const appJavaScript = `(() => {
   const initialView = requestedView === 'code' || requestedView === 'manifest' ? requestedView : 'saga';
   setView(initialView, false);
   setManifestMode('code');
-  activateLandmark();
+  const anchorResolving = initialView === 'saga'
+    ? activateLandmark().then(revealHashedAnnotationBubble)
+    : hydrateReviewSurface(initialView).then(revealHashedAnnotationBubble);
+  // The page arrives as a shell and fills in what is on screen. Saying when
+  // that has finished is the difference between a reviewer who can see the
+  // page has settled and automation that would otherwise have to guess.
+  void Promise.all([shellArriving, anchorResolving]).then(() => {
+    document.body.dataset.shellReady = 'true';
+  });
   positionFragmentOverlays();
   globalThis.requestAnimationFrame?.(positionFragmentOverlays);
-  revealHashedAnnotationBubble();
-  addEventListener('hashchange', () => { activateLandmark(); revealHashedAnnotationBubble(); });
+  addEventListener('hashchange', () => {
+    const view = new URL(location.href).searchParams.get('view');
+    if (view === 'code' || view === 'manifest') void hydrateReviewSurface(view).then(revealHashedAnnotationBubble);
+    else void activateLandmark().then(revealHashedAnnotationBubble);
+  });
   addEventListener('popstate', () => {
     const view = new URL(location.href).searchParams.get('view');
     setView(view === 'code' || view === 'manifest' ? view : 'saga', false);

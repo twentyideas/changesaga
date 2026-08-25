@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "prototype",
+  "label": "Evidence: prototype",
+  "selector": {
+    "type": "text",
+    "exact": "The compact connector module is an isolated measurement harness, not a runtime dependency of the Change Saga CLI."
+  },
+  "target": ""
+}

@@ -873,7 +873,23 @@ func parseRanges(value string) ([]lineRange, error) {
 	if len(ranges) == 0 {
 		return nil, fmt.Errorf("at least one line range is required")
 	}
-	return ranges, nil
+	sort.Slice(ranges, func(i, j int) bool {
+		if ranges[i].Start != ranges[j].Start {
+			return ranges[i].Start < ranges[j].Start
+		}
+		return ranges[i].End < ranges[j].End
+	})
+	canonical := ranges[:0]
+	for _, current := range ranges {
+		if len(canonical) == 0 || current.Start > canonical[len(canonical)-1].End && current.Start-canonical[len(canonical)-1].End > 1 {
+			canonical = append(canonical, current)
+			continue
+		}
+		if current.End > canonical[len(canonical)-1].End {
+			canonical[len(canonical)-1].End = current.End
+		}
+	}
+	return canonical, nil
 }
 
 func discoverRepository(ctx context.Context, repoDir, explicit string, options ...bool) (string, string, error) {
@@ -1444,8 +1460,11 @@ Use this authoring loop, consulting each command's "-h" output for exact flags:
    "--dry-run" to see exactly which records an invocation would write before
    writing them. When every changed atom in one file genuinely belongs to the
    same target, "--path FILE --changed-lines" derives its exact old/new line
-   atoms and includes file events such as "add" automatically. Never use it to
-   hide multiple concerns in one broad record.
+   atoms, coalesces gapless lines into canonical dense ranges, and includes file
+   events such as "add" automatically. Never use it to hide multiple concerns
+   in one broad record. Generated evidence paths identify their selector set,
+   so a second explanation for the same selectors requires "replace-coverage"
+   rather than creating a duplicate record.
 6. When attaching many selectors, pipe newline-delimited JSON records to
    "change-saga cover --batch -". Each record carries its own "target", "path",
    "side", "lines", "changed_lines", "event", "old_path", "new_path", "note", and "name". The

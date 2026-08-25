@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "counts",
+  "label": "Evidence: counts",
+  "selector": {
+    "type": "text",
+    "exact": "Completed target summaries immediately update counts on all code-link aliases, SVG landmarks, and citations for that target."
+  },
+  "target": ""
+}

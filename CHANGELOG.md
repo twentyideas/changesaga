@@ -10,6 +10,64 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+### Changed
+
+- `change-saga cover --changed-lines` now emits one ranged diff URI per dense
+  run of consecutive changed lines instead of one URI per line. Coalescing is
+  restricted to line atoms that share a repository, base, head, path, and side
+  and whose line numbers have no gap, so the emitted selectors address exactly
+  the atoms the flag already selected: same coverage, same owners, same notes,
+  same overlaps. File events are never coalesced. On a saga covering an entire
+  codebase this replaced 529,599 single-line references with dense ranges.
+  Because a dense range keeps matching when one line inside it stops being a
+  changed line, stale detection for derived coverage is range-grained rather
+  than line-grained. In practice a Saga's head identity is a digest of the whole
+  product patch, so any edit that changes the diff already invalidates every
+  reference in the comparison regardless of granularity.
+- Manual `--lines` input is sorted, deduplicated, and coalesced into the same
+  canonical dense ranges, so equivalent selector spellings cannot inflate an
+  evidence record.
+- Generated evidence filenames now identify their canonical selector set
+  instead of the authoring timestamp. Unrelated selectors remain independent
+  Git merge units; two branches that explain the same selectors differently
+  write the same path and must reconcile the disagreement explicitly.
+- Review-session selector construction now resolves coverage assignments
+  through a direct identity index instead of scanning every selector owned by
+  the target. Focused scale benchmarks measure up to a 60× improvement and
+  guard linear growth. Atom URI lookup stores positions into the canonical atom
+  slice rather than copying each atom into the map.
+- `query overview` and `query children` now open aggregate-only sessions. Their
+  responses are unchanged, but coverage uses contiguous atom-indexed state and
+  sparse overlap storage, skips reparsing generated atom URIs, and does not
+  retain ownership, atom-gap, fragment-content, or reverse-selector indexes
+  that only focused queries consume. On the diagnosed 532,290-atom saga, the
+  unmigrated overview falls from 1,049.7 seconds to 10.74 seconds; regenerating
+  its evidence as dense ranges brings it to 3.80 seconds.
+- Opening Code now builds a changed-file catalog from bounded Git metadata and
+  reads the selected file with a path-scoped diff. Neither request constructs
+  the all-files atom set or coverage ownership graph, while exact comparison
+  identities, rename paths, comments, and disk-backed file-review state remain
+  intact.
+- Narrative linked-code controls now resolve one target's authored evidence and
+  named source files on demand. Opening a contextual drawer or one of its files
+  no longer builds the all-target coverage snapshot, so Saga-to-Code navigation
+  remains available on pathological whole-codebase Sagas.
+- The Code Diff “Explained by” panel now loads every explanation or marked place
+  that cites the selected file. Its compact reverse evidence index is built
+  independently from the file diff and reused across file navigation, keeping
+  the diff responsive without constructing the global coverage snapshot.
+- Dwelling over or focusing an explanation now prefetches its linked-code
+  summary before its marked places, through a two-request speculative queue.
+  Leaving cancels queued and in-flight speculation, clicks promote work to
+  interactive priority, and each completed summary immediately fills the diff
+  counts on its heading, marked-place menu, SVG hotspot, and citation controls.
+  Summaries remain in a bounded session cache, while full file diff bodies stay
+  click-only.
+- Coverage now fills itself in continuously after it opens. Code → Saga lists
+  changed files first and Saga → Code lists explanations first; opening one
+  then loads its ownership ranges and linked files as needed, while source diff
+  contents remain deferred until their file is opened.
+
 ## [0.0.7] - 2026-08-22
 
 ### Added

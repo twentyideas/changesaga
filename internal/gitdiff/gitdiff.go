@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -65,50 +66,49 @@ type ReadOptions struct {
 	AllowRepositoryMismatch bool
 }
 
+// Catalog is the bounded source-comparison identity and changed-file list used
+// by review navigation. It deliberately contains no patch bodies or per-line
+// atoms: opening Code can therefore enumerate files without constructing the
+// complete comparison first.
+type Catalog struct {
+	Repository string        `json:"repository"`
+	Base       string        `json:"base"`
+	Head       string        `json:"head"`
+	BaseOID    string        `json:"base_oid"`
+	HeadOID    string        `json:"head_oid"`
+	HeadCommit string        `json:"head_commit"`
+	Files      []FileSummary `json:"files"`
+}
+
+// FileSummary is the metadata Git can report without emitting a patch body.
+// OldPath and NewPath preserve rename/copy identity; Path is the current path
+// reviewers select (the new path when one exists).
+type FileSummary struct {
+	Path    string `json:"path"`
+	OldPath string `json:"old_path,omitempty"`
+	NewPath string `json:"new_path,omitempty"`
+	Added   int    `json:"added"`
+	Deleted int    `json:"deleted"`
+	Binary  bool   `json:"binary,omitempty"`
+}
+
+type preparedComparison struct {
+	repo, repository, base, head             string
+	baseOID, headOID, headCommit, comparison string
+}
+
 func Read(ctx context.Context, fromDir, repositoryURI, base, head string) (ChangeSet, error) {
 	return ReadWithOptions(ctx, fromDir, repositoryURI, base, head, ReadOptions{})
 }
 
 func ReadWithOptions(ctx context.Context, fromDir, repositoryURI, base, head string, options ReadOptions) (ChangeSet, error) {
-	repoOut, err := exec.CommandContext(ctx, "git", "-C", fromDir, "rev-parse", "--show-toplevel").Output()
-	if err != nil {
-		return ChangeSet{}, fmt.Errorf("locate Git repository: %w", err)
-	}
-	repo := strings.TrimSpace(string(repoOut))
-	repositoryURI, err = diffuri.CanonicalRepository(repositoryURI)
-	if err != nil {
-		return ChangeSet{}, fmt.Errorf("canonicalize declared repository: %w", err)
-	}
-	if !options.AllowRepositoryMismatch {
-		if err := VerifyRepository(ctx, repo, repositoryURI); err != nil {
-			return ChangeSet{}, err
-		}
-	}
-	baseCommit, err := resolveRevision(ctx, repo, base)
+	prepared, err := prepareComparison(ctx, fromDir, repositoryURI, base, head, options)
 	if err != nil {
 		return ChangeSet{}, err
-	}
-
-	var headCommit string
-	if head == "WORKTREE" {
-		headCommit, err = resolveRevision(ctx, repo, "HEAD")
-	} else {
-		headCommit, err = resolveRevision(ctx, repo, head)
-	}
-	if err != nil {
-		return ChangeSet{}, err
-	}
-	mergeBase, err := resolveMergeBase(ctx, repo, baseCommit, headCommit)
-	if err != nil {
-		return ChangeSet{}, err
-	}
-	comparison := mergeBase
-	if head != "WORKTREE" {
-		comparison += ".." + headCommit
 	}
 	// Twenty lines gives the renderer useful expandable context while keeping
 	// large comparisons bounded. These lines are not coverage atoms.
-	args := canonicalDiffArgs(repo, "--unified=20", comparison, "--")
+	args := canonicalDiffArgs(prepared.repo, "--unified=20", prepared.comparison, "--")
 	cmd := exec.CommandContext(ctx, "git", args...)
 	output, err := cmd.Output()
 	if err != nil {
@@ -118,20 +118,116 @@ func ReadWithOptions(ctx context.Context, fromDir, repositoryURI, base, head str
 		}
 		return ChangeSet{}, fmt.Errorf("git diff: %w", err)
 	}
-	productArgs := canonicalDiffArgs(repo, "--binary", "--full-index", "--unified=3", comparison, "--", ".", ":(exclude,glob)**/*.saga/**")
-	productPatch, err := exec.CommandContext(ctx, "git", productArgs...).Output()
+	return changeSetFromPatch(output, prepared)
+}
+
+// ReadCatalog resolves the exact same comparison identity as Read while asking
+// Git only for NUL-delimited per-file statistics. Its memory use is therefore
+// proportional to changed files rather than changed lines.
+func ReadCatalog(ctx context.Context, fromDir, repositoryURI, base, head string) (Catalog, error) {
+	return ReadCatalogWithOptions(ctx, fromDir, repositoryURI, base, head, ReadOptions{})
+}
+
+func ReadCatalogWithOptions(ctx context.Context, fromDir, repositoryURI, base, head string, options ReadOptions) (Catalog, error) {
+	prepared, err := prepareComparison(ctx, fromDir, repositoryURI, base, head, options)
 	if err != nil {
-		return ChangeSet{}, fmt.Errorf("build product diff identity: %w", err)
+		return Catalog{}, err
 	}
-	digest := sha256.Sum256(productPatch)
-	headIdentity := fmt.Sprintf("product-%x", digest[:])
+	args := canonicalDiffArgs(prepared.repo, "--numstat", "-z", prepared.comparison, "--")
+	output, err := exec.CommandContext(ctx, "git", args...).Output()
+	if err != nil {
+		return Catalog{}, fmt.Errorf("read changed-file catalog: %w", err)
+	}
+	files, err := parseNumstat(output)
+	if err != nil {
+		return Catalog{}, err
+	}
+	product := make([]FileSummary, 0, len(files))
+	for _, file := range files {
+		hasSaga, hasProduct := classifyCatalogPaths(file)
+		if hasSaga && !hasProduct {
+			continue
+		}
+		if hasProduct {
+			product = append(product, file)
+		}
+	}
+	sort.Slice(product, func(i, j int) bool { return product[i].Path < product[j].Path })
+	return Catalog{
+		Repository: prepared.repository, Base: prepared.base, Head: prepared.head,
+		BaseOID: prepared.baseOID, HeadOID: prepared.headOID, HeadCommit: prepared.headCommit, Files: product,
+	}, nil
+}
+
+// ReadFile emits and parses only one catalog entry. The catalog supplies the
+// already-hashed comparison identity, while both rename paths are passed to
+// Git so the focused patch preserves the whole-comparison file identity.
+func ReadFile(ctx context.Context, fromDir string, catalog Catalog, file FileSummary) (ChangeSet, error) {
+	known := false
+	for _, candidate := range catalog.Files {
+		if candidate == file {
+			known = true
+			break
+		}
+	}
+	if !known {
+		return ChangeSet{}, fmt.Errorf("read file diff: file is not part of the source catalog")
+	}
+	repoOut, err := exec.CommandContext(ctx, "git", "-C", fromDir, "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return ChangeSet{}, fmt.Errorf("locate Git repository: %w", err)
+	}
+	repo := strings.TrimSpace(string(repoOut))
+	if err := VerifyRepository(ctx, repo, catalog.Repository); err != nil {
+		return ChangeSet{}, err
+	}
+	comparison := catalog.BaseOID
+	if catalog.Head != "WORKTREE" {
+		if catalog.HeadCommit == "" {
+			return ChangeSet{}, fmt.Errorf("read file diff: source catalog has no resolved head commit")
+		}
+		comparison += ".." + catalog.HeadCommit
+	}
+	paths := make([]string, 0, 2)
+	for _, candidate := range []string{file.OldPath, file.NewPath, file.Path} {
+		if candidate != "" && !containsString(paths, candidate) {
+			paths = append(paths, candidate)
+		}
+	}
+	args := canonicalDiffArgs(repo, "--unified=20", comparison, "--")
+	for _, filePath := range paths {
+		args = append(args, ":(literal)"+filePath)
+	}
+	output, err := exec.CommandContext(ctx, "git", args...).Output()
+	if err != nil {
+		return ChangeSet{}, fmt.Errorf("read file diff: %w", err)
+	}
+	return changeSetFromPatch(output, preparedComparison{
+		repository: catalog.Repository, base: catalog.Base, head: catalog.Head,
+		baseOID: catalog.BaseOID, headOID: catalog.HeadOID,
+	})
+}
+
+func containsString(values []string, candidate string) bool {
+	for _, value := range values {
+		if value == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+func changeSetFromPatch(output []byte, prepared preparedComparison) (ChangeSet, error) {
 	atoms, displayLines, err := parse(output)
 	if err != nil {
 		return ChangeSet{}, err
 	}
-	result := ChangeSet{Repository: repositoryURI, Base: base, Head: head, BaseOID: mergeBase, HeadOID: headIdentity, DisplayLines: displayLines}
+	result := ChangeSet{
+		Repository: prepared.repository, Base: prepared.base, Head: prepared.head,
+		BaseOID: prepared.baseOID, HeadOID: prepared.headOID, DisplayLines: displayLines,
+	}
 	for _, atom := range atoms {
-		reference := diffuri.Reference{Repository: repositoryURI, Base: mergeBase, Head: headIdentity, Kind: atom.Kind, Path: atom.Path, Side: atom.Side, Start: atom.Line, End: atom.Line, Event: atom.Event, OldPath: atom.OldPath, NewPath: atom.NewPath}
+		reference := diffuri.Reference{Repository: prepared.repository, Base: prepared.baseOID, Head: prepared.headOID, Kind: atom.Kind, Path: atom.Path, Side: atom.Side, Start: atom.Line, End: atom.Line, Event: atom.Event, OldPath: atom.OldPath, NewPath: atom.NewPath}
 		if atom.Kind == "event" && atom.Event == "rename" {
 			reference.Path = ""
 		}
@@ -148,6 +244,137 @@ func ReadWithOptions(ctx context.Context, fromDir, repositoryURI, base, head str
 		}
 	}
 	return result, nil
+}
+
+func prepareComparison(ctx context.Context, fromDir, repositoryURI, base, head string, options ReadOptions) (preparedComparison, error) {
+	repoOut, err := exec.CommandContext(ctx, "git", "-C", fromDir, "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return preparedComparison{}, fmt.Errorf("locate Git repository: %w", err)
+	}
+	repo := strings.TrimSpace(string(repoOut))
+	repositoryURI, err = diffuri.CanonicalRepository(repositoryURI)
+	if err != nil {
+		return preparedComparison{}, fmt.Errorf("canonicalize declared repository: %w", err)
+	}
+	if !options.AllowRepositoryMismatch {
+		if err := VerifyRepository(ctx, repo, repositoryURI); err != nil {
+			return preparedComparison{}, err
+		}
+	}
+	baseCommit, err := resolveRevision(ctx, repo, base)
+	if err != nil {
+		return preparedComparison{}, err
+	}
+
+	var headCommit string
+	if head == "WORKTREE" {
+		headCommit, err = resolveRevision(ctx, repo, "HEAD")
+	} else {
+		headCommit, err = resolveRevision(ctx, repo, head)
+	}
+	if err != nil {
+		return preparedComparison{}, err
+	}
+	mergeBase, err := resolveMergeBase(ctx, repo, baseCommit, headCommit)
+	if err != nil {
+		return preparedComparison{}, err
+	}
+	comparison := mergeBase
+	if head != "WORKTREE" {
+		comparison += ".." + headCommit
+	}
+	productArgs := canonicalDiffArgs(repo, "--binary", "--full-index", "--unified=3", comparison, "--", ".", ":(exclude,glob)**/*.saga/**")
+	digest, err := hashGitOutput(ctx, productArgs)
+	if err != nil {
+		return preparedComparison{}, fmt.Errorf("build product diff identity: %w", err)
+	}
+	return preparedComparison{
+		repo: repo, repository: repositoryURI, base: base, head: head,
+		baseOID: mergeBase, headOID: "product-" + fmt.Sprintf("%x", digest), headCommit: headCommit, comparison: comparison,
+	}, nil
+}
+
+func hashGitOutput(ctx context.Context, args []string) ([]byte, error) {
+	digest := sha256.New()
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Stdout = digest
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		if detail := strings.TrimSpace(stderr.String()); detail != "" {
+			return nil, fmt.Errorf("git diff: %s", detail)
+		}
+		return nil, fmt.Errorf("git diff: %w", err)
+	}
+	return digest.Sum(nil), nil
+}
+
+func parseNumstat(output []byte) ([]FileSummary, error) {
+	fields := bytes.Split(output, []byte{0})
+	files := make([]FileSummary, 0, len(fields))
+	for index := 0; index < len(fields); {
+		if len(fields[index]) == 0 {
+			index++
+			continue
+		}
+		columns := strings.SplitN(string(fields[index]), "\t", 3)
+		index++
+		if len(columns) != 3 {
+			return nil, fmt.Errorf("parse changed-file catalog: malformed numstat record")
+		}
+		file := FileSummary{}
+		var err error
+		file.Added, file.Binary, err = parseNumstatCount(columns[0])
+		if err != nil {
+			return nil, err
+		}
+		var deletedBinary bool
+		file.Deleted, deletedBinary, err = parseNumstatCount(columns[1])
+		if err != nil {
+			return nil, err
+		}
+		file.Binary = file.Binary || deletedBinary
+		if columns[2] == "" {
+			if index+1 >= len(fields) {
+				return nil, fmt.Errorf("parse changed-file catalog: truncated rename record")
+			}
+			file.OldPath, file.NewPath = string(fields[index]), string(fields[index+1])
+			file.Path = file.NewPath
+			index += 2
+		} else {
+			file.Path = columns[2]
+		}
+		if file.Path == "" {
+			return nil, fmt.Errorf("parse changed-file catalog: empty path")
+		}
+		files = append(files, file)
+	}
+	return files, nil
+}
+
+func parseNumstatCount(value string) (int, bool, error) {
+	if value == "-" {
+		return 0, true, nil
+	}
+	count, err := strconv.Atoi(value)
+	if err != nil || count < 0 {
+		return 0, false, fmt.Errorf("parse changed-file catalog: invalid count %q", value)
+	}
+	return count, false, nil
+}
+
+func classifyCatalogPaths(file FileSummary) (hasSaga, hasProduct bool) {
+	for _, value := range []string{file.Path, file.OldPath, file.NewPath} {
+		if value == "" {
+			continue
+		}
+		if IsSagaPath(value) {
+			hasSaga = true
+		} else {
+			hasProduct = true
+		}
+	}
+	return hasSaga, hasProduct
 }
 
 func canonicalDiffArgs(repo string, specific ...string) []string {

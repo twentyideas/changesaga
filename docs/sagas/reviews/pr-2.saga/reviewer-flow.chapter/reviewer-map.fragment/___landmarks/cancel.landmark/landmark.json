@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "cancel",
+  "label": "Cancellation",
+  "description": "Mouse-out cancels queued and unneeded speculative work",
+  "selector": {
+    "type": "element",
+    "element_id": "cancel"
+  },
+  "target": ""
+}

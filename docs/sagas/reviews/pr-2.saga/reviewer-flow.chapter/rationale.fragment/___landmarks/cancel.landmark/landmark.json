@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "cancel",
+  "label": "Evidence: cancel",
+  "selector": {
+    "type": "text",
+    "exact": "Mouse-out removes queued descendants, aborts unnecessary speculative requests, and click promotion reuses in-flight work."
+  },
+  "target": ""
+}

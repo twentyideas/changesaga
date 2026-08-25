@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "incremental",
+  "label": "Evidence: incremental",
+  "selector": {
+    "type": "text",
+    "exact": "The server renders descriptors first and exposes section, fragment, locate, and outline endpoints for progressive narrative hydration."
+  },
+  "target": ""
+}

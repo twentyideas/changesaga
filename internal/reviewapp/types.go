@@ -20,6 +20,9 @@ const (
 type OpenOptions struct {
 	SagaRoot  string
 	SourceDir string
+	// SummaryOnly builds the hierarchy and aggregate coverage/review counts
+	// without retaining atom-level indexes used by focused query operations.
+	SummaryOnly bool
 }
 
 type Session interface {

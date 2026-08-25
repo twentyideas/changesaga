@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "navigation",
+  "label": "Evidence: navigation",
+  "selector": {
+    "type": "text",
+    "exact": "Code drawers fetch one file body on demand and expose reverse explanation owners that navigate to the exact narrative target."
+  },
+  "target": ""
+}

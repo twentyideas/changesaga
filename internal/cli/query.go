@@ -24,8 +24,9 @@ const (
 // logic. A small adapter converts them to reviewapp requests once a session is
 // opened; keeping this seam also makes the CLI contract independently testable.
 type queryOpenOptions struct {
-	SagaRoot  string
-	SourceDir string
+	SagaRoot    string
+	SourceDir   string
+	SummaryOnly bool
 }
 
 type overviewQuery struct{}
@@ -252,6 +253,7 @@ func queryWithOpener(ctx context.Context, args []string, out io.Writer, open que
 	if err != nil {
 		return writeQueryFailure(out, &queryError{Code: "invalid_argument", Message: err.Error()})
 	}
+	options.SummaryOnly = operation == "overview" || operation == "children"
 
 	session, err := open(ctx, options)
 	if err != nil {

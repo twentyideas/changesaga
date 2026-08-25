@@ -55,6 +55,42 @@ already nested under.
 The Code Diff sidebar is a different thing and should stay that way: a compact,
 filterable changed-file tree with counts, status, and a selected file.
 
+The outline is built from the saga's own manifests rather than from the rendered
+page, so it names every destination in the document — including the ones inside
+chapters the page has not fetched. That is what makes it navigation rather than
+a view of what happens to be loaded.
+
+## The page is a shell
+
+`GET /` renders the saga's identity, the coverage totals, the overview's
+explanations as descriptors, one summary per chapter, and the navigation
+outline. It renders no explanation content at all. A chapter body arrives from
+`/api/section` when the reviewer opens that chapter, and an explanation from
+`/api/fragment` when it comes into view, is pointed at, or is needed to answer a
+permalink. `/api/locate` says which chapter and which explanation own an anchor,
+so a deep link into an unopened chapter still resolves.
+
+Three rules follow from that, and breaking any of them is a regression:
+
+- A descriptor is still a destination. It carries the explanation's id, title,
+  target, and review controls, so permalinks, the review progress map, and
+  review decisions all work before the content arrives.
+- Content arriving never overwrites what the reviewer has already done. A
+  decision made on a descriptor moves into the rendered explanation rather than
+  being replaced by the state its snapshot was built from.
+- Anything that needs content must ask for it first. Arming an annotation tool
+  on an explanation that has not arrived fetches it and waits, rather than
+  silently disarming.
+- Content is filled into the article it was described by, never swapped for a
+  new one. A reviewer can be part way through clicking a descriptor's controls
+  when its content lands, and replacing the element under the pointer loses
+  that click.
+
+`<body data-shell-ready>` is set once the first fill-in has finished: every
+explanation on screen has arrived and any anchor in the URL has been resolved.
+It is the page saying it has settled, which is what a reviewer can see and what
+the browser suite waits for instead of guessing.
+
 ## Comments and their marks
 
 A comment carries an anchor. When that anchor is a mark drawn on the content —

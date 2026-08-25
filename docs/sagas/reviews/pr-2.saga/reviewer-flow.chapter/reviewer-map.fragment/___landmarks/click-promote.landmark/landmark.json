@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "click-promote",
+  "label": "Click promotion",
+  "description": "Clicks reuse pending summaries and load one file detail",
+  "selector": {
+    "type": "element",
+    "element_id": "click-promote"
+  },
+  "target": ""
+}

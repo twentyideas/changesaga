@@ -265,7 +265,11 @@ Before attaching broad coverage, perform an addressability inventory:
   write, and the exact selectors in each, before writing them.
 - Use `--changed-lines` only when every changed atom in the named file belongs
   to the same focused target. It derives both old/new line atoms and file events
-  such as `add`; it is not permission to hide unrelated concerns in one record.
+  such as `add` and coalesces gapless lines into canonical dense ranges; it is
+  not permission to hide unrelated concerns in one record. Generated evidence
+  paths identify their selector set rather than the authoring event, so adding
+  a different explanation for the same selectors requires `replace-coverage`
+  instead of silently creating a second record.
 - Run `change-saga query mappings --sort scrutiny` after coverage. Treat the
   score as a work queue, not a grade. Use the returned `evidence_file` with
   `change-saga replace-coverage --record PATH --batch -` to atomically split,

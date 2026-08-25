@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "linear-map",
+  "title": "The linear review core",
+  "media_type": "image/svg+xml",
+  "entrypoint": "linear-map.svg",
+  "order": 1
+}

@@ -10,8 +10,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
-	"time"
 
 	"github.com/twentyideas/changesaga/internal/diffuri"
 	"github.com/twentyideas/changesaga/internal/gitdiff"
@@ -57,8 +57,6 @@ type coverageMutationOutput struct {
 	Selectors     int      `json:"selectors"`
 	EvidenceFiles []string `json:"evidence_files"`
 }
-
-const maxGeneratedNameAttempts = 1000
 
 // Cover attaches diff evidence to a narrative target. os.Stdin is bound here
 // rather than read inside the command so tests drive --batch deterministically.
@@ -142,11 +140,10 @@ func cover(ctx context.Context, args []string, out io.Writer, stdin io.Reader) e
 		files[i] = file
 	}
 
-	now := time.Now()
 	var planned []plannedRecord
 	plan := func(locked *saga.Saga) error {
 		var planErr error
-		planned, planErr = planCoverage(locked, records, files, now)
+		planned, planErr = planCoverage(locked, records, files)
 		return planErr
 	}
 	if *dryRun {
@@ -315,13 +312,19 @@ func buildCoverageFile(record coverRecord, changes *gitdiff.ChangeSet, repositor
 			return saga.DiffFile{}, errors.New("--changed-lines requires the source comparison")
 		}
 		path := filepath.ToSlash(record.Path)
+		var selected []gitdiff.Atom
 		for _, atom := range changes.Atoms {
 			matchesPath := atom.Path == path || atom.OldPath == path || atom.NewPath == path
 			if !matchesPath || atom.Kind == "line" && record.Side != "" && atom.Side != record.Side {
 				continue
 			}
-			uris = append(uris, atom.URI)
+			selected = append(selected, atom)
 		}
+		selectors, err := changedLineSelectors(selected)
+		if err != nil {
+			return saga.DiffFile{}, err
+		}
+		uris = append(uris, selectors...)
 		if len(uris) == 0 {
 			return saga.DiffFile{}, fmt.Errorf("--path %q has no changed atoms%s", path, map[bool]string{true: " on side " + record.Side, false: ""}[record.Side != ""])
 		}
@@ -362,11 +365,107 @@ func buildCoverageFile(record coverRecord, changes *gitdiff.ChangeSet, repositor
 	return file, nil
 }
 
+// changedLineGroup accumulates every line one identity contributed, in the
+// order the identity was first seen. Identity is the whole comparison address
+// minus the line numbers, so two groups can never be merged with each other.
+type changedLineGroup struct {
+	reference diffuri.Reference
+	lines     []int
+	seen      map[int]bool
+}
+
+// changedLineSelectors names exactly the atoms it is given, using the fewest
+// URIs that can name them. Consecutive line atoms coalesce into one ranged URI
+// only when their repository, base, head, path, and side are identical and
+// their line numbers are dense. A dense range is not a widened selector: every
+// line it spans is an atom that was already going to be written, so coverage,
+// ownership, and overlap are byte-identical to emitting one URI per line.
+// Events never coalesce -- an event is not a line and has no range spelling.
+func changedLineSelectors(atoms []gitdiff.Atom) ([]string, error) {
+	// A slot is one position in the output. Event slots carry their URI
+	// verbatim; a line slot stands in for the group's first atom and expands to
+	// that group's ranges, so relative order survives coalescing.
+	type slot struct {
+		uri   string
+		group *changedLineGroup
+	}
+	var slots []slot
+	groups := map[string]*changedLineGroup{}
+	for _, atom := range atoms {
+		reference, err := diffuri.Parse(atom.URI)
+		if err != nil {
+			return nil, fmt.Errorf("parse changed atom URI %q: %w", atom.URI, err)
+		}
+		if reference.Kind != "line" {
+			slots = append(slots, slot{uri: atom.URI})
+			continue
+		}
+		key := changedLineGroupKey(reference)
+		group, ok := groups[key]
+		if !ok {
+			group = &changedLineGroup{reference: reference, seen: map[int]bool{}}
+			groups[key] = group
+			slots = append(slots, slot{group: group})
+		}
+		for line := reference.Start; line <= reference.End; line++ {
+			if group.seen[line] {
+				continue
+			}
+			group.seen[line] = true
+			group.lines = append(group.lines, line)
+		}
+	}
+	uris := make([]string, 0, len(slots))
+	for _, current := range slots {
+		if current.group == nil {
+			uris = append(uris, current.uri)
+			continue
+		}
+		values, err := current.group.selectors()
+		if err != nil {
+			return nil, err
+		}
+		uris = append(uris, values...)
+	}
+	return uris, nil
+}
+
+// changedLineGroupKey is every part of a line reference except the range. Two
+// references share a key only when a range spanning both would address the same
+// file, on the same side, of the same comparison.
+func changedLineGroupKey(reference diffuri.Reference) string {
+	return strings.Join([]string{reference.Repository, reference.Base, reference.Head, reference.Path, reference.Side}, "\x00")
+}
+
+// selectors emits one ranged URI per dense run, ascending. A gap of even one
+// line ends the run, so a range never spans a line that was not selected.
+func (group *changedLineGroup) selectors() ([]string, error) {
+	lines := append([]int(nil), group.lines...)
+	sort.Ints(lines)
+	var uris []string
+	for index := 0; index < len(lines); {
+		end := index
+		for end+1 < len(lines) && lines[end+1] == lines[end]+1 {
+			end++
+		}
+		reference := group.reference
+		reference.Start = lines[index]
+		reference.End = lines[end]
+		value, err := diffuri.Build(reference)
+		if err != nil {
+			return nil, err
+		}
+		uris = append(uris, value)
+		index = end + 1
+	}
+	return uris, nil
+}
+
 // planCoverage resolves every target and destination filename up front. Names
 // are reserved across the whole batch, so two records in one batch collide with
 // each other exactly as loudly as one record collides with a record already on
 // disk.
-func planCoverage(document *saga.Saga, records []coverRecord, files []saga.DiffFile, now time.Time, replaceable ...string) ([]plannedRecord, error) {
+func planCoverage(document *saga.Saga, records []coverRecord, files []saga.DiffFile, replaceable ...string) ([]plannedRecord, error) {
 	planned := make([]plannedRecord, 0, len(records))
 	claimed := map[string]int{}
 	allowed := map[string]bool{}
@@ -379,7 +478,7 @@ func planCoverage(document *saga.Saga, records []coverRecord, files []saga.DiffF
 			return nil, recordError(records, i, err)
 		}
 		diffDir := filepath.Join(targetDir, "___diffs")
-		name, err := coverageName(record, diffDir, claimed, allowed, now)
+		name, err := coverageName(record, files[i], diffDir, claimed, allowed)
 		if err != nil {
 			return nil, recordError(records, i, err)
 		}
@@ -427,9 +526,10 @@ func ensureCoverageDirectories(root string, planned []plannedRecord) error {
 }
 
 // coverageName picks the record filename. An explicit name is an author's
-// stable handle, so a collision is reported instead of renamed; a generated
-// name has no meaning to the author, so it is uniquified deterministically.
-func coverageName(record coverRecord, dir string, claimed map[string]int, replaceable map[string]bool, now time.Time) (string, error) {
+// stable handle. A generated name is the selector identity: it deliberately
+// collides when two authors explain the same selectors differently so Git
+// exposes the disagreement instead of manufacturing an overlap.
+func coverageName(record coverRecord, file saga.DiffFile, dir string, claimed map[string]int, replaceable map[string]bool) (string, error) {
 	if strings.TrimSpace(record.Name) != "" {
 		name := store.Slug(record.Name)
 		full := filepath.Join(dir, name+".json")
@@ -449,7 +549,19 @@ func coverageName(record coverRecord, dir string, claimed map[string]int, replac
 		}
 		return name, nil
 	}
-	return uniqueGeneratedName(dir, generatedCoverageName(record, now), claimed)
+	name := stableGeneratedCoverageName(record, file)
+	full := filepath.Join(dir, name+".json")
+	if other, taken := claimed[full]; taken {
+		return "", fmt.Errorf("coverage selector identity collides with record %d, which also writes %s", other+1, filepath.Base(full))
+	}
+	if _, err := os.Lstat(full); err == nil {
+		if !replaceable[canonicalCoveragePath(full)] {
+			return "", fmt.Errorf("coverage record %s already exists for the same selector identity; use replace-coverage to reconcile its explanation", filepath.Base(full))
+		}
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	return name, nil
 }
 
 // canonicalCoveragePath resolves existing parent symlinks without following
@@ -466,43 +578,6 @@ func canonicalCoveragePath(path string) string {
 		return abs
 	}
 	return filepath.Join(parent, filepath.Base(abs))
-}
-
-// uniqueGeneratedName resolves a generated base to a free filename by appending
-// -2, -3, and so on. The sequence is deterministic so a collision produces a
-// predictable name rather than a second random draw.
-func uniqueGeneratedName(dir, base string, claimed map[string]int) (string, error) {
-	for attempt := 1; attempt <= maxGeneratedNameAttempts; attempt++ {
-		candidate := base
-		if attempt > 1 {
-			candidate = fmt.Sprintf("%s-%d", base, attempt)
-		}
-		full := filepath.Join(dir, candidate+".json")
-		if _, taken := claimed[full]; taken {
-			continue
-		}
-		if _, err := os.Lstat(full); os.IsNotExist(err) {
-			return candidate, nil
-		} else if err != nil {
-			return "", err
-		}
-	}
-	return "", fmt.Errorf("could not find an unused coverage record name for %q", base)
-}
-
-// generatedCoverageName keeps the uniquifying event ID intact. Slugging the
-// joined string would truncate it to 60 characters, and for any path longer
-// than a couple of directories that truncation removed the random suffix
-// entirely, so two records for the same file collided.
-func generatedCoverageName(record coverRecord, now time.Time) string {
-	prefix := store.Slug(firstNonEmpty(record.Path, record.Event, "diff"))
-	if len(prefix) > 20 {
-		prefix = strings.Trim(prefix[:20], "-")
-	}
-	if prefix == "" {
-		prefix = "diff"
-	}
-	return prefix + "-" + store.Slug(store.EventID(now))
 }
 
 // writeCoverage publishes a planned batch. Every destination was proven free

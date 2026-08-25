@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "invariant",
+  "label": "Demand-sized detail",
+  "description": "Detail work stays proportional to the item opened",
+  "selector": {
+    "type": "element",
+    "element_id": "invariant"
+  },
+  "target": ""
+}

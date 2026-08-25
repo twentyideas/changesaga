@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "contracts",
+  "label": "Evidence: contracts",
+  "selector": {
+    "type": "text",
+    "exact": "Unit, budget, benchmark, and browser tests assert both bounded payloads and preserved review workflows."
+  },
+  "target": ""
+}

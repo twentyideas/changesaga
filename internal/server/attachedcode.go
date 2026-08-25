@@ -31,12 +31,23 @@ type attachedCodeFileView struct {
 }
 
 func makeAttachedCodeView(title, target string, atoms []gitdiff.Atom, evidence []saga.DiffFile) *attachedCodeView {
-	if len(atoms) == 0 {
+	return makeAttachedCodeViewFromAtoms(title, target, len(atoms), func(index int) gitdiff.Atom { return atoms[index] }, evidence)
+}
+
+func makeAttachedCodeViewIndexed(title, target string, snapshot *reviewSnapshot, indexes []int, evidence []saga.DiffFile) *attachedCodeView {
+	return makeAttachedCodeViewFromAtoms(title, target, len(indexes), func(index int) gitdiff.Atom {
+		return snapshot.changes.Atoms[indexes[index]]
+	}, evidence)
+}
+
+func makeAttachedCodeViewFromAtoms(title, target string, atomCount int, atomAt func(int) gitdiff.Atom, evidence []saga.DiffFile) *attachedCodeView {
+	if atomCount == 0 {
 		return nil
 	}
-	view := &attachedCodeView{Title: title, ChangeCount: len(atoms)}
+	view := &attachedCodeView{Title: title, ChangeCount: atomCount}
 	byPath := map[string]*attachedCodeFileView{}
-	for _, atom := range atoms {
+	for index := 0; index < atomCount; index++ {
+		atom := atomAt(index)
 		path := effectiveAtomPath(atom)
 		file := byPath[path]
 		if file == nil {
@@ -55,7 +66,7 @@ func makeAttachedCodeView(title, target string, atoms []gitdiff.Atom, evidence [
 		}
 	}
 
-	for path, notes := range attachedFileNotes(atoms, evidence) {
+	for path, notes := range attachedFileNotesFromAtoms(atomCount, atomAt, evidence) {
 		if file := byPath[path]; file != nil {
 			file.Summary = strings.Join(notes, " ")
 		}
@@ -77,12 +88,17 @@ func makeAttachedCodeView(title, target string, atoms []gitdiff.Atom, evidence [
 // page quadratic in the size of a well-covered target: the codebase saga has
 // one exact reference per changed line, so the two loops grew together.
 func attachedFileNotes(atoms []gitdiff.Atom, evidence []saga.DiffFile) map[string][]string {
+	return attachedFileNotesFromAtoms(len(atoms), func(index int) gitdiff.Atom { return atoms[index] }, evidence)
+}
+
+func attachedFileNotesFromAtoms(atomCount int, atomAt func(int) gitdiff.Atom, evidence []saga.DiffFile) map[string][]string {
 	notes := map[string][]string{}
 	type candidate struct {
 		path      string
 		reference diffuri.Reference
 	}
 	var buckets map[string][]candidate
+	prepared := false
 	for _, diffFile := range evidence {
 		for _, reference := range diffFile.Diffs {
 			note := strings.TrimSpace(reference.Note)
@@ -96,8 +112,9 @@ func attachedFileNotes(atoms []gitdiff.Atom, evidence []saga.DiffFile) map[strin
 			// Evidence without authored notes keeps its zero-parse fast path:
 			// the index is only built once a note actually needs matching.
 			if buckets == nil {
-				buckets = make(map[string][]candidate, len(atoms))
-				for _, atom := range atoms {
+				buckets = make(map[string][]candidate, atomCount)
+				for index := 0; index < atomCount; index++ {
+					atom := atomAt(index)
 					parsed, err := diffuri.Parse(atom.URI)
 					if err != nil {
 						continue
@@ -106,7 +123,27 @@ func attachedFileNotes(atoms []gitdiff.Atom, evidence []saga.DiffFile) map[strin
 					buckets[key] = append(buckets[key], candidate{path: effectiveAtomPath(atom), reference: parsed})
 				}
 			}
-			for _, entry := range buckets[selectorBucket(selector)] {
+			if !prepared {
+				for key := range buckets {
+					if strings.HasPrefix(key, "line\x00") {
+						sort.SliceStable(buckets[key], func(left, right int) bool {
+							return buckets[key][left].reference.Start < buckets[key][right].reference.Start
+						})
+					}
+				}
+				prepared = true
+			}
+			candidates := buckets[selectorBucket(selector)]
+			if selector.Kind == "line" {
+				start := sort.Search(len(candidates), func(index int) bool {
+					return candidates[index].reference.Start >= selector.Start
+				})
+				end := sort.Search(len(candidates), func(index int) bool {
+					return candidates[index].reference.Start > selector.End
+				})
+				candidates = candidates[start:end]
+			}
+			for _, entry := range candidates {
 				if !diffuri.Matches(selector, entry.reference) {
 					continue
 				}
@@ -123,6 +160,9 @@ func attachedFileNotes(atoms []gitdiff.Atom, evidence []saga.DiffFile) map[strin
 // succeed. Two references that disagree on it can never match, and every
 // reference that agrees on it is still compared exactly.
 func selectorBucket(reference diffuri.Reference) string {
+	if reference.Kind == "line" {
+		return "line\x00" + reference.Path + "\x00" + reference.Side
+	}
 	if reference.Kind == "event" && reference.Event == "rename" {
 		return "event\x00rename\x00" + reference.OldPath + "\x00" + reference.NewPath
 	}

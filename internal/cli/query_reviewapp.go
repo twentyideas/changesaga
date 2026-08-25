@@ -11,7 +11,7 @@ type reviewAppQuerySession struct {
 }
 
 func openReviewAppSession(ctx context.Context, options queryOpenOptions) (querySession, error) {
-	session, err := reviewapp.Open(ctx, reviewapp.OpenOptions{SagaRoot: options.SagaRoot, SourceDir: options.SourceDir})
+	session, err := reviewapp.Open(ctx, reviewapp.OpenOptions{SagaRoot: options.SagaRoot, SourceDir: options.SourceDir, SummaryOnly: options.SummaryOnly})
 	if err != nil {
 		return nil, err
 	}

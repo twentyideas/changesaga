@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "summary-mode",
+  "label": "Summary mode",
+  "description": "Aggregate queries skip detail-only construction",
+  "selector": {
+    "type": "element",
+    "element_id": "summary-mode"
+  },
+  "target": ""
+}

@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "evidence-map",
+  "title": "The evidence-format decision",
+  "media_type": "image/svg+xml",
+  "entrypoint": "evidence-map.svg",
+  "order": 1
+}

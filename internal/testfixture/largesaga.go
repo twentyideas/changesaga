@@ -32,6 +32,18 @@ type LargeSagaOptions struct {
 	ReviewsPerFragment  int
 	Threads             int
 	DiffReviews         int
+
+	// CoverageRangeWidth is how many consecutive changed lines one diff
+	// reference covers. Zero selects coverageRangeWidth. One deliberately
+	// produces the fragmented per-line shape that the authoring API now
+	// canonicalizes, so reader benchmarks can defend against adversarial input.
+	CoverageRangeWidth int
+
+	// CoverageTargets is how many fragments receive evidence. Zero spreads it
+	// across every generated fragment, which gives each target a handful of
+	// references. A small number reproduces a real saga, where a few narrative
+	// targets own thousands of the comparison's atoms.
+	CoverageTargets int
 }
 
 // DefaultLargeSagaOptions is intentionally large enough to catch nonlinear
@@ -68,6 +80,16 @@ type LargeSaga struct {
 	Reviews     int
 	Threads     int
 	DiffReviews int
+
+	// CoverageRangeWidth and CoverageTargets are the resolved shape, with
+	// zero-valued options replaced by the defaults they select.
+	CoverageRangeWidth int
+	CoverageTargets    int
+
+	// MaxTargetReferences is the largest number of diff references a single
+	// target owns. It is the concentration dimension reader scale benchmarks
+	// vary while holding atoms and total references constant.
+	MaxTargetReferences int
 }
 
 type generatedFragment struct {
@@ -116,13 +138,16 @@ func GenerateLargeSaga(ctx context.Context, parent string, options LargeSagaOpti
 	if err != nil {
 		return LargeSaga{}, err
 	}
-	mappings, references, diffFiles, err := writeCoverageMappings(fragments, changes.Atoms)
+	shape, err := writeCoverageMappings(fragments, changes.Atoms, options)
 	if err != nil {
 		return LargeSaga{}, err
 	}
-	fixture.Mappings = mappings
-	fixture.References = references
-	fixture.DiffFiles = diffFiles
+	fixture.Mappings = shape.mappings
+	fixture.References = shape.references
+	fixture.DiffFiles = shape.diffFiles
+	fixture.CoverageRangeWidth = resolveRangeWidth(options)
+	fixture.CoverageTargets = shape.diffFiles
+	fixture.MaxTargetReferences = shape.maxTargetReferences
 	if err := writeThreads(root, fragments, options.Threads); err != nil {
 		return LargeSaga{}, err
 	}
@@ -164,6 +189,15 @@ func validateLargeSagaOptions(options LargeSagaOptions) error {
 	}
 	if options.DiffReviews > options.SourceFiles {
 		return fmt.Errorf("large saga diff reviews cannot exceed source files")
+	}
+	if options.CoverageRangeWidth < 0 {
+		return fmt.Errorf("large saga coverage range width cannot be negative")
+	}
+	if options.CoverageTargets < 0 {
+		return fmt.Errorf("large saga coverage targets cannot be negative")
+	}
+	if fragments := options.Chapters * options.SectionsPerChapter * options.FragmentsPerSection; options.CoverageTargets > fragments {
+		return fmt.Errorf("large saga coverage targets cannot exceed the %d generated fragments", fragments)
 	}
 	return nil
 }
@@ -322,16 +356,28 @@ type rangedMapping struct {
 	atoms     int
 }
 
-func writeCoverageMappings(fragments []generatedFragment, atoms []gitdiff.Atom) (mappings, references, diffFiles int, err error) {
-	ranges, err := coverageRanges(atoms)
+type coverageShape struct {
+	mappings            int
+	references          int
+	diffFiles           int
+	maxTargetReferences int
+}
+
+func writeCoverageMappings(fragments []generatedFragment, atoms []gitdiff.Atom, options LargeSagaOptions) (coverageShape, error) {
+	ranges, err := coverageRanges(atoms, resolveRangeWidth(options))
 	if err != nil {
-		return 0, 0, 0, err
+		return coverageShape{}, err
 	}
+	targets := options.CoverageTargets
+	if targets < 1 || targets > len(fragments) {
+		targets = len(fragments)
+	}
+	shape := coverageShape{references: len(ranges)}
 	grouped := make([][]saga.DiffReference, len(fragments))
 	for index, mapping := range ranges {
-		target := index % len(fragments)
+		target := index % targets
 		grouped[target] = append(grouped[target], mapping.reference)
-		mappings += mapping.atoms
+		shape.mappings += mapping.atoms
 	}
 	for index, fragment := range fragments {
 		if len(grouped[index]) == 0 {
@@ -339,22 +385,32 @@ func writeCoverageMappings(fragments []generatedFragment, atoms []gitdiff.Atom) 
 		}
 		value := saga.DiffFile{Version: saga.CurrentVersion, Diffs: grouped[index]}
 		if err := writeJSON(filepath.Join(fragment.dir, "___diffs", "coverage.json"), value); err != nil {
-			return 0, 0, 0, err
+			return coverageShape{}, err
 		}
-		diffFiles++
+		shape.diffFiles++
+		if len(grouped[index]) > shape.maxTargetReferences {
+			shape.maxTargetReferences = len(grouped[index])
+		}
 	}
-	return mappings, len(ranges), diffFiles, nil
+	return shape, nil
 }
 
-func coverageRanges(atoms []gitdiff.Atom) ([]rangedMapping, error) {
-	result := make([]rangedMapping, 0, (len(atoms)+coverageRangeWidth-1)/coverageRangeWidth)
+func resolveRangeWidth(options LargeSagaOptions) int {
+	if options.CoverageRangeWidth < 1 {
+		return coverageRangeWidth
+	}
+	return options.CoverageRangeWidth
+}
+
+func coverageRanges(atoms []gitdiff.Atom, width int) ([]rangedMapping, error) {
+	result := make([]rangedMapping, 0, (len(atoms)+width-1)/width)
 	for start := 0; start < len(atoms); {
 		first, err := diffuri.Parse(atoms[start].URI)
 		if err != nil {
 			return nil, err
 		}
 		end := start + 1
-		for end < len(atoms) && end-start < coverageRangeWidth {
+		for end < len(atoms) && end-start < width {
 			next, err := diffuri.Parse(atoms[end].URI)
 			if err != nil {
 				return nil, err

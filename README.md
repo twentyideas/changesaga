@@ -194,10 +194,14 @@ contract.
 
 For a focused file whose entire change belongs to one explanation,
 `change-saga cover --path FILE --changed-lines` derives its exact changed-line
-and file-event selectors. Coverage summaries can be bounded with `--json` or
-silenced with `--quiet`. Repair broad mappings using the `evidence_file` from
-`query mappings`: `replace-coverage --record PATH --batch -` atomically splits
-or retargets one, while `remove-coverage --record PATH` deletes one.
+and file-event selectors and stores gapless lines as canonical dense ranges.
+Generated evidence paths identify the selector set rather than the authoring
+timestamp: unrelated selectors stay in unrelated files, while a different
+explanation for the same selectors requires explicit reconciliation. Coverage
+summaries can be bounded with `--json` or silenced with `--quiet`. Repair broad
+mappings using the `evidence_file` from `query mappings`:
+`replace-coverage --record PATH --batch -` atomically splits or retargets one,
+while `remove-coverage --record PATH` deletes one.
 
 ## Manual CLI workflow
 

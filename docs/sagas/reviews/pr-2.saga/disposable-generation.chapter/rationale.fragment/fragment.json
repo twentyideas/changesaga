@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "generation-rationale",
+  "title": "Separate truth from computation",
+  "media_type": "text/markdown",
+  "entrypoint": "generation.md",
+  "order": 2
+}

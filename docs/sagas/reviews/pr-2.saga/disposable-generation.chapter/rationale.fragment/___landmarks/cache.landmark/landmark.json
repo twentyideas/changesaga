@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "cache",
+  "label": "Evidence: cache",
+  "selector": {
+    "type": "text",
+    "exact": "Disposable snapshot data is atomically persisted outside the saga and compresses repeated comparison fields."
+  },
+  "target": ""
+}

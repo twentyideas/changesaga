@@ -14,7 +14,7 @@ func TestAppJavaScriptSyntaxAndRangeSelectionContract(t *testing.T) {
 		t.Skip("node is not installed")
 	}
 	source := strings.Replace(appJavaScript, "})();", "globalThis.changeSagaTest = {languageForPath, selectedRangeURI, normalizedAnnotationColor, colorWithAlpha, shortcutDirection, annotationDeleteShortcut, translateShape, stepShapeDraftHistory, clampNormalized, stickyNoteAnchor, translateNote, annotationLabel};})();", 1)
-	prelude := `globalThis.document={querySelector:()=>null,querySelectorAll:()=>[],addEventListener:()=>{}};
+	prelude := `globalThis.document={querySelector:()=>null,querySelectorAll:()=>[],addEventListener:()=>{},body:{dataset:{}}};
 globalThis.location={href:'http://127.0.0.1/?view=code',pathname:'/',search:'?view=code',hash:''};
 globalThis.history={pushState:()=>{}};globalThis.addEventListener=()=>{};globalThis.innerWidth=1400;
 `

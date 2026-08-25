@@ -19,6 +19,7 @@ test("@critical navigates the saga, linked code, code tree, and coverage in both
 
   const overview = page.locator('[data-fragment-title="Overview"]');
   await overview.scrollIntoViewIfNeeded();
+  await overview.hover();
   await overview.getByRole("button", { name: /Open the \d+ linked changes/ }).click();
   const drawer = page.getByRole("complementary", { name: "Linked code" });
   await expect(drawer).toHaveAttribute("aria-hidden", "false");
@@ -68,10 +69,13 @@ test("@critical navigates the saga, linked code, code tree, and coverage in both
   await page.getByRole("tab", { name: "Coverage" }).click();
   await page.getByRole("button", { name: "Saga → Code" }).click();
   const sourceTarget = page.locator("details.manifest-target").filter({
-    has: page.locator("details.manifest-target-file code", { hasText: "src/app.go" })
+    has: page.locator(".manifest-target-title > strong").filter({ hasText: /^Overview$/ })
   }).first();
   await sourceTarget.locator(":scope > summary").click();
+  // Target files are intentionally fetched only after their explanation is
+  // opened, so locate the file after the target-detail response arrives.
   const targetFile = sourceTarget.locator("details.manifest-target-file").filter({ hasText: "src/app.go" });
+  await expect(targetFile).toBeVisible();
   await targetFile.locator("summary").click();
   await targetFile.getByRole("link", { name: /Open in Code Diff/ }).click();
   await expect(page.getByRole("tab", { name: "Code Diff" })).toHaveAttribute("aria-selected", "true");
@@ -87,6 +91,7 @@ test("renders Markdown, SVG, raster, and interactive HTML fragments", async ({ p
   await expect(markdown.locator("code")).toHaveText("linked code");
   await expect(markdown.locator(":scope > ol").first().locator(":scope > li")).toHaveCount(2);
   const citation = markdown.locator("a.footnote-ref");
+  await page.locator('[data-fragment-title="Overview"]').hover();
   await expect(citation).toHaveAttribute("data-open-diffs", /diffs-/);
   await citation.click();
   const citationDrawer = page.getByRole("complementary", { name: "Linked code" });
@@ -99,7 +104,7 @@ test("renders Markdown, SVG, raster, and interactive HTML fragments", async ({ p
   const elementHotspot = diagramFragment.locator('[data-auto-landmark-hotspot="true"][data-element-id="render-boundary"]');
   await expect(elementHotspot).toBeVisible();
   await elementHotspot.hover();
-  await elementHotspot.getByRole("button", { name: "Open code related to Render boundary" }).click();
+  await elementHotspot.getByRole("button", { name: /Open the \d+ linked change/ }).click();
   const elementDrawer = page.getByRole("complementary", { name: "Linked code" });
   await expect(elementDrawer).toHaveAttribute("aria-hidden", "false");
   await expect(elementDrawer.locator("details.attached-file")).toHaveCount(1);
@@ -114,7 +119,7 @@ test("renders Markdown, SVG, raster, and interactive HTML fragments", async ({ p
   const edgeHotspot = diagramFragment.locator('[data-auto-landmark-hotspot="true"][data-element-id="evidence-handoff"]');
   await expect(edgeHotspot).toBeVisible();
   await edgeHotspot.hover();
-  await edgeHotspot.getByRole("button", { name: "Open code related to Evidence handoff" }).click();
+  await edgeHotspot.getByRole("button", { name: /Open the \d+ linked change/ }).click();
   await expect(elementDrawer).toHaveAttribute("aria-hidden", "false");
   await expect(elementDrawer.locator("details.attached-file")).toHaveCount(1);
   await elementDrawer.getByRole("button", { name: "Close linked code" }).click();

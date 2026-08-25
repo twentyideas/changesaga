@@ -37,6 +37,7 @@ export const test = base.extend<Fixtures>({
   saga: async ({ page, browserEvents }, use, testInfo) => {
     const fixture = await createSagaFixture(testInfo);
     await page.goto(fixture.baseURL);
+    await waitForSettledSaga(page);
     try {
       await use(fixture);
     } finally {
@@ -67,6 +68,16 @@ export const test = base.extend<Fixtures>({
 export { expect };
 
 type SeriousViolation = { id: string; impact: string; nodes: string[] };
+
+/**
+ * The page arrives as a shell and fills in the explanations that are on screen.
+ * A reviewer reads and acts on the settled page, so every test that is not
+ * itself about the shell starts from there. Explanations further down are
+ * deliberately still pending: they are fetched when the reviewer reaches them.
+ */
+export async function waitForSettledSaga(page: Page): Promise<void> {
+  await page.locator("body[data-shell-ready]").waitFor();
+}
 
 async function seriousAccessibilityViolations(page: Page, include?: string): Promise<SeriousViolation[]> {
   const builder = new AxeBuilder({ page });

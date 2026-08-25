@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ssr-shell",
+  "label": "SSR shell",
+  "description": "Useful initial page made only from structural metadata",
+  "selector": {
+    "type": "element",
+    "element_id": "ssr-shell"
+  },
+  "target": ""
+}

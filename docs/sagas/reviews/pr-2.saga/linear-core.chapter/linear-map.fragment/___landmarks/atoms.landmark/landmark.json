@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "atoms",
+  "label": "Atom positions",
+  "description": "Stable positions on parsed Git diff atoms",
+  "selector": {
+    "type": "element",
+    "element_id": "atoms"
+  },
+  "target": ""
+}

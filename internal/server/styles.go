@@ -118,6 +118,9 @@ a{color:var(--accent)}
 .view.active{display:block}
 .page-heading{margin:0 0 18px}
 .page-heading h2{margin:0;font:600 22px/1.25 var(--ui);letter-spacing:-.01em}
+.coverage-totals{margin:6px 0 0;color:var(--faint);font:11px var(--mono)}
+.coverage-totals .gap{color:var(--red);font-weight:600}
+.fragment-placeholder,.section-placeholder{margin:0;padding:8px 10px;color:var(--faint);font:11px var(--mono)}
 .breadcrumbs{display:flex;align-items:center;gap:6px;margin:0 0 14px;color:var(--muted);font-size:12px}
 .breadcrumbs a{color:var(--muted);text-decoration:none}
 .breadcrumbs a:hover{color:var(--accent);text-decoration:underline}
@@ -456,6 +459,19 @@ mark.annotation-revealed{box-shadow:0 0 0 2px var(--ink)}
 .diff-compose textarea{min-height:56px}
 .replacement{display:none;grid-column:1/-1}
 .diff-compose.suggesting .replacement{display:block}
+
+/* Deferred review surfaces ---------------------------------------------- */
+.surface-placeholder{display:flex;min-height:240px;align-items:center;justify-content:center;flex-direction:column;gap:7px;padding:28px;color:var(--muted);text-align:center;font-size:12.5px}
+.surface-placeholder strong{color:var(--ink);font-size:14px}
+.surface-placeholder.compact{min-height:120px;padding:18px 8px}
+.surface-placeholder.error{color:var(--red)}
+.surface-placeholder.error strong{color:var(--red)}
+.surface-placeholder .btn-primary{margin-top:6px}
+.surface-spinner{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:surface-spin .8s linear infinite}
+@keyframes surface-spin{to{transform:rotate(360deg)}}
+[data-surface-next]{display:flex;margin:14px auto;padding:6px 12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg);color:var(--accent);font:600 12px var(--ui);text-decoration:none}
+[data-surface-next]:hover,[data-surface-next]:focus-visible{border-color:var(--accent);background:var(--accent-soft)}
+[data-surface-next][aria-busy=true]{cursor:progress;opacity:.65}
 
 /* Coverage view ---------------------------------------------------------- */
 .manifest-view{position:fixed;z-index:20;inset:var(--top) 0 0;background:var(--bg);overflow:auto}

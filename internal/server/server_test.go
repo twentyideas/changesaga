@@ -3,7 +3,9 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"mime/multipart"
 	"net/http"
@@ -152,6 +154,8 @@ func TestWorkspaceTabsAndClosedDrawerCarryAccessibleSemantics(t *testing.T) {
 		"removeAttribute('inert')",
 		"openDrawer(drawerButton.dataset.openDiffs, drawerButton)",
 		"openFragmentDrawer(fragmentDrawerLink.dataset.openFragment, fragmentDrawerLink)",
+		"hydrateTargetCode(targetCodeButton)",
+		"data-target-code-response",
 		"drawer.setAttribute('aria-label', mode === 'fragment' ? 'Related explanation' : 'Linked code')",
 	} {
 		if !strings.Contains(appJavaScript, fragment) {
@@ -195,6 +199,27 @@ func TestManagedRuntimeEndpointsRequireTokenAndSignalShutdown(t *testing.T) {
 	case <-stopped:
 	case <-time.After(time.Second):
 		t.Fatal("authenticated stop did not signal shutdown")
+	}
+}
+
+func TestColdComparisonEndpointReportsBuildingCacheWithoutMaterializingReviewData(t *testing.T) {
+	application := &app{}
+	application.cache.building = true
+	handler := newMux(application)
+
+	page := httptest.NewRecorder()
+	handler.ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/api/coverage", nil))
+	if page.Code != http.StatusAccepted || !strings.Contains(page.Body.String(), "Building review cache") {
+		t.Fatalf("cold comparison endpoint = %d %q, want explicit building-cache response", page.Code, page.Body.String())
+	}
+	if page.Header().Get("Retry-After") == "" {
+		t.Fatal("building-cache response did not tell the browser when to retry")
+	}
+
+	status := httptest.NewRecorder()
+	handler.ServeHTTP(status, httptest.NewRequest(http.MethodGet, "/api/runtime", nil))
+	if status.Code != http.StatusOK || !strings.Contains(status.Body.String(), `"cache":"building"`) {
+		t.Fatalf("cold runtime status = %d %q", status.Code, status.Body.String())
 	}
 }
 
@@ -308,13 +333,13 @@ func TestWithdrawnThreadIsHiddenUntilReopened(t *testing.T) {
 	if err := reviewstore.SetState(root, threadID, "withdrawn"); err != nil {
 		t.Fatal(err)
 	}
-	tmpl := template.Must(template.New("page").Parse(`{{define "page"}}{{len (index .Root.FragmentViews 0).Threads}}{{end}}`))
+	tmpl := template.Must(template.New("page").Parse(`{{define "fragment"}}{{len .Threads}}{{end}}`))
 	application := &app{root: root, sourceDir: root, template: tmpl}
 	render := func() string {
 		recorder := httptest.NewRecorder()
-		application.page(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+		application.fragmentContent(recorder, fragmentRequest("urn:change-saga:test:fragment:overview"))
 		if recorder.Code != http.StatusOK {
-			t.Fatalf("page status = %d: %s", recorder.Code, recorder.Body.String())
+			t.Fatalf("explanation status = %d: %s", recorder.Code, recorder.Body.String())
 		}
 		return recorder.Body.String()
 	}
@@ -361,9 +386,9 @@ func TestAnnotationCommentsBecomeBubblesAndOtherCommentsKeepTheirList(t *testing
 		t.Fatal(err)
 	}
 	recorder := httptest.NewRecorder()
-	(&app{root: root, sourceDir: root, template: tmpl}).page(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+	(&app{root: root, sourceDir: root, template: tmpl}).fragmentContent(recorder, fragmentRequest(target))
 	if recorder.Code != http.StatusOK {
-		t.Fatalf("page status = %d: %s", recorder.Code, recorder.Body.String())
+		t.Fatalf("explanation status = %d: %s", recorder.Code, recorder.Body.String())
 	}
 	page := recorder.Body.String()
 
@@ -402,6 +427,84 @@ func TestAnnotationCommentsBecomeBubblesAndOtherCommentsKeepTheirList(t *testing
 	if inBubbles != 3 || lists-inBubbles != 1 {
 		t.Fatalf("comment lists = %d with %d in bubbles, want 4 with 3 in bubbles", lists, inBubbles)
 	}
+}
+
+// A permalink can name a heading, a marked place, or a comment inside a chapter
+// that has not been fetched yet. The browser cannot scroll to what is not there,
+// so the server answers where one anchor lives — and answers it for the derived
+// anchors too, because a heading id and a landmark id are both suffixes of the
+// explanation that owns them.
+func TestDeferredAnchorsResolveToTheirChapterAndExplanation(t *testing.T) {
+	root := validServerSaga(t)
+	writeServerFile(t, filepath.Join(root, "alpha.chapter", "chapter.json"), `{"version":2,"id":"alpha","title":"Alpha"}`)
+	writeServerFile(t, filepath.Join(root, "alpha.chapter", "story.fragment", "fragment.json"), `{"version":2,"id":"alpha-story","title":"Alpha story","media_type":"text/markdown","entrypoint":"content.md"}`)
+	writeServerFile(t, filepath.Join(root, "alpha.chapter", "story.fragment", "content.md"), "# Deep heading {#deep}\n\nAlpha narrative.\n")
+	writeServerFile(t, filepath.Join(root, "alpha.chapter", "story.fragment", "___landmarks", "place.landmark", "landmark.json"),
+		`{"version":2,"id":"place","label":"A marked place","selector":{"type":"text","exact":"Alpha"},"target":""}`)
+	chapterTarget := saga.ChapterTarget("test", "alpha")
+	fragmentTarget := "urn:change-saga:test:fragment:alpha-story"
+	threadID, err := reviewstore.AddThread(root, fragmentTarget, "A comment inside a closed chapter", saga.Anchor{Type: "target"}, "comment", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	application := &app{root: root, sourceDir: root, template: serverTemplate(t)}
+
+	place := func(anchor string) (map[string]string, int) {
+		recorder := httptest.NewRecorder()
+		application.locateAnchor(recorder, httptest.NewRequest(http.MethodGet, "/api/locate?anchor="+url.QueryEscape(anchor), nil))
+		found := map[string]string{}
+		if recorder.Code == http.StatusOK {
+			if err := json.Unmarshal(recorder.Body.Bytes(), &found); err != nil {
+				t.Fatalf("the anchor response was not JSON: %v", err)
+			}
+		}
+		return found, recorder.Code
+	}
+
+	fragmentID := domID(fragmentTarget)
+	for name, anchor := range map[string]string{
+		"the explanation itself": fragmentID,
+		"a heading inside it":    fragmentID + "--deep",
+		"a marked place":         fragmentID + "--place",
+		"a comment on it":        domID("thread:" + threadID),
+	} {
+		found, status := place(anchor)
+		if status != http.StatusOK {
+			t.Fatalf("%s did not resolve: status=%d", name, status)
+		}
+		if found["chapter"] != domID(chapterTarget) || found["fragment"] != fragmentID {
+			t.Fatalf("%s resolved to %#v, want chapter %s and explanation %s", name, found, domID(chapterTarget), fragmentID)
+		}
+	}
+
+	// A chapter's own anchor needs no explanation fetched, and the overview
+	// belongs to no chapter at all.
+	if found, status := place(domID(chapterTarget)); status != http.StatusOK || found["chapter"] != domID(chapterTarget) || found["fragment"] != "" {
+		t.Fatalf("a chapter anchor resolved to %#v (status %d)", found, status)
+	}
+	if found, status := place(domID(saga.SagaTarget("test"))); status != http.StatusOK || found["chapter"] != "" {
+		t.Fatalf("the overview was placed inside a chapter: %#v (status %d)", found, status)
+	}
+	if _, status := place("target-not-a-real-anchor-abcdef"); status != http.StatusNotFound {
+		t.Fatalf("an unknown anchor returned %d, want 404", status)
+	}
+	recorder := httptest.NewRecorder()
+	application.locateAnchor(recorder, httptest.NewRequest(http.MethodGet, "/api/locate", nil))
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("a missing anchor returned %d, want 400", recorder.Code)
+	}
+}
+
+// fragmentRequest asks for one explanation's content the way the browser does
+// once the shell has told it the explanation exists.
+func fragmentRequest(target string) *http.Request {
+	return httptest.NewRequest(http.MethodGet, "/api/fragment?target="+url.QueryEscape(target), nil)
+}
+
+// sectionRequest asks for one chapter's body the way the browser does when a
+// reviewer opens that chapter.
+func sectionRequest(target string) *http.Request {
+	return httptest.NewRequest(http.MethodGet, "/api/section?target="+url.QueryEscape(target), nil)
 }
 
 func TestAnnotationBubblePointFollowsTheMark(t *testing.T) {
@@ -589,7 +692,7 @@ func TestStickyNoteOverlayRendersSafelyAndDeepLinks(t *testing.T) {
 	threads := map[string][]*threadView{fragment.Target: {makeThreadView(sticky), makeThreadView(hostile)}}
 	data := pageData{
 		Saga: &saga.Saga{Manifest: saga.Manifest{ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/a.git", Base: "main", Head: "HEAD"}}, Section: section},
-		Root: makeSectionView(section, nil, threads, nil), Code: &CodeReviewView{},
+		Root: makeSectionView(section, viewScope{threads: threads}), Code: &CodeReviewView{},
 	}
 	var output bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&output, "page", data); err != nil {
@@ -735,6 +838,80 @@ func TestPageAttributesSagaFromItsOwnRepository(t *testing.T) {
 	}
 }
 
+// Review identity is read from the saga's own repository, and committing review
+// records changes it without changing a byte under the saga root. The snapshot
+// is reused for as long as its inputs are observably unchanged, so its freshness
+// check has to commit to that history as well as to those bytes — otherwise a
+// reviewer keeps reading their own decision as uncommitted after recording it.
+func TestCommittingReviewRecordsInvalidatesTheReviewSnapshot(t *testing.T) {
+	source := t.TempDir()
+	serverGit(t, source, "init", "-b", "main")
+	serverGit(t, source, "config", "user.name", "Test")
+	serverGit(t, source, "config", "user.email", "test@example.test")
+	writeServerFile(t, filepath.Join(source, "base.txt"), "base\n")
+	serverGit(t, source, "add", ".")
+	serverGit(t, source, "commit", "-m", "base")
+	base := strings.TrimSpace(serverGit(t, source, "rev-parse", "HEAD"))
+	writeServerFile(t, filepath.Join(source, "app.go"), "package app\n")
+	serverGit(t, source, "add", ".")
+	serverGit(t, source, "commit", "-m", "feature")
+	head := strings.TrimSpace(serverGit(t, source, "rev-parse", "HEAD"))
+	repository, err := diffuri.FileRepository(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The saga lives in a different repository from the code it explains, which
+	// is the shape that makes this a real hazard: committing the review leaves
+	// the source comparison, and every saga byte, exactly as they were.
+	sagaRepo := t.TempDir()
+	serverGit(t, sagaRepo, "init", "-b", "main")
+	root := filepath.Join(sagaRepo, "test.saga")
+	writeServerFile(t, filepath.Join(root, "saga.json"), `{"version":2,"id":"test","title":"Test","source":{"repository":"`+repository+`","base":"`+base+`","head":"`+head+`"}}`)
+	writeServerFile(t, filepath.Join(root, "overview.fragment", "fragment.json"), `{"version":2,"id":"overview","title":"Overview","media_type":"text/markdown","entrypoint":"content.md"}`)
+	writeServerFile(t, filepath.Join(root, "overview.fragment", "content.md"), "# Story\n")
+	serverGit(t, sagaRepo, "add", ".")
+	serverGitEnv(t, sagaRepo, []string{
+		"GIT_AUTHOR_NAME=Author", "GIT_AUTHOR_EMAIL=author@example.test",
+		"GIT_COMMITTER_NAME=Author", "GIT_COMMITTER_EMAIL=author@example.test",
+	}, "commit", "-m", "write the saga")
+
+	tmpl := template.Must(template.New("page").Parse(`{{define "page"}}{{(index .Root.FragmentViews 0).ReviewAuthor}}|{{(index .Root.FragmentViews 0).ReviewDetail}}{{end}}`))
+	application := &app{root: root, sourceDir: source, template: tmpl}
+	render := func() string {
+		recorder := httptest.NewRecorder()
+		application.page(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("page status = %d: %s", recorder.Code, recorder.Body.String())
+		}
+		return recorder.Body.String()
+	}
+
+	// The cache has to actually be on, or nothing below is a test of anything.
+	render()
+	render()
+	if application.outline.builds != 1 {
+		t.Fatalf("two identical requests rebuilt the outline %d times; this fixture does not exercise reuse", application.outline.builds)
+	}
+
+	writeServerFile(t, filepath.Join(root, "overview.fragment", "___approvals", "review.json"), `{"version":2,"id":"review","author":"Payload Name","state":"approved","created_at":"2026-08-19T12:00:00Z"}`)
+	if body := render(); !strings.Contains(body, gitattribution.Uncommitted) {
+		t.Fatalf("a decision that is only on disk was attributed as if it were in history: %q", body)
+	}
+
+	serverGit(t, sagaRepo, "add", ".")
+	serverGitEnv(t, sagaRepo, []string{
+		"GIT_AUTHOR_NAME=Git Author", "GIT_AUTHOR_EMAIL=author@example.test",
+		"GIT_COMMITTER_NAME=Saga Reviewer", "GIT_COMMITTER_EMAIL=reviewer@example.test",
+	}, "commit", "-m", "record the decision")
+	if body := render(); !strings.Contains(body, "Saga Reviewer") || strings.Contains(body, gitattribution.Uncommitted) {
+		t.Fatalf("a committed decision kept its uncommitted attribution; the snapshot outlived the history it was read from: %q", body)
+	}
+	if application.cache.builds != 0 {
+		t.Fatalf("review file creation or attribution commit rebuilt coverage/diffs: builds=%d", application.cache.builds)
+	}
+}
+
 func TestUnavailableHistoryNeverFallsBackToPayloadIdentityOrChangesEventTime(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "test.saga")
 	eventTime := time.Date(2026, time.August, 19, 12, 0, 0, 0, time.UTC)
@@ -823,7 +1000,13 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	}
 	data := pageData{
 		Saga: &saga.Saga{Manifest: saga.Manifest{ID: "test", Title: "Test", Source: saga.Source{Repository: "https://example.test/a.git", Base: "main", Head: "HEAD"}}, Section: section},
-		Root: makeSectionView(section, map[string][]gitdiff.Atom{fragment.Target: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}, landmarkTarget: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}}}, map[string][]*threadView{fragment.Target: {makeThreadView(thread)}}, nil),
+		Root: makeSectionView(section, viewScope{
+			changes: map[string][]gitdiff.Atom{
+				fragment.Target: {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}},
+				landmarkTarget:  {{Kind: "line", URI: lineURI, Path: "app.go", Side: "new", Line: 1, Content: "package app"}},
+			},
+			threads: map[string][]*threadView{fragment.Target: {makeThreadView(thread)}},
+		}),
 		Code: &CodeReviewView{}, Manifest: manifestFixture, ReviewDecided: 2, ReviewTotal: 3,
 		ReviewItems: []*reviewProgressItem{
 			makeReviewProgressItem(section.Target, section.Title, "/#"+domID(section.Target), "", ""),
@@ -839,8 +1022,13 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	// The page no longer carries diff rows, so the `saga-diff://` scheme it must
 	// keep unmangled is asserted where those rows are now produced, in
 	// TestFileDiffEndpointServesCoverageAndTargetedBodies.
-	if strings.Contains(renderedPage, "ZgotmplZ") || !strings.Contains(renderedPage, "/app.js") || !strings.Contains(renderedPage, `x="100.00"`) || !strings.Contains(renderedPage, `diff=saga-diff%3A%2F%2Fv1%2Fline%3F`) || !strings.Contains(renderedPage, `id="`+domID(fragment.Target)+`--story"`) {
-		t.Fatalf("template produced unsafe or incomplete output")
+	if strings.Contains(renderedPage, "ZgotmplZ") {
+		t.Fatal("template produced an unsafe URL sentinel")
+	}
+	for _, expected := range []string{"/app.js", `x="100.00"`, `id="` + domID(fragment.Target) + `--story"`} {
+		if !strings.Contains(renderedPage, expected) {
+			t.Fatalf("template output is missing %q", expected)
+		}
 	}
 	if strings.Count(renderedPage, `class="annotation-toolbox"`) != 1 || !strings.Contains(renderedPage, `data-review-progress`) || !strings.Contains(renderedPage, `data-review-decided="2" data-review-total="3"`) || !strings.Contains(renderedPage, `aria-label="Review progress: 2 of 3 decisions"`) || !strings.Contains(renderedPage, `class="review-progress-segment approved"`) || !strings.Contains(renderedPage, `class="review-progress-segment rejected"`) || !strings.Contains(renderedPage, `class="review-progress-segment pending"`) || !strings.Contains(renderedPage, `data-review-progress-note="Ready to merge."`) || !strings.Contains(renderedPage, `Comment: Ready to merge.`) || !strings.Contains(renderedPage, `data-review-progress-tooltip`) || !strings.Contains(renderedPage, `href="/#`+domID(fragment.Target)+`"`) || !strings.Contains(renderedPage, `data-review-controls`) || !strings.Contains(renderedPage, `data-review-author="Ada"`) || !strings.Contains(renderedPage, `data-review-detail="ada@example.test · committed abc123"`) || !strings.Contains(renderedPage, `data-review-decision="approved" aria-pressed="true"`) || !strings.Contains(renderedPage, `data-review-decision-tooltip`) || !strings.Contains(renderedPage, `data-review-decision-author title="ada@example.test · committed abc123"`) || !strings.Contains(renderedPage, `data-review-comment`) || !strings.Contains(renderedPage, `data-review-note title="Ready to merge."`) || !strings.Contains(renderedPage, `i-approve-filled`) || !strings.Contains(renderedPage, `i-reject-filled`) || strings.Contains(renderedPage, `decision-dialog`) || strings.Contains(renderedPage, `class="review-form"`) {
 		t.Fatal("fast inline review controls and progress were not rendered")
@@ -851,8 +1039,11 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	if !strings.Contains(renderedPage, `data-annotation-selection`) || !strings.Contains(renderedPage, `data-annotation-entity`) || !strings.Contains(renderedPage, `data-thread-id="thread"`) || !strings.Contains(renderedPage, `data-shape-index="0"`) {
 		t.Fatal("shape annotations were not rendered as selectable entities")
 	}
-	if !strings.Contains(renderedPage, `data-view-tab="manifest"`) || !strings.Contains(renderedPage, `data-manifest-panel="code"`) || !strings.Contains(renderedPage, "Code → Saga") || !strings.Contains(renderedPage, "Saga → Code") {
-		t.Fatal("bidirectional coverage manifest was not rendered")
+	if !strings.Contains(renderedPage, `data-view-tab="manifest"`) || !strings.Contains(renderedPage, `data-review-surface="manifest"`) || !strings.Contains(renderedPage, `data-surface-href="/api/coverage"`) {
+		t.Fatal("bounded coverage navigation was not rendered")
+	}
+	if strings.Contains(renderedPage, `data-manifest-panel="code"`) || strings.Contains(renderedPage, `class="manifest-range"`) {
+		t.Fatal("the root page eagerly rendered coverage details")
 	}
 	// Coverage is an invariant, so a complete report earns no praise banner —
 	// only failures and stale references are worth a reviewer's attention.
@@ -860,21 +1051,6 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 		if strings.Contains(renderedPage, celebration) {
 			t.Fatalf("complete coverage still congratulates the reviewer: %q", celebration)
 		}
-	}
-	if !strings.Contains(renderedPage, `<details class="manifest-folder" data-manifest-folder open`) || !strings.Contains(renderedPage, `data-manifest-search="internal/app.go"`) || !strings.Contains(renderedPage, `<use href="#f-go">`) {
-		t.Fatal("coverage was not rendered as a fully expanded repository tree with file-type icons")
-	}
-	// The coverage file stays expandable, but its body is requested when the
-	// reviewer opens it. Inlining every body made the page carry the whole
-	// comparison a second time for markup behind a closed disclosure.
-	if !strings.Contains(renderedPage, `class="manifest-file-diff diff-surface"`) || !strings.Contains(renderedPage, `data-file-path="internal/app.go"`) || !strings.Contains(renderedPage, `data-manifest-diff-href="/api/file-diff?view=manifest&amp;file=internal%2Fapp.go"`) || !strings.Contains(renderedPage, `data-manifest-diff-rows`) || !strings.Contains(renderedPage, `1 changed line`) {
-		t.Fatal("expandable coverage file did not offer its diff on demand with compact mapping metadata")
-	}
-	if strings.Contains(renderedPage, `data-code>package app</code>`) {
-		t.Fatal("coverage inlined a diff body the reviewer had not opened")
-	}
-	if !strings.Contains(renderedPage, `class="manifest-target-file"`) || !strings.Contains(renderedPage, `class="manifest-target-file-detail"`) || !strings.Contains(renderedPage, `Open in Code Diff`) || strings.Contains(renderedPage, `class="manifest-target-row"`) {
-		t.Fatal("saga-to-code coverage did not keep linked diffs expandable in place")
 	}
 	if strings.Contains(renderedPage, "Attached code") || strings.Contains(renderedPage, "Linked diffs</h2>") || !strings.Contains(renderedPage, `<strong>Linked code</strong>`) {
 		t.Fatal("attached-code drawer retained redundant header chrome")
@@ -959,7 +1135,11 @@ The lease is renewed before its midpoint.[^lease-renewal]
 	}
 }
 
-func TestPageHandlerPreloadsCollapsedChaptersAndRedirectsLegacyRoutes(t *testing.T) {
+// The first load is a shell: saga identity, coverage totals, the overview's
+// explanations as descriptors, one summary per chapter, and the navigation
+// outline. Everything below that is fetched from a bounded endpoint as the
+// reviewer reaches it, so the page describes the story instead of containing it.
+func TestPageHandlerShipsAChapterShellAndRedirectsLegacyRoutes(t *testing.T) {
 	root := validServerSaga(t)
 	writeServerFile(t, filepath.Join(root, "overview.fragment", "content.md"), "Root-only introduction\n")
 	writeServerFile(t, filepath.Join(root, "alpha.chapter", "chapter.json"), `{"version":2,"id":"alpha","title":"Alpha"}`)
@@ -977,11 +1157,58 @@ func TestPageHandlerPreloadsCollapsedChaptersAndRedirectsLegacyRoutes(t *testing
 	}
 	overviewBody := overview.Body.String()
 	alphaTarget := saga.ChapterTarget("test", "alpha")
-	if !strings.Contains(overviewBody, "Root-only introduction") || !strings.Contains(overviewBody, "Alpha-exclusive narrative") || !strings.Contains(overviewBody, "Beta-exclusive narrative") || !strings.Contains(overviewBody, `href="#`+domID(alphaTarget)+`"`) {
-		t.Fatal("one-page saga did not preload its overview and chapters")
+	overviewFragment := "urn:change-saga:test:fragment:overview"
+	// The shell names every chapter and every explanation and carries the
+	// content of none of them.
+	for _, narrative := range []string{"Root-only introduction", "Alpha-exclusive narrative", "Beta-exclusive narrative"} {
+		if strings.Contains(overviewBody, narrative) {
+			t.Fatalf("first load carried narrative content it was only asked to describe: %q", narrative)
+		}
+	}
+	if !strings.Contains(overviewBody, `href="#`+domID(alphaTarget)+`"`) ||
+		!strings.Contains(overviewBody, `data-section-href="/api/section?target=`+template.HTMLEscapeString(url.QueryEscape(alphaTarget))+`"`) {
+		t.Fatal("the shell did not describe its chapters as fetchable summaries")
+	}
+	if !strings.Contains(overviewBody, `data-fragment-href="/api/fragment?target=`+template.HTMLEscapeString(url.QueryEscape(overviewFragment))+`"`) {
+		t.Fatal("the overview did not describe its explanations as fetchable descriptors")
 	}
 	if strings.Count(overviewBody, `data-chapter-body hidden`) != 2 || strings.Count(overviewBody, `data-chapter-toggle aria-expanded="false"`) != 2 {
-		t.Fatal("preloaded chapters did not start collapsed")
+		t.Fatal("summarised chapters did not start collapsed")
+	}
+
+	// Opening a chapter fetches that chapter and nothing else, and the
+	// explanations it names are themselves still descriptors.
+	alpha := httptest.NewRecorder()
+	application.sectionBody(alpha, sectionRequest(alphaTarget))
+	if alpha.Code != http.StatusOK {
+		t.Fatalf("chapter body status = %d: %s", alpha.Code, alpha.Body.String())
+	}
+	alphaBody := alpha.Body.String()
+	alphaFragment := "urn:change-saga:test:fragment:alpha-story"
+	if !strings.Contains(alphaBody, `data-fragment-href="/api/fragment?target=`+template.HTMLEscapeString(url.QueryEscape(alphaFragment))+`"`) {
+		t.Fatalf("chapter body did not describe its explanations: %s", alphaBody)
+	}
+	if strings.Contains(alphaBody, "Alpha-exclusive narrative") || strings.Contains(alphaBody, "Beta-exclusive narrative") {
+		t.Fatal("a chapter body carried explanation content, or content from another chapter")
+	}
+
+	// Only the explanation endpoint produces content, and only for the one
+	// explanation it was asked for.
+	story := httptest.NewRecorder()
+	application.fragmentContent(story, fragmentRequest(alphaFragment))
+	if story.Code != http.StatusOK {
+		t.Fatalf("explanation status = %d: %s", story.Code, story.Body.String())
+	}
+	if !strings.Contains(story.Body.String(), "Alpha-exclusive narrative") || strings.Contains(story.Body.String(), "Beta-exclusive narrative") {
+		t.Fatalf("explanation response was not exactly the one explanation: %s", story.Body.String())
+	}
+
+	missingSection := httptest.NewRecorder()
+	application.sectionBody(missingSection, sectionRequest(saga.ChapterTarget("test", "nowhere")))
+	missingFragment := httptest.NewRecorder()
+	application.fragmentContent(missingFragment, fragmentRequest("urn:change-saga:test:fragment:nowhere"))
+	if missingSection.Code != http.StatusNotFound || missingFragment.Code != http.StatusNotFound {
+		t.Fatalf("unknown targets did not 404: section=%d fragment=%d", missingSection.Code, missingFragment.Code)
 	}
 
 	chapterRequest := httptest.NewRequest(http.MethodGet, "/chapters/alpha", nil)
@@ -998,6 +1225,24 @@ func TestPageHandlerPreloadsCollapsedChaptersAndRedirectsLegacyRoutes(t *testing
 	application.page(missing, missingRequest)
 	if missing.Code != http.StatusNotFound {
 		t.Fatalf("missing chapter status = %d, want 404", missing.Code)
+	}
+}
+
+func TestFragmentContentNeverLoadsTheSourceComparison(t *testing.T) {
+	root := validServerSaga(t)
+	application := &app{root: root, sourceDir: root, template: serverTemplate(t)}
+	application.comparisonLoader = func(context.Context) (*reviewSnapshot, error) {
+		t.Fatal("narrative fragment requested the source comparison")
+		return nil, nil
+	}
+
+	recorder := httptest.NewRecorder()
+	application.fragmentContent(recorder, fragmentRequest("urn:change-saga:test:fragment:overview"))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("explanation status = %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "Story") {
+		t.Fatal("comparison-independent fragment lost its narrative content")
 	}
 }
 
@@ -1024,11 +1269,18 @@ func TestPageHandlerRendersRealGitComparison(t *testing.T) {
 	writeServerFile(t, filepath.Join(root, "overview.fragment", "fragment.json"), `{"version":2,"id":"overview","media_type":"text/markdown","entrypoint":"content.md"}`)
 	writeServerFile(t, filepath.Join(root, "overview.fragment", "content.md"), "# Story\n")
 	application := &app{root: root, sourceDir: repo, template: serverTemplate(t)}
-	request := httptest.NewRequest(http.MethodGet, CodeDiffURL("web/view.js", ""), nil)
+	handler := newMux(application)
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	recorder := httptest.NewRecorder()
-	application.page(recorder, request)
-	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "Review readiness check failed") || !strings.Contains(recorder.Body.String(), "Overview") || !strings.Contains(recorder.Body.String(), "Code Diff") || !strings.Contains(recorder.Body.String(), "app.go") || strings.Contains(recorder.Body.String(), "%</") || strings.Count(recorder.Body.String(), `<article class="file-diff"`) != 1 || !strings.Contains(recorder.Body.String(), `<code>web/view.js</code>`) {
-		t.Fatalf("real page did not render expected diff state: status=%d", recorder.Code)
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "Overview") || !strings.Contains(recorder.Body.String(), "Code Diff") || strings.Contains(recorder.Body.String(), `<code>web/view.js</code>`) {
+		t.Fatalf("root did not render the comparison-free shell: status=%d", recorder.Code)
+	}
+	request = httptest.NewRequest(http.MethodGet, "/api/code?file=web%2Fview.js&limit=200", nil)
+	recorder = httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "app.go") || !strings.Contains(recorder.Body.String(), `data-file-path="web/view.js"`) {
+		t.Fatalf("incremental code page did not render expected file navigation: status=%d body=%s", recorder.Code, recorder.Body.String())
 	}
 	changes, err := gitdiff.Read(t.Context(), repo, repository, base, "HEAD")
 	if err != nil {
@@ -1044,61 +1296,141 @@ func TestPageHandlerRendersRealGitComparison(t *testing.T) {
 	if selectedURI == "" {
 		t.Fatal("missing web/view.js atom")
 	}
-	application.template = template.Must(template.New("page").Parse(`{{define "page"}}{{.Code.SelectedFile.Path}}|{{.Code.SelectedDiff.URI}}|{{len .Code.SelectedDiffs}}{{end}}`))
-	request = httptest.NewRequest(http.MethodGet, CodeDiffURL("", selectedURI), nil)
+	request = httptest.NewRequest(http.MethodGet, "/api/code?diff="+url.QueryEscape(selectedURI), nil)
 	recorder = httptest.NewRecorder()
-	application.page(recorder, request)
-	expectedSelection := "web/view.js|" + strings.ReplaceAll(selectedURI, "&", "&amp;") + "|1"
-	if recorder.Code != http.StatusOK || recorder.Body.String() != expectedSelection {
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `data-file-path="web/view.js"`) {
 		t.Fatalf("exact diff handler selection: status=%d body=%q", recorder.Code, recorder.Body.String())
 	}
-	request = httptest.NewRequest(http.MethodGet, CodeDiffURL("missing.go", ""), nil)
+	request = httptest.NewRequest(http.MethodGet, "/api/code?file=missing.go", nil)
 	recorder = httptest.NewRecorder()
-	application.page(recorder, request)
-	if recorder.Code != http.StatusNotFound {
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("unknown focused file status=%d", recorder.Code)
 	}
 }
 
-func TestChapterResumeState(t *testing.T) {
-	root := &sectionView{ChildViews: []*sectionView{
-		{Section: &saga.Section{Kind: "chapter", ID: "done", Title: "Done"}, ReviewState: "approved"},
-		{Section: &saga.Section{Kind: "chapter", ID: "started", Title: "Started"}, FragmentViews: []*fragmentView{{ReviewState: "rejected"}}},
-		{Section: &saga.Section{Kind: "chapter", ID: "new", Title: "New"}},
-	}}
-	statuses := make([]string, 0, len(root.ChildViews))
-	for _, chapter := range root.ChildViews {
-		status, _, _ := reviewProgress(chapter)
-		statuses = append(statuses, status)
+func TestTargetCodeLoadsOneNarrativeMappingWithoutGlobalSnapshot(t *testing.T) {
+	repo := t.TempDir()
+	serverGit(t, repo, "init", "-b", "main")
+	serverGit(t, repo, "config", "user.name", "Test")
+	serverGit(t, repo, "config", "user.email", "test@example.test")
+	writeServerFile(t, filepath.Join(repo, "base.txt"), "base\n")
+	serverGit(t, repo, "add", "base.txt")
+	serverGit(t, repo, "commit", "-m", "base")
+	base := strings.TrimSpace(serverGit(t, repo, "rev-parse", "HEAD"))
+	writeServerFile(t, filepath.Join(repo, "app.go"), "package app\n\nfunc Ready() bool { return true }\n")
+	writeServerFile(t, filepath.Join(repo, "unrelated.go"), "package app\n")
+	serverGit(t, repo, "add", "app.go", "unrelated.go")
+	serverGit(t, repo, "commit", "-m", "feature")
+	repository, err := diffuri.FileRepository(repo)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if strings.Join(statuses, ",") != "Approved,In progress,Unreviewed" {
-		t.Fatalf("unexpected chapter resume states: %#v", statuses)
+	changes, err := gitdiff.Read(t.Context(), repo, repository, base, "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var appURI string
+	for _, atom := range changes.Atoms {
+		if atom.Path == "app.go" && atom.Kind == "line" {
+			appURI = atom.URI
+			break
+		}
+	}
+	if appURI == "" {
+		t.Fatal("fixture has no app.go change")
+	}
+
+	root := filepath.Join(repo, "linked.saga")
+	writeServerFile(t, filepath.Join(root, "saga.json"), `{"version":2,"id":"linked","title":"Linked","source":{"repository":"`+repository+`","base":"`+base+`","head":"HEAD"}}`)
+	writeServerFile(t, filepath.Join(root, "story.fragment", "fragment.json"), `{"version":2,"id":"story","title":"Story","media_type":"text/markdown","entrypoint":"content.md"}`)
+	writeServerFile(t, filepath.Join(root, "story.fragment", "content.md"), "# Story\n")
+	writeServerFile(t, filepath.Join(root, "story.fragment", "___diffs", "app.json"), fmt.Sprintf(`{"version":2,"diffs":[{"uri":%q,"note":"Implements the ready path."}]}`, appURI))
+	target := saga.FragmentTarget("linked", "story")
+	application := &app{root: root, sourceDir: repo, template: serverTemplate(t)}
+	application.comparisonLoader = func(context.Context) (*reviewSnapshot, error) {
+		t.Fatal("target-scoped linked code requested the global comparison")
+		return nil, nil
+	}
+	handler := newMux(application)
+
+	fragment := httptest.NewRecorder()
+	handler.ServeHTTP(fragment, fragmentRequest(target))
+	if fragment.Code != http.StatusOK || !strings.Contains(fragment.Body.String(), `data-target-code-href="/api/target-code?target=`) || strings.Contains(fragment.Body.String(), `data-open-diffs=`) {
+		t.Fatalf("narrative did not render a lazy linked-code control: status=%d body=%s", fragment.Code, fragment.Body.String())
+	}
+
+	summary := httptest.NewRecorder()
+	handler.ServeHTTP(summary, httptest.NewRequest(http.MethodGet, "/api/target-code?target="+url.QueryEscape(target), nil))
+	if summary.Code != http.StatusOK || !strings.Contains(summary.Body.String(), `data-open-diffs="diffs-`+domID(target)+`"`) || !strings.Contains(summary.Body.String(), "app.go") || !strings.Contains(summary.Body.String(), "Implements the ready path.") || strings.Contains(summary.Body.String(), "unrelated.go") {
+		t.Fatalf("target code was not scoped to the authored mapping: status=%d body=%s", summary.Code, summary.Body.String())
+	}
+
+	file := httptest.NewRecorder()
+	handler.ServeHTTP(file, httptest.NewRequest(http.MethodGet, "/api/file-diff?file=app.go&target="+url.QueryEscape(target), nil))
+	if file.Code != http.StatusOK || !strings.Contains(file.Body.String(), "linked-evidence") || !strings.Contains(file.Body.String(), `data-target="`+target+`"`) || strings.Contains(file.Body.String(), "unrelated.go") {
+		t.Fatalf("target file body lost its scoped evidence: status=%d body=%s", file.Code, file.Body.String())
 	}
 }
 
-func TestReviewDecisionProgressCountsTheWholeSaga(t *testing.T) {
-	root := &sectionView{
-		Section:     &saga.Section{Kind: "saga", ID: "root", Title: "Root", Target: "urn:change-saga:test:saga"},
-		DOMID:       "root-target",
-		ReviewState: "approved",
-		FragmentViews: []*fragmentView{
-			{Fragment: &saga.Fragment{ID: "one", Title: "One", Target: "urn:change-saga:test:fragment:one"}, DOMID: "one-target", ReviewState: "rejected"},
-			{Fragment: &saga.Fragment{ID: "two", Title: "Two", Target: "urn:change-saga:test:fragment:two"}, DOMID: "two-target", ReviewState: "open"},
-		},
-		ChildViews: []*sectionView{{
-			Section: &saga.Section{Kind: "chapter", ID: "chapter", Title: "Chapter", Target: "urn:change-saga:test:chapter:chapter"},
-			DOMID:   "chapter-target",
-			FragmentViews: []*fragmentView{
-				{Fragment: &saga.Fragment{ID: "three", Title: "Three", Target: "urn:change-saga:test:fragment:three"}, DOMID: "three-target", ReviewState: "approved"},
-			},
-		}},
+// Resume state is read from the document and the thread index, so a chapter
+// reports where a reviewer left off before its body has ever been fetched.
+func TestChapterResumeState(t *testing.T) {
+	approved := saga.Review{State: "approved", CreatedAt: time.Unix(10, 0)}
+	rejected := saga.Review{State: "rejected", CreatedAt: time.Unix(10, 0)}
+	commented := &saga.Section{Kind: "chapter", ID: "commented", Title: "Commented",
+		Fragments: []*saga.Fragment{{ID: "talked", Target: "urn:change-saga:test:fragment:talked"}}}
+	chapters := []*saga.Section{
+		{Kind: "chapter", ID: "done", Title: "Done", Reviews: []saga.Review{approved}},
+		{Kind: "chapter", ID: "started", Title: "Started", Fragments: []*saga.Fragment{{ID: "part", Reviews: []saga.Review{rejected}}}},
+		commented,
+		{Kind: "chapter", ID: "new", Title: "New"},
 	}
+	threads := map[string][]*threadView{
+		commented.Fragments[0].Target: {{Thread: &saga.Thread{ID: "open", Anchor: saga.Anchor{Type: "target"}}}},
+	}
+	statuses := make([]string, 0, len(chapters))
+	for _, chapter := range chapters {
+		status, _, _ := reviewProgress(chapter, threads)
+		statuses = append(statuses, status)
+	}
+	if strings.Join(statuses, ",") != "Approved,In progress,In progress,Unreviewed" {
+		t.Fatalf("unexpected chapter resume states: %#v", statuses)
+	}
+
+	// A comment drawn onto content is an annotation on the explanation, not
+	// section activity, exactly as when this read the rendered views.
+	drawn := map[string][]*threadView{
+		commented.Fragments[0].Target: {{Thread: &saga.Thread{ID: "drawn", Anchor: saga.Anchor{Type: "region"}}}},
+	}
+	if status, _, _ := reviewProgress(commented, drawn); status != "Unreviewed" {
+		t.Fatalf("a drawn annotation was counted as chapter activity: %q", status)
+	}
+}
+
+// The progress map counts decisions over the whole saga, including the chapters
+// the shell has only summarised, because a reviewer's remaining work does not
+// depend on which chapters they have opened.
+func TestReviewDecisionProgressCountsTheWholeSaga(t *testing.T) {
+	decision := func(state string) []saga.Review {
+		return []saga.Review{{State: state, CreatedAt: time.Unix(10, 0)}}
+	}
+	chapter := &saga.Section{Kind: "chapter", ID: "chapter", Title: "Chapter", Target: "urn:change-saga:test:chapter:chapter",
+		Fragments: []*saga.Fragment{{ID: "three", Title: "Three", Target: "urn:change-saga:test:fragment:three", Reviews: decision("approved")}}}
+	root := &saga.Section{Kind: "saga", ID: "root", Title: "Root", Target: "urn:change-saga:test:saga", Reviews: decision("approved"),
+		Fragments: []*saga.Fragment{
+			{ID: "one", Title: "One", Target: "urn:change-saga:test:fragment:one", Reviews: decision("rejected")},
+			{ID: "two", Title: "Two", Target: "urn:change-saga:test:fragment:two", Reviews: decision("open")},
+		},
+		Children: []*saga.Section{chapter}}
+
 	items := makeReviewProgressItems(root)
 	decided, total := reviewProgressSummary(items)
 	if decided != 3 || total != 5 {
 		t.Fatalf("review decision progress = %d/%d, want 3/5", decided, total)
 	}
-	if items[0].Href != "#root-target" || items[3].Href != "#chapter-target" || items[4].Href != "#three-target" {
+	if items[0].Href != "#"+domID(root.Target) || items[3].Href != "#"+domID(chapter.Target) || items[4].Href != "#"+domID(chapter.Fragments[0].Target) {
 		t.Fatalf("review progress links do not navigate to their targets: %#v", items)
 	}
 	if items[0].StateClass != "approved" || items[1].StateClass != "rejected" || items[2].StateClass != "pending" {
@@ -1128,15 +1460,16 @@ func TestStylesheetSelectorsMatchTheMarkupTheyTarget(t *testing.T) {
 // The sidebar is documentation navigation, not a view of storage: it lists the
 // overview and every preloaded chapter while keeping chapter outlines collapsed.
 func TestNavigationTreeReadsAsCollapsedDocumentationOutline(t *testing.T) {
-	overviewFragment := &fragmentView{Fragment: &saga.Fragment{ID: "overview", Title: "Overview"}}
-	systemMap := &fragmentView{Fragment: &saga.Fragment{ID: "system-map", Title: "System map"}}
-	untitled := &fragmentView{Fragment: &saga.Fragment{ID: "untitled"}}
-	root := &sectionView{Section: &saga.Section{ID: "root", Title: "Scaffold", Target: saga.SagaTarget("test")}, FragmentViews: []*fragmentView{overviewFragment, systemMap, untitled}, ChildViews: []*sectionView{
-		{Section: &saga.Section{Kind: "chapter", ID: "format", Title: "Format", Target: saga.ChapterTarget("test", "format")}},
-		{Section: &saga.Section{Kind: "chapter", ID: "ui", Title: "Reviewer", Target: saga.ChapterTarget("test", "ui")}, FragmentViews: []*fragmentView{{Fragment: &saga.Fragment{ID: "shell", Title: "Reviewer"}}, systemMap}},
-	}}
+	systemMap := &saga.Fragment{ID: "system-map", Title: "System map"}
+	root := &saga.Section{ID: "root", Title: "Scaffold", Target: saga.SagaTarget("test"),
+		Fragments: []*saga.Fragment{{ID: "overview", Title: "Overview"}, systemMap, {ID: "untitled"}},
+		Children: []*saga.Section{
+			{Kind: "chapter", ID: "format", Title: "Format", Target: saga.ChapterTarget("test", "format")},
+			{Kind: "chapter", ID: "ui", Title: "Reviewer", Target: saga.ChapterTarget("test", "ui"),
+				Fragments: []*saga.Fragment{{ID: "shell", Title: "Reviewer"}, systemMap}},
+		}}
 
-	nodes := makeNavTree("Scaffold", root)
+	nodes := makeNavTree(root, nil)
 	if len(nodes) != 3 || nodes[0].Title != "Overview" || nodes[1].Title != "Format" || nodes[2].Title != "Reviewer" {
 		t.Fatalf("unexpected navigation nodes: %#v", nodes)
 	}

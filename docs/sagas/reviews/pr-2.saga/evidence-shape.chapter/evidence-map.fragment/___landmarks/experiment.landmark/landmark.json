@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "experiment",
+  "label": "Connector prototype",
+  "description": "Isolated connector format and index experiment",
+  "selector": {
+    "type": "element",
+    "element_id": "experiment"
+  },
+  "target": ""
+}

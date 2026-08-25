@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "verification-c26dc439fd6ab88c2365",
+  "claim": "evidence-compaction",
+  "status": "verified",
+  "method": "measurement",
+  "summary": "The committed pathological-saga measurement reports identical 532,290-atom ownership before and after canonicalization, with 5,330 dense references and a 3.80 s overview; the experiment suite independently passes round-trip and equivalence checks.",
+  "command": "cd experiments/compact-connectors \u0026\u0026 go test ./...",
+  "created_at": "2026-08-24T20:02:05.415327Z"
+}

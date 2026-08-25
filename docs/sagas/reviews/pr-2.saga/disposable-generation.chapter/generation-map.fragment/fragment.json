@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "generation-map",
+  "title": "Disposable comparison generations",
+  "media_type": "image/svg+xml",
+  "entrypoint": "generation-map.svg",
+  "order": 1
+}

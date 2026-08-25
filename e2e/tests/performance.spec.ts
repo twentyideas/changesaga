@@ -3,8 +3,10 @@ import { largeSagaChangedLines, largeSagaScale } from "../support/fixture-builde
 
 /**
  * Budgets for a large saga in a real browser. The page describes the whole
- * comparison and carries only the file the reviewer is already looking at;
- * every other diff body arrives from /api/file-diff when that file is opened.
+ * comparison and the whole story, and carries neither: it is only the saga
+ * identity, overview descriptors, chapter summaries, and navigation shell.
+ * Code, coverage, diff bodies, chapter bodies, and explanations all arrive
+ * through bounded endpoints when the reviewer reaches them.
  *
  * Byte and element counts are hard budgets: the fixture is fixed, so they are
  * deterministic and a breach always means the payload changed shape. Times are
@@ -18,14 +20,11 @@ import { largeSagaChangedLines, largeSagaScale } from "../support/fixture-builde
  *
  * Measured on this fixture (1,536 changed lines across 32 files):
  *
- *   document bytes   6,851,463 -> 555,974
- *   DOM elements        73,835 ->   6,315
- *   diff rows in DOM     6,240 ->      96
+ * The current shell contains no comparison rows or coverage file models at
+ * all. Separate endpoint tests below prove those surfaces still exist.
  */
 const documentByteBudget = 1_200_000;
-const domElementBudget = 20_000;
-/** The Code Diff tab inlines one file; nothing else may bring rows with it. */
-const domDiffRowBudget = 2 * largeSagaScale.changedLinesPerFile + 64;
+const domElementBudget = 6_000;
 /** A generous smoke ceiling, not a performance target. */
 const interactiveCeilingMs = 10_000;
 
@@ -65,21 +64,70 @@ test("a large saga's first load stays within its payload budgets", async ({ page
     measured.elements,
     budgetMessage("first-load DOM elements", measured.elements, domElementBudget, "Every element here is parsed, laid out, and retained by the browser.")
   ).toBeLessThanOrEqual(domElementBudget);
-  expect(
-    measured.diffRows,
-    budgetMessage("diff rows in the first-load DOM", measured.diffRows, domDiffRowBudget, `Only the file the Code Diff tab selected may be inlined, and it changes ${largeSagaScale.changedLinesPerFile} lines.`)
-  ).toBeLessThanOrEqual(domDiffRowBudget);
-  // The payload must have shrunk by deferring the audit, not by dropping it.
-  expect(measured.diffRows).toBeGreaterThan(0);
-  // Coverage lists each changed file in both directions, so every file offers
-  // its body from the code-first tree and again from its explanation.
-  expect(measured.changedFiles, "coverage must still list every changed file").toBe(largeSagaScale.sourceFiles);
-  expect(measured.lazyCoverageFiles, "every changed file must still offer its diff on demand").toBeGreaterThanOrEqual(largeSagaScale.sourceFiles);
+  expect(measured.diffRows, "the root shell must not contain source comparison rows").toBe(0);
+  expect(measured.changedFiles, "the root shell must not contain the coverage file model").toBe(0);
+  expect(measured.lazyCoverageFiles, "the root shell must not contain deferred coverage-file descriptors").toBe(0);
+  await expect(page.getByRole("tab", { name: "Code Diff" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Coverage" })).toBeVisible();
 
   expect(
     measured.domInteractive,
     budgetMessage("time to interactive", measured.domInteractive, interactiveCeilingMs, "This is a smoke ceiling; see the attached metrics for the real number.")
   ).toBeLessThanOrEqual(interactiveCeilingMs);
+});
+
+test("ships the saga as a shell and fetches each chapter and explanation once, when it is reached", async ({ page, largeSaga }, testInfo) => {
+  const sectionRequests: string[] = [];
+  const fragmentRequests: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === "/api/section") sectionRequests.push(url.searchParams.get("target") ?? "");
+    if (url.pathname === "/api/fragment") fragmentRequests.push(url.searchParams.get("target") ?? "");
+  });
+  await page.goto(largeSaga.baseURL, { waitUntil: "load" });
+
+  const sagaView = page.locator('[data-view="saga"]');
+  await expect(sagaView.locator("section.chapter")).toHaveCount(largeSagaScale.chapters);
+  await expect(sagaView.locator("[data-section-href]")).toHaveCount(largeSagaScale.chapters);
+  // The overview owns its own explanation; every other one is inside a chapter
+  // nobody has opened, so it is named by a summary and nothing more.
+  const shell = await page.evaluate(() => ({
+    elements: window.document.querySelector('[data-view="saga"]')!.getElementsByTagName("*").length,
+    explanations: window.document.querySelectorAll('[data-view="saga"] article.fragment').length
+  }));
+  await testInfo.attach("shell-metrics.json", {
+    body: `${JSON.stringify({ chapters: largeSagaScale.chapters, ...shell }, null, 2)}\n`,
+    contentType: "application/json"
+  });
+  expect(shell.explanations, "only the overview's own explanations are on the page").toBeLessThan(largeSagaScale.chapters);
+  expect(sectionRequests, "no chapter is fetched before it is opened").toEqual([]);
+
+  // The overview's own explanation is fetched because it is on screen, and it
+  // is the only one: the rest are inside chapters that are still closed.
+  await expect(page.locator(".fragment-markdown").first()).toBeVisible();
+  expect(fragmentRequests.length, "only the explanations on screen are fetched").toBeLessThanOrEqual(2);
+
+  const chapter = sagaView.locator("section.chapter").first();
+  await chapter.getByRole("button", { name: /^Open / }).click();
+  const chapterExplanations = chapter.locator("[data-chapter-body] article.fragment");
+  await expect(chapterExplanations.first()).toBeAttached();
+  expect(await chapterExplanations.count(), "an opened chapter names every explanation it holds")
+    .toBeGreaterThanOrEqual(largeSagaScale.fragmentsPerChapter);
+  expect(sectionRequests, "opening one chapter fetches exactly that chapter").toHaveLength(1);
+  await expect(chapter.locator(".fragment-markdown").first()).toBeVisible();
+
+  // Closing and reopening the same chapter asks the server nothing again.
+  await chapter.getByRole("button", { name: /^Close / }).click();
+  await chapter.getByRole("button", { name: /^Open / }).click();
+  expect(sectionRequests, "reopening a chapter must not fetch it again").toHaveLength(1);
+
+  // A deep link into a chapter nobody has opened still resolves: the anchor is
+  // located, its chapter is fetched, and the page scrolls to it.
+  const deepLink = await chapterExplanations.last().getAttribute("id");
+  await page.goto(`${largeSaga.baseURL}/#${deepLink}`, { waitUntil: "load" });
+  const destination = page.locator(`[id="${deepLink}"]`);
+  await expect(destination).toBeVisible();
+  await expect(destination.locator(".fragment-markdown")).toBeVisible();
 });
 
 test("loads a coverage file diff only once the reviewer opens that file", async ({ page, largeSaga }) => {
@@ -97,22 +145,28 @@ test("loads a coverage file diff only once the reviewer opens that file", async 
 
   const rows = file.locator("[data-manifest-diff-rows] .diff-row");
   await rows.first().waitFor();
-  // Each fixture module rewrites every line, so the body is the whole file.
+  await expect(rows).toHaveCount(50);
+  await file.getByRole("button", { name: "Load the next file chunk" }).click();
   await expect(rows).toHaveCount(2 * largeSagaScale.changedLinesPerFile);
   await expect(file.locator("[data-diff-placeholder]")).toHaveCount(0);
-  expect(requested).toHaveLength(1);
+  expect(requested).toHaveLength(2);
   expect(requested[0]).toContain("view=manifest");
 
   // Reopening the same file must not ask the server again.
   await file.locator("summary").click();
   await file.locator("summary").click();
   await expect(rows).toHaveCount(2 * largeSagaScale.changedLinesPerFile);
-  expect(requested).toHaveLength(1);
+  expect(requested).toHaveLength(2);
 });
 
 test("loads a linked-code file diff on demand and keeps it answerable to its explanation", async ({ page, largeSaga }) => {
   await page.goto(largeSaga.baseURL, { waitUntil: "load" });
-  await page.locator("[data-open-diffs]:visible").first().click();
+  const overview = page.locator('[data-view="saga"] article.fragment').first();
+  await expect(overview.locator(".fragment-markdown")).toBeVisible();
+  await overview.hover();
+  const opener = overview.locator("[data-open-diffs]:visible").first();
+  await expect(opener).toHaveAttribute("aria-label", /Open the \d+ linked changes/);
+  await opener.click();
   const drawer = page.locator(".diff-drawer.open");
   await drawer.waitFor();
 
@@ -128,6 +182,8 @@ test("loads a linked-code file diff on demand and keeps it answerable to its exp
   // The server marks the rows this explanation owns, so the drawer still shows
   // its own evidence inside the surrounding file it fetched for context.
   const linked = attached.locator(".diff-row.linked-evidence");
+  await expect(linked).toHaveCount(50);
+  await attached.getByRole("button", { name: "Load the next file chunk" }).click();
   await expect(linked).toHaveCount(2 * largeSagaScale.changedLinesPerFile);
 
   // A comment written here must carry this file's exact line identity and the

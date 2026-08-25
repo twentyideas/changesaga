@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "bounded-api",
+  "label": "Bounded API",
+  "description": "Cursor-bounded server projections",
+  "selector": {
+    "type": "element",
+    "element_id": "bounded-api"
+  },
+  "target": ""
+}

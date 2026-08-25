@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "code",
+  "label": "Evidence: code",
+  "selector": {
+    "type": "text",
+    "exact": "Source catalogs and file-diff APIs use per-path indexes and cursors so one request cannot expand the full comparison."
+  },
+  "target": ""
+}

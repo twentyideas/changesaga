@@ -157,6 +157,78 @@ func TestProductIdentityIgnoresSagaOnlyCommits(t *testing.T) {
 	}
 }
 
+func TestReadCatalogMatchesComparisonIdentityWithoutPatchAtoms(t *testing.T) {
+	repo := newGitTestRepo(t)
+	gitTest(t, repo, "remote", "add", "origin", "https://example.test/acme/catalog.git")
+	writeGitTestFile(t, filepath.Join(repo, "rename-me.txt"), "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten\n")
+	writeGitTestFile(t, filepath.Join(repo, "modify.txt"), "before\n")
+	gitTest(t, repo, "add", ".")
+	gitTest(t, repo, "commit", "-m", "base")
+	base := strings.TrimSpace(gitTest(t, repo, "rev-parse", "HEAD"))
+
+	gitTest(t, repo, "mv", "rename-me.txt", "renamed.txt")
+	writeGitTestFile(t, filepath.Join(repo, "modify.txt"), "after one\nafter two\n")
+	writeGitTestFile(t, filepath.Join(repo, "review.saga", "note.md"), "review-only metadata\n")
+	gitTest(t, repo, "add", "-A")
+	gitTest(t, repo, "commit", "-m", "feature")
+
+	changes, err := Read(context.Background(), repo, "https://example.test/acme/catalog.git", base, "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := ReadCatalog(context.Background(), repo, "https://example.test/acme/catalog.git", base, "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if catalog.Repository != changes.Repository || catalog.BaseOID != changes.BaseOID || catalog.HeadOID != changes.HeadOID {
+		t.Fatalf("catalog identity differs from full comparison: catalog=%#v changes=%#v", catalog, changes)
+	}
+	if len(catalog.Files) != 2 {
+		t.Fatalf("catalog files = %#v, want only the two product files", catalog.Files)
+	}
+	if got := catalog.Files[0]; got.Path != "modify.txt" || got.Added != 2 || got.Deleted != 1 {
+		t.Fatalf("modified file summary = %#v", got)
+	}
+	if got := catalog.Files[1]; got.Path != "renamed.txt" || got.OldPath != "rename-me.txt" || got.NewPath != "renamed.txt" || got.Added != 0 || got.Deleted != 0 {
+		t.Fatalf("rename summary = %#v", got)
+	}
+	selected, err := ReadFile(context.Background(), repo, catalog, catalog.Files[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selected.Repository != changes.Repository || selected.BaseOID != changes.BaseOID || selected.HeadOID != changes.HeadOID {
+		t.Fatalf("selected-file identity differs from its catalog: %#v", selected)
+	}
+	if len(selected.Atoms) != 3 {
+		t.Fatalf("selected-file atoms = %#v, want only modify.txt", selected.Atoms)
+	}
+	for _, atom := range selected.Atoms {
+		if atom.Path != "modify.txt" {
+			t.Fatalf("selected-file read leaked %q", atom.Path)
+		}
+	}
+	renamed, err := ReadFile(context.Background(), repo, catalog, catalog.Files[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(renamed.Atoms) != 1 || renamed.Atoms[0].Event != "rename" || renamed.Atoms[0].OldPath != "rename-me.txt" || renamed.Atoms[0].NewPath != "renamed.txt" {
+		t.Fatalf("focused rename lost whole-comparison identity: %#v", renamed.Atoms)
+	}
+}
+
+func TestParseNumstatHandlesBinaryAndNULTerminatedRenamePaths(t *testing.T) {
+	files, err := parseNumstat([]byte("-\t-\timage.bin\x001\t2\t\x00old name.txt\x00new name.txt\x00"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 2 || !files[0].Binary || files[0].Path != "image.bin" {
+		t.Fatalf("binary summary = %#v", files)
+	}
+	if got := files[1]; got.Path != "new name.txt" || got.OldPath != "old name.txt" || got.NewPath != "new name.txt" || got.Added != 1 || got.Deleted != 2 {
+		t.Fatalf("rename summary = %#v", got)
+	}
+}
+
 func TestParseFileLifecycleAndDefensiveModify(t *testing.T) {
 	patch := []byte(`diff --git a/empty-new b/empty-new
 new file mode 100644

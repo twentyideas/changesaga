@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "cache",
+  "label": "Immutable cache",
+  "description": "Atomic disposable snapshot generation storage",
+  "selector": {
+    "type": "element",
+    "element_id": "cache"
+  },
+  "target": ""
+}

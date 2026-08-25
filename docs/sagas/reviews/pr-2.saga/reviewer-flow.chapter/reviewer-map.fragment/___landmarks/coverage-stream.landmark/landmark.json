@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "coverage-stream",
+  "label": "Coverage stream",
+  "description": "Coverage summaries append automatically while details remain lazy",
+  "selector": {
+    "type": "element",
+    "element_id": "coverage-stream"
+  },
+  "target": ""
+}

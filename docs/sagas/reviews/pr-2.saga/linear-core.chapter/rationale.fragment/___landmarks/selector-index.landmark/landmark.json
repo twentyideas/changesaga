@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "selector-index",
+  "label": "Evidence: selector-index",
+  "selector": {
+    "type": "text",
+    "exact": "Review ownership links use a prebuilt selector index instead of scanning every selector for every assigned atom."
+  },
+  "target": ""
+}

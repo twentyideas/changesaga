@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "shell",
+  "label": "Aggregate shell",
+  "description": "Structural rendering independent of comparison work",
+  "selector": {
+    "type": "element",
+    "element_id": "shell"
+  },
+  "target": ""
+}

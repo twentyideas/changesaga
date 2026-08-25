@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import { waitForSettledSaga } from "./test.js";
 
 /** Drags across a locator in fractions of its own box, the way a reviewer draws. */
 export async function dragOn(page: Page, locator: Locator, from: [number, number], to: [number, number], steps = 8): Promise<void> {
@@ -34,6 +35,7 @@ async function submitComposer(page: Page, body: string): Promise<void> {
   const composer = page.locator("form.annotation-compose");
   await composer.locator('textarea[name="body"]').fill(body);
   await Promise.all([page.waitForNavigation(), composer.getByRole("button", { name: "Comment" }).click()]);
+  await waitForSettledSaga(page);
 }
 
 /** Draws a rectangle over the fragment's overlay and comments on it. */
@@ -68,6 +70,7 @@ export async function addStickyNoteComment(page: Page, fragment: Locator, text: 
   await page.mouse.click(box.x + box.width * at[0], box.y + box.height * at[1]);
   await page.getByRole("textbox", { name: "Sticky note text" }).fill(text);
   await Promise.all([page.waitForNavigation(), page.getByRole("button", { name: "Add note" }).click()]);
+  await waitForSettledSaga(page);
 }
 
 /**

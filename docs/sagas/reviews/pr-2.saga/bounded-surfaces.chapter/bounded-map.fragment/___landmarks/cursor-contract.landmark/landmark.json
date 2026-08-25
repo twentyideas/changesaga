@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "cursor-contract",
+  "label": "Cursor contract",
+  "description": "Item and byte budgets with continuation cursors",
+  "selector": {
+    "type": "element",
+    "element_id": "cursor-contract"
+  },
+  "target": ""
+}

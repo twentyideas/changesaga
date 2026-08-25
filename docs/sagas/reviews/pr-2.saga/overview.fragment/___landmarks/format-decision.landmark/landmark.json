@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "format-decision",
+  "label": "Evidence: format-decision",
+  "selector": {
+    "type": "text",
+    "exact": "The connector experiment remains isolated because canonical ranged v2 evidence is almost as small in Git and avoids a format or dependency change."
+  },
+  "target": ""
+}

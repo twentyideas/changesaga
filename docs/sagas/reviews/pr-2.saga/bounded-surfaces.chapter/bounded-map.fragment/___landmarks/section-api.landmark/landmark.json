@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "section-api",
+  "label": "Narrative APIs",
+  "description": "Progressive section, fragment, outline, and locate requests",
+  "selector": {
+    "type": "element",
+    "element_id": "section-api"
+  },
+  "target": ""
+}

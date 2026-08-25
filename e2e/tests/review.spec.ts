@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { canonicalLineURI, git, readJSON, relativeToSaga, reviewFiles } from "../support/fixture-builder.js";
-import { expect, test } from "../support/test.js";
+import { expect, test, waitForSettledSaga } from "../support/test.js";
 
 async function submitWithNavigation(page: import("@playwright/test").Page, action: () => Promise<void>): Promise<void> {
   await Promise.all([page.waitForNavigation(), action()]);
+  await waitForSettledSaga(page);
 }
 
 test("@critical creates a comment and reply, then resolves and reopens the thread with exact append-only records", async ({ page, saga }) => {

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "architecture",
+  "label": "Evidence: architecture",
+  "selector": {
+    "type": "text",
+    "exact": "The shipped design separates an aggregate shell, a content-addressed comparison generation, bounded APIs, and demand-driven browser hydration."
+  },
+  "target": ""
+}

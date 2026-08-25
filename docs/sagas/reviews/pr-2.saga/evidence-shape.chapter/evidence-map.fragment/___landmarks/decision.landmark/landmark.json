@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "decision",
+  "label": "Keep v2",
+  "description": "Decision to keep the existing evidence format",
+  "selector": {
+    "type": "element",
+    "element_id": "decision"
+  },
+  "target": ""
+}

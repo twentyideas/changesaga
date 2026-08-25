@@ -38,6 +38,8 @@ not a contract — where they disagree with the code, the code is current.
 | --- | --- |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | Setup, the checks CI runs, and the rules for format changes. |
 | [performance.md](performance.md) | The payload boundary large sagas depend on, its hard budgets and diagnostic metrics, deterministic fixtures, before-and-after measurements, and remaining bottlenecks. |
+| [large-saga-diagnosis.md](large-saga-diagnosis.md) | Why a whole-codebase saga reached 230 MB and 17 minutes, and how canonical range authoring plus direct selector indexing fixed the three diagnosed defects. |
+| [large-saga-index-design.md](large-saga-index-design.md) | Whether the reviewer server needs SQLite to index a large saga on first run, what first run actually costs, and the disposable content-addressed cache design that follows instead. |
 | [../GOVERNANCE.md](../GOVERNANCE.md) | Roles, how decisions are made, and what is out of scope. |
 | [../SECURITY.md](../SECURITY.md) | Threat model and private reporting. |
 | [../SUPPORT.md](../SUPPORT.md) | Where to ask, and answers to the questions that come up most. |

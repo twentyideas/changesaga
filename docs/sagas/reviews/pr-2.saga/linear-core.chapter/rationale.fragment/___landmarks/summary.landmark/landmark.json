@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "summary",
+  "label": "Evidence: summary",
+  "selector": {
+    "type": "text",
+    "exact": "Aggregate query operations explicitly select summary construction and omit detail-only projections."
+  },
+  "target": ""
+}

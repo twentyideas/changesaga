@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/twentyideas/changesaga/internal/diffuri"
 	"github.com/twentyideas/changesaga/internal/gitdiff"
@@ -159,7 +158,7 @@ func replaceCoverage(ctx context.Context, args []string, out io.Writer, stdin io
 	var planned []plannedRecord
 	plan := func(locked *saga.Saga, replaceable string) error {
 		var planErr error
-		planned, planErr = planCoverage(locked, records, files, time.Now(), replaceable)
+		planned, planErr = planCoverage(locked, records, files, replaceable)
 		return planErr
 	}
 	if *dryRun {

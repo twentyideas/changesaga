@@ -11,12 +11,47 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/twentyideas/changesaga/internal/diffuri"
 )
 
+type loadOptions struct {
+	outline      bool
+	skipCoverage bool
+}
+
+var fullLoadCount atomic.Uint64
+
+// FullLoadCount reports process-local full Saga loads. It is diagnostic
+// instrumentation used by scale budgets to keep review mutations off this
+// path; review-only and mutation-index loads do not increment it.
+func FullLoadCount() uint64 { return fullLoadCount.Load() }
+
 func Load(root string) (*Saga, Validation, error) {
+	fullLoadCount.Add(1)
+	return load(root, loadOptions{})
+}
+
+// LoadOutline reads the narrative and review metadata needed to render the
+// reviewer shell without opening coverage records, landmark records, claims,
+// verifications, diff reviews, fragment content, or message attachments. It is
+// deliberately not a replacement for Load: callers that make readiness or
+// mutation decisions must still use the complete validated model.
+func LoadOutline(root string) (*Saga, Validation, error) {
+	return load(root, loadOptions{outline: true, skipCoverage: true})
+}
+
+// LoadNarrative reads the complete reviewable narrative and annotations while
+// leaving coverage records and diff-review state unopened. Incremental prose
+// endpoints use it so reaching a chapter or fragment cannot trigger coverage
+// graph construction.
+func LoadNarrative(root string) (*Saga, Validation, error) {
+	return load(root, loadOptions{skipCoverage: true})
+}
+
+func load(root string, options loadOptions) (*Saga, Validation, error) {
 	abs, err := filepath.Abs(root)
 	if err != nil {
 		return nil, Validation{}, err
@@ -39,18 +74,18 @@ func Load(root string) (*Saga, Validation, error) {
 	}
 	validateManifest(manifest, &validation)
 
-	section, err := loadSection(abs, abs, manifest, true, &validation)
+	section, err := loadSection(abs, abs, manifest, true, options, &validation)
 	if err != nil {
 		return nil, validation, err
 	}
 	document := &Saga{Root: abs, Manifest: manifest, Section: section}
-	if metadataDirectorySafe(abs, abs, "___claims", &validation) {
+	if !options.outline && !options.skipCoverage && metadataDirectorySafe(abs, abs, "___claims", &validation) {
 		document.Claims, err = loadClaims(abs, &validation)
 		if err != nil {
 			return nil, validation, err
 		}
 	}
-	if metadataDirectorySafe(abs, abs, "___verifications", &validation) {
+	if !options.outline && !options.skipCoverage && metadataDirectorySafe(abs, abs, "___verifications", &validation) {
 		document.Verifications, err = loadVerifications(abs, &validation)
 		if err != nil {
 			return nil, validation, err
@@ -59,24 +94,32 @@ func Load(root string) (*Saga, Validation, error) {
 	if metadataDirectorySafe(abs, abs, "___review", &validation) {
 		reviewDir := filepath.Join(abs, "___review")
 		if metadataDirectorySafe(abs, reviewDir, "threads", &validation) {
-			document.Threads, err = loadThreads(abs, manifest.ID, &validation)
+			if options.outline {
+				document.Threads, err = loadThreadSummaries(abs, manifest.ID, &validation)
+			} else {
+				document.Threads, err = loadThreads(abs, manifest.ID, options, &validation)
+			}
 			if err != nil {
 				return nil, validation, err
 			}
 		}
-		if metadataDirectorySafe(abs, reviewDir, "diffs", &validation) {
+		if !options.skipCoverage && metadataDirectorySafe(abs, reviewDir, "diffs", &validation) {
 			document.DiffReviews, err = loadDiffReviews(abs, &validation)
 			if err != nil {
 				return nil, validation, err
 			}
 		}
 	}
-	validateDocument(document, &validation)
+	if options.outline {
+		validateOutlineDocument(document, &validation)
+	} else {
+		validateDocument(document, &validation)
+	}
 	validation.Valid = !hasErrors(validation.Issues)
 	return document, validation, nil
 }
 
-func loadSection(root, dir string, manifest Manifest, isRoot bool, validation *Validation) (*Section, error) {
+func loadSection(root, dir string, manifest Manifest, isRoot bool, options loadOptions, validation *Validation) (*Section, error) {
 	rel, err := filepath.Rel(root, dir)
 	if err != nil {
 		return nil, err
@@ -119,7 +162,7 @@ func loadSection(root, dir string, manifest Manifest, isRoot bool, validation *V
 		}
 	}
 
-	if metadataDirectorySafe(root, dir, "___diffs", validation) {
+	if !options.skipCoverage && metadataDirectorySafe(root, dir, "___diffs", validation) {
 		section.Diffs, err = loadDiffs(root, filepath.Join(dir, "___diffs"), validation)
 		if err != nil {
 			return nil, err
@@ -147,6 +190,9 @@ func loadSection(root, dir string, manifest Manifest, isRoot bool, validation *V
 			continue
 		}
 		if strings.HasPrefix(name, "___") {
+			if name == "___diffs" {
+				section.HasDiffs = true
+			}
 			if !knownReservedDirectory(name, isRoot) {
 				addIssue(validation, "error", displayPath(rel, name), "unknown reserved directory")
 			}
@@ -163,14 +209,14 @@ func loadSection(root, dir string, manifest Manifest, isRoot bool, validation *V
 			addIssue(validation, "error", displayPath(rel, name), "chapters must be direct children of the saga root")
 		}
 		if strings.HasSuffix(name, ".fragment") {
-			fragment, err := loadFragment(root, path, manifest.ID, validation)
+			fragment, err := loadFragment(root, path, manifest.ID, options, validation)
 			if err != nil {
 				return nil, err
 			}
 			section.Fragments = append(section.Fragments, fragment)
 			continue
 		}
-		child, err := loadSection(root, path, manifest, false, validation)
+		child, err := loadSection(root, path, manifest, false, options, validation)
 		if err != nil {
 			return nil, err
 		}
@@ -191,7 +237,7 @@ func loadSection(root, dir string, manifest Manifest, isRoot bool, validation *V
 	return section, nil
 }
 
-func loadFragment(root, dir, sagaID string, validation *Validation) (*Fragment, error) {
+func loadFragment(root, dir, sagaID string, options loadOptions, validation *Validation) (*Fragment, error) {
 	manifestPath := filepath.Join(dir, "fragment.json")
 	var value FragmentManifest
 	if err := readJSON(manifestPath, &value); err != nil {
@@ -204,17 +250,21 @@ func loadFragment(root, dir, sagaID string, validation *Validation) (*Fragment, 
 		MediaType: value.MediaType, Entrypoint: value.Entrypoint, Order: value.Order,
 		Target: FragmentTarget(sagaID, value.ID),
 	}
-	validateFragmentManifest(value, relativePath(root, manifestPath), dir, validation)
-	if metadataDirectorySafe(root, dir, "___diffs", validation) {
+	if options.outline {
+		validateFragmentOutlineManifest(value, relativePath(root, manifestPath), dir, validation)
+	} else {
+		validateFragmentManifest(value, relativePath(root, manifestPath), dir, validation)
+	}
+	if !options.skipCoverage && metadataDirectorySafe(root, dir, "___diffs", validation) {
 		var err error
 		fragment.Diffs, err = loadDiffs(root, filepath.Join(dir, "___diffs"), validation)
 		if err != nil {
 			return nil, err
 		}
 	}
-	if metadataDirectorySafe(root, dir, "___landmarks", validation) {
+	if !options.outline && metadataDirectorySafe(root, dir, "___landmarks", validation) {
 		var err error
-		fragment.Landmarks, err = loadLandmarks(root, filepath.Join(dir, "___landmarks"), sagaID, fragment, validation)
+		fragment.Landmarks, err = loadLandmarks(root, filepath.Join(dir, "___landmarks"), sagaID, fragment, options, validation)
 		if err != nil {
 			return nil, err
 		}
@@ -231,6 +281,9 @@ func loadFragment(root, dir, sagaID string, validation *Validation) (*Fragment, 
 		return nil, err
 	}
 	for _, entry := range entries {
+		if entry.IsDir() && entry.Name() == "___diffs" {
+			fragment.HasDiffs = true
+		}
 		if entry.IsDir() && strings.HasPrefix(entry.Name(), "___") && entry.Name() != "___diffs" && entry.Name() != "___landmarks" && entry.Name() != "___approvals" {
 			addIssue(validation, "error", relativePath(root, filepath.Join(dir, entry.Name())), "unknown reserved directory in fragment")
 		}
@@ -238,7 +291,7 @@ func loadFragment(root, dir, sagaID string, validation *Validation) (*Fragment, 
 	return fragment, nil
 }
 
-func loadLandmarks(root, dir, sagaID string, fragment *Fragment, validation *Validation) ([]Landmark, error) {
+func loadLandmarks(root, dir, sagaID string, fragment *Fragment, options loadOptions, validation *Validation) ([]Landmark, error) {
 	entries, err := os.ReadDir(dir)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
@@ -283,7 +336,7 @@ func loadLandmarks(root, dir, sagaID string, fragment *Fragment, validation *Val
 			addIssue(validation, "error", value.Path, fmt.Sprintf("landmark id %q conflicts with a Markdown heading in %s", value.ID, headingPath))
 		}
 		seen[value.ID] = value.Path
-		if metadataDirectorySafe(root, entryPath, "___diffs", validation) {
+		if !options.skipCoverage && metadataDirectorySafe(root, entryPath, "___diffs", validation) {
 			value.Diffs, err = loadDiffs(root, filepath.Join(entryPath, "___diffs"), validation)
 			if err != nil {
 				return nil, err
@@ -294,6 +347,9 @@ func loadLandmarks(root, dir, sagaID string, fragment *Fragment, validation *Val
 			return nil, readErr
 		}
 		for _, landmarkEntry := range landmarkEntries {
+			if landmarkEntry.IsDir() && landmarkEntry.Name() == "___diffs" {
+				value.HasDiffs = true
+			}
 			if landmarkEntry.IsDir() && strings.HasPrefix(landmarkEntry.Name(), "___") && landmarkEntry.Name() != "___diffs" {
 				addIssue(validation, "error", relativePath(root, filepath.Join(entryPath, landmarkEntry.Name())), "unknown reserved directory in landmark")
 			}
@@ -334,6 +390,26 @@ func loadDiffs(root, dir string, validation *Validation) ([]DiffFile, error) {
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].Path < result[j].Path })
 	return result, nil
+}
+
+// LoadTargetDiffs reads only one validated narrative target's authored
+// evidence. It is the bounded mapping seam used by linked-code requests: no
+// sibling target's ___diffs directory is opened.
+func LoadTargetDiffs(index MutationIndex, target string) ([]DiffFile, Validation, error) {
+	validation := Validation{Valid: true, Issues: []Issue{}}
+	dir, ok := index.Targets[target]
+	if !ok {
+		addIssue(&validation, "error", ".", "unknown narrative target")
+		validation.Valid = false
+		return nil, validation, nil
+	}
+	if !metadataDirectorySafe(index.Root, dir, "___diffs", &validation) {
+		validation.Valid = false
+		return nil, validation, nil
+	}
+	diffs, err := loadDiffs(index.Root, filepath.Join(dir, "___diffs"), &validation)
+	validation.Valid = !hasErrors(validation.Issues)
+	return diffs, validation, err
 }
 
 func loadReviews(root, dir string, validation *Validation) ([]Review, error) {
@@ -418,7 +494,7 @@ func loadFlatRecords(root, dir, kind string, validation *Validation, fn func(str
 	return nil
 }
 
-func loadThreads(root, sagaID string, validation *Validation) ([]*Thread, error) {
+func loadThreads(root, sagaID string, options loadOptions, validation *Validation) ([]*Thread, error) {
 	threadsDir := filepath.Join(root, "___review", "threads")
 	entries, err := os.ReadDir(threadsDir)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -454,7 +530,7 @@ func loadThreads(root, sagaID string, validation *Validation) ([]*Thread, error)
 		thread := Thread{Version: threadManifest.Version, ID: threadManifest.ID, Target: threadManifest.Target, Anchor: threadManifest.Anchor, Kind: threadManifest.Kind, Suggestion: threadManifest.Suggestion, CreatedBy: threadManifest.CreatedBy, CreatedAt: threadManifest.CreatedAt}
 		thread.Directory = dir
 		validateThread(thread, sagaID, relativePath(root, manifestPath), validation)
-		thread.Messages, err = loadMessages(root, dir, sagaID, validation)
+		thread.Messages, err = loadMessages(root, dir, sagaID, options, validation)
 		if err != nil {
 			return nil, err
 		}
@@ -487,6 +563,64 @@ func loadThreads(root, sagaID string, validation *Validation) ([]*Thread, error)
 	return threads, nil
 }
 
+// loadThreadSummaries resolves only the pieces of a thread that affect shell
+// navigation: its target, anchor, and latest state. Message bodies and attached
+// fragments arrive with the focused narrative endpoint and are intentionally
+// absent here.
+func loadThreadSummaries(root, sagaID string, validation *Validation) ([]*Thread, error) {
+	threadsDir := filepath.Join(root, "___review", "threads")
+	entries, err := os.ReadDir(threadsDir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var threads []*Thread
+	for _, entry := range entries {
+		matches, problem := structuralEntry(entry, ".thread")
+		if problem != "" {
+			addIssue(validation, "error", relativePath(root, filepath.Join(threadsDir, entry.Name())), problem)
+			continue
+		}
+		if !matches {
+			continue
+		}
+		dir := filepath.Join(threadsDir, entry.Name())
+		manifestPath := filepath.Join(dir, "thread.json")
+		var manifest ThreadManifest
+		if err := readJSON(manifestPath, &manifest); err != nil {
+			addIssue(validation, "error", relativePath(root, manifestPath), err.Error())
+			continue
+		}
+		if directoryID := strings.TrimSuffix(entry.Name(), ".thread"); directoryID != manifest.ID {
+			addIssue(validation, "error", relativePath(root, manifestPath), fmt.Sprintf("thread id %q must match directory %q", manifest.ID, directoryID+".thread"))
+		}
+		thread := &Thread{Version: manifest.Version, ID: manifest.ID, Target: manifest.Target, Anchor: manifest.Anchor, Kind: manifest.Kind, Suggestion: manifest.Suggestion, CreatedBy: manifest.CreatedBy, CreatedAt: manifest.CreatedAt, Directory: dir, State: "open"}
+		validateThread(*thread, sagaID, relativePath(root, manifestPath), validation)
+		thread.Events, err = loadThreadEvents(root, dir, validation)
+		if err != nil {
+			return nil, err
+		}
+		sort.Slice(thread.Events, func(i, j int) bool {
+			return earlierRecord(thread.Events[i].CreatedAt, thread.Events[i].ID, thread.Events[j].CreatedAt, thread.Events[j].ID)
+		})
+		for _, event := range thread.Events {
+			if event.State != "" {
+				thread.State = event.State
+			}
+			if event.Anchor != nil {
+				thread.Anchor = *event.Anchor
+			}
+		}
+		threads = append(threads, thread)
+	}
+	sort.Slice(threads, func(i, j int) bool {
+		return earlierRecord(threads[i].CreatedAt, threads[i].ID, threads[j].CreatedAt, threads[j].ID)
+	})
+	return threads, nil
+}
+
 func loadDiffReviews(root string, validation *Validation) ([]DiffReview, error) {
 	var reviews []DiffReview
 	err := loadMetaJSON(filepath.Join(root, "___review", "diffs"), func(path string) {
@@ -508,7 +642,7 @@ func loadDiffReviews(root string, validation *Validation) ([]DiffReview, error) 
 	return reviews, err
 }
 
-func loadMessages(root, threadDir, sagaID string, validation *Validation) ([]*Message, error) {
+func loadMessages(root, threadDir, sagaID string, options loadOptions, validation *Validation) ([]*Message, error) {
 	dir := filepath.Join(threadDir, "messages")
 	entries, err := os.ReadDir(dir)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -554,7 +688,7 @@ func loadMessages(root, threadDir, sagaID string, validation *Validation) ([]*Me
 			if !matches {
 				continue
 			}
-			fragment, err := loadFragment(root, filepath.Join(messageDir, child.Name()), sagaID, validation)
+			fragment, err := loadFragment(root, filepath.Join(messageDir, child.Name()), sagaID, options, validation)
 			if err != nil {
 				return nil, err
 			}

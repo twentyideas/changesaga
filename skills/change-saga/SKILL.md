@@ -159,9 +159,12 @@ children.
    gaps` when source and saga live in different repositories. Use `--dry-run`
    to see exactly which records an invocation would write before writing them.
    When every changed atom in one file genuinely belongs to the same narrative
-   target, `--path FILE --changed-lines` derives its exact old/new line atoms
-   and includes file events such as `add` automatically. Do not use this
-   convenience to collapse multiple concerns into one broad record.
+   target, `--path FILE --changed-lines` derives its exact old/new line atoms,
+   coalesces gapless lines into canonical dense ranges, and includes file
+   events such as `add` automatically. Do not use this convenience to collapse
+   multiple concerns into one broad record. Generated evidence paths identify
+   their selector set, so a second explanation for the same selectors requires
+   `replace-coverage` rather than creating a duplicate record.
 9. When attaching many selectors, pipe newline-delimited JSON records (or one
    JSON array) to `change-saga cover --batch -`. Each record carries its own
    `target`, `path`, `side`, `lines`, `changed_lines`, `event`, `old_path`,

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "prefetch",
+  "label": "Evidence: prefetch",
+  "selector": {
+    "type": "text",
+    "exact": "Fragment intent schedules target-code summaries with a 160 ms delay, two speculative workers, and a bounded cache."
+  },
+  "target": ""
+}

@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "id": "reviewer-map",
+  "title": "The reviewer interaction loop",
+  "media_type": "image/svg+xml",
+  "entrypoint": "reviewer-map.svg",
+  "order": 1
+}
