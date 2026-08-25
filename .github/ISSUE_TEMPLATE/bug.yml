@@ -1,0 +1,29 @@
+name: Bug
+description: Tell us about something that is not working.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Tell us what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: How can we reproduce it?
+      description: Share the commands or shortest sequence that demonstrates the problem.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Which Change Saga version did you use?
+      placeholder: v0.0.8
+  - type: input
+    id: model
+    attributes:
+      label: Which AI model did you use?
+      description: Include the provider and exact model name when possible.
+      placeholder: Anthropic / Claude Sonnet 4.6
