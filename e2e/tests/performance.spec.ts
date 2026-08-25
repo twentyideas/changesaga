@@ -161,7 +161,12 @@ test("loads a coverage file diff only once the reviewer opens that file", async 
 
 test("loads a linked-code file diff on demand and keeps it answerable to its explanation", async ({ page, largeSaga }) => {
   await page.goto(largeSaga.baseURL, { waitUntil: "load" });
-  await page.locator("[data-open-diffs]:visible").first().click();
+  const overview = page.locator('[data-view="saga"] article.fragment').first();
+  await expect(overview.locator(".fragment-markdown")).toBeVisible();
+  await overview.hover();
+  const opener = overview.locator("[data-open-diffs]:visible").first();
+  await expect(opener).toHaveAttribute("aria-label", /Open the \d+ linked changes/);
+  await opener.click();
   const drawer = page.locator(".diff-drawer.open");
   await drawer.waitFor();
 

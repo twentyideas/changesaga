@@ -53,7 +53,7 @@ test("bounded Code Diff retries a building snapshot, preserves its deep link, an
   expect(fileRequests[1].searchParams.get("cursor")).toBe("opaque-lines-2");
 });
 
-test("Coverage loads one direction at a time and keeps its controls while appending", async ({ page, largeSaga }) => {
+test("Coverage continuously loads one direction at a time and keeps its controls while appending", async ({ page, largeSaga }) => {
   const requests: URL[] = [];
   await page.route("**/api/coverage**", async (route) => {
     const url = new URL(route.request().url());
@@ -82,15 +82,16 @@ test("Coverage loads one direction at a time and keeps its controls while append
   await page.getByRole("tab", { name: "Coverage" }).click();
   const coverage = page.locator('[data-review-surface="manifest"]');
   await expect(coverage.getByText("code first page")).toBeVisible();
-  expect(requests).toHaveLength(1);
-
-  await coverage.getByRole("button", { name: "Load the next page" }).click();
+  // Coverage summary pages continue automatically. The reviewer only controls
+  // which direction is active and which individual item is expanded.
   await expect(coverage.getByText("second page")).toBeVisible();
+  expect(requests).toHaveLength(2);
   await expect(coverage.getByRole("button", { name: "Saga → Code" })).toHaveCount(1);
   expect(requests[1].searchParams.get("cursor")).toBe("opaque-coverage-2");
 
   await coverage.getByRole("button", { name: "Saga → Code" }).click();
   await expect(coverage.getByText("saga first page")).toBeVisible();
   await expect(page).toHaveURL(/view=manifest.*mode=saga|mode=saga.*view=manifest/);
+  await expect.poll(() => requests.length).toBe(3);
   expect(requests[2].searchParams.get("mode")).toBe("saga");
 });

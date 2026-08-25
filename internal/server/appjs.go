@@ -2776,7 +2776,9 @@ const appJavaScript = `(() => {
       return;
     }
     const sagaLink = event.target.closest?.('a[href^="#"]');
-    if (sagaLink) {
+    // A hydrated Markdown citation is still an in-page link, but linked-code
+    // activation takes precedence over its original footnote navigation.
+    if (sagaLink && !sagaLink.hasAttribute('data-open-diffs')) {
 	  event.preventDefault();
       const id = decodeURIComponent(sagaLink.getAttribute('href').slice(1));
 	  const sagaURL = new URL(location.href);
