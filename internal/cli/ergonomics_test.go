@@ -163,6 +163,22 @@ func TestTopLevelHelpListsEveryDispatchedCommand(t *testing.T) {
 	}
 }
 
+func TestTopLevelHelpRecommendsTheAuthoringSkill(t *testing.T) {
+	var output bytes.Buffer
+	PrintHelp(&output)
+	text := output.String()
+	for _, want := range []string{
+		"Using a coding agent?",
+		"change-saga install-skill",
+		"agent-agnostic bootstrap",
+		"does not modify the repository or create a Saga",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("top-level help omitted %q:\n%s", want, text)
+		}
+	}
+}
+
 // The installed skill is the contract an agent follows. It has to route reads
 // through the versioned query API and name every operation, or an agent will
 // fall back to reading saga files whose layout is not a compatibility promise.

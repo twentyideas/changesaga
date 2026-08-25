@@ -119,7 +119,14 @@ func PrintHelp(out io.Writer) {
 	for _, command := range commandOrder {
 		fmt.Fprintf(out, "  %s\n", commandUsage[command])
 	}
-	fmt.Fprint(out, "\nRun \"change-saga <command> -h\" for command-specific options.\n")
+	fmt.Fprint(out, `
+Run "change-saga <command> -h" for command-specific options.
+
+Using a coding agent?
+  If its Change Saga skill is not installed or current, run
+  "change-saga install-skill" and give the resulting agent-agnostic bootstrap
+  prompt to the agent. The command does not modify the repository or create a Saga.
+`)
 }
 
 // commandFlags builds a flag set whose -h output always leads with the command

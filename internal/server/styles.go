@@ -144,13 +144,20 @@ a{color:var(--accent)}
 .chapter.open>.chapter-head .chapter-toggle .twisty{transform:rotate(90deg)}
 .chapter-body{padding:2px 0 22px 28px}
 .chapter-body[hidden]{display:none}
-.chapter-review-directory{position:sticky;top:calc(var(--top) + 8px);z-index:18;margin:4px 0 16px;padding:0;border:1px solid var(--line);border-radius:9px;background:#ffffffed;box-shadow:0 6px 20px #1f23280d;backdrop-filter:blur(8px)}
-.chapter-review-directory>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:36px;padding:6px 10px;cursor:pointer;list-style:none;color:var(--ink);font:600 12px var(--ui)}
+.chapter-review-directory{position:sticky;top:calc(var(--top) + 8px);z-index:18;overflow:hidden;margin:4px 0 16px;padding:0;border:1px solid var(--accent-line);border-left:3px solid var(--accent);border-radius:9px;background:#ffffffed;box-shadow:0 6px 20px #0969da1f;backdrop-filter:blur(8px)}
+.chapter-review-directory>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:38px;padding:7px 10px;cursor:pointer;list-style:none;background:var(--accent-soft);color:var(--accent);font:600 12px var(--ui);transition:background .14s ease,color .14s ease}
+.chapter-review-directory>summary:hover{background:#cfeaff;color:#0550ae}
 .chapter-review-directory>summary::-webkit-details-marker{display:none}
-.review-directory-heading{display:flex;align-items:center;gap:7px}
-.review-directory-heading .i{width:14px;height:14px;color:var(--accent)}
-.review-directory-summary{color:var(--faint);font:11px var(--mono)}
-.review-directory-list{max-height:min(42vh,360px);overflow:auto;margin:0;padding:3px 6px 6px;border-top:1px solid var(--line-soft);list-style:none}
+.review-directory-heading{display:flex;align-items:center;gap:7px;color:inherit}
+.review-directory-heading .i{width:14px;height:14px;color:inherit}
+.review-directory-heading .twisty{width:12px;height:12px;transition:transform .14s ease}
+.chapter-review-directory[open]>summary .twisty{transform:rotate(90deg)}
+.review-directory-meta{display:flex;align-items:center;gap:9px}
+.review-directory-summary{color:var(--muted);font:11px var(--mono)}
+.review-directory-hint{color:inherit;font:600 10px var(--ui);letter-spacing:.04em;text-transform:uppercase}
+.review-directory-hint::after{content:"Show"}
+.chapter-review-directory[open]>summary .review-directory-hint::after{content:"Hide"}
+.review-directory-list{max-height:min(42vh,360px);overflow:auto;margin:0;padding:3px 6px 6px;border-top:1px solid var(--accent-line);background:var(--bg);list-style:none}
 .review-directory-item{display:grid;grid-template-columns:10px minmax(130px,1fr) auto auto auto;align-items:center;gap:7px;min-height:38px;padding:3px 4px 3px calc(6px + var(--review-depth,0) * 12px);border-radius:6px}
 .review-directory-item:hover,.review-directory-item:focus-within{background:var(--bg-subtle)}
 .review-directory-state{width:8px;height:8px;border:1px solid var(--faint);border-radius:50%;background:var(--bg)}
@@ -168,7 +175,7 @@ a{color:var(--accent)}
 .review-directory-item .review-controls{opacity:1}
 .review-directory-item .review-comment{display:none}
 .review-directory-item .review-decision-note{display:none}
-.review-directory-empty{margin:0;padding:8px 10px;border-top:1px solid var(--line-soft);color:var(--faint);font:11px var(--ui)}
+.review-directory-empty{margin:0;padding:8px 10px;border-top:1px solid var(--accent-line);background:var(--bg);color:var(--faint);font:11px var(--ui)}
 
 /* Sections and fragments ------------------------------------------------- */
 .section{scroll-margin-top:calc(var(--top) + 12px);margin:22px 0}
@@ -204,6 +211,8 @@ section:hover>.section-actions .review-controls,.section:hover>.section-head>.se
 .review-decision-tooltip-note{display:block;margin-top:5px;padding-top:5px;border-top:1px solid #ffffff24;white-space:pre-wrap;overflow-wrap:anywhere;color:#ffffffeb}
 .review-decision-tooltip-action{display:block;margin-top:5px;color:#ffffff8f;font-size:10.5px}
 .review-comment{color:var(--faint)}
+.section-actions>.review-comment{opacity:.5;transition:opacity .14s}
+.section:hover>.section-head>.section-actions>.review-comment,.section-head:focus-within>.section-actions>.review-comment{opacity:1}
 .review-controls.decision-changed .review-decision[aria-pressed=true]{animation:review-pop .5s cubic-bezier(.2,.85,.25,1.35)}
 .review-decision-compose{position:absolute;z-index:28;top:calc(100% + 6px);right:0;width:min(340px,80vw);padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);box-shadow:var(--shadow);opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity .14s ease,transform .14s ease}
 .review-decision-compose[hidden]{display:none}

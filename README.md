@@ -83,6 +83,29 @@ these prompts from the repository containing your change:
 
 > Use the change-saga cli to open this PR's Saga
 
+### Expect to iterate
+
+Change Saga works with the coding assistant you already use, but authoring a
+substantial Saga asks that assistant to navigate a repository, use tools,
+explain architecture, create diagrams, and connect exact Git evidence. Use a
+capable agentic model when possible. Smaller, free, or preview models may still
+complete the workflow, but they often need more guidance and revision.
+
+Treat a generated Saga as a first draft. Even frontier models rarely produce a
+clear, complete Saga in one pass. Review the prose and diagrams, then ask the
+assistant to revise anything repetitive, vague, or difficult to follow. A
+useful follow-up prompt is:
+
+> Keep the explanations concise, direct, and factual. Remove repetition. Prefer
+> a clear diagram or concrete example over another paragraph. Revise the Saga
+> until each section explains one coherent idea.
+
+Change Saga provides the structure that links technical documentation to exact
+Git evidence; it does not impose a writing personality. If your assistant tends
+to over-explain or overbuild, optional agent guidance such as
+[Ponytail](https://github.com/DietrichGebert/ponytail) may help, but it is not
+required.
+
 ## What it does
 
 A normal PR description sits above a flat file-by-file diff. That works for
@@ -112,7 +135,12 @@ with footnote-style references. Code-bearing diagram nodes and edges should each
 link directly to their own files and diff ranges; SVG element bounds become
 hoverable links automatically. Headings, exact text, controls, and image regions
 can use the same focused mapping model. Everything remains ordinary files in a
-`.saga` directory; [SPEC.md](SPEC.md) defines the format.
+`.saga` directory. That structured directory format is intentionally friendly
+to parallel development: chapters, fragments, evidence, claims, verifications,
+and review actions live in small independent records, so separate agents or
+branches can own different parts without funneling routine work through one
+shared file. This localizes merge conflicts rather than claiming to eliminate
+them. [SPEC.md](SPEC.md) defines the format.
 
 ## Reviewing a saga
 

@@ -10,8 +10,23 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+## [0.0.8] - 2026-08-25
+
+### Added
+
+- Opening a chapter now shows a sticky review directory listing everything
+  inside it that needs a decision, with each item's state, comment count, and
+  approve/request-changes controls in one place. The directory is styled as an
+  accent-colored bar so it is not mistaken for chapter prose, and it carries a
+  rotating chevron and a Show/Hide label so it is clear the panel collapses.
+  It appears only on chapters, not on the overview.
+
 ### Changed
 
+- A chapter no longer carries its own approve or request-changes decision;
+  those decisions now belong to the explanations and sections inside it, which
+  the chapter's review directory lists. Commenting on a chapter as a whole is
+  unaffected: the comment control stays in the chapter heading.
 - `change-saga cover --changed-lines` now emits one ranged diff URI per dense
   run of consecutive changed lines instead of one URI per line. Coalescing is
   restricted to line atoms that share a repository, base, head, path, and side
@@ -67,6 +82,11 @@ tool, and what they have to do about it.
   changed files first and Saga → Code lists explanations first; opening one
   then loads its ownership ranges and linked files as needed, while source diff
   contents remain deferred until their file is opened.
+- The README and authoring skill now set the expectation that a generated Saga
+  is a first draft requiring a separate clarity pass, with concise prompting
+  guidance and an optional pointer to external agent-style guidance.
+- GitHub now accepts blank issues and offers a minimal general feedback form
+  that asks only for the feedback, coding assistant, and exact model/provider.
 
 ## [0.0.7] - 2026-08-22
 

@@ -28,6 +28,20 @@ Treat completeness as an omission check, not proof that the authored proposal
 is good. Prefer showing behavior and relationships over describing them in
 dense prose.
 
+Treat generated content as a first draft, even when using a frontier model.
+After the evidence and structure are correct, perform a separate editorial
+pass: make explanations concise, direct, and factual; remove repetition and
+vague framing; and revise prose and diagrams until each fragment communicates
+one coherent idea. Expect iteration rather than assuming the first complete
+draft is ready for review.
+
+The structured directory format is intentionally friendly to parallel
+development. When work is parallelized, partition ownership along independent
+chapters and fragments, and let each lane add its own evidence, claims,
+verifications, and review records. Avoid aggregating unrelated work into shared
+files; merge the lanes before the final coverage and validation passes. This
+localizes Git conflicts but does not make parallel edits conflict-free.
+
 ## Locate the CLI
 
 Prefer an installed `change-saga` executable. In the Change Saga source repository, use

@@ -2887,7 +2887,7 @@ const appJavaScript = `(() => {
     const reviewDecision = event.target.closest('[data-review-decision]');
     if (reviewDecision) { activateReviewDecision(reviewDecision); return; }
     const reviewComment = event.target.closest('[data-review-comment]');
-    if (reviewComment) { openReviewComment(reviewComment.closest('[data-review-controls]')); return; }
+    if (reviewComment) { openReviewComment(reviewComment.closest('[data-review-controls]') || {dataset:{reviewTarget:reviewComment.dataset.reviewComment,reviewTitle:reviewComment.dataset.reviewTitle}}); return; }
     const reviewCancel = event.target.closest('[data-review-cancel]');
     if (reviewCancel) { closeReviewComposer(reviewCancel.closest('[data-review-decision-form]')); return; }
     if (event.target.closest('[data-close-annotation]')) { closeAnnotation(); return; }
