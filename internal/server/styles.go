@@ -1,5 +1,18 @@
 package server
 
+// darkTokens recolours the design tokens for dark mode. Only the palette
+// changes: every rule in pageStyles already reads through these variables, so
+// spacing, type and layout stay shared with light mode and cannot drift apart.
+// The values track GitHub's dark palette because the light tokens above track
+// its light one, which keeps text, diff and status colours at AA contrast.
+const darkTokens = `
+--bg:#0d1117;--bg-subtle:#161b22;--bg-inset:#1c2128;--ink:#e6edf3;--muted:#9198a1;--faint:#8b949e;
+--line:#30363d;--line-soft:#21262d;--accent:#4493f8;--accent-soft:#121d2f;--accent-line:#316dca;
+--green:#3fb950;--red:#f85149;--amber:#d29922;--sel:#132132;
+--add-bg:#12261e;--add-line:#3fb950;--del-bg:#25171c;--del-line:#f85149;--code-bg:#0d1117;--code-gutter:#161b22;
+--shadow:0 6px 24px #01040966,0 1px 3px #010409aa;color-scheme:dark
+`
+
 // pageStyles is the whole renderer stylesheet. The design target is a quiet
 // developer tool: system UI type for chrome, monospace for code and code-shaped
 // metadata, hairline separators instead of cards, and controls that stay
@@ -12,8 +25,12 @@ const pageStyles = `
 --add-bg:#e6ffec;--add-line:#2da44e;--del-bg:#ffebe9;--del-line:#cf222e;--code-bg:#ffffff;--code-gutter:#f6f8fa;
 --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,"Helvetica Neue",Arial,sans-serif;
 --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
---top:44px;--shadow:0 6px 24px #1f232814,0 1px 3px #1f23281f;--radius:6px
+--top:44px;--shadow:0 6px 24px #1f232814,0 1px 3px #1f23281f;--radius:6px;color-scheme:light
 }
+/* Dark mode. The OS preference decides unless the reviewer has pinned a theme,
+   which is why the media rule excuses an explicit light choice. ------------ */
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){` + darkTokens + `}}
+:root[data-theme=dark]{` + darkTokens + `}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.55 var(--ui);-webkit-font-smoothing:antialiased}
@@ -36,6 +53,7 @@ a{color:var(--accent)}
 .view-tab.active{color:var(--ink);border-color:var(--accent);font-weight:600}
 .top-meta{margin-left:auto;color:var(--faint);font:11px var(--mono)}
 .top-meta[hidden]{display:none}
+.theme-toggle{margin-left:8px}
 .review-progress{position:relative;display:flex;align-items:stretch;gap:2px;flex:0 1 280px;height:12px;margin-left:auto;padding:3px;border:1px solid var(--line-soft);border-radius:99px;background:var(--bg-subtle);opacity:.42;transition:height .18s ease,opacity .28s ease,box-shadow .2s ease}
 .top-meta:not([hidden])+.review-progress{margin-left:0}
 .review-progress:hover,.review-progress:focus-within{height:16px;opacity:1;box-shadow:0 2px 8px #1f23281f}

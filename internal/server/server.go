@@ -357,6 +357,7 @@ func newMux(application *app) *http.ServeMux {
 	mux.HandleFunc("GET /chapters/{chapter}", application.page)
 	mux.HandleFunc("GET /", application.page)
 	mux.HandleFunc("GET /app.js", application.javascript)
+	mux.HandleFunc("GET /theme.js", application.themeScript)
 	mux.HandleFunc("GET /api/code", application.codePage)
 	mux.HandleFunc("GET /api/coverage", application.coveragePage)
 	mux.HandleFunc("GET /api/coverage-file", application.coverageFilePage)
@@ -1715,6 +1716,16 @@ func (a *app) javascript(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = io.WriteString(w, appJavaScript)
+}
+
+// themeScript is served as its own file rather than inlined in the head
+// because the page's Content-Security-Policy allows script-src 'self' only.
+// It stays out of app.js, and stays render-blocking, so the theme is settled
+// before the first paint instead of one deferred script later.
+func (a *app) themeScript(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = io.WriteString(w, themeBoot)
 }
 
 func (a *app) createThread(w http.ResponseWriter, r *http.Request) {
