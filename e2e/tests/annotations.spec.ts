@@ -12,9 +12,17 @@ test("@critical drafts, undoes, redoes, submits, moves, recolors, and deletes vi
 
   await tools.getByRole("button", { name: "Rectangle" }).click();
   await dragOn(page, overlay, [0.15, 0.2], [0.42, 0.42]);
-  await expect(overlay.locator(".annotation.pending")).toHaveCount(1);
+  const pendingRect = overlay.locator(".annotation.pending");
+  await expect(pendingRect).toHaveCount(1);
+  const composer = page.locator("form.annotation-compose");
+  const [markBox, composerBox] = await Promise.all([pendingRect.boundingBox(), composer.boundingBox()]);
+  if (!markBox || !composerBox) throw new Error("annotation mark or nearby composer has no bounding box");
+  const horizontalGap = Math.max(markBox.x - composerBox.x - composerBox.width, composerBox.x - markBox.x - markBox.width, 0);
+  const verticalGap = Math.max(markBox.y - composerBox.y - composerBox.height, composerBox.y - markBox.y - markBox.height, 0);
+  expect(Math.hypot(horizontalGap, verticalGap)).toBeLessThanOrEqual(12);
 
   await tools.getByRole("button", { name: "Freehand" }).click();
+  await expect(composer).not.toBeVisible();
   await overlay.scrollIntoViewIfNeeded();
   const drawingBox = await overlay.boundingBox();
   if (!drawingBox) throw new Error("freehand surface has no bounding box");
@@ -31,7 +39,6 @@ test("@critical drafts, undoes, redoes, submits, moves, recolors, and deletes vi
   await page.getByRole("button", { name: /^Redo / }).click();
   await expect(overlay.locator(".annotation.pending")).toHaveCount(2);
 
-  const composer = page.locator("form.annotation-compose");
   await composer.locator('textarea[name="body"]').fill("Rectangle and freehand review marks.");
   await Promise.all([page.waitForNavigation(), composer.getByRole("button", { name: "Comment" }).click()]);
   // The comment now belongs to the mark it was drawn on, so it reads from the

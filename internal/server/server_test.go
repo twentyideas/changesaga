@@ -1061,6 +1061,9 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	if !strings.Contains(renderedPage, `class="attached-file" data-file-diff-href=`) || !strings.Contains(renderedPage, `data-file-diff-rows`) || !strings.Contains(renderedPage, "Adds the package entrypoint so the example compiles.") || !strings.Contains(renderedPage, "Open in Code Diff") || strings.Contains(renderedPage, `<details class="attached-file" open`) || strings.Contains(renderedPage, "Linked ranges only") {
 		t.Fatal("attached code was not presented as a collapsed, explained file list")
 	}
+	if !strings.Contains(renderedPage, "linked change") || !strings.Contains(renderedPage, "Full file diffs shown for context") || !strings.Contains(renderedPage, "Linked <span") {
+		t.Fatal("attached code did not distinguish linked-change counts from full-file context")
+	}
 	if !strings.Contains(renderedPage, `data-annotation-color`) || !strings.Contains(renderedPage, `stroke="#336699"`) || !strings.Contains(renderedPage, `data-copy-link="#`+domID("thread:thread")+`"`) || !strings.Contains(renderedPage, `data-copy-link="#`+domID("message:message")+`"`) {
 		t.Fatal("annotation colors or committed-item permalinks were not rendered")
 	}

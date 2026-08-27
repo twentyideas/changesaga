@@ -411,6 +411,7 @@ mark.annotation-revealed{box-shadow:0 0 0 2px var(--ink)}
 .dialog-actions .btn-primary{flex:none;min-width:88px;padding:7px 14px}
 .annotation-compose{position:fixed;z-index:90;right:18px;bottom:18px;width:min(440px,calc(100vw - 36px));display:none;box-shadow:var(--shadow)}
 .annotation-compose.open{display:block}
+.annotation-compose.anchored{position:absolute;right:auto;bottom:auto}
 .diff-drawer{position:fixed;z-index:80;inset:var(--top) 0 0 auto;width:min(1100px,92vw);background:var(--bg);border-left:1px solid var(--line);box-shadow:-12px 0 40px #1f23281f;transform:translateX(105%);transition:transform .2s ease;display:flex;flex-direction:column}
 .diff-drawer.open{transform:none}
 .drawer-backdrop{position:fixed;z-index:70;inset:var(--top) 0 0;background:#1f232833;display:none}
@@ -427,6 +428,7 @@ mark.annotation-revealed{box-shadow:0 0 0 2px var(--ink)}
 
 /* Linked code (drawer contents) ------------------------------------------ */
 .attached-code-summary{display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--line-soft);background:var(--bg-subtle);color:var(--muted);font:11px var(--mono)}
+.attached-code-scope{margin-left:auto;color:var(--faint);font-family:var(--ui)}
 .attached-file-list{padding:8px 10px}
 .attached-file{margin:6px 0;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--bg)}
 .attached-file>summary{display:flex;align-items:center;gap:8px;padding:7px 10px;list-style:none;cursor:pointer}

@@ -325,9 +325,61 @@ const appJavaScript = `(() => {
     q('[name=anchor]', form).value = JSON.stringify({type:'target'});
     q('.dialog-head h2', form).textContent = 'Comment on ' + (control.dataset.reviewTitle || 'this item');
     form.classList.add('open');
+    positionAnnotationComposer(control);
     q('[name=body]', form).focus();
     resetTool();
     updateHistoryControls();
+  }
+
+  function resetAnnotationComposerPosition() {
+    const form = q('.annotation-compose');
+    if (!form) return;
+    form.classList.remove('anchored');
+    form.style.removeProperty('left');
+    form.style.removeProperty('top');
+  }
+
+  function positionAnnotationComposer(anchor) {
+    const form = q('.annotation-compose');
+    const rect = anchor?.getBoundingClientRect ? anchor.getBoundingClientRect() : anchor;
+    if (!form || !rect || !Number.isFinite(rect.left) || !Number.isFinite(rect.top)) {
+      resetAnnotationComposerPosition();
+      return;
+    }
+    form.classList.add('anchored');
+    const width = form.offsetWidth;
+    const height = form.offsetHeight;
+    const gap = 10;
+    const edge = 12;
+    const clamp = (value, low, high) => Math.max(low, Math.min(Math.max(low, high), value));
+    const centerLeft = rect.left + (rect.width - width) / 2;
+    const centerTop = rect.top + (rect.height - height) / 2;
+    const candidates = [
+      {left:rect.right + gap, top:centerTop},
+      {left:rect.left - width - gap, top:centerTop},
+      {left:centerLeft, top:rect.bottom + gap},
+      {left:centerLeft, top:rect.top - height - gap}
+    ].map((candidate,index) => ({
+      left:clamp(candidate.left, edge, innerWidth - width - edge),
+      top:clamp(candidate.top, edge, innerHeight - height - edge),
+      index
+    }));
+    const obstacles = [q('.annotation-toolbox:not([hidden])'), q('.topbar')]
+      .filter(element => element?.getClientRects().length)
+      .map(element => element.getBoundingClientRect());
+    const overlap = (a,b) => Math.max(0, Math.min(a.right,b.right) - Math.max(a.left,b.left)) * Math.max(0, Math.min(a.bottom,b.bottom) - Math.max(a.top,b.top));
+    const score = candidate => {
+      const candidateRect = {left:candidate.left,top:candidate.top,right:candidate.left+width,bottom:candidate.top+height};
+      const coveredControls = obstacles.reduce((area, obstacle) => area + overlap(candidateRect, obstacle), 0);
+      const coveredAnchor = overlap(candidateRect, rect);
+      const dx = Math.max(rect.left-candidateRect.right, candidateRect.left-rect.right, 0);
+      const dy = Math.max(rect.top-candidateRect.bottom, candidateRect.top-rect.bottom, 0);
+      return (coveredControls + coveredAnchor) * 1000 + Math.hypot(dx,dy) + candidate.index / 100;
+    };
+    candidates.sort((left,right) => score(left) - score(right));
+    const {left,top} = candidates[0];
+    form.style.left = Math.round(left + scrollX) + 'px';
+    form.style.top = Math.round(top + scrollY) + 'px';
   }
 
   function shortcutDirection(event) {
@@ -1185,7 +1237,8 @@ const appJavaScript = `(() => {
     delete file.dataset.fileDiffLoaded;
     file.dataset.fileDiffLoading = 'true';
     q('[data-diff-surface]', file)?.classList.add('loading');
-    if (status) status.textContent = 'Loading every changed hunk…';
+    const linkedContext = file.matches('.attached-file');
+    if (status) status.textContent = linkedContext ? 'Loading full file diff; linked changes will be highlighted…' : 'Loading every changed hunk…';
     const visited = new Set();
     const promise = (async () => {
       let nextHref = href;
@@ -1218,7 +1271,7 @@ const appJavaScript = `(() => {
       }
       if (!reviewFileIsActive(file)) return file;
       file.dataset.fileDiffLoaded = key;
-      if (status) status.textContent = 'All changed hunks';
+      if (status) status.textContent = linkedContext ? 'All changed hunks · linked changes highlighted' : 'All changed hunks';
       prepareContext(destination);
       applyDiffLayout(diffLayout);
       revealHashedAnnotationBubble();
@@ -2531,6 +2584,10 @@ const appJavaScript = `(() => {
     q('[name=target]', form).value = annotationDraft.target;
     q('[name=anchor]', form).value = JSON.stringify(annotationDraft.anchor);
     form.classList.toggle('open', showComposer && annotationDraft.anchor.shapes.length > 0);
+    if (form.classList.contains('open')) {
+      const marks = qa('.annotation.pending', overlay);
+      positionAnnotationComposer(marks[marks.length - 1] || annotationDraft.fragment);
+    }
     clearAnnotationSelection();
     updateHistoryControls();
   }
@@ -2574,6 +2631,7 @@ const appJavaScript = `(() => {
     q('[name=anchor]', form).value = JSON.stringify(anchor);
     q('[name=body]', form).value = options.body || '';
     form.classList.add('open');
+    positionAnnotationComposer(options.anchorElement || options.anchorRect || q('.fragment-head', fragment));
     q('[name=body]', form).focus();
     annotationDraft = {
       kind:'draft',
@@ -2591,6 +2649,7 @@ const appJavaScript = `(() => {
   function closeAnnotation(discard = true) {
     const form = q('.annotation-compose');
     if (form) form.classList.remove('open');
+    resetAnnotationComposerPosition();
     if (discard) {
       discardAnnotationDraft();
     }
@@ -2795,7 +2854,10 @@ const appJavaScript = `(() => {
     // arming a tool hands the pointer back to the content.
     if (mode !== 'select') closeAnnotationBubbles();
     setSelectedTool(mode);
-    if (mode === 'select') return;
+    if (mode === 'select') {
+      if (annotationDraft?.shapeDraft) syncShapeDraft(true);
+      return;
+    }
     if (fragment) setActiveFragment(fragment);
     if (!fragment) {
       const label = q('[data-tool-target]');
@@ -2813,7 +2875,7 @@ const appJavaScript = `(() => {
       return;
     }
     if (mode === 'target') {
-      openAnnotation({type:'target'});
+      openAnnotation({type:'target'}, {fragment, anchorElement:q('.fragment-head', fragment)});
       return;
     }
     if (mode === 'text') {
@@ -2832,13 +2894,22 @@ const appJavaScript = `(() => {
       before.setEnd(selectedRange.startContainer, selectedRange.startOffset);
       const start = before.toString().length;
       const allText = selectable.textContent;
-      openAnnotation({type:'text',text:{exact,start,end:start+exact.length,prefix:allText.slice(Math.max(0,start-32),start),suffix:allText.slice(start+exact.length,start+exact.length+32),color:annotationColor}});
+      openAnnotation({type:'text',text:{exact,start,end:start+exact.length,prefix:allText.slice(Math.max(0,start-32),start),suffix:allText.slice(start+exact.length,start+exact.length+32),color:annotationColor}}, {fragment, anchorRect:selectedRange.getBoundingClientRect()});
       return;
     }
     const overlay = q('.review-overlay', fragment);
     if (!overlay) {
       resetTool();
       return;
+    }
+    // A nearby composer should not intercept the next stroke in a multi-shape
+    // annotation. Keep its draft values, hide it while the tool is armed, and
+    // let addDraftShape reopen it beside the newly completed mark.
+    if (annotationDraft?.shapeDraft) {
+      const form = q('.annotation-compose');
+      annotationDraft.body = q('[name=body]', form)?.value || annotationDraft.body || '';
+      form?.classList.remove('open');
+      resetAnnotationComposerPosition();
     }
     if (mode === 'sticky') {
       // A sticky is paper, not ink, so it opens on the note palette until the
