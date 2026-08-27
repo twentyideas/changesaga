@@ -827,50 +827,44 @@ const appJavaScript = `(() => {
     const step = 10;
     const control = document.createElement('div');
     control.className = 'context-expander';
-    control.setAttribute('role', 'group');
 
-    const action = (direction, label, glyph) => {
+    const action = (direction, glyph) => {
       const button = document.createElement('button');
       button.type = 'button';
       button.dataset.contextExpand = direction;
       button.textContent = glyph;
-      button.setAttribute('aria-label', label);
-      button.title = label;
       button.addEventListener('click', () => reveal(direction));
       control.append(button);
       return button;
     };
-    const down = hasChangeBefore ? action('down', '', '↓') : null;
-    const all = action('all', '', '');
+    const down = hasChangeBefore ? action('down', '↓') : null;
+    const all = action('all', '');
     all.className = 'context-expand-all';
-    const up = hasChangeAfter ? action('up', '', '↑') : null;
+    const up = hasChangeAfter ? action('up', '↑') : null;
 
     const refresh = () => {
       if (!remaining.length) {
         control.remove();
-        applyDiffLayout(diffLayout);
         return;
       }
       const count = remaining.length;
-      control.setAttribute('aria-label', count + ' hidden unchanged lines');
+      const amount = Math.min(step, count);
       all.textContent = 'Expand all ' + count + ' unchanged lines';
-      all.setAttribute('aria-label', 'Show all ' + count + ' hidden unchanged lines');
       all.title = 'Expand the collapsed gap';
       if (down) {
-        const amount = Math.min(step, count);
         const label = 'Show next ' + amount + ' unchanged lines';
         down.setAttribute('aria-label', label);
         down.title = label;
       }
       if (up) {
-        const amount = Math.min(step, count);
         const label = 'Show previous ' + amount + ' unchanged lines';
         up.setAttribute('aria-label', label);
         up.title = label;
       }
-      remaining[0].before(control);
+      if (control.nextElementSibling !== remaining[0]) remaining[0].before(control);
     };
     const reveal = direction => {
+      const acted = document.activeElement;
       const revealed = direction === 'all' ? remaining
         : direction === 'up' ? remaining.slice(-step)
         : remaining.slice(0, step);
@@ -879,6 +873,21 @@ const appJavaScript = `(() => {
       remaining = remaining.filter(row => !revealedSet.has(row));
       refresh();
       applyDiffLayout(diffLayout);
+      if (acted instanceof HTMLElement && [down, all, up].includes(acted)) {
+        globalThis.requestAnimationFrame?.(() => {
+          if (acted.isConnected) {
+            acted.focus({preventScroll:true});
+            return;
+          }
+          const towardPrevious = direction === 'down' || direction === 'all' && !hasChangeAfter;
+          const edge = towardPrevious ? revealed[0] : revealed[revealed.length - 1];
+          let neighbor = towardPrevious ? edge?.previousElementSibling : edge?.nextElementSibling;
+          while (neighbor && !neighbor.matches('[data-diff-row]')) {
+            neighbor = towardPrevious ? neighbor.previousElementSibling : neighbor.nextElementSibling;
+          }
+          neighbor?.querySelector('button,[href],[tabindex]')?.focus({preventScroll:true});
+        });
+      }
     };
     refresh();
   }
@@ -1134,6 +1143,14 @@ const appJavaScript = `(() => {
   // the same markup, row endpoint, cache, and bounded-page stream; only the
   // surrounding navigation differs. Context is prepared after the final page
   // arrives so a collapsed unchanged gap can span an endpoint boundary.
+  function reviewFileIsActive(file) {
+    return Boolean(file?.isConnected && (!file.matches('details') || file.open));
+  }
+
+  function cancelReviewFile(file) {
+    reviewFileRequests.get(file)?.controller.abort();
+  }
+
   async function hydrateReviewFile(file, options = {}) {
     const href = file?.dataset.fileDiffHref;
     const destination = q('[data-file-diff-rows]', file);
@@ -1141,30 +1158,47 @@ const appJavaScript = `(() => {
     if (!href || !destination) return file || null;
     const key = new URL(href, location.href).toString();
     const previous = reviewFileRequests.get(file);
-    if (!options.force && previous?.key === key) return previous.promise;
+    if (!options.force && previous?.key === key && !previous.controller.signal.aborted) return previous.promise;
     if (!options.force && file.dataset.fileDiffLoaded === key) return file;
+    previous?.controller.abort();
+    const controller = new AbortController();
     delete file.dataset.fileDiffLoaded;
     file.dataset.fileDiffLoading = 'true';
     q('[data-diff-surface]', file)?.classList.add('loading');
     if (status) status.textContent = 'Loading every changed hunk…';
+    const visited = new Set();
     const promise = (async () => {
       let nextHref = href;
       let first = true;
-      while (nextHref && file.isConnected) {
-        const result = await fetchFileDiff(nextHref);
+      let loaded = 0;
+      let total = 0;
+      while (nextHref && reviewFileIsActive(file)) {
+        const pageHref = new URL(nextHref, location.href).toString();
+        if (visited.has(pageHref) || visited.size >= 10_000) throw new Error('diff cursor did not advance');
+        visited.add(pageHref);
+        const result = await fetchFileDiff(nextHref, {signal:controller.signal});
+        if (!reviewFileIsActive(file)) {
+          controller.abort();
+          return file;
+        }
         const wrapper = parseShellHTML(result.html);
         const page = q('[data-file-diff-page]', wrapper) || wrapper;
         const items = q('[data-page-items="lines"]', page) || page;
         const rows = qa('.diff-row', items);
         if (first) destination.replaceChildren(...rows); else destination.append(...rows);
         first = false;
+        loaded += rows.length;
+        total = result.total || total;
+        if (status) status.textContent = total > 0
+          ? 'Loaded ' + loaded + ' of ' + total + ' diff lines…'
+          : 'Loaded ' + loaded + ' diff lines…';
+        highlightCode(destination);
         nextHref = continuedPageURL(href, result.next || page.dataset?.nextCursor);
         if (nextHref) await new Promise(resolve => setTimeout(resolve, 0));
       }
-      if (!file.isConnected) return file;
+      if (!reviewFileIsActive(file)) return file;
       file.dataset.fileDiffLoaded = key;
       if (status) status.textContent = 'All changed hunks';
-      highlightCode(destination);
       prepareContext(destination);
       applyDiffLayout(diffLayout);
       revealHashedAnnotationBubble();
@@ -1173,7 +1207,9 @@ const appJavaScript = `(() => {
         globalThis.requestAnimationFrame?.(() => selected?.scrollIntoView({block:'center'}));
       }
       return file;
-    })().catch(() => {
+    })().catch(error => {
+      if (error.name === 'AbortError') return file;
+      visited.forEach(pageHref => fileDiffCache.delete(pageHref));
       destination.innerHTML = '<p class="diff-placeholder">This file could not be loaded. <button type="button" data-retry-file>Try again</button></p>';
       if (status) status.textContent = 'Could not load every changed hunk';
       return file;
@@ -1182,7 +1218,7 @@ const appJavaScript = `(() => {
       q('[data-diff-surface]', file)?.classList.remove('loading');
       if (reviewFileRequests.get(file)?.promise === promise) reviewFileRequests.delete(file);
     });
-    reviewFileRequests.set(file, {key, promise});
+    reviewFileRequests.set(file, {key, controller, promise});
     return promise;
   }
 
@@ -1230,6 +1266,7 @@ const appJavaScript = `(() => {
       const panelResponse = q('[data-code-panel-content]', response) || response;
       const sidebar = q('[data-code-sidebar]');
       if (!sidebarResponse || !sidebar) throw new Error('code response was incomplete');
+      within(surface, '[data-file-diff-href]').forEach(cancelReviewFile);
       sidebar.replaceChildren(...Array.from(sidebarResponse.childNodes));
       surface.replaceChildren(...Array.from(panelResponse.childNodes));
     } else {
@@ -1443,6 +1480,7 @@ const appJavaScript = `(() => {
 
   function restoreDrawerContent() {
     const body = q('.drawer-body');
+    if (body) within(body, '[data-file-diff-href]').forEach(cancelReviewFile);
     if (drawerRestore) {
       if (drawerRestore.placeholder.isConnected) drawerRestore.placeholder.replaceWith(drawerRestore.fragment);
       drawerRestore = null;
@@ -1488,22 +1526,27 @@ const appJavaScript = `(() => {
   // markup that stays inside a closed disclosure until it is asked for.
   const fileDiffCache = new Map();
 
-  function fetchFileDiff(href) {
-    let request = fileDiffCache.get(href);
-    if (!request) {
-      const load = () => fetch(href, {headers:{Accept:'text/html'}}).then(async response => {
-        if (response.status === 202) {
-          await new Promise(resolve => setTimeout(resolve, retryDelay(response)));
-          return load();
-        }
-        if (!response.ok) throw new Error('diff request failed');
-        return {html:await response.text(), next:response.headers.get('X-Change-Saga-Next-Cursor') || ''};
-      });
-      request = load();
-      fileDiffCache.set(href, request);
-      request.catch(() => fileDiffCache.delete(href));
+  async function fetchFileDiff(href, options = {}) {
+    const key = new URL(href, location.href).toString();
+    const cached = fileDiffCache.get(key);
+    if (cached) return cached;
+    const signal = options.signal || new AbortController().signal;
+    while (true) {
+      const response = await fetch(href, {headers:{Accept:'text/html'}, signal});
+      if (response.status === 202) {
+        await abortableDelay(retryDelay(response), signal);
+        continue;
+      }
+      if (!response.ok) throw new Error('diff request failed');
+      const result = {
+        html:await response.text(),
+        next:response.headers.get('X-Change-Saga-Next-Cursor') || '',
+        total:Number(response.headers.get('X-Change-Saga-Total')) || 0,
+        returned:Number(response.headers.get('X-Change-Saga-Returned')) || 0
+      };
+      fileDiffCache.set(key, result);
+      return result;
     }
-    return request;
   }
 
   // The page ships the saga as a shell: saga identity, coverage totals, the
@@ -1565,15 +1608,15 @@ const appJavaScript = `(() => {
     }
   }
 
-  function targetCodeAbortError() {
-    return new DOMException('Linked-code prefetch was cancelled', 'AbortError');
+  function requestAbortError() {
+    return new DOMException('Request was cancelled', 'AbortError');
   }
 
-  function targetCodeRetryDelay(milliseconds, signal) {
+  function abortableDelay(milliseconds, signal) {
     return new Promise((resolve, reject) => {
-      if (signal.aborted) { reject(targetCodeAbortError()); return; }
+      if (signal.aborted) { reject(requestAbortError()); return; }
       const timer = setTimeout(resolve, milliseconds);
-      signal.addEventListener('abort', () => { clearTimeout(timer); reject(targetCodeAbortError()); }, {once:true});
+      signal.addEventListener('abort', () => { clearTimeout(timer); reject(requestAbortError()); }, {once:true});
     });
   }
 
@@ -1581,7 +1624,7 @@ const appJavaScript = `(() => {
     while (true) {
       const response = await fetch(job.href, {headers:{Accept:'text/html'}, credentials:'same-origin', signal:job.controller.signal});
       if (response.status === 202) {
-        await targetCodeRetryDelay(retryDelay(response), job.controller.signal);
+        await abortableDelay(retryDelay(response), job.controller.signal);
         continue;
       }
       if (!response.ok) throw new Error('linked-code request failed');
@@ -1598,7 +1641,7 @@ const appJavaScript = `(() => {
       job.controller = new AbortController();
       activeTargetCodeLoads++;
       void loadTargetCodeJob(job).then(html => {
-        if (job.state === 'cancelled') throw targetCodeAbortError();
+        if (job.state === 'cancelled') throw requestAbortError();
         rememberTargetCode(job.href, html);
         installTargetCodeResponse(job.href, html);
         job.resolve(html);
@@ -1647,7 +1690,7 @@ const appJavaScript = `(() => {
       } else if (job.state === 'queued') {
         job.state = 'cancelled';
         targetCodeJobs.delete(job.href);
-        job.reject(targetCodeAbortError());
+        job.reject(requestAbortError());
       }
     });
   }
@@ -2921,7 +2964,11 @@ const appJavaScript = `(() => {
 
   document.addEventListener('toggle', event => {
     const details = event.target.closest?.('details');
-    if (!details?.open) return;
+    if (!details) return;
+    if (!details.open) {
+      if (details.dataset.fileDiffHref) cancelReviewFile(details);
+      return;
+    }
     if (details.dataset.fileDiffHref) void hydrateReviewFile(details);
     if (details.dataset.coverageFileHref) void hydrateCoverageFile(details);
     if (details.dataset.coverageTargetHref) void hydrateCoverageTarget(details);

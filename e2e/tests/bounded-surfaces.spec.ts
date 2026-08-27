@@ -59,7 +59,7 @@ test("linked code streams every changed hunk and expands collapsed context from 
     const line = start + offset;
     return `<div class="diff-row context" data-context-row><span class="line-no">${line}</span><span class="line-no">${line}</span><span></span><code data-code>line ${line}</code><span></span></div>`;
   }).join("");
-  const changed = (line: number): string => `<div class="diff-row new" data-diff-row data-line="${line}"><span></span><span></span><span>+</span><code data-code>changed ${line}</code><span></span></div>`;
+  const changed = (line: number): string => `<div class="diff-row new" data-diff-row data-line="${line}"><span></span><button type="button" data-line-select>${line}</button><span>+</span><code data-code>changed ${line}</code><span></span></div>`;
 
   await page.route("**/api/file-diff**", async (route) => {
     const url = new URL(route.request().url());
@@ -91,12 +91,97 @@ test("linked code streams every changed hunk and expands collapsed context from 
   await expect(attached.locator(".context-expander")).toHaveCount(3);
   await expect(attached.getByRole("button", { name: "Load the next file chunk" })).toHaveCount(0);
 
+  const leadingGap = attached.locator(".context-expander").first();
+  await expect(leadingGap.getByRole("button", { name: "Show previous 10 unchanged lines" })).toBeVisible();
+  await expect(leadingGap.getByRole("button", { name: /Show next/ })).toHaveCount(0);
+  const trailingGap = attached.locator(".context-expander").last();
+  await expect(trailingGap.getByRole("button", { name: "Show next 10 unchanged lines" })).toBeVisible();
+  await expect(trailingGap.getByRole("button", { name: /Show previous/ })).toHaveCount(0);
+
   const middleGap = attached.locator(".context-expander").nth(1);
-  await middleGap.getByRole("button", { name: "Show next 10 unchanged lines" }).click();
-  await expect(middleGap.getByRole("button", { name: "Show all 10 hidden unchanged lines" })).toBeVisible();
-  await middleGap.getByRole("button", { name: "Show previous 10 unchanged lines" }).click();
+  const expandAll = middleGap.getByRole("button", { name: "Expand all 20 unchanged lines", exact: true });
+  await expect(expandAll).not.toHaveAttribute("aria-label");
+  const next = middleGap.getByRole("button", { name: "Show next 10 unchanged lines" });
+  await next.focus();
+  await next.press("Enter");
+  await expect(next).toBeFocused();
+  await expect(middleGap.getByRole("button", { name: "Expand all 10 unchanged lines", exact: true })).toBeVisible();
+  const previous = middleGap.getByRole("button", { name: "Show previous 10 unchanged lines" });
+  await previous.focus();
+  await previous.press("Enter");
   await expect(attached.locator(".context-expander")).toHaveCount(2);
+  await expect(previous).not.toBeAttached();
+  await expect(attached.locator('[data-line="43"] [data-line-select]')).toBeFocused();
   await expect(attached.locator(".diff-row.new:visible")).toHaveCount(2);
+});
+
+test("collapsing a linked file cancels its remaining diff pages", async ({ page, saga }) => {
+  const fileRequests: URL[] = [];
+  await page.route("**/api/file-diff**", async (route) => {
+    const url = new URL(route.request().url());
+    fileRequests.push(url);
+    const cursor = url.searchParams.get("cursor");
+    const pageNumber = cursor ? Number(cursor.split("-").at(-1)) : 1;
+    if (pageNumber > 1) await new Promise((resolve) => setTimeout(resolve, 250));
+    await route.fulfill({
+      contentType: "text/html",
+      headers: {
+        "X-Change-Saga-Next-Cursor": `page-${pageNumber + 1}`,
+        "X-Change-Saga-Total": "100",
+        "X-Change-Saga-Returned": "1"
+      },
+      body: `<div data-file-diff-page><div data-page-items="lines"><div class="diff-row new" data-diff-row data-line="${pageNumber}"><code data-code>page ${pageNumber}</code></div></div></div>`
+    });
+  });
+
+  await page.goto(saga.baseURL, { waitUntil: "load" });
+  const overview = page.locator('[data-view="saga"] article.fragment').filter({ has: page.locator(".fragment-markdown") }).first();
+  await overview.hover();
+  await overview.locator("[data-open-diffs]:visible").first().click();
+  const attached = page.locator(".diff-drawer.open details.attached-file").first();
+  await attached.locator("summary").click();
+  await expect(attached.locator("[data-file-diff-status]")).toHaveText("Loaded 1 of 100 diff lines…");
+  await attached.locator("summary").click();
+  await page.waitForTimeout(800);
+  expect(fileRequests.length).toBeLessThanOrEqual(2);
+});
+
+test("a repeated file-diff cursor stops instead of spinning from cache", async ({ page, saga }) => {
+  const fileRequests: URL[] = [];
+  await page.route("**/api/file-diff**", async (route) => {
+    fileRequests.push(new URL(route.request().url()));
+    await route.fulfill({
+      contentType: "text/html",
+      headers: { "X-Change-Saga-Next-Cursor": "repeat" },
+      body: `<div data-file-diff-page><div data-page-items="lines"><div class="diff-row new" data-diff-row><code data-code>one bounded page</code></div></div></div>`
+    });
+  });
+
+  await page.goto(saga.baseURL, { waitUntil: "load" });
+  const overview = page.locator('[data-view="saga"] article.fragment').filter({ has: page.locator(".fragment-markdown") }).first();
+  await overview.hover();
+  await overview.locator("[data-open-diffs]:visible").first().click();
+  const attached = page.locator(".diff-drawer.open details.attached-file").first();
+  await attached.locator("summary").click();
+  await expect(attached.locator("[data-file-diff-status]")).toHaveText("Could not load every changed hunk");
+  expect(fileRequests).toHaveLength(2);
+  await expect(attached.locator(".diff-row")).toHaveCount(0);
+});
+
+test("linked code uses the shared side-by-side layout selected in Code Diff", async ({ page, saga }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`${saga.baseURL}/?view=code`, { waitUntil: "load" });
+  const split = page.getByRole("button", { name: "Side-by-side diff" });
+  await split.click();
+  await expect(split).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("tab", { name: "Saga" }).click();
+  const overview = page.locator('[data-view="saga"] article.fragment').filter({ has: page.locator(".fragment-markdown") }).first();
+  await overview.hover();
+  await overview.locator("[data-open-diffs]:visible").first().click();
+  const attached = page.locator(".diff-drawer.open details.attached-file").first();
+  await attached.locator("summary").click();
+  await expect(attached.locator("[data-file-diff-status]")).toHaveText("All changed hunks");
+  await expect(attached.locator("[data-diff-surface]")).toHaveAttribute("data-layout", "split");
 });
 
 test("Coverage continuously loads one direction at a time and keeps its controls while appending", async ({ page, largeSaga }) => {

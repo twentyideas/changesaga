@@ -147,7 +147,7 @@ on wide screens and a modal drawer on narrow screens, grouped by file with a
 │   ▾ server            │ ┌ old ───────┬ new ───────┐ │  excerpt…   │
 │     ● appjs.go +34−18 │ │  41 code   │  41 code   │ │ [Open ↗]   │
 │     ○ server.go +8−2  │ │  42 code   │  42 code   │ │             │
-│   ▸ coverage          │ │ … 12 unchanged lines …  │ │ Fragment    │
+│   ▸ coverage          │ │ [↓] Expand 12 lines [↑] │ │ Fragment    │
 │ ▸ schema              │ │  55 old   │  55 new   + │ │  State…     │
 │                       │ └────────────┴──────────────┘ │ [Open ↗]   │
 ├ [Hide files] ─────────┴──────── [Prev] [Next unviewed]┴[Hide related]┤
