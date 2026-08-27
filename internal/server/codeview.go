@@ -52,6 +52,14 @@ type FileDiffView struct {
 	Selected       bool
 }
 
+// reviewDiffSurfaceView is the shared template contract for a reviewable file
+// diff, whether it is opened from Code Diff or beside narrative evidence.
+// CodeHref is populated only when the surface needs a route back to Code Diff.
+type reviewDiffSurfaceView struct {
+	Path     string
+	CodeHref string
+}
+
 // DiffLineView is presentation-only. Atom is populated for changed lines and
 // events so existing fully-qualified comment and suggestion contracts remain
 // attached to the same diff atom.

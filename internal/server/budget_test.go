@@ -235,7 +235,7 @@ func TestLargeSagaFileDiffEndpointStaysWithinBudgets(t *testing.T) {
 	body := budgetRequest(t, handler, "/api/file-diff?file="+escaped)
 	checkBudget(t, "file diff response bytes", len(body), fileDiffBodyBudget,
 		"one file body is what a reviewer waits for after opening a file")
-	if !strings.Contains(body, "data-attached-full-diff") || !strings.Contains(body, "data-code>") {
+	if !strings.Contains(body, `data-page-items="lines"`) || !strings.Contains(body, "data-code>") {
 		t.Fatal("file diff response carried no reviewable rows")
 	}
 

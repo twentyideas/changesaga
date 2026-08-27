@@ -799,6 +799,8 @@ const appJavaScript = `(() => {
       qa(':scope > .context-expander', body).forEach(button => button.remove());
       qa(':scope > [data-context-row]', body).forEach(row => { row.hidden = false; });
       const rows = [...body.children].filter(row => row.matches('.diff-row'));
+      const firstChange = rows.findIndex(row => !row.matches('[data-context-row]'));
+      const lastChange = rows.findLastIndex(row => !row.matches('[data-context-row]'));
       const hidden = rows.map((row, index) => {
         if (!row.matches('[data-context-row]')) return false;
         let before = Infinity, after = Infinity;
@@ -808,21 +810,86 @@ const appJavaScript = `(() => {
       });
       for (let index = 0; index < rows.length;) {
         if (!hidden[index]) { index++; continue; }
+        const start = index;
         const group = [];
         while (index < rows.length && hidden[index]) { rows[index].hidden = true; group.push(rows[index]); index++; }
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'context-expander';
-        button.textContent = 'Expand ' + group.length + ' unchanged lines';
-        button.setAttribute('aria-label', 'Show ' + group.length + ' hidden unchanged lines');
-        group[0].before(button);
-        button.addEventListener('click', () => {
-          group.forEach(row => { row.hidden = false; });
-          button.remove();
-          applyDiffLayout(diffLayout);
-        });
+        installContextExpander(group, firstChange >= 0 && start > firstChange, lastChange >= 0 && index <= lastChange);
       }
     });
+  }
+
+  // GitHub-style context controls keep changed hunks visible while allowing a
+  // reviewer to reveal unchanged lines from either edge of a collapsed gap.
+  // The middle action opens the whole gap; directional actions reveal ten
+  // lines at a time without discarding the reviewer's place in the diff.
+  function installContextExpander(group, hasChangeBefore, hasChangeAfter) {
+    let remaining = [...group];
+    const step = 10;
+    const control = document.createElement('div');
+    control.className = 'context-expander';
+
+    const action = (direction, glyph) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.contextExpand = direction;
+      button.textContent = glyph;
+      button.addEventListener('click', () => reveal(direction));
+      control.append(button);
+      return button;
+    };
+    const down = hasChangeBefore ? action('down', '↓') : null;
+    const all = action('all', '');
+    all.className = 'context-expand-all';
+    const up = hasChangeAfter ? action('up', '↑') : null;
+
+    const refresh = () => {
+      if (!remaining.length) {
+        control.remove();
+        return;
+      }
+      const count = remaining.length;
+      const amount = Math.min(step, count);
+      all.textContent = 'Expand all ' + count + ' unchanged lines';
+      all.title = 'Expand the collapsed gap';
+      if (down) {
+        const label = 'Show next ' + amount + ' unchanged lines';
+        down.setAttribute('aria-label', label);
+        down.title = label;
+      }
+      if (up) {
+        const label = 'Show previous ' + amount + ' unchanged lines';
+        up.setAttribute('aria-label', label);
+        up.title = label;
+      }
+      if (control.nextElementSibling !== remaining[0]) remaining[0].before(control);
+    };
+    const reveal = direction => {
+      const acted = document.activeElement;
+      const revealed = direction === 'all' ? remaining
+        : direction === 'up' ? remaining.slice(-step)
+        : remaining.slice(0, step);
+      const revealedSet = new Set(revealed);
+      revealed.forEach(row => { row.hidden = false; });
+      remaining = remaining.filter(row => !revealedSet.has(row));
+      refresh();
+      applyDiffLayout(diffLayout);
+      if (acted instanceof HTMLElement && [down, all, up].includes(acted)) {
+        globalThis.requestAnimationFrame?.(() => {
+          if (acted.isConnected) {
+            acted.focus({preventScroll:true});
+            return;
+          }
+          const towardPrevious = direction === 'down' || direction === 'all' && !hasChangeAfter;
+          const edge = towardPrevious ? revealed[0] : revealed[revealed.length - 1];
+          let neighbor = towardPrevious ? edge?.previousElementSibling : edge?.nextElementSibling;
+          while (neighbor && !neighbor.matches('[data-diff-row]')) {
+            neighbor = towardPrevious ? neighbor.previousElementSibling : neighbor.nextElementSibling;
+          }
+          neighbor?.querySelector('button,[href],[tabindex]')?.focus({preventScroll:true});
+        });
+      }
+    };
+    refresh();
   }
 
   function applyDiffLayout(mode) {
@@ -956,8 +1023,7 @@ const appJavaScript = `(() => {
   // link, while the URL remains the source of truth throughout retries.
   const reviewSurfaceRequests = new Map();
   const reviewSurfaceRetries = new Map();
-  const codeFileRequests = new WeakMap();
-  const codeFileRetries = new WeakMap();
+  const reviewFileRequests = new WeakMap();
   const continuousCoverageLoads = new WeakMap();
   let relatedOwnersRequest = null;
 
@@ -1034,7 +1100,7 @@ const appJavaScript = `(() => {
       const meta = q('[data-code-meta]');
       const content = q('[data-code-meta-content]', root);
       if (meta && content) meta.textContent = content.textContent;
-      within(root, '[data-code-file-href]').forEach(file => { void hydrateCodeFile(file); });
+      within(root, '[data-file-diff-href]').forEach(file => { void hydrateReviewFile(file); });
       void hydrateRelatedOwners(root);
     }
     const id = decodeURIComponent(location.hash.replace(/^#/, ''));
@@ -1047,7 +1113,7 @@ const appJavaScript = `(() => {
 
   async function hydrateRelatedOwners(root) {
     const panel = q('#related-saga-panel', root);
-    const file = q('[data-code-file-href]', root);
+    const file = q('[data-file-diff-href]', root);
     const filePath = file?.dataset.filePath;
     if (!panel || !filePath) return;
     const key = filePath;
@@ -1063,7 +1129,7 @@ const appJavaScript = `(() => {
       if (!response.ok) throw new Error('explanations request failed');
       const content = q('[data-file-owners-response]', parseShellHTML(await response.text()));
       if (!content) throw new Error('explanations response was incomplete');
-      if (relatedOwnersRequest !== request || !panel.isConnected || q('[data-code-file-href]', root)?.dataset.filePath !== filePath) return;
+      if (relatedOwnersRequest !== request || !panel.isConnected || q('[data-file-diff-href]', root)?.dataset.filePath !== filePath) return;
       panel.replaceChildren(...Array.from(content.childNodes));
       panel.dataset.relatedOwnersLoaded = key;
     } catch (error) {
@@ -1073,66 +1139,86 @@ const appJavaScript = `(() => {
     }
   }
 
-  function fileNextButton(file, cursor) {
-    if (!cursor) return null;
-    const url = new URL(file.dataset.codeFileHref, location.href);
-    url.searchParams.set('cursor', cursor);
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.dataset.fileNext = url.pathname + url.search;
-    button.textContent = 'Load more lines';
-    button.setAttribute('aria-label', 'Load the next file chunk');
-    return button;
+  // Code Diff and narrative-linked code are the same review surface. Both use
+  // the same markup, row endpoint, cache, and bounded-page stream; only the
+  // surrounding navigation differs. Context is prepared after the final page
+  // arrives so a collapsed unchanged gap can span an endpoint boundary.
+  function reviewFileIsActive(file) {
+    return Boolean(file?.isConnected && (!file.matches('details') || file.open));
   }
 
-  async function hydrateCodeFile(file, options = {}) {
-    if (!file) return;
-    const href = options.href || file.dataset.codeFileHref;
-    if (!href) return;
-    const url = new URL(href, location.href);
-    const key = url.toString();
-    const previous = codeFileRequests.get(file);
-    if (!options.force && previous?.key === key) return previous.promise;
-    if (!options.append && file.dataset.fileLoaded === key) return file;
+  function cancelReviewFile(file) {
+    reviewFileRequests.get(file)?.controller.abort();
+  }
+
+  async function hydrateReviewFile(file, options = {}) {
+    const href = file?.dataset.fileDiffHref;
+    const destination = q('[data-file-diff-rows]', file);
+    const status = q('[data-file-diff-status]', file);
+    if (!href || !destination) return file || null;
+    const key = new URL(href, location.href).toString();
+    const previous = reviewFileRequests.get(file);
+    if (!options.force && previous?.key === key && !previous.controller.signal.aborted) return previous.promise;
+    if (!options.force && file.dataset.fileDiffLoaded === key) return file;
+    previous?.controller.abort();
     const controller = new AbortController();
-    clearTimeout(codeFileRetries.get(file));
-    const destination = q('[data-diff-body]', file);
-    if (!destination) return;
-    const promise = fetch(url, {headers:{Accept:'text/html','X-Change-Saga-Async':'true'},credentials:'same-origin',signal:controller.signal}).then(async response => {
-      if (response.status === 202) {
-        destination.innerHTML = '<p class="diff-placeholder">Building this file… <button type="button" data-retry-file>Try again</button></p>';
-        const timer = setTimeout(() => { if (file.isConnected) void hydrateCodeFile(file, {force:true}); }, retryDelay(response));
-        codeFileRetries.set(file, timer);
-        return file;
+    delete file.dataset.fileDiffLoaded;
+    file.dataset.fileDiffLoading = 'true';
+    q('[data-diff-surface]', file)?.classList.add('loading');
+    if (status) status.textContent = 'Loading every changed hunk…';
+    const visited = new Set();
+    const promise = (async () => {
+      let nextHref = href;
+      let first = true;
+      let loaded = 0;
+      let total = 0;
+      while (nextHref && reviewFileIsActive(file)) {
+        const pageHref = new URL(nextHref, location.href).toString();
+        if (visited.has(pageHref) || visited.size >= 10_000) throw new Error('diff cursor did not advance');
+        visited.add(pageHref);
+        const result = await fetchFileDiff(nextHref, {signal:controller.signal});
+        if (!reviewFileIsActive(file)) {
+          controller.abort();
+          return file;
+        }
+        const wrapper = parseShellHTML(result.html);
+        const page = q('[data-file-diff-page]', wrapper) || wrapper;
+        const items = q('[data-page-items="lines"]', page) || page;
+        const rows = qa('.diff-row', items);
+        if (first) destination.replaceChildren(...rows); else destination.append(...rows);
+        first = false;
+        loaded += rows.length;
+        total = result.total || total;
+        if (status) status.textContent = total > 0
+          ? 'Loaded ' + loaded + ' of ' + total + ' diff lines…'
+          : 'Loaded ' + loaded + ' diff lines…';
+        highlightCode(destination);
+        nextHref = continuedPageURL(href, result.next || page.dataset?.nextCursor);
+        if (nextHref) await new Promise(resolve => setTimeout(resolve, 0));
       }
-      if (!response.ok) throw new Error((await response.text()).trim() || 'file request failed');
-      const wrapper = parseShellHTML(await response.text());
-      const page = q('[data-file-diff-page]', wrapper) || q('[data-review-surface-page]', wrapper) || q('[data-attached-full-diff]', wrapper) || wrapper;
-      const items = q('[data-page-items="lines"]', page) || q('[data-diff-body]', page) || page;
-      const inserted = Array.from(items.childNodes);
-      if (options.append) destination.append(...inserted); else destination.replaceChildren(...inserted);
-      q('[data-file-next]', file)?.remove();
-      const next = fileNextButton(file, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset?.nextCursor);
-      if (next) q('[data-diff-surface]', file)?.append(next);
-      file.dataset.fileLoaded = key;
-      highlightCode(destination);
+      if (!reviewFileIsActive(file)) return file;
+      file.dataset.fileDiffLoaded = key;
+      if (status) status.textContent = 'All changed hunks';
       prepareContext(destination);
       applyDiffLayout(diffLayout);
       revealHashedAnnotationBubble();
-      if (!location.hash && !options.append) {
+      if (!location.hash) {
         const selected = q('.diff-row.selected', destination);
         globalThis.requestAnimationFrame?.(() => selected?.scrollIntoView({block:'center'}));
       }
       return file;
-    }).catch(error => {
+    })().catch(error => {
       if (error.name === 'AbortError') return file;
+      visited.forEach(pageHref => fileDiffCache.delete(pageHref));
       destination.innerHTML = '<p class="diff-placeholder">This file could not be loaded. <button type="button" data-retry-file>Try again</button></p>';
+      if (status) status.textContent = 'Could not load every changed hunk';
       return file;
     }).finally(() => {
-      if (codeFileRequests.get(file)?.promise === promise) codeFileRequests.delete(file);
+      delete file.dataset.fileDiffLoading;
+      q('[data-diff-surface]', file)?.classList.remove('loading');
+      if (reviewFileRequests.get(file)?.promise === promise) reviewFileRequests.delete(file);
     });
-    previous?.controller.abort();
-    codeFileRequests.set(file, {key, controller, promise});
+    reviewFileRequests.set(file, {key, controller, promise});
     return promise;
   }
 
@@ -1180,6 +1266,7 @@ const appJavaScript = `(() => {
       const panelResponse = q('[data-code-panel-content]', response) || response;
       const sidebar = q('[data-code-sidebar]');
       if (!sidebarResponse || !sidebar) throw new Error('code response was incomplete');
+      within(surface, '[data-file-diff-href]').forEach(cancelReviewFile);
       sidebar.replaceChildren(...Array.from(sidebarResponse.childNodes));
       surface.replaceChildren(...Array.from(panelResponse.childNodes));
     } else {
@@ -1393,6 +1480,7 @@ const appJavaScript = `(() => {
 
   function restoreDrawerContent() {
     const body = q('.drawer-body');
+    if (body) within(body, '[data-file-diff-href]').forEach(cancelReviewFile);
     if (drawerRestore) {
       if (drawerRestore.placeholder.isConnected) drawerRestore.placeholder.replaceWith(drawerRestore.fragment);
       drawerRestore = null;
@@ -1438,22 +1526,27 @@ const appJavaScript = `(() => {
   // markup that stays inside a closed disclosure until it is asked for.
   const fileDiffCache = new Map();
 
-  function fetchFileDiff(href) {
-    let request = fileDiffCache.get(href);
-    if (!request) {
-      const load = () => fetch(href, {headers:{Accept:'text/html'}}).then(async response => {
-        if (response.status === 202) {
-          await new Promise(resolve => setTimeout(resolve, retryDelay(response)));
-          return load();
-        }
-        if (!response.ok) throw new Error('diff request failed');
-        return {html:await response.text(), next:response.headers.get('X-Change-Saga-Next-Cursor') || ''};
-      });
-      request = load();
-      fileDiffCache.set(href, request);
-      request.catch(() => fileDiffCache.delete(href));
+  async function fetchFileDiff(href, options = {}) {
+    const key = new URL(href, location.href).toString();
+    const cached = fileDiffCache.get(key);
+    if (cached) return cached;
+    const signal = options.signal || new AbortController().signal;
+    while (true) {
+      const response = await fetch(href, {headers:{Accept:'text/html'}, signal});
+      if (response.status === 202) {
+        await abortableDelay(retryDelay(response), signal);
+        continue;
+      }
+      if (!response.ok) throw new Error('diff request failed');
+      const result = {
+        html:await response.text(),
+        next:response.headers.get('X-Change-Saga-Next-Cursor') || '',
+        total:Number(response.headers.get('X-Change-Saga-Total')) || 0,
+        returned:Number(response.headers.get('X-Change-Saga-Returned')) || 0
+      };
+      fileDiffCache.set(key, result);
+      return result;
     }
-    return request;
   }
 
   // The page ships the saga as a shell: saga identity, coverage totals, the
@@ -1515,15 +1608,15 @@ const appJavaScript = `(() => {
     }
   }
 
-  function targetCodeAbortError() {
-    return new DOMException('Linked-code prefetch was cancelled', 'AbortError');
+  function requestAbortError() {
+    return new DOMException('Request was cancelled', 'AbortError');
   }
 
-  function targetCodeRetryDelay(milliseconds, signal) {
+  function abortableDelay(milliseconds, signal) {
     return new Promise((resolve, reject) => {
-      if (signal.aborted) { reject(targetCodeAbortError()); return; }
+      if (signal.aborted) { reject(requestAbortError()); return; }
       const timer = setTimeout(resolve, milliseconds);
-      signal.addEventListener('abort', () => { clearTimeout(timer); reject(targetCodeAbortError()); }, {once:true});
+      signal.addEventListener('abort', () => { clearTimeout(timer); reject(requestAbortError()); }, {once:true});
     });
   }
 
@@ -1531,7 +1624,7 @@ const appJavaScript = `(() => {
     while (true) {
       const response = await fetch(job.href, {headers:{Accept:'text/html'}, credentials:'same-origin', signal:job.controller.signal});
       if (response.status === 202) {
-        await targetCodeRetryDelay(retryDelay(response), job.controller.signal);
+        await abortableDelay(retryDelay(response), job.controller.signal);
         continue;
       }
       if (!response.ok) throw new Error('linked-code request failed');
@@ -1548,7 +1641,7 @@ const appJavaScript = `(() => {
       job.controller = new AbortController();
       activeTargetCodeLoads++;
       void loadTargetCodeJob(job).then(html => {
-        if (job.state === 'cancelled') throw targetCodeAbortError();
+        if (job.state === 'cancelled') throw requestAbortError();
         rememberTargetCode(job.href, html);
         installTargetCodeResponse(job.href, html);
         job.resolve(html);
@@ -1597,7 +1690,7 @@ const appJavaScript = `(() => {
       } else if (job.state === 'queued') {
         job.state = 'cancelled';
         targetCodeJobs.delete(job.href);
-        job.reject(targetCodeAbortError());
+        job.reject(requestAbortError());
       }
     });
   }
@@ -1865,39 +1958,6 @@ const appJavaScript = `(() => {
     return document.getElementById(id);
   }
 
-  async function hydrateAttachedFile(details) {
-    if (!details?.open || details.dataset.fullDiffLoaded === 'true' || details.dataset.fullDiffLoading === 'true') return;
-    const href = details.dataset.fullDiffHref;
-    const surface = q('.attached-file-diff', details);
-    const status = q('[data-full-diff-status]', details);
-    const linkedRows = q('[data-linked-diff-rows]', details);
-    if (!href || !surface || !linkedRows) return;
-    details.dataset.fullDiffLoading = 'true';
-    surface.classList.add('loading');
-    if (status) status.textContent = 'Loading full file diff…';
-    try {
-      // The response is already scoped to this target: its rows carry the
-      // target that a new comment belongs to, and the server has marked the
-      // rows this explanation is answerable for.
-      const wrapper = document.createElement('div');
-      const result = await fetchFileDiff(href);
-      wrapper.innerHTML = result.html;
-      if (!q('[data-attached-full-diff]', wrapper)) throw new Error('diff response was incomplete');
-      linkedRows.replaceChildren(...Array.from(wrapper.childNodes));
-	  installAuxiliaryDiffNext(linkedRows, href, result.next);
-      details.dataset.fullDiffLoaded = 'true';
-      if (status) status.textContent = 'Full file diff · linked changes highlighted';
-      highlightCode(linkedRows);
-    } catch (_) {
-      if (status) status.textContent = 'Could not load the full file diff';
-      const placeholder = q('[data-diff-placeholder]', linkedRows);
-      if (placeholder) placeholder.textContent = 'This file diff could not be loaded. Close and reopen to try again.';
-    } finally {
-      delete details.dataset.fullDiffLoading;
-      surface.classList.remove('loading');
-    }
-  }
-
   // Coverage shows the same bodies to answer a different question, so it uses
   // the same per-file endpoint and the same cache. Only the disclosure that
   // owns a surface hydrates it, so opening one narrative target does not pull
@@ -1926,7 +1986,7 @@ const appJavaScript = `(() => {
     }
   }
 
-  function continuedCoverageURL(href, cursor) {
+  function continuedPageURL(href, cursor) {
     if (!cursor) return '';
     const url = new URL(href, location.href);
     url.searchParams.set('cursor', cursor);
@@ -1955,7 +2015,7 @@ const appJavaScript = `(() => {
         const inserted = Array.from(items.childNodes);
         if (first) destination.replaceChildren(...inserted); else destination.append(...inserted);
         first = false;
-        href = continuedCoverageURL(href, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset.nextCursor);
+        href = continuedPageURL(href, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset.nextCursor);
         await new Promise(resolve => setTimeout(resolve, 0));
       }
       details.dataset.coverageFileLoaded = 'true';
@@ -1990,7 +2050,7 @@ const appJavaScript = `(() => {
         const inserted = Array.from(items.childNodes);
         if (first) destination.replaceChildren(...inserted); else destination.append(...inserted);
         first = false;
-        href = continuedCoverageURL(href, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset.nextCursor);
+        href = continuedPageURL(href, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset.nextCursor);
         filterManifest();
         await new Promise(resolve => setTimeout(resolve, 0));
       }
@@ -2757,12 +2817,7 @@ const appJavaScript = `(() => {
   document.addEventListener('click', event => {
     const retryFile = event.target.closest?.('[data-retry-file]');
     if (retryFile) {
-      void hydrateCodeFile(retryFile.closest('[data-code-file-href]'), {force:true});
-      return;
-    }
-    const nextFilePage = event.target.closest?.('[data-file-next]');
-    if (nextFilePage) {
-      void hydrateCodeFile(nextFilePage.closest('[data-code-file-href]'), {href:nextFilePage.dataset.fileNext, append:true});
+      void hydrateReviewFile(retryFile.closest('[data-file-diff-href]'), {force:true});
       return;
     }
 	const nextAuxiliaryPage = event.target.closest?.('[data-aux-file-next]');
@@ -2909,8 +2964,12 @@ const appJavaScript = `(() => {
 
   document.addEventListener('toggle', event => {
     const details = event.target.closest?.('details');
-    if (!details?.open) return;
-    if (details.dataset.fullDiffHref) hydrateAttachedFile(details);
+    if (!details) return;
+    if (!details.open) {
+      if (details.dataset.fileDiffHref) cancelReviewFile(details);
+      return;
+    }
+    if (details.dataset.fileDiffHref) void hydrateReviewFile(details);
     if (details.dataset.coverageFileHref) void hydrateCoverageFile(details);
     if (details.dataset.coverageTargetHref) void hydrateCoverageTarget(details);
     hydrateOpenedManifestDiffs(details);

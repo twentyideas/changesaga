@@ -10,6 +10,12 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+### Changed
+
+- Code Diff and narrative-linked drawers now share one review surface that
+  shows every changed hunk immediately while keeping bounded unchanged context
+  collapsed behind GitHub-style expansion controls.
+
 ## [0.0.8] - 2026-08-25
 
 ### Added
