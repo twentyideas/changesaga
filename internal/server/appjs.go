@@ -1398,7 +1398,7 @@ const appJavaScript = `(() => {
     const codeMeta = q('.top-meta');
     if (sagaSide) sagaSide.hidden = name !== 'saga';
     if (codeSide) codeSide.hidden = name !== 'code';
-    if (toolbox) toolbox.hidden = name !== 'saga';
+    if (toolbox) toolbox.hidden = name !== 'saga' || !toolbox.dataset.annotationTarget;
     if (codeMeta) codeMeta.hidden = name !== 'code';
     const shell = q('[data-shell]');
     if (shell) shell.classList.toggle('code-mode', name === 'code');
