@@ -509,10 +509,17 @@ func (a *app) mappedFileDiffFragment(w http.ResponseWriter, r *http.Request) {
 		line.Linked = line.Atom != nil && linked[line.Atom.URI]
 	}
 	total := len(selected.Lines)
-	window, err := pageRequest(r, "file-diff\x00"+sourceCatalogIdentity(selection.catalog)+"\x00"+filePath+"\x00"+target+"\x00"+r.URL.Query().Get("view"), total, defaultDiffPageLimit, maxDiffPageLimit)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	window := pageWindow{end: total, total: total}
+	// A linked-code drawer is an explicit request to review this file, rather
+	// than a background catalog page. Let it opt into the complete patch so no
+	// changed hunk is hidden behind row pagination. Display context remains
+	// collapsible in the browser.
+	if r.URL.Query().Get("full") != "true" {
+		window, err = pageRequest(r, "file-diff\x00"+sourceCatalogIdentity(selection.catalog)+"\x00"+filePath+"\x00"+target+"\x00"+r.URL.Query().Get("view"), total, defaultDiffPageLimit, maxDiffPageLimit)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 	selected.Lines = selected.Lines[window.start:window.end]
 	name := "file-diff-page"

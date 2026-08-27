@@ -484,6 +484,7 @@ mark.annotation-revealed{box-shadow:0 0 0 2px var(--ink)}
 .diff-column-head span{padding:3px 10px}
 .diff-lines{min-width:640px}
 .diff-row{display:grid;grid-template-columns:46px 46px 18px minmax(240px,1fr) 58px;align-items:start;min-height:20px;font:12px/1.5 var(--mono);position:relative;background:var(--code-bg)}
+.diff-row[hidden]{display:none}
 .diff-row.context{color:var(--ink)}
 .diff-row.new{background:var(--add-bg);box-shadow:inset 2px 0 var(--add-line)}
 .diff-row.old{background:var(--del-bg);box-shadow:inset 2px 0 var(--del-line)}

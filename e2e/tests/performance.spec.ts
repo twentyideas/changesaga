@@ -178,13 +178,12 @@ test("loads a linked-code file diff on demand and keeps it answerable to its exp
 
   const rows = attached.locator("[data-linked-diff-rows] .diff-row");
   await rows.first().waitFor();
-  await expect(attached.locator("[data-full-diff-status]")).toHaveText(/Full file diff/);
+  await expect(attached.locator("[data-full-diff-status]")).toHaveText(/Every changed hunk/);
   // The server marks the rows this explanation owns, so the drawer still shows
   // its own evidence inside the surrounding file it fetched for context.
   const linked = attached.locator(".diff-row.linked-evidence");
-  await expect(linked).toHaveCount(50);
-  await attached.getByRole("button", { name: "Load the next file chunk" }).click();
   await expect(linked).toHaveCount(2 * largeSagaScale.changedLinesPerFile);
+  await expect(attached.getByRole("button", { name: "Load the next file chunk" })).toHaveCount(0);
 
   // A comment written here must carry this file's exact line identity and the
   // narrative target whose drawer it was written from, both of which now come
@@ -202,4 +201,39 @@ test("loads a linked-code file diff on demand and keeps it answerable to its exp
   await composer.locator("[data-close-diff-compose]").click();
   await row.getByRole("button", { name: "Suggest a replacement for this line" }).click();
   expect(await composer.locator('[name="replacement"]').inputValue()).toBe(await row.locator("[data-code]").textContent());
+});
+
+test("keeps linked-diff context collapsed until the reviewer expands it", async ({ page, saga }) => {
+  let requested: URL | undefined;
+  await page.route("**/api/file-diff?**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get("full") !== "true") {
+      await route.continue();
+      return;
+    }
+    requested = url;
+    const contextRow = (line: number) => `<div class="diff-row context" data-context-row role="group" aria-label="Unchanged line ${line}"><span>${line}</span><span>${line}</span><span></span><code data-code>context ${line}</code><span></span></div>`;
+    const before = Array.from({ length: 10 }, (_, index) => contextRow(index + 1)).join("");
+    const after = Array.from({ length: 10 }, (_, index) => contextRow(index + 12)).join("");
+    await route.fulfill({
+      contentType: "text/html",
+      body: `<div data-file-diff-page><div data-page-items="lines"><div class="diff-lines" data-attached-full-diff data-diff-body>${before}<div class="diff-row new" data-diff-row><span></span><span>11</span><span>+</span><code data-code>changed</code><span></span></div>${after}</div></div></div>`
+    });
+  });
+
+  const overview = page.locator('[data-view="saga"] article.fragment').first();
+  await overview.hover();
+  await overview.locator("[data-open-diffs]:visible").first().click();
+  const attached = page.locator(".diff-drawer.open details.attached-file").first();
+  await attached.locator("summary").click();
+
+  const context = attached.locator("[data-context-row]");
+  await expect(context).toHaveCount(20);
+  await expect(attached.locator("[data-context-row]:visible")).toHaveCount(6);
+  const expanders = attached.getByRole("button", { name: "Show 7 hidden unchanged lines" });
+  await expect(expanders).toHaveCount(2);
+  await expanders.first().click();
+  await expect(attached.locator("[data-context-row]:visible")).toHaveCount(13);
+  expect(requested?.searchParams.get("target")).toBeTruthy();
+  expect(requested?.searchParams.get("full")).toBe("true");
 });

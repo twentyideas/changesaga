@@ -1886,8 +1886,9 @@ const appJavaScript = `(() => {
       linkedRows.replaceChildren(...Array.from(wrapper.childNodes));
 	  installAuxiliaryDiffNext(linkedRows, href, result.next);
       details.dataset.fullDiffLoaded = 'true';
-      if (status) status.textContent = 'Full file diff · linked changes highlighted';
+      if (status) status.textContent = 'Every changed hunk · linked changes highlighted';
       highlightCode(linkedRows);
+      prepareContext(linkedRows);
     } catch (_) {
       if (status) status.textContent = 'Could not load the full file diff';
       const placeholder = q('[data-diff-placeholder]', linkedRows);

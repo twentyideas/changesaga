@@ -279,6 +279,13 @@ func TestFileDiffEndpointServesCoverageAndTargetedBodies(t *testing.T) {
 	if marked := strings.Count(scoped, "linked-evidence"); marked != expected {
 		t.Fatalf("scoped body marked %d rows as %s evidence in %s, expected %d", marked, target, path, expected)
 	}
+	full := budgetRequest(t, handler, "/api/file-diff?limit=1&full=true&file="+escaped+"&target="+url.QueryEscape(target))
+	if rows := strings.Count(full, `class="diff-row`); rows <= 1 {
+		t.Fatalf("full linked diff rendered %d rows; changed hunks still obey the one-row pagination limit", rows)
+	}
+	if strings.Contains(full, `data-has-more="true"`) {
+		t.Fatal("full linked diff still advertised a paginated remainder")
+	}
 
 	unscoped := budgetRequest(t, handler, "/api/file-diff?file="+escaped)
 	if strings.Contains(unscoped, "linked-evidence") {
