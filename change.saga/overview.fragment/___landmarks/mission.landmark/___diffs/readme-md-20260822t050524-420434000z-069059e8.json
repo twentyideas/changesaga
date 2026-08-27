@@ -2,27 +2,27 @@
   "version": 2,
   "diffs": [
     {
-      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=9\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=README.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=9",
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=9\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=README.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchange-saga.git\u0026side=new\u0026start=9",
       "note": "Preserves the section boundaries separating installation, purpose, review, maintenance, AI access, and security in the public contract."
     },
     {
-      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=55\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=README.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=55",
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=55\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=README.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchange-saga.git\u0026side=new\u0026start=55",
       "note": "Preserves the section boundaries separating installation, purpose, review, maintenance, AI access, and security in the public contract."
     },
     {
-      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=86\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=README.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=86",
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=86\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=README.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchange-saga.git\u0026side=new\u0026start=86",
       "note": "Preserves the section boundaries separating installation, purpose, review, maintenance, AI access, and security in the public contract."
     },
     {
-      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=110\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=README.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=110",
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=110\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=README.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchange-saga.git\u0026side=new\u0026start=110",
       "note": "Preserves the section boundaries separating installation, purpose, review, maintenance, AI access, and security in the public contract."
     },
     {
-      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=131\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=README.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=131",
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=131\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=README.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchange-saga.git\u0026side=new\u0026start=131",
       "note": "Preserves the section boundaries separating installation, purpose, review, maintenance, AI access, and security in the public contract."
     },
     {
-      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=228\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=README.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchangesaga.git\u0026side=new\u0026start=228",
+      "uri": "saga-diff://v1/line?base=14afd0526c471d9ccad5825fadda735094e599e4\u0026end=228\u0026head=product-964a0b07e1a68460c0d665e55100f062a506f951b593593984d44517f040f9bb\u0026path=README.md\u0026repository=https%3A%2F%2Fgithub.com%2Ftwentyideas%2Fchange-saga.git\u0026side=new\u0026start=228",
       "note": "Preserves the section boundaries separating installation, purpose, review, maintenance, AI access, and security in the public contract."
     }
   ]
