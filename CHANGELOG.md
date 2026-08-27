@@ -10,6 +10,12 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+### Changed
+
+- Narrative linked-code drawers now show every changed hunk immediately while
+  keeping unchanged code collapsed behind GitHub-style controls for expanding
+  nearby context or an entire gap.
+
 ## [0.0.8] - 2026-08-25
 
 ### Added

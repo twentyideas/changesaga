@@ -1014,8 +1014,7 @@ const appJavaScript = `(() => {
   // link, while the URL remains the source of truth throughout retries.
   const reviewSurfaceRequests = new Map();
   const reviewSurfaceRetries = new Map();
-  const codeFileRequests = new WeakMap();
-  const codeFileRetries = new WeakMap();
+  const reviewFileRequests = new WeakMap();
   const continuousCoverageLoads = new WeakMap();
   let relatedOwnersRequest = null;
 
@@ -1092,7 +1091,7 @@ const appJavaScript = `(() => {
       const meta = q('[data-code-meta]');
       const content = q('[data-code-meta-content]', root);
       if (meta && content) meta.textContent = content.textContent;
-      within(root, '[data-code-file-href]').forEach(file => { void hydrateCodeFile(file); });
+      within(root, '[data-file-diff-href]').forEach(file => { void hydrateReviewFile(file); });
       void hydrateRelatedOwners(root);
     }
     const id = decodeURIComponent(location.hash.replace(/^#/, ''));
@@ -1105,7 +1104,7 @@ const appJavaScript = `(() => {
 
   async function hydrateRelatedOwners(root) {
     const panel = q('#related-saga-panel', root);
-    const file = q('[data-code-file-href]', root);
+    const file = q('[data-file-diff-href]', root);
     const filePath = file?.dataset.filePath;
     if (!panel || !filePath) return;
     const key = filePath;
@@ -1121,7 +1120,7 @@ const appJavaScript = `(() => {
       if (!response.ok) throw new Error('explanations request failed');
       const content = q('[data-file-owners-response]', parseShellHTML(await response.text()));
       if (!content) throw new Error('explanations response was incomplete');
-      if (relatedOwnersRequest !== request || !panel.isConnected || q('[data-code-file-href]', root)?.dataset.filePath !== filePath) return;
+      if (relatedOwnersRequest !== request || !panel.isConnected || q('[data-file-diff-href]', root)?.dataset.filePath !== filePath) return;
       panel.replaceChildren(...Array.from(content.childNodes));
       panel.dataset.relatedOwnersLoaded = key;
     } catch (error) {
@@ -1131,66 +1130,59 @@ const appJavaScript = `(() => {
     }
   }
 
-  function fileNextButton(file, cursor) {
-    if (!cursor) return null;
-    const url = new URL(file.dataset.codeFileHref, location.href);
-    url.searchParams.set('cursor', cursor);
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.dataset.fileNext = url.pathname + url.search;
-    button.textContent = 'Load more lines';
-    button.setAttribute('aria-label', 'Load the next file chunk');
-    return button;
-  }
-
-  async function hydrateCodeFile(file, options = {}) {
-    if (!file) return;
-    const href = options.href || file.dataset.codeFileHref;
-    if (!href) return;
-    const url = new URL(href, location.href);
-    const key = url.toString();
-    const previous = codeFileRequests.get(file);
+  // Code Diff and narrative-linked code are the same review surface. Both use
+  // the same markup, row endpoint, cache, and bounded-page stream; only the
+  // surrounding navigation differs. Context is prepared after the final page
+  // arrives so a collapsed unchanged gap can span an endpoint boundary.
+  async function hydrateReviewFile(file, options = {}) {
+    const href = file?.dataset.fileDiffHref;
+    const destination = q('[data-file-diff-rows]', file);
+    const status = q('[data-file-diff-status]', file);
+    if (!href || !destination) return file || null;
+    const key = new URL(href, location.href).toString();
+    const previous = reviewFileRequests.get(file);
     if (!options.force && previous?.key === key) return previous.promise;
-    if (!options.append && file.dataset.fileLoaded === key) return file;
-    const controller = new AbortController();
-    clearTimeout(codeFileRetries.get(file));
-    const destination = q('[data-diff-body]', file);
-    if (!destination) return;
-    const promise = fetch(url, {headers:{Accept:'text/html','X-Change-Saga-Async':'true'},credentials:'same-origin',signal:controller.signal}).then(async response => {
-      if (response.status === 202) {
-        destination.innerHTML = '<p class="diff-placeholder">Building this file… <button type="button" data-retry-file>Try again</button></p>';
-        const timer = setTimeout(() => { if (file.isConnected) void hydrateCodeFile(file, {force:true}); }, retryDelay(response));
-        codeFileRetries.set(file, timer);
-        return file;
+    if (!options.force && file.dataset.fileDiffLoaded === key) return file;
+    delete file.dataset.fileDiffLoaded;
+    file.dataset.fileDiffLoading = 'true';
+    q('[data-diff-surface]', file)?.classList.add('loading');
+    if (status) status.textContent = 'Loading every changed hunk…';
+    const promise = (async () => {
+      let nextHref = href;
+      let first = true;
+      while (nextHref && file.isConnected) {
+        const result = await fetchFileDiff(nextHref);
+        const wrapper = parseShellHTML(result.html);
+        const page = q('[data-file-diff-page]', wrapper) || wrapper;
+        const items = q('[data-page-items="lines"]', page) || page;
+        const rows = qa('.diff-row', items);
+        if (first) destination.replaceChildren(...rows); else destination.append(...rows);
+        first = false;
+        nextHref = continuedPageURL(href, result.next || page.dataset?.nextCursor);
+        if (nextHref) await new Promise(resolve => setTimeout(resolve, 0));
       }
-      if (!response.ok) throw new Error((await response.text()).trim() || 'file request failed');
-      const wrapper = parseShellHTML(await response.text());
-      const page = q('[data-file-diff-page]', wrapper) || q('[data-review-surface-page]', wrapper) || q('[data-attached-full-diff]', wrapper) || wrapper;
-      const items = q('[data-page-items="lines"]', page) || q('[data-diff-body]', page) || page;
-      const inserted = Array.from(items.childNodes);
-      if (options.append) destination.append(...inserted); else destination.replaceChildren(...inserted);
-      q('[data-file-next]', file)?.remove();
-      const next = fileNextButton(file, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset?.nextCursor);
-      if (next) q('[data-diff-surface]', file)?.append(next);
-      file.dataset.fileLoaded = key;
+      if (!file.isConnected) return file;
+      file.dataset.fileDiffLoaded = key;
+      if (status) status.textContent = 'All changed hunks';
       highlightCode(destination);
       prepareContext(destination);
       applyDiffLayout(diffLayout);
       revealHashedAnnotationBubble();
-      if (!location.hash && !options.append) {
+      if (!location.hash) {
         const selected = q('.diff-row.selected', destination);
         globalThis.requestAnimationFrame?.(() => selected?.scrollIntoView({block:'center'}));
       }
       return file;
-    }).catch(error => {
-      if (error.name === 'AbortError') return file;
+    })().catch(() => {
       destination.innerHTML = '<p class="diff-placeholder">This file could not be loaded. <button type="button" data-retry-file>Try again</button></p>';
+      if (status) status.textContent = 'Could not load every changed hunk';
       return file;
     }).finally(() => {
-      if (codeFileRequests.get(file)?.promise === promise) codeFileRequests.delete(file);
+      delete file.dataset.fileDiffLoading;
+      q('[data-diff-surface]', file)?.classList.remove('loading');
+      if (reviewFileRequests.get(file)?.promise === promise) reviewFileRequests.delete(file);
     });
-    previous?.controller.abort();
-    codeFileRequests.set(file, {key, controller, promise});
+    reviewFileRequests.set(file, {key, promise});
     return promise;
   }
 
@@ -1921,51 +1913,6 @@ const appJavaScript = `(() => {
     const chapter = element?.closest('[data-chapter]');
     if (chapter) await setChapterOpen(chapter, true);
     return document.getElementById(id);
-  }
-
-  async function hydrateAttachedFile(details) {
-    if (!details?.open || details.dataset.fullDiffLoaded === 'true' || details.dataset.fullDiffLoading === 'true') return;
-    const href = details.dataset.fullDiffHref;
-    const surface = q('.attached-file-diff', details);
-    const status = q('[data-full-diff-status]', details);
-    const linkedRows = q('[data-linked-diff-rows]', details);
-    if (!href || !surface || !linkedRows) return;
-    details.dataset.fullDiffLoading = 'true';
-    surface.classList.add('loading');
-    if (status) status.textContent = 'Loading every changed hunk…';
-    try {
-      // The response is already scoped to this target: its rows carry the
-      // target that a new comment belongs to, and the server has marked the
-      // rows this explanation is answerable for. Linked code consumes every
-      // bounded page automatically so no changed hunk waits behind Load more.
-      let nextHref = href;
-      let first = true;
-      while (nextHref && details.isConnected) {
-        const result = await fetchFileDiff(nextHref);
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = result.html;
-        const page = q('[data-file-diff-page]', wrapper);
-        const items = q('[data-page-items="lines"]', page || wrapper);
-        if (!items) throw new Error('diff response was incomplete');
-        const rows = qa('.diff-row', items);
-        if (first) linkedRows.replaceChildren(...rows); else linkedRows.append(...rows);
-        first = false;
-        nextHref = continuedPageURL(href, result.next);
-        if (nextHref) await new Promise(resolve => setTimeout(resolve, 0));
-      }
-      details.dataset.fullDiffLoaded = 'true';
-      if (status) status.textContent = 'All changed hunks · linked changes highlighted';
-      highlightCode(linkedRows);
-      prepareContext(linkedRows);
-      applyDiffLayout(diffLayout);
-    } catch (_) {
-      if (status) status.textContent = 'Could not load every changed hunk';
-      const placeholder = q('[data-diff-placeholder]', linkedRows);
-      if (placeholder) placeholder.textContent = 'This file diff could not be loaded. Close and reopen to try again.';
-    } finally {
-      delete details.dataset.fullDiffLoading;
-      surface.classList.remove('loading');
-    }
   }
 
   // Coverage shows the same bodies to answer a different question, so it uses
@@ -2827,12 +2774,7 @@ const appJavaScript = `(() => {
   document.addEventListener('click', event => {
     const retryFile = event.target.closest?.('[data-retry-file]');
     if (retryFile) {
-      void hydrateCodeFile(retryFile.closest('[data-code-file-href]'), {force:true});
-      return;
-    }
-    const nextFilePage = event.target.closest?.('[data-file-next]');
-    if (nextFilePage) {
-      void hydrateCodeFile(nextFilePage.closest('[data-code-file-href]'), {href:nextFilePage.dataset.fileNext, append:true});
+      void hydrateReviewFile(retryFile.closest('[data-file-diff-href]'), {force:true});
       return;
     }
 	const nextAuxiliaryPage = event.target.closest?.('[data-aux-file-next]');
@@ -2980,7 +2922,7 @@ const appJavaScript = `(() => {
   document.addEventListener('toggle', event => {
     const details = event.target.closest?.('details');
     if (!details?.open) return;
-    if (details.dataset.fullDiffHref) hydrateAttachedFile(details);
+    if (details.dataset.fileDiffHref) void hydrateReviewFile(details);
     if (details.dataset.coverageFileHref) void hydrateCoverageFile(details);
     if (details.dataset.coverageTargetHref) void hydrateCoverageTarget(details);
     hydrateOpenedManifestDiffs(details);

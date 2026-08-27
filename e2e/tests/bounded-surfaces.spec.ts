@@ -1,7 +1,7 @@
 import { expect, test } from "../support/test.js";
 import { canonicalLineURI } from "../support/fixture-builder.js";
 
-test("bounded Code Diff retries a building snapshot, preserves its deep link, and appends pages", async ({ page, largeSaga }) => {
+test("bounded Code Diff retries a building snapshot, preserves its deep link, and streams every hunk", async ({ page, largeSaga }) => {
   const file = "src/component-000.ts";
   const requests: URL[] = [];
   const fileRequests: URL[] = [];
@@ -26,7 +26,7 @@ test("bounded Code Diff retries a building snapshot, preserves its deep link, an
       contentType: "text/html",
       body: `<div data-review-surface-response="code">
         <div data-code-sidebar-content><div class="file-tree" role="tree" aria-label="Changed files"><a role="treeitem" data-tree-file data-tree-path="${file}" href="/?view=code&amp;file=${encodeURIComponent(file)}">component-000.ts</a></div></div>
-        <div data-code-panel-content><span data-code-meta-content hidden>0/2 reviewed</span><div class="code-toolbar"><button type="button" data-layout="inline">Unified</button></div><article class="file-diff" data-file-path="${file}" data-code-file-href="/api/file-diff?file=${encodeURIComponent(file)}&amp;diff=${encodeURIComponent(diff)}"><div class="diff-surface" data-diff-surface><div data-diff-body data-page-items="lines"><p data-diff-placeholder>Loading</p></div></div></article></div>
+        <div data-code-panel-content><span data-code-meta-content hidden>0/2 reviewed</span><div class="code-toolbar"><button type="button" data-layout="inline">Unified</button></div><article class="file-diff" data-file-path="${file}" data-file-diff-href="/api/file-diff?file=${encodeURIComponent(file)}&amp;diff=${encodeURIComponent(diff)}"><div class="diff-surface" data-diff-surface><span data-file-diff-status>Loading every changed hunk…</span><div data-file-diff-rows data-diff-body data-page-items="lines"><p data-diff-placeholder>Loading</p></div></div></article></div>
       </div>`
     });
   });
@@ -44,11 +44,11 @@ test("bounded Code Diff retries a building snapshot, preserves its deep link, an
   await expect(page).toHaveURL(href);
 
   const surface = page.locator('[data-review-surface="code"]');
-  await expect(surface.locator(".diff-row")).toHaveCount(1);
+  await expect(surface.locator(".diff-row")).toHaveCount(2);
+  await expect(surface.locator("[data-file-diff-status]")).toHaveText("All changed hunks");
   expect(fileRequests[0].searchParams.get("file")).toBe(file);
   expect(fileRequests[0].searchParams.get("diff")).toBe(diff);
-  await surface.getByRole("button", { name: "Load the next file chunk" }).click();
-  await expect(surface.locator(".diff-row")).toHaveCount(2);
+  await expect(surface.getByRole("button", { name: "Load the next file chunk" })).toHaveCount(0);
   await expect(surface.getByRole("button", { name: "Unified" })).toHaveCount(1);
   expect(fileRequests[1].searchParams.get("cursor")).toBe("opaque-lines-2");
 });
@@ -83,7 +83,7 @@ test("linked code streams every changed hunk and expands collapsed context from 
   const attached = drawer.locator("details.attached-file").filter({ hasText: "src/app.go" });
   await attached.locator("summary").click();
 
-  await expect(attached.locator("[data-full-diff-status]")).toHaveText(/All changed hunks/);
+  await expect(attached.locator("[data-file-diff-status]")).toHaveText(/All changed hunks/);
   expect(fileRequests).toHaveLength(2);
   expect(fileRequests[1].searchParams.get("cursor")).toBe("linked-hunks-2");
   await expect(attached.locator(".diff-row.new:visible")).toHaveCount(2);
