@@ -53,6 +53,52 @@ test("bounded Code Diff retries a building snapshot, preserves its deep link, an
   expect(fileRequests[1].searchParams.get("cursor")).toBe("opaque-lines-2");
 });
 
+test("linked code streams every changed hunk and expands collapsed context from either edge", async ({ page, saga }) => {
+  const fileRequests: URL[] = [];
+  const context = (start: number, end: number): string => Array.from({ length: end - start + 1 }, (_, offset) => {
+    const line = start + offset;
+    return `<div class="diff-row context" data-context-row><span class="line-no">${line}</span><span class="line-no">${line}</span><span></span><code data-code>line ${line}</code><span></span></div>`;
+  }).join("");
+  const changed = (line: number): string => `<div class="diff-row new" data-diff-row data-line="${line}"><span></span><span></span><span>+</span><code data-code>changed ${line}</code><span></span></div>`;
+
+  await page.route("**/api/file-diff**", async (route) => {
+    const url = new URL(route.request().url());
+    fileRequests.push(url);
+    const second = url.searchParams.has("cursor");
+    await route.fulfill({
+      contentType: "text/html",
+      headers: second ? {} : { "X-Change-Saga-Next-Cursor": "linked-hunks-2" },
+      body: `<div data-file-diff-page><div data-page-items="lines">${
+        second ? context(30, 42) + changed(43) + context(44, 58) : context(1, 15) + changed(16) + context(17, 29)
+      }</div></div>`
+    });
+  });
+
+  await page.goto(saga.baseURL, { waitUntil: "load" });
+  const overview = page.locator('[data-view="saga"] article.fragment').filter({ has: page.locator(".fragment-markdown") }).first();
+  await expect(overview).toBeVisible();
+  await overview.hover();
+  await overview.locator("[data-open-diffs]:visible").first().click();
+  const drawer = page.locator(".diff-drawer.open");
+  const attached = drawer.locator("details.attached-file").filter({ hasText: "src/app.go" });
+  await attached.locator("summary").click();
+
+  await expect(attached.locator("[data-full-diff-status]")).toHaveText(/All changed hunks/);
+  expect(fileRequests).toHaveLength(2);
+  expect(fileRequests[1].searchParams.get("cursor")).toBe("linked-hunks-2");
+  await expect(attached.locator(".diff-row.new:visible")).toHaveCount(2);
+  await expect(attached.locator("[data-context-row]:visible")).toHaveCount(12);
+  await expect(attached.locator(".context-expander")).toHaveCount(3);
+  await expect(attached.getByRole("button", { name: "Load the next file chunk" })).toHaveCount(0);
+
+  const middleGap = attached.locator(".context-expander").nth(1);
+  await middleGap.getByRole("button", { name: "Show next 10 unchanged lines" }).click();
+  await expect(middleGap.getByRole("button", { name: "Show all 10 hidden unchanged lines" })).toBeVisible();
+  await middleGap.getByRole("button", { name: "Show previous 10 unchanged lines" }).click();
+  await expect(attached.locator(".context-expander")).toHaveCount(2);
+  await expect(attached.locator(".diff-row.new:visible")).toHaveCount(2);
+});
+
 test("Coverage continuously loads one direction at a time and keeps its controls while appending", async ({ page, largeSaga }) => {
   const requests: URL[] = [];
   await page.route("**/api/coverage**", async (route) => {

@@ -799,6 +799,8 @@ const appJavaScript = `(() => {
       qa(':scope > .context-expander', body).forEach(button => button.remove());
       qa(':scope > [data-context-row]', body).forEach(row => { row.hidden = false; });
       const rows = [...body.children].filter(row => row.matches('.diff-row'));
+      const firstChange = rows.findIndex(row => !row.matches('[data-context-row]'));
+      const lastChange = rows.findLastIndex(row => !row.matches('[data-context-row]'));
       const hidden = rows.map((row, index) => {
         if (!row.matches('[data-context-row]')) return false;
         let before = Infinity, after = Infinity;
@@ -808,21 +810,77 @@ const appJavaScript = `(() => {
       });
       for (let index = 0; index < rows.length;) {
         if (!hidden[index]) { index++; continue; }
+        const start = index;
         const group = [];
         while (index < rows.length && hidden[index]) { rows[index].hidden = true; group.push(rows[index]); index++; }
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'context-expander';
-        button.textContent = 'Expand ' + group.length + ' unchanged lines';
-        button.setAttribute('aria-label', 'Show ' + group.length + ' hidden unchanged lines');
-        group[0].before(button);
-        button.addEventListener('click', () => {
-          group.forEach(row => { row.hidden = false; });
-          button.remove();
-          applyDiffLayout(diffLayout);
-        });
+        installContextExpander(group, firstChange >= 0 && start > firstChange, lastChange >= 0 && index <= lastChange);
       }
     });
+  }
+
+  // GitHub-style context controls keep changed hunks visible while allowing a
+  // reviewer to reveal unchanged lines from either edge of a collapsed gap.
+  // The middle action opens the whole gap; directional actions reveal ten
+  // lines at a time without discarding the reviewer's place in the diff.
+  function installContextExpander(group, hasChangeBefore, hasChangeAfter) {
+    let remaining = [...group];
+    const step = 10;
+    const control = document.createElement('div');
+    control.className = 'context-expander';
+    control.setAttribute('role', 'group');
+
+    const action = (direction, label, glyph) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.contextExpand = direction;
+      button.textContent = glyph;
+      button.setAttribute('aria-label', label);
+      button.title = label;
+      button.addEventListener('click', () => reveal(direction));
+      control.append(button);
+      return button;
+    };
+    const down = hasChangeBefore ? action('down', '', '↓') : null;
+    const all = action('all', '', '');
+    all.className = 'context-expand-all';
+    const up = hasChangeAfter ? action('up', '', '↑') : null;
+
+    const refresh = () => {
+      if (!remaining.length) {
+        control.remove();
+        applyDiffLayout(diffLayout);
+        return;
+      }
+      const count = remaining.length;
+      control.setAttribute('aria-label', count + ' hidden unchanged lines');
+      all.textContent = 'Expand all ' + count + ' unchanged lines';
+      all.setAttribute('aria-label', 'Show all ' + count + ' hidden unchanged lines');
+      all.title = 'Expand the collapsed gap';
+      if (down) {
+        const amount = Math.min(step, count);
+        const label = 'Show next ' + amount + ' unchanged lines';
+        down.setAttribute('aria-label', label);
+        down.title = label;
+      }
+      if (up) {
+        const amount = Math.min(step, count);
+        const label = 'Show previous ' + amount + ' unchanged lines';
+        up.setAttribute('aria-label', label);
+        up.title = label;
+      }
+      remaining[0].before(control);
+    };
+    const reveal = direction => {
+      const revealed = direction === 'all' ? remaining
+        : direction === 'up' ? remaining.slice(-step)
+        : remaining.slice(0, step);
+      const revealedSet = new Set(revealed);
+      revealed.forEach(row => { row.hidden = false; });
+      remaining = remaining.filter(row => !revealedSet.has(row));
+      refresh();
+      applyDiffLayout(diffLayout);
+    };
+    refresh();
   }
 
   function applyDiffLayout(mode) {
@@ -1874,22 +1932,34 @@ const appJavaScript = `(() => {
     if (!href || !surface || !linkedRows) return;
     details.dataset.fullDiffLoading = 'true';
     surface.classList.add('loading');
-    if (status) status.textContent = 'Loading full file diff…';
+    if (status) status.textContent = 'Loading every changed hunk…';
     try {
       // The response is already scoped to this target: its rows carry the
       // target that a new comment belongs to, and the server has marked the
-      // rows this explanation is answerable for.
-      const wrapper = document.createElement('div');
-      const result = await fetchFileDiff(href);
-      wrapper.innerHTML = result.html;
-      if (!q('[data-attached-full-diff]', wrapper)) throw new Error('diff response was incomplete');
-      linkedRows.replaceChildren(...Array.from(wrapper.childNodes));
-	  installAuxiliaryDiffNext(linkedRows, href, result.next);
+      // rows this explanation is answerable for. Linked code consumes every
+      // bounded page automatically so no changed hunk waits behind Load more.
+      let nextHref = href;
+      let first = true;
+      while (nextHref && details.isConnected) {
+        const result = await fetchFileDiff(nextHref);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = result.html;
+        const page = q('[data-file-diff-page]', wrapper);
+        const items = q('[data-page-items="lines"]', page || wrapper);
+        if (!items) throw new Error('diff response was incomplete');
+        const rows = qa('.diff-row', items);
+        if (first) linkedRows.replaceChildren(...rows); else linkedRows.append(...rows);
+        first = false;
+        nextHref = continuedPageURL(href, result.next);
+        if (nextHref) await new Promise(resolve => setTimeout(resolve, 0));
+      }
       details.dataset.fullDiffLoaded = 'true';
-      if (status) status.textContent = 'Full file diff · linked changes highlighted';
+      if (status) status.textContent = 'All changed hunks · linked changes highlighted';
       highlightCode(linkedRows);
+      prepareContext(linkedRows);
+      applyDiffLayout(diffLayout);
     } catch (_) {
-      if (status) status.textContent = 'Could not load the full file diff';
+      if (status) status.textContent = 'Could not load every changed hunk';
       const placeholder = q('[data-diff-placeholder]', linkedRows);
       if (placeholder) placeholder.textContent = 'This file diff could not be loaded. Close and reopen to try again.';
     } finally {
@@ -1926,7 +1996,7 @@ const appJavaScript = `(() => {
     }
   }
 
-  function continuedCoverageURL(href, cursor) {
+  function continuedPageURL(href, cursor) {
     if (!cursor) return '';
     const url = new URL(href, location.href);
     url.searchParams.set('cursor', cursor);
@@ -1955,7 +2025,7 @@ const appJavaScript = `(() => {
         const inserted = Array.from(items.childNodes);
         if (first) destination.replaceChildren(...inserted); else destination.append(...inserted);
         first = false;
-        href = continuedCoverageURL(href, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset.nextCursor);
+        href = continuedPageURL(href, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset.nextCursor);
         await new Promise(resolve => setTimeout(resolve, 0));
       }
       details.dataset.coverageFileLoaded = 'true';
@@ -1990,7 +2060,7 @@ const appJavaScript = `(() => {
         const inserted = Array.from(items.childNodes);
         if (first) destination.replaceChildren(...inserted); else destination.append(...inserted);
         first = false;
-        href = continuedCoverageURL(href, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset.nextCursor);
+        href = continuedPageURL(href, response.headers.get('X-Change-Saga-Next-Cursor') || page.dataset.nextCursor);
         filterManifest();
         await new Promise(resolve => setTimeout(resolve, 0));
       }

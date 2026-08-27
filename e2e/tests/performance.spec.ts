@@ -178,13 +178,14 @@ test("loads a linked-code file diff on demand and keeps it answerable to its exp
 
   const rows = attached.locator("[data-linked-diff-rows] .diff-row");
   await rows.first().waitFor();
-  await expect(attached.locator("[data-full-diff-status]")).toHaveText(/Full file diff/);
+  await expect(attached.locator("[data-full-diff-status]")).toHaveText(/All changed hunks/);
   // The server marks the rows this explanation owns, so the drawer still shows
-  // its own evidence inside the surrounding file it fetched for context.
+  // its own evidence inside the surrounding file it fetched for context. Every
+  // bounded page is consumed automatically, so a later hunk never waits behind
+  // a reviewer-operated Load more control.
   const linked = attached.locator(".diff-row.linked-evidence");
-  await expect(linked).toHaveCount(50);
-  await attached.getByRole("button", { name: "Load the next file chunk" }).click();
   await expect(linked).toHaveCount(2 * largeSagaScale.changedLinesPerFile);
+  await expect(attached.getByRole("button", { name: "Load the next file chunk" })).toHaveCount(0);
 
   // A comment written here must carry this file's exact line identity and the
   // narrative target whose drawer it was written from, both of which now come

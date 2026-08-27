@@ -484,6 +484,7 @@ mark.annotation-revealed{box-shadow:0 0 0 2px var(--ink)}
 .diff-column-head span{padding:3px 10px}
 .diff-lines{min-width:640px}
 .diff-row{display:grid;grid-template-columns:46px 46px 18px minmax(240px,1fr) 58px;align-items:start;min-height:20px;font:12px/1.5 var(--mono);position:relative;background:var(--code-bg)}
+.diff-row[hidden]{display:none}
 .diff-row.context{color:var(--ink)}
 .diff-row.new{background:var(--add-bg);box-shadow:inset 2px 0 var(--add-line)}
 .diff-row.old{background:var(--del-bg);box-shadow:inset 2px 0 var(--del-line)}
@@ -502,8 +503,12 @@ mark.annotation-revealed{box-shadow:0 0 0 2px var(--ink)}
 .diff-row:hover .line-actions,.diff-row:focus-within .line-actions{opacity:1}
 .line-actions .icon-button{width:20px;height:20px;background:var(--bg);border:1px solid var(--line)}
 .diff-thread-wrap{grid-column:4/6;padding:0 10px 6px}
-.context-expander{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:2px;border:0;border-radius:0;background:var(--bg-inset);color:var(--accent);border-block:1px solid var(--line-soft);font:11px var(--mono)}
-.context-expander:hover{background:var(--accent-soft)}
+.context-expander{display:grid;grid-template-columns:auto minmax(180px,1fr) auto;align-items:stretch;width:100%;padding:0;background:var(--bg-inset);color:var(--accent);border-block:1px solid var(--line-soft);font:11px var(--mono)}
+.context-expander button{min-height:26px;padding:3px 10px;border:0;border-radius:0;background:transparent;color:inherit;font:inherit}
+.context-expander button:hover,.context-expander button:focus-visible{background:var(--accent-soft)}
+.context-expander .context-expand-all{grid-column:2}
+.context-expander button[data-context-expand=down]{grid-column:1;grid-row:1}
+.context-expander button[data-context-expand=up]{grid-column:3;grid-row:1}
 .diff-selection-toolbar{display:none;position:sticky;bottom:10px;z-index:6;align-items:center;gap:5px;width:max-content;max-width:calc(100% - 20px);margin:-40px 12px 10px auto;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:var(--bg);box-shadow:var(--shadow);font:11px var(--mono)}
 .diff-selection-toolbar.open{display:flex}
 .diff-surface[data-layout=split] .diff-column-head{display:grid}
