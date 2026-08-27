@@ -1,4 +1,4 @@
-import { annotationBubble, dragOn, openAnnotationBubble, selectExactText } from "../support/annotations.js";
+import { annotationBubble, dragOn, openAnnotationBubble, openAnnotationTools, selectExactText } from "../support/annotations.js";
 import { readJSON, reviewFiles } from "../support/fixture-builder.js";
 import { expect, test } from "../support/test.js";
 
@@ -6,12 +6,15 @@ test("@critical drafts, undoes, redoes, submits, moves, recolors, and deletes vi
   const overview = page.locator('[data-fragment-title="Overview"]');
   const overlay = overview.locator("svg.review-overlay");
   await overview.focus();
+  let tools = await openAnnotationTools(overview);
+  await expect(tools).toHaveAttribute("data-annotation-target", await overview.getAttribute("data-target") ?? "");
+  expect(await tools.evaluate((toolbar) => toolbar.closest(".fragment")?.getAttribute("data-fragment-title"))).toBe("Overview");
 
-  await page.getByRole("button", { name: "Rectangle" }).click();
+  await tools.getByRole("button", { name: "Rectangle" }).click();
   await dragOn(page, overlay, [0.15, 0.2], [0.42, 0.42]);
   await expect(overlay.locator(".annotation.pending")).toHaveCount(1);
 
-  await page.getByRole("button", { name: "Freehand" }).click();
+  await tools.getByRole("button", { name: "Freehand" }).click();
   await dragOn(page, overlay, [0.5, 0.25], [0.78, 0.48], 12);
   await expect(overlay.locator(".annotation.pending")).toHaveCount(2);
   await page.getByRole("button", { name: /^Undo / }).click();
@@ -39,8 +42,9 @@ test("@critical drafts, undoes, redoes, submits, moves, recolors, and deletes vi
   });
 
   await overview.focus();
+  tools = await openAnnotationTools(overview);
   await selectExactText(page, '[data-fragment-title="Overview"] [data-selectable]', "exact source changes");
-  await page.getByRole("button", { name: "Highlight selected text" }).click();
+  await tools.getByRole("button", { name: "Highlight selected text" }).click();
   await composer.locator('textarea[name="body"]').fill("Highlighted review claim.");
   await Promise.all([page.waitForNavigation(), composer.getByRole("button", { name: "Comment" }).click()]);
   await expect(openAnnotationBubble(annotationBubble(page, "text"))).resolves.toContainText("Highlighted review claim.");
@@ -48,7 +52,8 @@ test("@critical drafts, undoes, redoes, submits, moves, recolors, and deletes vi
   expect(textThread?.anchor.text?.exact).toBe("exact source changes");
 
   await overview.focus();
-  await page.getByRole("button", { name: "Sticky note" }).click();
+  tools = await openAnnotationTools(overview);
+  await tools.getByRole("button", { name: "Sticky note" }).click();
   await overlay.scrollIntoViewIfNeeded();
   const overlayBox = await overlay.boundingBox();
   if (!overlayBox) throw new Error("sticky surface has no bounding box");

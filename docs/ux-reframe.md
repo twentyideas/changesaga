@@ -104,10 +104,11 @@ Acceptance criteria:
   then derive its author from Git history after it is committed. Uncommitted
   review events should be presented as local/uncommitted rather than asking the
   reviewer to self-identify.
-- Provide one always-available annotation toolbox for comment, text highlight,
+- Provide one reusable annotation toolbox for comment, text highlight,
   rectangle, freehand, and selection modes.
-- Apply the selected annotation tool to the active fragment; do not render a
-  separate tool row on every fragment.
+- Open that toolbox from an explanation's own header and attach it there, so
+  every annotation has an explicit target without rendering a separate tool row
+  on every fragment.
 - Keep tool state legible, keyboard accessible, dismissible with Escape, and
   inert while the reviewer is reading or interacting with sandboxed HTML.
 - Render a linked-diff icon only when a section or fragment actually owns diff

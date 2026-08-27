@@ -38,10 +38,22 @@ async function submitComposer(page: Page, body: string): Promise<void> {
   await waitForSettledSaga(page);
 }
 
+/** Opens the one annotation palette from a fragment's own header target. */
+export async function openAnnotationTools(fragment: Locator): Promise<Locator> {
+  const title = await fragment.getAttribute("data-fragment-title");
+  if (!title) throw new Error("fragment has no annotation title");
+  const toggle = fragment.getByRole("button", { name: `Show annotation tools for ${title}` });
+  if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
+  const toolbar = fragment.getByRole("toolbar", { name: `Annotation tools for ${title}` });
+  await expect(toolbar).toBeVisible();
+  return toolbar;
+}
+
 /** Draws a rectangle over the fragment's overlay and comments on it. */
 export async function addRectangleComment(page: Page, fragment: Locator, body: string, from: [number, number] = [0.15, 0.2], to: [number, number] = [0.45, 0.4]): Promise<void> {
   await fragment.focus();
-  await page.getByRole("button", { name: "Rectangle" }).click();
+  const tools = await openAnnotationTools(fragment);
+  await tools.getByRole("button", { name: "Rectangle" }).click();
   await dragOn(page, fragment.locator("svg.review-overlay"), from, to);
   await submitComposer(page, body);
 }
@@ -49,8 +61,9 @@ export async function addRectangleComment(page: Page, fragment: Locator, body: s
 /** Highlights an exact phrase inside the fragment's prose and comments on it. */
 export async function addHighlightComment(page: Page, fragment: Locator, exact: string, body: string): Promise<void> {
   await fragment.focus();
+  const tools = await openAnnotationTools(fragment);
   await selectExactText(page, `${await fragmentSelector(fragment)} [data-selectable]`, exact);
-  await page.getByRole("button", { name: "Highlight selected text" }).click();
+  await tools.getByRole("button", { name: "Highlight selected text" }).click();
   await submitComposer(page, body);
 }
 
@@ -62,7 +75,8 @@ async function fragmentSelector(fragment: Locator): Promise<string> {
 /** Places a sticky note on the fragment's overlay. Its text is the comment. */
 export async function addStickyNoteComment(page: Page, fragment: Locator, text: string, at: [number, number] = [0.7, 0.65]): Promise<void> {
   await fragment.focus();
-  await page.getByRole("button", { name: "Sticky note" }).click();
+  const tools = await openAnnotationTools(fragment);
+  await tools.getByRole("button", { name: "Sticky note" }).click();
   const overlay = fragment.locator("svg.review-overlay");
   await overlay.scrollIntoViewIfNeeded();
   const box = await overlay.boundingBox();
