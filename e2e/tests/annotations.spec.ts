@@ -15,7 +15,16 @@ test("@critical drafts, undoes, redoes, submits, moves, recolors, and deletes vi
   await expect(overlay.locator(".annotation.pending")).toHaveCount(1);
 
   await tools.getByRole("button", { name: "Freehand" }).click();
-  await dragOn(page, overlay, [0.5, 0.25], [0.78, 0.48], 12);
+  await overlay.scrollIntoViewIfNeeded();
+  const drawingBox = await overlay.boundingBox();
+  if (!drawingBox) throw new Error("freehand surface has no bounding box");
+  await page.mouse.move(drawingBox.x + drawingBox.width * 0.5, drawingBox.y + drawingBox.height * 0.25);
+  await page.mouse.down();
+  await page.mouse.move(drawingBox.x + drawingBox.width * 0.78, drawingBox.y + drawingBox.height * 0.48, { steps: 12 });
+  const liveFreehand = overlay.locator("polyline.annotation.pending");
+  expect((await liveFreehand.getAttribute("points"))?.trim().split(/\s+/).length).toBeGreaterThan(2);
+  expect(await liveFreehand.evaluate((line) => getComputedStyle(line).stroke)).not.toBe("none");
+  await page.mouse.up();
   await expect(overlay.locator(".annotation.pending")).toHaveCount(2);
   await page.getByRole("button", { name: /^Undo / }).click();
   await expect(overlay.locator(".annotation.pending")).toHaveCount(1);

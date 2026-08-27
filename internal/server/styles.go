@@ -402,8 +402,13 @@ mark.annotation-revealed{box-shadow:0 0 0 2px var(--ink)}
 .dialog-head{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line-soft)}
 .dialog-head h2{margin:0;font:600 13px var(--ui)}
 .dialog-head .icon-button{margin-left:auto}
-.dialog-form{padding:12px}
-.dialog-form textarea{min-height:70px;margin-bottom:9px;font:13px var(--ui)}
+.dialog-form{padding:14px}
+.dialog-form textarea{min-height:92px;margin-bottom:12px;font:13px/1.5 var(--ui);resize:vertical}
+.dialog-actions{display:flex;align-items:center;gap:14px;padding-top:12px;border-top:1px solid var(--line-soft)}
+.dialog-actions input[type=file]{flex:1 1 240px;min-width:0;width:auto;color:var(--muted);font:11px var(--ui)}
+.dialog-actions input[type=file]::file-selector-button{margin-right:9px;padding:5px 9px;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-inset);color:var(--ink);font:12px var(--ui);cursor:pointer}
+.dialog-actions input[type=file]::file-selector-button:hover{background:var(--button-hover)}
+.dialog-actions .btn-primary{flex:none;min-width:88px;padding:7px 14px}
 .annotation-compose{position:fixed;z-index:90;right:18px;bottom:18px;width:min(440px,calc(100vw - 36px));display:none;box-shadow:var(--shadow)}
 .annotation-compose.open{display:block}
 .diff-drawer{position:fixed;z-index:80;inset:var(--top) 0 0 auto;width:min(1100px,92vw);background:var(--bg);border-left:1px solid var(--line);box-shadow:-12px 0 40px #1f23281f;transform:translateX(105%);transition:transform .2s ease;display:flex;flex-direction:column}

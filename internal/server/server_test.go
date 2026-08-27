@@ -1036,6 +1036,9 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	if !strings.Contains(renderedPage, `body data-saga-id="test"`) || !strings.Contains(renderedPage, `data-undo disabled`) || !strings.Contains(renderedPage, `data-redo disabled`) || strings.Contains(renderedPage, `name="record_history"`) {
 		t.Fatal("annotation command history controls were not rendered")
 	}
+	if !strings.Contains(renderedPage, `class="dialog-actions"`) || !strings.Contains(renderedPage, `placeholder="Start a review thread" aria-label="Comment"`) {
+		t.Fatal("the annotation composer did not render its spaced, accessible action layout")
+	}
 	if !strings.Contains(renderedPage, `data-annotation-selection`) || !strings.Contains(renderedPage, `data-annotation-entity`) || !strings.Contains(renderedPage, `data-thread-id="thread"`) || !strings.Contains(renderedPage, `data-shape-index="0"`) {
 		t.Fatal("shape annotations were not rendered as selectable entities")
 	}

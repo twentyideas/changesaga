@@ -3245,7 +3245,9 @@ const appJavaScript = `(() => {
     drawing.start = drawing.points[0];
     drawing.preview = document.createElementNS('http://www.w3.org/2000/svg', drawing.mode === 'rect' ? 'rect' : 'polyline');
     drawing.preview.setAttribute('class', 'annotation pending ' + (drawing.mode === 'draw' ? 'path' : ''));
-    drawing.preview.style.setProperty('--active-annotation-color', drawing.color);
+    drawing.preview.setAttribute('stroke', drawing.color);
+    drawing.preview.setAttribute('fill', drawing.mode === 'rect' ? drawing.color : 'none');
+    if (drawing.mode === 'rect') drawing.preview.setAttribute('fill-opacity', '.22');
     drawing.overlay.append(drawing.preview);
     event.preventDefault();
   });
