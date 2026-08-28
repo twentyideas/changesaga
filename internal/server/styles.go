@@ -259,7 +259,9 @@ section:hover>.section-actions .review-controls,.section:hover>.section-head>.se
 @keyframes review-pop{0%{transform:scale(.75)}55%{transform:scale(1.18)}100%{transform:scale(1)}}
 .fragment{position:relative;scroll-margin-top:calc(var(--top) + 12px);margin:14px 0;padding:0 0 0 12px;border-left:2px solid transparent;outline:0}
 .fragment.active-fragment{border-left-color:var(--active-fragment-line)}
-.fragment-head{display:flex;justify-content:flex-end;gap:8px;align-items:center;min-height:22px}
+.fragment-head{position:relative;z-index:20;display:flex;justify-content:flex-end;gap:8px;align-items:center;min-height:22px}
+.annotation-tools-toggle{color:var(--faint)}
+.annotation-tools-toggle[aria-expanded=true]{background:var(--accent-soft);color:var(--accent)}
 .fragment-stage{position:relative;min-height:40px}
 .fragment-frame{display:block;width:100%;min-height:380px;border:1px solid var(--line-soft);border-radius:var(--radius);background:var(--bg)}
 .fragment-image{display:block;max-width:100%;height:auto}
@@ -377,7 +379,7 @@ mark.annotation-revealed{box-shadow:0 0 0 2px var(--ink)}
 .text-anchor{display:block;margin:5px 0;padding:2px 6px;border-radius:3px;background:var(--text-anchor-bg);font-size:12px}
 
 /* Annotation toolbox ----------------------------------------------------- */
-.annotation-toolbox{position:fixed;z-index:50;left:calc(50% + 132px);transform:translateX(-50%);bottom:16px;display:flex;align-items:center;gap:1px;padding:4px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow)}
+.annotation-toolbox{position:absolute;z-index:50;top:calc(100% + 5px);right:0;display:flex;align-items:center;gap:1px;max-width:min(620px,calc(100vw - 32px));padding:4px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow)}
 .annotation-toolbox[hidden]{display:none}
 .annotation-toolbox button{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:var(--radius);background:transparent;color:var(--muted)}
 .annotation-toolbox button:hover{background:var(--bg-inset);color:var(--ink)}
@@ -400,10 +402,16 @@ mark.annotation-revealed{box-shadow:0 0 0 2px var(--ink)}
 .dialog-head{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line-soft)}
 .dialog-head h2{margin:0;font:600 13px var(--ui)}
 .dialog-head .icon-button{margin-left:auto}
-.dialog-form{padding:12px}
-.dialog-form textarea{min-height:70px;margin-bottom:9px;font:13px var(--ui)}
-.annotation-compose{position:fixed;z-index:90;right:18px;bottom:64px;width:min(440px,calc(100vw - 36px));display:none;box-shadow:var(--shadow)}
+.dialog-form{padding:14px}
+.dialog-form textarea{min-height:92px;margin-bottom:12px;font:13px/1.5 var(--ui);resize:vertical}
+.dialog-actions{display:flex;align-items:center;gap:14px;padding-top:12px;border-top:1px solid var(--line-soft)}
+.dialog-actions input[type=file]{flex:1 1 240px;min-width:0;width:auto;color:var(--muted);font:11px var(--ui)}
+.dialog-actions input[type=file]::file-selector-button{margin-right:9px;padding:5px 9px;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-inset);color:var(--ink);font:12px var(--ui);cursor:pointer}
+.dialog-actions input[type=file]::file-selector-button:hover{background:var(--button-hover)}
+.dialog-actions .btn-primary{flex:none;min-width:88px;padding:7px 14px}
+.annotation-compose{position:fixed;z-index:90;right:18px;bottom:18px;width:min(440px,calc(100vw - 36px));display:none;box-shadow:var(--shadow)}
 .annotation-compose.open{display:block}
+.annotation-compose.anchored{position:absolute;right:auto;bottom:auto}
 .diff-drawer{position:fixed;z-index:80;inset:var(--top) 0 0 auto;width:min(1100px,92vw);background:var(--bg);border-left:1px solid var(--line);box-shadow:-12px 0 40px #1f23281f;transform:translateX(105%);transition:transform .2s ease;display:flex;flex-direction:column}
 .diff-drawer.open{transform:none}
 .drawer-backdrop{position:fixed;z-index:70;inset:var(--top) 0 0;background:#1f232833;display:none}
@@ -420,6 +428,7 @@ mark.annotation-revealed{box-shadow:0 0 0 2px var(--ink)}
 
 /* Linked code (drawer contents) ------------------------------------------ */
 .attached-code-summary{display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--line-soft);background:var(--bg-subtle);color:var(--muted);font:11px var(--mono)}
+.attached-code-scope{margin-left:auto;color:var(--faint);font-family:var(--ui)}
 .attached-file-list{padding:8px 10px}
 .attached-file{margin:6px 0;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--bg)}
 .attached-file>summary{display:flex;align-items:center;gap:8px;padding:7px 10px;list-style:none;cursor:pointer}
@@ -668,7 +677,7 @@ mark.annotation-revealed{box-shadow:0 0 0 2px var(--ink)}
 .review-directory-item{grid-template-columns:10px minmax(90px,1fr) auto auto}
 .review-directory-status{display:none}
 .section .section{padding-left:8px}
-.annotation-toolbox{left:8px;right:8px;transform:none;overflow-x:auto;justify-content:flex-start}
+.annotation-toolbox{right:0;overflow-x:auto;justify-content:flex-start}
 .tool-target{display:none}
 .reply,.diff-compose-fields{grid-template-columns:1fr}
 .file-head{top:calc(var(--top) + 35px);flex-wrap:wrap}

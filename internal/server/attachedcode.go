@@ -13,9 +13,13 @@ import (
 // It preserves exact diff atoms while presenting the file as the first unit a
 // reviewer chooses to expand.
 type attachedCodeView struct {
-	Title       string
-	ChangeCount int
-	Files       []*attachedCodeFileView
+	Title           string
+	ChangeCount     int
+	LineCount       int
+	EventCount      int
+	LinkedLineCount int
+	LinkedEvents    int
+	Files           []*attachedCodeFileView
 }
 
 type attachedCodeFileView struct {
@@ -28,26 +32,40 @@ type attachedCodeFileView struct {
 	Deleted        int
 	Events         int
 	Changes        int
+	LinkedLines    int
+	LinkedEvents   int
 }
 
-func makeAttachedCodeView(title, target string, atoms []gitdiff.Atom, evidence []saga.DiffFile) *attachedCodeView {
-	return makeAttachedCodeViewFromAtoms(title, target, len(atoms), func(index int) gitdiff.Atom { return atoms[index] }, evidence)
+func makeAttachedCodeView(title, target string, linked, full []gitdiff.Atom, evidence []saga.DiffFile) *attachedCodeView {
+	return makeAttachedCodeViewFromAtoms(
+		title, target,
+		len(linked), func(index int) gitdiff.Atom { return linked[index] },
+		len(full), func(index int) gitdiff.Atom { return full[index] },
+		evidence,
+	)
 }
 
 func makeAttachedCodeViewIndexed(title, target string, snapshot *reviewSnapshot, indexes []int, evidence []saga.DiffFile) *attachedCodeView {
-	return makeAttachedCodeViewFromAtoms(title, target, len(indexes), func(index int) gitdiff.Atom {
-		return snapshot.changes.Atoms[indexes[index]]
-	}, evidence)
+	fullIndexes := make([]int, 0)
+	for _, path := range snapshot.targetFiles[target] {
+		fullIndexes = append(fullIndexes, snapshot.fileAtoms[path]...)
+	}
+	return makeAttachedCodeViewFromAtoms(
+		title, target,
+		len(indexes), func(index int) gitdiff.Atom { return snapshot.changes.Atoms[indexes[index]] },
+		len(fullIndexes), func(index int) gitdiff.Atom { return snapshot.changes.Atoms[fullIndexes[index]] },
+		evidence,
+	)
 }
 
-func makeAttachedCodeViewFromAtoms(title, target string, atomCount int, atomAt func(int) gitdiff.Atom, evidence []saga.DiffFile) *attachedCodeView {
-	if atomCount == 0 {
+func makeAttachedCodeViewFromAtoms(title, target string, linkedCount int, linkedAt func(int) gitdiff.Atom, fullCount int, fullAt func(int) gitdiff.Atom, evidence []saga.DiffFile) *attachedCodeView {
+	if linkedCount == 0 {
 		return nil
 	}
-	view := &attachedCodeView{Title: title, ChangeCount: atomCount}
+	view := &attachedCodeView{Title: title}
 	byPath := map[string]*attachedCodeFileView{}
-	for index := 0; index < atomCount; index++ {
-		atom := atomAt(index)
+	for index := 0; index < fullCount; index++ {
+		atom := fullAt(index)
 		path := effectiveAtomPath(atom)
 		file := byPath[path]
 		if file == nil {
@@ -65,8 +83,30 @@ func makeAttachedCodeViewFromAtoms(title, target string, atomCount int, atomAt f
 			file.Added++
 		}
 	}
+	for index := 0; index < linkedCount; index++ {
+		atom := linkedAt(index)
+		file := byPath[effectiveAtomPath(atom)]
+		if file == nil {
+			continue
+		}
+		if atom.Kind == "event" {
+			file.LinkedEvents++
+			view.LinkedEvents++
+		} else {
+			file.LinkedLines++
+			view.LinkedLineCount++
+		}
+	}
+	for _, file := range view.Files {
+		view.LineCount += file.Added + file.Deleted
+		view.EventCount += file.Events
+	}
+	view.ChangeCount = view.LineCount
+	if view.ChangeCount == 0 {
+		view.ChangeCount = view.EventCount
+	}
 
-	for path, notes := range attachedFileNotesFromAtoms(atomCount, atomAt, evidence) {
+	for path, notes := range attachedFileNotesFromAtoms(linkedCount, linkedAt, evidence) {
 		if file := byPath[path]; file != nil {
 			file.Summary = strings.Join(notes, " ")
 		}

@@ -1030,11 +1030,14 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 			t.Fatalf("template output is missing %q", expected)
 		}
 	}
-	if strings.Count(renderedPage, `class="annotation-toolbox"`) != 1 || !strings.Contains(renderedPage, `data-review-progress`) || !strings.Contains(renderedPage, `data-review-decided="2" data-review-total="3"`) || !strings.Contains(renderedPage, `aria-label="Review progress: 2 of 3 decisions"`) || !strings.Contains(renderedPage, `class="review-progress-segment approved"`) || !strings.Contains(renderedPage, `class="review-progress-segment rejected"`) || !strings.Contains(renderedPage, `class="review-progress-segment pending"`) || !strings.Contains(renderedPage, `data-review-progress-note="Ready to merge."`) || !strings.Contains(renderedPage, `Comment: Ready to merge.`) || !strings.Contains(renderedPage, `data-review-progress-tooltip`) || !strings.Contains(renderedPage, `href="/#`+domID(fragment.Target)+`"`) || !strings.Contains(renderedPage, `data-review-controls`) || !strings.Contains(renderedPage, `data-review-author="Ada"`) || !strings.Contains(renderedPage, `data-review-detail="ada@example.test · committed abc123"`) || !strings.Contains(renderedPage, `data-review-decision="approved" aria-pressed="true"`) || !strings.Contains(renderedPage, `data-review-decision-tooltip`) || !strings.Contains(renderedPage, `data-review-decision-author title="ada@example.test · committed abc123"`) || !strings.Contains(renderedPage, `data-review-comment`) || !strings.Contains(renderedPage, `data-review-note title="Ready to merge."`) || !strings.Contains(renderedPage, `i-approve-filled`) || !strings.Contains(renderedPage, `i-reject-filled`) || strings.Contains(renderedPage, `decision-dialog`) || strings.Contains(renderedPage, `class="review-form"`) {
+	if strings.Count(renderedPage, `class="annotation-toolbox"`) != 1 || !strings.Contains(renderedPage, `data-annotation-tools="`+fragment.Target+`"`) || !strings.Contains(renderedPage, `aria-controls="annotation-toolbox"`) || !strings.Contains(renderedPage, `data-review-progress`) || !strings.Contains(renderedPage, `data-review-decided="2" data-review-total="3"`) || !strings.Contains(renderedPage, `aria-label="Review progress: 2 of 3 decisions"`) || !strings.Contains(renderedPage, `class="review-progress-segment approved"`) || !strings.Contains(renderedPage, `class="review-progress-segment rejected"`) || !strings.Contains(renderedPage, `class="review-progress-segment pending"`) || !strings.Contains(renderedPage, `data-review-progress-note="Ready to merge."`) || !strings.Contains(renderedPage, `Comment: Ready to merge.`) || !strings.Contains(renderedPage, `data-review-progress-tooltip`) || !strings.Contains(renderedPage, `href="/#`+domID(fragment.Target)+`"`) || !strings.Contains(renderedPage, `data-review-controls`) || !strings.Contains(renderedPage, `data-review-author="Ada"`) || !strings.Contains(renderedPage, `data-review-detail="ada@example.test · committed abc123"`) || !strings.Contains(renderedPage, `data-review-decision="approved" aria-pressed="true"`) || !strings.Contains(renderedPage, `data-review-comment`) || !strings.Contains(renderedPage, `data-review-note title="Ready to merge."`) || !strings.Contains(renderedPage, `i-approve-filled`) || !strings.Contains(renderedPage, `i-reject-filled`) || !strings.Contains(renderedPage, `data-shared-review-form`) || strings.Contains(renderedPage, `decision-dialog`) || strings.Contains(renderedPage, `class="review-form"`) {
 		t.Fatal("fast inline review controls and progress were not rendered")
 	}
 	if !strings.Contains(renderedPage, `body data-saga-id="test"`) || !strings.Contains(renderedPage, `data-undo disabled`) || !strings.Contains(renderedPage, `data-redo disabled`) || strings.Contains(renderedPage, `name="record_history"`) {
 		t.Fatal("annotation command history controls were not rendered")
+	}
+	if !strings.Contains(renderedPage, `class="dialog-actions"`) || !strings.Contains(renderedPage, `placeholder="Start a review thread" aria-label="Comment"`) {
+		t.Fatal("the annotation composer did not render its spaced, accessible action layout")
 	}
 	if !strings.Contains(renderedPage, `data-annotation-selection`) || !strings.Contains(renderedPage, `data-annotation-entity`) || !strings.Contains(renderedPage, `data-thread-id="thread"`) || !strings.Contains(renderedPage, `data-shape-index="0"`) {
 		t.Fatal("shape annotations were not rendered as selectable entities")
@@ -1057,6 +1060,9 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	}
 	if !strings.Contains(renderedPage, `class="attached-file" data-file-diff-href=`) || !strings.Contains(renderedPage, `data-file-diff-rows`) || !strings.Contains(renderedPage, "Adds the package entrypoint so the example compiles.") || !strings.Contains(renderedPage, "Open in Code Diff") || strings.Contains(renderedPage, `<details class="attached-file" open`) || strings.Contains(renderedPage, "Linked ranges only") {
 		t.Fatal("attached code was not presented as a collapsed, explained file list")
+	}
+	if !strings.Contains(renderedPage, "changed line") || !strings.Contains(renderedPage, "linked line") || !strings.Contains(renderedPage, "highlighted") {
+		t.Fatal("attached code did not distinguish linked-change counts from full-file context")
 	}
 	if !strings.Contains(renderedPage, `data-annotation-color`) || !strings.Contains(renderedPage, `stroke="#336699"`) || !strings.Contains(renderedPage, `data-copy-link="#`+domID("thread:thread")+`"`) || !strings.Contains(renderedPage, `data-copy-link="#`+domID("message:message")+`"`) {
 		t.Fatal("annotation colors or committed-item permalinks were not rendered")
@@ -1169,8 +1175,8 @@ func TestPageHandlerShipsAChapterShellAndRedirectsLegacyRoutes(t *testing.T) {
 		!strings.Contains(overviewBody, `data-section-href="/api/section?target=`+template.HTMLEscapeString(url.QueryEscape(alphaTarget))+`"`) {
 		t.Fatal("the shell did not describe its chapters as fetchable summaries")
 	}
-	if strings.Contains(overviewBody, `data-review-target="`+alphaTarget+`"`) {
-		t.Fatal("a chapter still exposed its legacy approval as a current review control")
+	if !strings.Contains(overviewBody, `data-review-target="`+alphaTarget+`"`) {
+		t.Fatal("the chapter bar did not expose its review controls")
 	}
 	if strings.Contains(overviewBody, `data-chapter-review-directory`) {
 		t.Fatal("the first-load shell eagerly carried a chapter review directory")
@@ -1199,8 +1205,8 @@ func TestPageHandlerShipsAChapterShellAndRedirectsLegacyRoutes(t *testing.T) {
 		!strings.Contains(alphaBody, `href="#`+domID(alphaFragment)+`"`) {
 		t.Fatalf("chapter body did not carry its bounded, navigable review directory: %s", alphaBody)
 	}
-	if strings.Count(alphaBody, `data-review-target="`+alphaFragment+`"`) != 1 {
-		t.Fatalf("chapter explanation did not have exactly one approval control in its directory: %s", alphaBody)
+	if strings.Count(alphaBody, `data-review-target="`+alphaFragment+`"`) != 2 {
+		t.Fatalf("chapter explanation did not expose synchronized controls in its bar and directory: %s", alphaBody)
 	}
 	if strings.Contains(alphaBody, "Alpha-exclusive narrative") || strings.Contains(alphaBody, "Beta-exclusive narrative") {
 		t.Fatal("a chapter body carried explanation content, or content from another chapter")
@@ -1377,7 +1383,7 @@ func TestTargetCodeLoadsOneNarrativeMappingWithoutGlobalSnapshot(t *testing.T) {
 
 	summary := httptest.NewRecorder()
 	handler.ServeHTTP(summary, httptest.NewRequest(http.MethodGet, "/api/target-code?target="+url.QueryEscape(target), nil))
-	if summary.Code != http.StatusOK || !strings.Contains(summary.Body.String(), `data-open-diffs="diffs-`+domID(target)+`"`) || !strings.Contains(summary.Body.String(), "app.go") || !strings.Contains(summary.Body.String(), "Implements the ready path.") || strings.Contains(summary.Body.String(), "unrelated.go") {
+	if summary.Code != http.StatusOK || !strings.Contains(summary.Body.String(), `data-open-diffs="diffs-`+domID(target)+`"`) || !strings.Contains(summary.Body.String(), `data-target-code-count="3"`) || !strings.Contains(summary.Body.String(), "3 changed lines") || !strings.Contains(summary.Body.String(), "1 linked line highlighted") || !strings.Contains(summary.Body.String(), "app.go") || !strings.Contains(summary.Body.String(), "Implements the ready path.") || strings.Contains(summary.Body.String(), "unrelated.go") {
 		t.Fatalf("target code was not scoped to the authored mapping: status=%d body=%s", summary.Code, summary.Body.String())
 	}
 

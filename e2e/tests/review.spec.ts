@@ -11,6 +11,13 @@ test("@critical creates a comment and reply, then resolves and reopens the threa
   const overview = page.locator('[data-fragment-title="Overview"]');
   await overview.getByRole("button", { name: "Comment on Overview" }).click();
   const composer = page.locator("form.annotation-compose");
+  const actionGap = await composer.locator(".dialog-actions").evaluate((actions) => {
+    const attachment = actions.querySelector('input[type="file"]')?.getBoundingClientRect();
+    const submit = actions.querySelector('button[type="submit"]')?.getBoundingClientRect();
+    return attachment && submit ? submit.left - attachment.right : -1;
+  });
+  expect(actionGap).toBeGreaterThanOrEqual(10);
+  await expect(composer.getByRole("textbox", { name: "Comment" })).toBeVisible();
   await composer.locator('textarea[name="body"]').fill("Please explain the retry boundary.");
   await submitWithNavigation(page, () => composer.getByRole("button", { name: "Comment" }).click());
 

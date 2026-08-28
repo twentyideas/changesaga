@@ -164,7 +164,8 @@ const appJavaScript = `(() => {
     if (!progress) return;
     const total = Math.max(0, Number(document.body.dataset.reviewTotal) || 0);
     let decided = Math.max(0, Number(document.body.dataset.reviewDecided) || 0);
-    if (previous || next) {
+    const targetSegments = target ? qa('[data-review-progress-target]', progress).filter(segment => segment.dataset.reviewProgressTarget === target) : [];
+    if ((previous || next) && (!target || targetSegments.length > 0)) {
       if (!isReviewDecision(previous) && isReviewDecision(next)) decided++;
       if (isReviewDecision(previous) && !isReviewDecision(next)) decided--;
       decided = Math.max(0, Math.min(total, decided));
@@ -172,7 +173,7 @@ const appJavaScript = `(() => {
     }
     progress.setAttribute('aria-label', 'Review progress: ' + decided + ' of ' + total + ' decisions');
     if (target) {
-      qa('[data-review-progress-target]', progress).filter(segment => segment.dataset.reviewProgressTarget === target).forEach(segment => {
+      targetSegments.forEach(segment => {
         const status = reviewDecisionStatus(next);
         const title = segment.dataset.reviewProgressTitle || 'Review item';
         segment.dataset.reviewState = next;
@@ -195,51 +196,71 @@ const appJavaScript = `(() => {
     const title = control.dataset.reviewTitle || 'item';
     const author = control.dataset.reviewAuthor || '';
     const attribution = control.dataset.reviewDetail || '';
-    control.dataset.reviewState = state;
-    qa('[data-review-decision]', control).forEach(button => {
-      const selected = button.dataset.reviewDecision === state;
-      button.setAttribute('aria-pressed', String(selected));
-      if (button.dataset.reviewDecision === 'approved') {
-        button.setAttribute('aria-label', (selected ? 'Undo approval for ' : 'Approve ') + title + (selected && author ? ' by ' + author : '') + (selected && note ? '. Comment: ' + note : ''));
-        if (selected) button.removeAttribute('title'); else button.title = 'Approve';
-      } else {
-        button.setAttribute('aria-label', (selected ? 'Undo request for changes on ' : 'Request changes on ') + title + (selected && author ? ' by ' + author : '') + (selected && note ? '. Comment: ' + note : ''));
-        if (selected) button.removeAttribute('title'); else button.title = 'Request changes';
+    const matching = qa('[data-review-controls]').filter(candidate => candidate.dataset.reviewTarget === control.dataset.reviewTarget);
+    matching.forEach(candidate => {
+      candidate.dataset.reviewState = state;
+      candidate.dataset.reviewAuthor = author;
+      candidate.dataset.reviewDetail = attribution;
+      const candidateTitle = candidate.dataset.reviewTitle || title;
+      qa('[data-review-decision]', candidate).forEach(button => {
+        const selected = button.dataset.reviewDecision === state;
+        button.setAttribute('aria-pressed', String(selected));
+        if (button.dataset.reviewDecision === 'approved') {
+          button.setAttribute('aria-label', (selected ? 'Undo approval for ' : 'Approve ') + candidateTitle + (selected && author ? ' by ' + author : '') + (selected && note ? '. Comment: ' + note : ''));
+          if (selected) button.removeAttribute('title'); else button.title = 'Approve';
+        } else {
+          button.setAttribute('aria-label', (selected ? 'Undo request for changes on ' : 'Request changes on ') + candidateTitle + (selected && author ? ' by ' + author : '') + (selected && note ? '. Comment: ' + note : ''));
+          if (selected) button.removeAttribute('title'); else button.title = 'Request changes';
+        }
+        const tooltip = q('[data-review-decision-tooltip]', button);
+        const tooltipAuthor = tooltip ? q('[data-review-decision-author]', tooltip) : null;
+        const tooltipNote = tooltip ? q('[data-review-decision-tooltip-note]', tooltip) : null;
+        if (tooltipAuthor) {
+          tooltipAuthor.textContent = author;
+          tooltipAuthor.title = attribution;
+          tooltipAuthor.hidden = !author;
+        }
+        if (tooltipNote) {
+          tooltipNote.textContent = note;
+          tooltipNote.hidden = !note;
+        }
+      });
+      const decisionNote = q('[data-review-note]', candidate);
+      if (decisionNote) {
+        decisionNote.textContent = note;
+        decisionNote.title = note;
+        decisionNote.hidden = !note;
       }
-      const tooltip = q('[data-review-decision-tooltip]', button);
-      const tooltipAuthor = q('[data-review-decision-author]', tooltip);
-      const tooltipNote = q('[data-review-decision-tooltip-note]', tooltip);
-      if (tooltipAuthor) {
-        tooltipAuthor.textContent = author;
-        tooltipAuthor.title = attribution;
-        tooltipAuthor.hidden = !author;
-      }
-      if (tooltipNote) {
-        tooltipNote.textContent = note;
-        tooltipNote.hidden = !note;
-      }
+      if (!animate) return;
+      candidate.classList.remove('decision-changed');
+      requestAnimationFrame(() => candidate.classList.add('decision-changed'));
+      setTimeout(() => candidate.classList.remove('decision-changed'), 650);
     });
     updateReviewDirectoryState(control.dataset.reviewTarget, state);
     updateReviewProgress(previous, state, animate, control.dataset.reviewTarget, note);
-    if (!animate) return;
-    control.classList.remove('decision-changed');
-    requestAnimationFrame(() => control.classList.add('decision-changed'));
-    setTimeout(() => control.classList.remove('decision-changed'), 650);
   }
 
   function closeReviewComposer(form, immediate = false) {
     if (!form) return;
     clearTimeout(form.reviewCloseTimer);
     form.classList.remove('open');
-    const finish = () => { form.hidden = true; form.reset(); };
+    const finish = () => {
+      form.hidden = true;
+      form.reset();
+      form.reviewControl = null;
+      document.body.append(form);
+    };
     if (immediate) finish(); else form.reviewCloseTimer = setTimeout(finish, 150);
   }
 
   function openReviewComposer(control, state) {
     qa('[data-review-decision-form].open').forEach(form => closeReviewComposer(form, true));
-    const form = q('[data-review-decision-form]', control);
+    const form = q('[data-shared-review-form]');
+    if (!form) return;
     clearTimeout(form.reviewCloseTimer);
     form.reset();
+    form.reviewControl = control;
+    control.append(form);
     q('[name=target]', form).value = control.dataset.reviewTarget;
     q('[name=state]', form).value = state;
     const field = q('[name=body]', form);
@@ -250,20 +271,18 @@ const appJavaScript = `(() => {
   }
 
   async function persistReviewDecision(control, state, body = '') {
-    const buttons = qa('button', control);
+    const controls = qa('[data-review-controls]').filter(candidate => candidate.dataset.reviewTarget === control.dataset.reviewTarget);
+    const buttons = controls.flatMap(candidate => qa('button', candidate));
     buttons.forEach(button => button.disabled = true);
     try {
       const values = new URLSearchParams({target:control.dataset.reviewTarget, state, body, return_to:location.pathname + location.search + location.hash});
       const response = await fetch('/api/review', {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-Change-Saga-Async':'true','X-Change-Saga-Mutation-Token':mutationToken},body:values,credentials:'same-origin'});
       if (!response.ok) throw new Error((await response.text()).trim() || 'review could not be saved');
-      control.dataset.reviewAuthor = 'Local / uncommitted';
-      control.dataset.reviewDetail = 'This review event has not been committed yet.';
+      controls.forEach(candidate => {
+        candidate.dataset.reviewAuthor = 'Local / uncommitted';
+        candidate.dataset.reviewDetail = 'This review event has not been committed yet.';
+      });
       setReviewControlState(control, state, true, body.trim());
-      const note = q('[data-review-note]', control);
-      const noteBody = body.trim();
-      note.textContent = noteBody;
-      note.title = noteBody;
-      note.hidden = !noteBody;
     } catch (error) {
       alert('Could not save this review decision: ' + error.message);
       throw error;
@@ -288,7 +307,8 @@ const appJavaScript = `(() => {
   }
 
   async function submitReviewComposer(form) {
-    const control = form.closest('[data-review-controls]');
+    const control = form.reviewControl || form.closest('[data-review-controls]');
+    if (!control) return;
     const state = q('[name=state]', form).value;
     const body = q('[name=body]', form).value;
     try {
@@ -305,9 +325,61 @@ const appJavaScript = `(() => {
     q('[name=anchor]', form).value = JSON.stringify({type:'target'});
     q('.dialog-head h2', form).textContent = 'Comment on ' + (control.dataset.reviewTitle || 'this item');
     form.classList.add('open');
+    positionAnnotationComposer(control);
     q('[name=body]', form).focus();
     resetTool();
     updateHistoryControls();
+  }
+
+  function resetAnnotationComposerPosition() {
+    const form = q('.annotation-compose');
+    if (!form) return;
+    form.classList.remove('anchored');
+    form.style.removeProperty('left');
+    form.style.removeProperty('top');
+  }
+
+  function positionAnnotationComposer(anchor) {
+    const form = q('.annotation-compose');
+    const rect = anchor?.getBoundingClientRect ? anchor.getBoundingClientRect() : anchor;
+    if (!form || !rect || !Number.isFinite(rect.left) || !Number.isFinite(rect.top)) {
+      resetAnnotationComposerPosition();
+      return;
+    }
+    form.classList.add('anchored');
+    const width = form.offsetWidth;
+    const height = form.offsetHeight;
+    const gap = 10;
+    const edge = 12;
+    const clamp = (value, low, high) => Math.max(low, Math.min(Math.max(low, high), value));
+    const centerLeft = rect.left + (rect.width - width) / 2;
+    const centerTop = rect.top + (rect.height - height) / 2;
+    const candidates = [
+      {left:rect.right + gap, top:centerTop},
+      {left:rect.left - width - gap, top:centerTop},
+      {left:centerLeft, top:rect.bottom + gap},
+      {left:centerLeft, top:rect.top - height - gap}
+    ].map((candidate,index) => ({
+      left:clamp(candidate.left, edge, innerWidth - width - edge),
+      top:clamp(candidate.top, edge, innerHeight - height - edge),
+      index
+    }));
+    const obstacles = [q('.annotation-toolbox:not([hidden])'), q('.topbar')]
+      .filter(element => element?.getClientRects().length)
+      .map(element => element.getBoundingClientRect());
+    const overlap = (a,b) => Math.max(0, Math.min(a.right,b.right) - Math.max(a.left,b.left)) * Math.max(0, Math.min(a.bottom,b.bottom) - Math.max(a.top,b.top));
+    const score = candidate => {
+      const candidateRect = {left:candidate.left,top:candidate.top,right:candidate.left+width,bottom:candidate.top+height};
+      const coveredControls = obstacles.reduce((area, obstacle) => area + overlap(candidateRect, obstacle), 0);
+      const coveredAnchor = overlap(candidateRect, rect);
+      const dx = Math.max(rect.left-candidateRect.right, candidateRect.left-rect.right, 0);
+      const dy = Math.max(rect.top-candidateRect.bottom, candidateRect.top-rect.bottom, 0);
+      return (coveredControls + coveredAnchor) * 1000 + Math.hypot(dx,dy) + candidate.index / 100;
+    };
+    candidates.sort((left,right) => score(left) - score(right));
+    const {left,top} = candidates[0];
+    form.style.left = Math.round(left + scrollX) + 'px';
+    form.style.top = Math.round(top + scrollY) + 'px';
   }
 
   function shortcutDirection(event) {
@@ -1165,7 +1237,8 @@ const appJavaScript = `(() => {
     delete file.dataset.fileDiffLoaded;
     file.dataset.fileDiffLoading = 'true';
     q('[data-diff-surface]', file)?.classList.add('loading');
-    if (status) status.textContent = 'Loading every changed hunk…';
+    const linkedContext = file.matches('.attached-file');
+    if (status) status.textContent = linkedContext ? 'Loading full file diff; linked lines will be highlighted…' : 'Loading every changed hunk…';
     const visited = new Set();
     const promise = (async () => {
       let nextHref = href;
@@ -1198,7 +1271,7 @@ const appJavaScript = `(() => {
       }
       if (!reviewFileIsActive(file)) return file;
       file.dataset.fileDiffLoaded = key;
-      if (status) status.textContent = 'All changed hunks';
+      if (status) status.textContent = linkedContext ? 'All changed hunks · linked lines highlighted' : 'All changed hunks';
       prepareContext(destination);
       applyDiffLayout(diffLayout);
       revealHashedAnnotationBubble();
@@ -1378,7 +1451,7 @@ const appJavaScript = `(() => {
     const codeMeta = q('.top-meta');
     if (sagaSide) sagaSide.hidden = name !== 'saga';
     if (codeSide) codeSide.hidden = name !== 'code';
-    if (toolbox) toolbox.hidden = name !== 'saga';
+    if (toolbox) toolbox.hidden = name !== 'saga' || !toolbox.dataset.annotationTarget;
     if (codeMeta) codeMeta.hidden = name !== 'code';
     const shell = q('[data-shell]');
     if (shell) shell.classList.toggle('code-mode', name === 'code');
@@ -1438,11 +1511,60 @@ const appJavaScript = `(() => {
     if (activeFragment) activeFragment.classList.remove('active-fragment');
     activeFragment = fragment;
     activeFragment.classList.add('active-fragment');
-    const label = q('[data-tool-target]');
-    if (label) label.textContent = fragment.dataset.fragmentTitle || 'Selected';
     // Pointing at an explanation is the clearest signal that it is about to be
     // read or annotated, so it is fetched now rather than when it scrolls.
     if (fragment.dataset.fragmentHref) void hydrateFragment(fragment);
+  }
+
+  function hideAnnotationTools() {
+    const toolbox = q('[data-annotation-target]');
+    if (!toolbox) return;
+    toolbox.hidden = true;
+    toolbox.dataset.annotationTarget = '';
+    toolbox.setAttribute('aria-label', 'Annotation tools');
+    qa('[data-annotation-tools]').forEach(button => {
+      button.setAttribute('aria-expanded', 'false');
+      button.setAttribute('aria-label', 'Show annotation tools for ' + (button.dataset.annotationTitle || 'this explanation'));
+    });
+    document.body.append(toolbox);
+    resetTool();
+  }
+
+  function showAnnotationTools(fragment, target = fragment?.dataset.target || '', title = fragment?.dataset.fragmentTitle || 'this explanation') {
+    const toolbox = q('[data-annotation-target]');
+    const actions = fragment ? q(':scope > .fragment-head > .fragment-actions', fragment) : null;
+    if (!fragment || !toolbox || !actions) return false;
+    setActiveFragment(fragment);
+    actions.append(toolbox);
+    toolbox.dataset.annotationTarget = target;
+    toolbox.setAttribute('aria-label', 'Annotation tools for ' + title);
+    const label = q('[data-tool-target]', toolbox);
+    if (label) label.textContent = title;
+    toolbox.hidden = false;
+    qa('[data-annotation-tools]').forEach(candidate => {
+      const selected = candidate.dataset.annotationTools === target;
+      candidate.setAttribute('aria-expanded', String(selected));
+      candidate.setAttribute('aria-label', (selected ? 'Hide' : 'Show') + ' annotation tools for ' + (candidate.dataset.annotationTitle || 'this explanation'));
+    });
+    resetTool();
+    return true;
+  }
+
+  async function toggleAnnotationTools(button) {
+    const fragment = button.closest('.fragment');
+    const toolbox = q('[data-annotation-target]');
+    if (!fragment || !toolbox) return;
+    closeAnnotationBubbles();
+    const target = button.dataset.annotationTools || fragment.dataset.target || '';
+    if (!toolbox.hidden && toolbox.dataset.annotationTarget === target) {
+      hideAnnotationTools();
+      return;
+    }
+    if (annotationDraft || drawing) closeAnnotation();
+    if (fragment.dataset.fragmentHref) await hydrateFragment(fragment);
+    if (fragment.dataset.fragmentHref) return;
+    const title = fragment.dataset.fragmentTitle || button.dataset.annotationTitle || 'this explanation';
+    showAnnotationTools(fragment, target, title);
   }
 
   function cancelDrawing() {
@@ -2298,6 +2420,8 @@ const appJavaScript = `(() => {
   }
 
   function selectAnnotation(element) {
+    const fragment = element.closest('.fragment');
+    if (fragment) showAnnotationTools(fragment);
     clearAnnotationSelection();
     const draft = element.classList.contains('pending');
     const group = element.closest('[data-annotation-entity]');
@@ -2324,6 +2448,8 @@ const appJavaScript = `(() => {
   }
 
   function selectStickyNote(element) {
+    const fragment = element.closest('.fragment');
+    if (fragment) showAnnotationTools(fragment);
     clearAnnotationSelection();
     selectedAnnotation = {
       kind:element.classList.contains('pending') ? 'draft' : 'persisted',
@@ -2458,6 +2584,10 @@ const appJavaScript = `(() => {
     q('[name=target]', form).value = annotationDraft.target;
     q('[name=anchor]', form).value = JSON.stringify(annotationDraft.anchor);
     form.classList.toggle('open', showComposer && annotationDraft.anchor.shapes.length > 0);
+    if (form.classList.contains('open')) {
+      const marks = qa('.annotation.pending', overlay);
+      positionAnnotationComposer(marks[marks.length - 1] || annotationDraft.fragment);
+    }
     clearAnnotationSelection();
     updateHistoryControls();
   }
@@ -2501,6 +2631,7 @@ const appJavaScript = `(() => {
     q('[name=anchor]', form).value = JSON.stringify(anchor);
     q('[name=body]', form).value = options.body || '';
     form.classList.add('open');
+    positionAnnotationComposer(options.anchorElement || options.anchorRect || q('.fragment-head', fragment));
     q('[name=body]', form).focus();
     annotationDraft = {
       kind:'draft',
@@ -2518,6 +2649,7 @@ const appJavaScript = `(() => {
   function closeAnnotation(discard = true) {
     const form = q('.annotation-compose');
     if (form) form.classList.remove('open');
+    resetAnnotationComposerPosition();
     if (discard) {
       discardAnnotationDraft();
     }
@@ -2715,36 +2847,40 @@ const appJavaScript = `(() => {
     }
   }
 
-  async function useTool(mode) {
+  async function useTool(mode, fragment = activeFragment) {
     cancelDrawing();
     clearAnnotationSelection();
     // An open comment covers the surface the reviewer is about to draw on, so
     // arming a tool hands the pointer back to the content.
     if (mode !== 'select') closeAnnotationBubbles();
     setSelectedTool(mode);
-    if (mode === 'select') return;
-    if (!activeFragment) {
+    if (mode === 'select') {
+      if (annotationDraft?.shapeDraft) syncShapeDraft(true);
+      return;
+    }
+    if (fragment) setActiveFragment(fragment);
+    if (!fragment) {
       const label = q('[data-tool-target]');
-      if (label) label.textContent = 'Point at content first';
+      if (label) label.textContent = 'Choose an explanation first';
       resetTool();
       return;
     }
     // There is nothing to draw on until the explanation has arrived, so arming
     // a tool waits for its content rather than silently disarming itself.
-    if (activeFragment.dataset.fragmentHref) await hydrateFragment(activeFragment);
-    if (!activeFragment || activeFragment.dataset.fragmentHref) {
+    if (fragment.dataset.fragmentHref) await hydrateFragment(fragment);
+    if (fragment.dataset.fragmentHref) {
       const label = q('[data-tool-target]');
       if (label) label.textContent = 'This explanation is still loading';
       resetTool();
       return;
     }
     if (mode === 'target') {
-      openAnnotation({type:'target'});
+      openAnnotation({type:'target'}, {fragment, anchorElement:q('.fragment-head', fragment)});
       return;
     }
     if (mode === 'text') {
       const selection = getSelection();
-      const selectable = q('[data-selectable]', activeFragment);
+      const selectable = q('[data-selectable]', fragment);
       if (!selection || selection.isCollapsed || !selectable || !selectable.contains(selection.anchorNode) || !selectable.contains(selection.focusNode)) {
         const label = q('[data-tool-target]');
         if (label) label.textContent = 'Select some text first';
@@ -2758,13 +2894,22 @@ const appJavaScript = `(() => {
       before.setEnd(selectedRange.startContainer, selectedRange.startOffset);
       const start = before.toString().length;
       const allText = selectable.textContent;
-      openAnnotation({type:'text',text:{exact,start,end:start+exact.length,prefix:allText.slice(Math.max(0,start-32),start),suffix:allText.slice(start+exact.length,start+exact.length+32),color:annotationColor}});
+      openAnnotation({type:'text',text:{exact,start,end:start+exact.length,prefix:allText.slice(Math.max(0,start-32),start),suffix:allText.slice(start+exact.length,start+exact.length+32),color:annotationColor}}, {fragment, anchorRect:selectedRange.getBoundingClientRect()});
       return;
     }
-    const overlay = q('.review-overlay', activeFragment);
+    const overlay = q('.review-overlay', fragment);
     if (!overlay) {
       resetTool();
       return;
+    }
+    // A nearby composer should not intercept the next stroke in a multi-shape
+    // annotation. Keep its draft values, hide it while the tool is armed, and
+    // let addDraftShape reopen it beside the newly completed mark.
+    if (annotationDraft?.shapeDraft) {
+      const form = q('.annotation-compose');
+      annotationDraft.body = q('[name=body]', form)?.value || annotationDraft.body || '';
+      form?.classList.remove('open');
+      resetAnnotationComposerPosition();
     }
     if (mode === 'sticky') {
       // A sticky is paper, not ink, so it opens on the note palette until the
@@ -2777,7 +2922,7 @@ const appJavaScript = `(() => {
       overlay.classList.add('placing');
     }
     overlay.classList.add('drawing');
-    drawing = {fragment: activeFragment, overlay, mode, color:annotationColor, points: []};
+    drawing = {fragment, overlay, mode, color:annotationColor, points: []};
   }
 
   document.addEventListener('mousedown', event => {
@@ -2939,6 +3084,8 @@ const appJavaScript = `(() => {
     const drawerButton = event.target.closest('[data-open-diffs]');
     if (drawerButton) { event.preventDefault(); openDrawer(drawerButton.dataset.openDiffs, drawerButton); return; }
     if (event.target.closest('[data-close-drawer]')) { closeDrawer(); return; }
+    const annotationTools = event.target.closest('[data-annotation-tools]');
+    if (annotationTools) { void toggleAnnotationTools(annotationTools); return; }
     const reviewDecision = event.target.closest('[data-review-decision]');
     if (reviewDecision) { activateReviewDecision(reviewDecision); return; }
     const reviewComment = event.target.closest('[data-review-comment]');
@@ -2950,7 +3097,7 @@ const appJavaScript = `(() => {
     if (diffAction) { openDiffComposer(diffActionContext(diffAction)); return; }
     if (event.target.closest('[data-close-diff-compose]')) { q('.diff-compose').classList.remove('open'); return; }
     const tool = event.target.closest('[data-tool]');
-    if (tool) { void useTool(tool.dataset.tool); return; }
+    if (tool) { void useTool(tool.dataset.tool, tool.closest('.fragment')); return; }
     const fragment = event.target.closest('.fragment');
     if (fragment) setActiveFragment(fragment);
   });
@@ -3169,7 +3316,9 @@ const appJavaScript = `(() => {
     drawing.start = drawing.points[0];
     drawing.preview = document.createElementNS('http://www.w3.org/2000/svg', drawing.mode === 'rect' ? 'rect' : 'polyline');
     drawing.preview.setAttribute('class', 'annotation pending ' + (drawing.mode === 'draw' ? 'path' : ''));
-    drawing.preview.style.setProperty('--active-annotation-color', drawing.color);
+    drawing.preview.setAttribute('stroke', drawing.color);
+    drawing.preview.setAttribute('fill', drawing.mode === 'rect' ? drawing.color : 'none');
+    if (drawing.mode === 'rect') drawing.preview.setAttribute('fill-opacity', '.22');
     drawing.overlay.append(drawing.preview);
     event.preventDefault();
   });

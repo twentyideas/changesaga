@@ -74,8 +74,9 @@ Three rules follow from that, and breaking any of them is a regression:
 
 - A descriptor is still a destination. It carries the explanation's id, title,
   and target, so permalinks and the review progress map work before the content
-  arrives. Inside a chapter, its one decision control lives in the chapter
-  review directory rather than being repeated on the descriptor and content.
+  arrives. Its compact decision controls stay on the explanation bar; the
+  chapter review directory mirrors the same target as an overview, and both
+  views synchronize after one persisted event.
 - Content arriving never overwrites what the reviewer has already done. A
   decision made on a descriptor moves into the rendered explanation rather than
   being replaced by the state its snapshot was built from.
@@ -94,25 +95,25 @@ the browser suite waits for instead of guessing.
 
 ## Chapter review directories
 
-A chapter is a container, not an approval target in the reviewer UI. Opening a
-chapter fetches one directory of the approval-bearing sections and explanations
-inside it as part of the already-bounded `/api/section` response. The initial
-shell never duplicates those rows. The directory is expanded by default,
+A chapter bar exposes the same approve, request-changes, and comment actions as
+the other section bars. Opening it also fetches a directory of the
+approval-bearing sections and explanations inside it as part of the
+already-bounded `/api/section` response. The directory is expanded by default,
 collapsible, and sticky within the chapter so it follows only while that chapter
 is being read.
 
-Each row owns the one decision control for its target and projects append-only
-approval events into exactly `Unreviewed`, `Approved`, or `Changes requested`.
+Each row mirrors the decision control on its target's own bar and projects
+append-only approval events into exactly `Unreviewed`, `Approved`, or `Changes requested`.
 Its discussion count is a separate signal: it combines non-withdrawn comment
 and annotation threads, including threads on an explanation's landmarks, but
 never changes the approval state. Row links use the ordinary anchor resolver,
 so they fetch the chapter or explanation if needed before moving to the exact
 destination.
 
-Existing chapter-level approval records are retained and remain valid format
-data, but they are legacy-only in the reviewer UI: they create no control, row,
-progress segment, or completion credit. No data migration is required. Existing
-`open` and `closed` events on approval-bearing descendants project to
+Chapter-level approval records remain valid and appear on the chapter bar, but
+container decisions still create no directory row, progress segment, or
+completion credit. No data migration is required. Existing `open` and `closed`
+events on approval-bearing descendants project to
 `Unreviewed`; new UI decisions continue to append the storage-compatible
 `approved`, `rejected`, and undo (`open`) events.
 

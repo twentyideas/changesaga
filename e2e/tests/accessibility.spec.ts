@@ -58,6 +58,7 @@ test("@critical exposes the workspace switcher as a real tablist with selection 
   await page.keyboard.press("ArrowRight");
   await expect(sagaTab).toBeFocused();
   await expect(page.getByRole("tabpanel", { name: "Saga" })).toBeVisible();
+  await expect(page.locator("#annotation-toolbox")).toBeHidden();
   await page.keyboard.press("ArrowLeft");
   await expect(coverageTab).toBeFocused();
   await page.keyboard.press("Home");
@@ -68,6 +69,14 @@ test("@critical exposes the workspace switcher as a real tablist with selection 
 
   await sagaTab.click();
   await expect(page.getByRole("tabpanel", { name: "Saga" })).toBeVisible();
+  const overview = page.locator('[data-fragment-title="Overview"]');
+  await overview.getByRole("button", { name: "Show annotation tools for Overview" }).click();
+  const annotationTools = overview.getByRole("toolbar", { name: "Annotation tools for Overview" });
+  await expect(annotationTools).toBeVisible();
+  await codeTab.click();
+  await expect(annotationTools).toBeHidden();
+  await sagaTab.click();
+  await expect(annotationTools).toBeVisible();
   expect(saga.baseURL).toMatch(/^http:\/\/127\.0\.0\.1:/);
 });
 
@@ -89,7 +98,7 @@ test("@critical keeps the closed linked-code drawer inert with no focusable desc
   // Linked-code counts arrive from the same intent prefetch a reviewer starts
   // by pointing at the explanation.
   await overview.hover();
-  const opener = overview.getByRole("button", { name: /Open the \d+ linked changes/ });
+  const opener = overview.locator(":scope > .fragment-head").getByRole("button", { name: /Open \d+ changed lines? in linked code/ });
   await expect(opener).toBeVisible();
   await opener.click();
 

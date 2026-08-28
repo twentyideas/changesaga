@@ -59,8 +59,12 @@ func (a *app) targetCode(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Linked code could not be loaded.", http.StatusInternalServerError)
 		return
 	}
-	attached := makeAttachedCodeView(title, target, selection.matched, selection.evidence)
-	view := targetCodeView{DOMID: domID(target), Target: target, Title: title, ChangeCount: len(selection.matched), Attached: attached}
+	attached := makeAttachedCodeView(title, target, selection.matched, selection.changes.Atoms, selection.evidence)
+	changeCount := 0
+	if attached != nil {
+		changeCount = attached.ChangeCount
+	}
+	view := targetCodeView{DOMID: domID(target), Target: target, Title: title, ChangeCount: changeCount, Attached: attached}
 	writeIncrementalHeaders(w, "text/html; charset=utf-8")
 	if err := a.template.ExecuteTemplate(w, "target-code", view); err != nil {
 		http.Error(w, "Linked code could not be rendered.", http.StatusInternalServerError)
