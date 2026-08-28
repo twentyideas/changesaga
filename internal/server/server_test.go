@@ -1061,7 +1061,7 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	if !strings.Contains(renderedPage, `class="attached-file" data-file-diff-href=`) || !strings.Contains(renderedPage, `data-file-diff-rows`) || !strings.Contains(renderedPage, "Adds the package entrypoint so the example compiles.") || !strings.Contains(renderedPage, "Open in Code Diff") || strings.Contains(renderedPage, `<details class="attached-file" open`) || strings.Contains(renderedPage, "Linked ranges only") {
 		t.Fatal("attached code was not presented as a collapsed, explained file list")
 	}
-	if !strings.Contains(renderedPage, "linked change") || !strings.Contains(renderedPage, "Full file diffs shown for context") || !strings.Contains(renderedPage, "Linked <span") {
+	if !strings.Contains(renderedPage, "changed line") || !strings.Contains(renderedPage, "linked line") || !strings.Contains(renderedPage, "highlighted") {
 		t.Fatal("attached code did not distinguish linked-change counts from full-file context")
 	}
 	if !strings.Contains(renderedPage, `data-annotation-color`) || !strings.Contains(renderedPage, `stroke="#336699"`) || !strings.Contains(renderedPage, `data-copy-link="#`+domID("thread:thread")+`"`) || !strings.Contains(renderedPage, `data-copy-link="#`+domID("message:message")+`"`) {
@@ -1383,7 +1383,7 @@ func TestTargetCodeLoadsOneNarrativeMappingWithoutGlobalSnapshot(t *testing.T) {
 
 	summary := httptest.NewRecorder()
 	handler.ServeHTTP(summary, httptest.NewRequest(http.MethodGet, "/api/target-code?target="+url.QueryEscape(target), nil))
-	if summary.Code != http.StatusOK || !strings.Contains(summary.Body.String(), `data-open-diffs="diffs-`+domID(target)+`"`) || !strings.Contains(summary.Body.String(), "app.go") || !strings.Contains(summary.Body.String(), "Implements the ready path.") || strings.Contains(summary.Body.String(), "unrelated.go") {
+	if summary.Code != http.StatusOK || !strings.Contains(summary.Body.String(), `data-open-diffs="diffs-`+domID(target)+`"`) || !strings.Contains(summary.Body.String(), `data-target-code-count="3"`) || !strings.Contains(summary.Body.String(), "3 changed lines") || !strings.Contains(summary.Body.String(), "1 linked line highlighted") || !strings.Contains(summary.Body.String(), "app.go") || !strings.Contains(summary.Body.String(), "Implements the ready path.") || strings.Contains(summary.Body.String(), "unrelated.go") {
 		t.Fatalf("target code was not scoped to the authored mapping: status=%d body=%s", summary.Code, summary.Body.String())
 	}
 

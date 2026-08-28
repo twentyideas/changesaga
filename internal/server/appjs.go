@@ -1238,7 +1238,7 @@ const appJavaScript = `(() => {
     file.dataset.fileDiffLoading = 'true';
     q('[data-diff-surface]', file)?.classList.add('loading');
     const linkedContext = file.matches('.attached-file');
-    if (status) status.textContent = linkedContext ? 'Loading full file diff; linked changes will be highlighted…' : 'Loading every changed hunk…';
+    if (status) status.textContent = linkedContext ? 'Loading full file diff; linked lines will be highlighted…' : 'Loading every changed hunk…';
     const visited = new Set();
     const promise = (async () => {
       let nextHref = href;
@@ -1271,7 +1271,7 @@ const appJavaScript = `(() => {
       }
       if (!reviewFileIsActive(file)) return file;
       file.dataset.fileDiffLoaded = key;
-      if (status) status.textContent = linkedContext ? 'All changed hunks · linked changes highlighted' : 'All changed hunks';
+      if (status) status.textContent = linkedContext ? 'All changed hunks · linked lines highlighted' : 'All changed hunks';
       prepareContext(destination);
       applyDiffLayout(diffLayout);
       revealHashedAnnotationBubble();

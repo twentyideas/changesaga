@@ -180,7 +180,7 @@ test("linked code uses the shared side-by-side layout selected in Code Diff", as
   await overview.locator("[data-open-diffs]:visible").first().click();
   const attached = page.locator(".diff-drawer.open details.attached-file").first();
   await attached.locator("summary").click();
-  await expect(attached.locator("[data-file-diff-status]")).toHaveText("All changed hunks · linked changes highlighted");
+  await expect(attached.locator("[data-file-diff-status]")).toHaveText("All changed hunks · linked lines highlighted");
   await expect(attached.locator("[data-diff-surface]")).toHaveAttribute("data-layout", "split");
 });
 

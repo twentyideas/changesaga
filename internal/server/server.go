@@ -1448,10 +1448,18 @@ func lazyChangeCount(hasDiffs bool, count int) int {
 func scopedAttachedCode(scope viewScope, title, target string, evidence []saga.DiffFile) (int, *attachedCodeView) {
 	if scope.snapshot != nil {
 		indexes := scope.snapshot.targetAtoms[target]
-		return len(indexes), makeAttachedCodeViewIndexed(title, target, scope.snapshot, indexes, evidence)
+		attached := makeAttachedCodeViewIndexed(title, target, scope.snapshot, indexes, evidence)
+		if attached == nil {
+			return 0, nil
+		}
+		return attached.ChangeCount, attached
 	}
 	atoms := scope.changes[target]
-	return len(atoms), makeAttachedCodeView(title, target, atoms, evidence)
+	attached := makeAttachedCodeView(title, target, atoms, atoms, evidence)
+	if attached == nil {
+		return 0, nil
+	}
+	return attached.ChangeCount, attached
 }
 
 var svgViewBoxPattern = regexp.MustCompile(`(?i)\bviewBox\s*=\s*["']([^"']+)["']`)

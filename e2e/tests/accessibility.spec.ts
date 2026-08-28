@@ -98,7 +98,7 @@ test("@critical keeps the closed linked-code drawer inert with no focusable desc
   // Linked-code counts arrive from the same intent prefetch a reviewer starts
   // by pointing at the explanation.
   await overview.hover();
-  const opener = overview.getByRole("button", { name: /Open the \d+ linked changes/ });
+  const opener = overview.locator(":scope > .fragment-head").getByRole("button", { name: /Open \d+ changed lines? in linked code/ });
   await expect(opener).toBeVisible();
   await opener.click();
 
