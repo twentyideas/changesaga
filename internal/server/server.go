@@ -871,6 +871,9 @@ func templateFuncs() template.FuncMap {
 		"domID":       domID,
 		"fileIcon":    fileIcon,
 		"anchorLabel": anchorLabel,
+		"reviewDiffSurface": func(path, codeHref string) reviewDiffSurfaceView {
+			return reviewDiffSurfaceView{Path: path, CodeHref: codeHref}
+		},
 		"annotationColor": func(value string) string {
 			if validAnnotationColor(value) {
 				return value

@@ -24,6 +24,19 @@ tool, and what they have to do about it.
   no longer terminate the reviewer immediately after `change-saga open`
   returns.
 
+## [0.0.9] - 2026-08-27
+
+### Added
+
+- The review app now follows the operating system's light or dark appearance
+  by default and provides a persistent theme toggle for overriding it.
+
+### Changed
+
+- Code Diff and narrative-linked drawers now share one review surface that
+  shows every changed hunk immediately while keeping bounded unchanged context
+  collapsed behind GitHub-style expansion controls.
+
 ## [0.0.8] - 2026-08-25
 
 ### Added
@@ -378,6 +391,13 @@ bottom. Group entries under Added / Changed / Deprecated / Removed / Fixed /
 Security, and mark anything that changes the on-disk format as **Format**.
 -->
 
-[Unreleased]: https://github.com/twentyideas/changesaga/compare/v0.0.2...HEAD
+[Unreleased]: https://github.com/twentyideas/changesaga/compare/v0.0.9...HEAD
+[0.0.9]: https://github.com/twentyideas/changesaga/compare/v0.0.8...v0.0.9
+[0.0.8]: https://github.com/twentyideas/changesaga/compare/v0.0.7...v0.0.8
+[0.0.7]: https://github.com/twentyideas/changesaga/compare/v0.0.6...v0.0.7
+[0.0.6]: https://github.com/twentyideas/changesaga/compare/v0.0.5...v0.0.6
+[0.0.5]: https://github.com/twentyideas/changesaga/compare/v0.0.4...v0.0.5
+[0.0.4]: https://github.com/twentyideas/changesaga/compare/v0.0.3...v0.0.4
+[0.0.3]: https://github.com/twentyideas/changesaga/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/twentyideas/changesaga/releases/tag/v0.0.2
 [0.0.1]: https://github.com/twentyideas/changesaga/releases/tag/v0.0.1

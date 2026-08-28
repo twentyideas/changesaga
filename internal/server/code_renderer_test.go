@@ -33,9 +33,10 @@ func TestFocusedCodeRendererIncludesAccessibleLocalDiffControls(t *testing.T) {
 	for _, expected := range []string{
 		`data-file-filter`, `data-hide-reviewed`, `role="tree"`, `data-tree-folder`, `class=" selected"`,
 		`data-toggle-tree`, `data-toggle-related`, `data-layout="inline"`, `data-layout="split"`,
-		`data-diff-surface`, `data-context-row`, `aria-label="Unchanged line 6"`,
+		`data-file-diff-href`, `data-diff-surface`, `data-file-diff-status`, `data-file-diff-rows`,
+		`data-context-row`, `aria-label="Unchanged line 6"`,
 		`aria-label="Removed old line 7"`, `aria-label="Added new line 7"`,
-		`data-selection-action="comment"`, `data-selection-action="suggestion"`,
+		`data-selection-action="comment"`, `data-selection-action="suggestion"`, `data-selection-clear`,
 		`class="diff-row new selected"`, `href="#target-flow"`,
 	} {
 		if !strings.Contains(body, expected) {

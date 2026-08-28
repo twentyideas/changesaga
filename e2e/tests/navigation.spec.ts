@@ -110,7 +110,7 @@ test("renders Markdown, SVG, raster, and interactive HTML fragments", async ({ p
   await expect(elementDrawer.locator("details.attached-file")).toHaveCount(1);
   const elementFile = elementDrawer.locator("details.attached-file");
   await elementFile.locator("summary").click();
-  await expect(elementFile.getByText("Full file diff · linked changes highlighted")).toBeVisible();
+  await expect(elementFile.locator("[data-file-diff-status]")).toHaveText("All changed hunks");
   await expect(elementFile.locator(".diff-row.new")).toHaveCount(3);
   await expect(elementFile.locator(".diff-row.linked-evidence")).toHaveCount(1);
   await expect(elementFile).toContainText(".review {");
