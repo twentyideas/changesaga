@@ -95,6 +95,7 @@ func startDetachedServer(ctx context.Context, root, sourceDir, addr string, open
 	command := exec.Command(executable, args...)
 	command.Env = append(os.Environ(), runtimeStateEnv+"="+statePath, runtimeTokenEnv+"="+token)
 	command.Stdout, command.Stderr = logFile, logFile
+	configureDetachedProcess(command)
 	if err := command.Start(); err != nil {
 		_ = logFile.Close()
 		return fmt.Errorf("start detached server: %w", err)

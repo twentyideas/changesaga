@@ -283,9 +283,10 @@ Backspace removes the current selection. Committed edits append anchor or state
 events; never rewrite or delete the original thread or message.
 Do not create comments or findings, or resolve, reopen, approve, or reject on a
 person's behalf without an explicit request to conduct those review actions.
-For a background reviewer use `change-saga open --detach`; it prints the PID
-and URL. Discover it later with `change-saga serve status [SAGA]` and stop it
-with `change-saga serve stop [SAGA]`.
+`change-saga open` starts a managed background reviewer and prints its PID and
+URL. Discover it later with `change-saga serve status [SAGA]` and stop it with
+`change-saga serve stop [SAGA]`. Use `change-saga serve --open` only when the
+reviewer should remain attached to the current terminal.
 
 When reviewing without the UI, read the saga through the query API described
 above rather than searching for or reading saga metadata files directly.

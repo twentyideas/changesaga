@@ -1,6 +1,6 @@
 # Managed reviewer lifecycle {#managed-reviewer-lifecycle}
 
-`change-saga open --detach` turns the local reviewer into a managed child process. A per-Saga state record contains its URL, PID, source checkout, log, start time, and a random shutdown token; a second open reuses an active process instead of multiplying servers.[^detached-start]
+`change-saga open` starts the local reviewer as a managed background process and returns once it is active. A per-Saga state record contains its URL, PID, source checkout, log, start time, and a random shutdown token; a second open reuses an active process instead of multiplying servers.[^detached-start]
 
 `serve status` scans state records, distinguishes active from stale processes, and reports only public state. `serve stop` proves liveness against the recorded process, calls the loopback shutdown endpoint with the private token, waits for exit, and removes state only when it still belongs to that PID.[^managed-stop]
 

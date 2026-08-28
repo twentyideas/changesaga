@@ -10,6 +10,20 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+### Changed
+
+- `change-saga open` now starts a managed background reviewer and returns by
+  default; callers no longer need to know about `--detach`. Use
+  `change-saga serve --open` for an intentionally foreground reviewer. Existing
+  `open --detach` invocations remain accepted for compatibility.
+
+### Fixed
+
+- Detached review servers now run in their own operating-system session or
+  process group, so process runners that clean up a completed launcher's group
+  no longer terminate the reviewer immediately after `change-saga open`
+  returns.
+
 ## [0.0.8] - 2026-08-25
 
 ### Added

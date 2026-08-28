@@ -100,7 +100,7 @@ change-saga validate --json <name>.saga
 change-saga status --json --repo <source-checkout> <name>.saga
 change-saga compare --json --repo <source-checkout> --base <incoming-base> --head <incoming-head> <maintained.saga>
 change-saga compare --json --repo <source-checkout> --against-saga <incoming.saga> <maintained.saga>
-change-saga open --detach --repo <source-checkout> <name>.saga
+change-saga open --repo <source-checkout> <name>.saga
 change-saga serve status <name>.saga
 change-saga serve stop <name>.saga
 change-saga review --target path/to/demo.fragment --state approved <name>.saga

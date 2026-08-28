@@ -100,6 +100,14 @@ useful follow-up prompt is:
 > a clear diagram or concrete example over another paragraph. Revise the Saga
 > until each section explains one coherent idea.
 
+Review the Saga yourself before asking peers to review the change. AI can do a
+good job of connecting explanations to code, but complete coverage does not
+prove that each claim has the right evidence or that every link belongs where
+it was placed. Check those relationships, correct anything misleading, and
+make sure the narrative is coherent. Preparing a Saga for peer review is not
+automatic: Change Saga provides a robust surface for reviewing the work, but
+the author is still responsible for making it a quality piece of work.
+
 Change Saga provides the structure that links technical documentation to exact
 Git evidence; it does not impose a writing personality. If your assistant tends
 to over-explain or overbuild, optional agent guidance such as
@@ -254,13 +262,16 @@ change-saga status checkout.saga
 change-saga open checkout.saga
 ```
 
-To keep it running in the background and manage it later:
+`open` leaves the reviewer running in the background so it remains available
+after the command returns. Manage it later with:
 
 ```sh
-change-saga open --detach checkout.saga
 change-saga serve status checkout.saga
 change-saga serve stop checkout.saga
 ```
+
+Use `change-saga serve --open checkout.saga` when you deliberately want the
+reviewer attached to the current terminal instead.
 
 Run these commands from the changed repository on the branch containing the
 work. If the saga lives in a separate repository, pass

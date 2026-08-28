@@ -120,6 +120,12 @@ func TestCommandHelpNamesTheInvokedCommand(t *testing.T) {
 	if strings.Contains(open.String(), "Usage of serve") || strings.Contains(open.String(), "change-saga serve") {
 		t.Fatalf("open -h still advertises serve:\n%s", open.String())
 	}
+	if strings.Contains(open.String(), "detach") {
+		t.Fatalf("open -h exposes an internal lifecycle detail:\n%s", open.String())
+	}
+	if !strings.Contains(open.String(), "managed loopback reviewer") {
+		t.Fatalf("open -h does not explain that the reviewer remains available:\n%s", open.String())
+	}
 
 	var serve bytes.Buffer
 	if err := Serve(context.Background(), []string{"-h"}, &serve); err == nil {
@@ -127,6 +133,35 @@ func TestCommandHelpNamesTheInvokedCommand(t *testing.T) {
 	}
 	if !strings.Contains(serve.String(), "change-saga serve ") {
 		t.Fatalf("serve -h did not describe serve:\n%s", serve.String())
+	}
+}
+
+func TestOpenIsManagedByDefaultAndAcceptsLegacyDetachFlag(t *testing.T) {
+	tests := []struct {
+		name       string
+		args       []string
+		want       []string
+		background bool
+	}{
+		{name: "plain", args: []string{"review.saga"}, want: []string{"review.saga"}, background: true},
+		{name: "legacy true", args: []string{"--detach", "review.saga"}, want: []string{"review.saga"}, background: true},
+		{name: "legacy false", args: []string{"--detach=false", "review.saga"}, want: []string{"review.saga"}, background: false},
+		{name: "legacy after option value", args: []string{"--repo", "/tmp/source", "--detach", "review.saga"}, want: []string{"--repo", "/tmp/source", "review.saga"}, background: true},
+		{name: "positional", args: []string{"--", "--detach"}, want: []string{"--", "--detach"}, background: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, background, err := normalizeLegacyOpenDetach(test.args)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Join(got, "\x00") != strings.Join(test.want, "\x00") || background != test.background {
+				t.Fatalf("normalizeLegacyOpenDetach(%q) = %q, %t; want %q, %t", test.args, got, background, test.want, test.background)
+			}
+		})
+	}
+	if _, _, err := normalizeLegacyOpenDetach([]string{"--detach=maybe", "review.saga"}); err == nil {
+		t.Fatal("invalid legacy detach value must fail")
 	}
 }
 

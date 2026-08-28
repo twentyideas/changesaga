@@ -109,7 +109,7 @@ var commandUsage = map[string]string{
 	"compare":              "change-saga compare [--json] [--repo PATH] (--against-saga PATH | --base REV [--head REV]) <saga>",
 	"query":                "change-saga query <operation> --saga PATH [--repo PATH] [operation flags]",
 	"serve":                "change-saga serve [--addr ADDR] [--repo PATH] [--open] [--detach] <saga>",
-	"open":                 "change-saga open [--addr ADDR] [--repo PATH] [--detach] <saga>",
+	"open":                 "change-saga open [--addr ADDR] [--repo PATH] <saga>",
 	"install-skill":        "change-saga install-skill",
 	"spec":                 "change-saga spec [--json]",
 }
@@ -164,7 +164,7 @@ failing record leaves the saga untouched.`,
 	"replace-coverage": "Atomically replace one coverage record with one or more newly resolved records.\nUse --batch to split or retarget broad evidence without leaving partial coverage.",
 	"add-claim":        "Record one falsifiable author assertion and its exact supporting diff evidence.\nClaims do not count toward coverage and are independently verified.",
 	"verify-claim":     "Append an independent verification result without rewriting the claim or prior results.",
-	"open":             "Serve the saga on loopback and open it in a browser. --detach returns after\nprinting the PID and active URL.",
+	"open":             "Start a managed loopback reviewer, open it in a browser, and return after\nprinting the PID and active URL.",
 	"serve":            "Serve the saga on loopback for review. Detached instances are managed with\nchange-saga serve status [SAGA] and change-saga serve stop [SAGA].",
 	"install-skill":    "Print the agent-agnostic prompt that installs the change-saga authoring skill.\nPipe it to a coding agent; it neither writes to this repository nor creates a saga.",
 	"validate":         "Check the saga against the format. --fix adds missing stable anchors to Markdown\nheadings in narrative fragments and changes nothing else.",
@@ -774,14 +774,21 @@ func printReport(out io.Writer, report coverage.Report, maxItems int) {
 	}
 }
 
-// Serve runs the loopback reviewer. It is reached as both "serve" and "open",
-// which differ only in whether a browser is launched, so the flag set is named
-// after the command the user actually typed and its -h says so.
+// Serve runs the loopback reviewer. It is reached as both "serve" and "open":
+// open launches a managed background reviewer and browser, while serve stays
+// attached by default. The flag set is named after the command the user typed
+// so its help describes that public behavior.
 func Serve(ctx context.Context, args []string, out io.Writer, openByDefault ...bool) error {
 	opensBrowser := len(openByDefault) > 0 && openByDefault[0]
+	detach := false
 	name := "serve"
 	if opensBrowser {
 		name = "open"
+		var err error
+		args, detach, err = normalizeLegacyOpenDetach(args)
+		if err != nil {
+			return err
+		}
 	}
 	if name == "serve" && len(args) > 0 && (args[0] == "status" || args[0] == "stop") {
 		return manageDetachedServers(ctx, args[0], args[1:], out)
@@ -790,14 +797,16 @@ func Serve(ctx context.Context, args []string, out io.Writer, openByDefault ...b
 	addr := flags.String("addr", "127.0.0.1:7342", "loopback listen address; remote serving is disabled")
 	repoDir := flags.String("repo", "", "source repository checkout; required when separate")
 	openBrowser := flags.Bool("open", opensBrowser, "open the review in a browser")
-	detach := flags.Bool("detach", false, "run in the background and return the PID and active URL")
+	if !opensBrowser {
+		flags.BoolVar(&detach, "detach", false, "run in the background and return the PID and active URL")
+	}
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() != 1 {
 		return fmt.Errorf("usage: %s", commandUsage[name])
 	}
-	if *detach {
+	if detach {
 		if !flagWasSet(flags, "addr") {
 			*addr = "127.0.0.1:0"
 		}
@@ -807,6 +816,41 @@ func Serve(ctx context.Context, args []string, out io.Writer, openByDefault ...b
 		return runManagedServer(ctx, flags.Arg(0), *repoDir, *addr, *openBrowser, statePath, token, out)
 	}
 	return reviewserver.Listen(ctx, flags.Arg(0), *repoDir, *addr, *openBrowser, out)
+}
+
+// normalizeLegacyOpenDetach keeps pre-0.0.9 `open --detach` calls working
+// without carrying the implementation detail in the public open command. An
+// explicit false retains the old foreground behavior; `serve --open` is the
+// documented spelling for that mode.
+func normalizeLegacyOpenDetach(args []string) ([]string, bool, error) {
+	detach := true
+	normalized := make([]string, 0, len(args))
+	afterTerminator := false
+	for _, arg := range args {
+		if afterTerminator {
+			normalized = append(normalized, arg)
+			continue
+		}
+		if arg == "--" {
+			afterTerminator = true
+			normalized = append(normalized, arg)
+			continue
+		}
+		if arg == "-detach" || arg == "--detach" {
+			continue
+		}
+		name, value, hasValue := strings.Cut(arg, "=")
+		if hasValue && (name == "-detach" || name == "--detach") {
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				return nil, false, fmt.Errorf("invalid value %q for -detach: %w", value, err)
+			}
+			detach = parsed
+			continue
+		}
+		normalized = append(normalized, arg)
+	}
+	return normalized, detach, nil
 }
 
 func Spec(args []string, out io.Writer) error {
@@ -1540,9 +1584,10 @@ correctness. Then run "change-saga validate --json"
 and "change-saga status --json" before handoff.
 
 Use "--json" for bounded machine-readable coverage mutation summaries and
-"--quiet" when no successful output is needed. Use "change-saga open --detach"
-for a managed background reviewer, then inspect or stop it with "change-saga
-serve status" and "change-saga serve stop".
+"--quiet" when no successful output is needed. "change-saga open" starts a
+managed background reviewer; inspect or stop it with "change-saga serve
+status" and "change-saga serve stop". Use "change-saga serve --open" only
+when the reviewer should remain attached to the current terminal.
 
 Never leave generated instructions, blank scaffold fragments, or example
 diagram/HTML content in the handed-off saga. Treat every validation warning as
