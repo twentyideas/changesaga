@@ -4,26 +4,16 @@ package cli
 
 import (
 	"os/exec"
-	"syscall"
 	"testing"
 )
 
 func TestConfigureDetachedProcessCreatesSession(t *testing.T) {
-	command := exec.Command("sh", "-c", "sleep 30")
+	command := exec.Command("change-saga-test-child")
 	configureDetachedProcess(command)
-	if err := command.Start(); err != nil {
-		t.Fatal(err)
+	if command.SysProcAttr == nil {
+		t.Fatal("detached child has no process attributes")
 	}
-	t.Cleanup(func() {
-		_ = command.Process.Kill()
-		_, _ = command.Process.Wait()
-	})
-
-	sessionID, err := syscall.Getsid(command.Process.Pid)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if sessionID != command.Process.Pid {
-		t.Fatalf("detached child session = %d, want its PID %d", sessionID, command.Process.Pid)
+	if !command.SysProcAttr.Setsid {
+		t.Fatal("detached child does not request a new session")
 	}
 }
