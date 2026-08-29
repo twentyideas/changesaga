@@ -10,12 +10,31 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+## [0.0.9] - 2026-08-29
+
+### Added
+
+- The review app now follows the operating system's light or dark appearance
+  by default and provides a persistent theme toggle for overriding it.
+- Every reviewable section now carries its own approve, request-changes,
+  comment, and annotation controls. Chapter review directories remain as a
+  synchronized overview instead of being the only place to make decisions.
+
 ### Changed
 
 - `change-saga open` now starts a managed background reviewer and returns by
   default; callers no longer need to know about `--detach`. Use
   `change-saga serve --open` for an intentionally foreground reviewer. Existing
   `open --detach` invocations remain accepted for compatibility.
+- Code Diff and narrative-linked drawers now share one review surface that
+  shows every changed hunk immediately while keeping bounded unchanged context
+  collapsed behind GitHub-style expansion controls.
+- Linked-code controls, drawer summaries, Code Diff, and Coverage now use one
+  shared added/removed-count component with consistent green `+N` and red `−N`
+  totals computed from the complete file diffs.
+- Annotation tools stay bound to the section that opened them across view
+  changes, and drawing plus comment composition update continuously while the
+  reviewer works.
 
 ### Fixed
 
@@ -23,19 +42,8 @@ tool, and what they have to do about it.
   process group, so process runners that clean up a completed launcher's group
   no longer terminate the reviewer immediately after `change-saga open`
   returns.
-
-## [0.0.9] - 2026-08-27
-
-### Added
-
-- The review app now follows the operating system's light or dark appearance
-  by default and provides a persistent theme toggle for overriding it.
-
-### Changed
-
-- Code Diff and narrative-linked drawers now share one review surface that
-  shows every changed hunk immediately while keeping bounded unchanged context
-  collapsed behind GitHub-style expansion controls.
+- Section drawings and comments retain their intended review target, including
+  annotations created after navigating between Saga and source views.
 
 ## [0.0.8] - 2026-08-25
 
