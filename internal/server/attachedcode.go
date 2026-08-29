@@ -16,6 +16,8 @@ type attachedCodeView struct {
 	Title           string
 	ChangeCount     int
 	LineCount       int
+	Added           int
+	Deleted         int
 	EventCount      int
 	LinkedLineCount int
 	LinkedEvents    int
@@ -98,9 +100,11 @@ func makeAttachedCodeViewFromAtoms(title, target string, linkedCount int, linked
 		}
 	}
 	for _, file := range view.Files {
-		view.LineCount += file.Added + file.Deleted
+		view.Added += file.Added
+		view.Deleted += file.Deleted
 		view.EventCount += file.Events
 	}
+	view.LineCount = view.Added + view.Deleted
 	view.ChangeCount = view.LineCount
 	if view.ChangeCount == 0 {
 		view.ChangeCount = view.EventCount

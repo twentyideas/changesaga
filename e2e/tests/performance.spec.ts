@@ -165,7 +165,7 @@ test("loads a linked-code file diff on demand and keeps it answerable to its exp
   await expect(overview.locator(".fragment-markdown")).toBeVisible();
   await overview.hover();
   const opener = overview.locator("[data-open-diffs]:visible").first();
-  await expect(opener).toHaveAttribute("aria-label", /Open \d+ changed lines? in linked code/);
+  await expect(opener).toHaveAttribute("aria-label", /Open linked code with \d+ additions? and \d+ deletions?/);
   await opener.click();
   const drawer = page.locator(".diff-drawer.open");
   await drawer.waitFor();

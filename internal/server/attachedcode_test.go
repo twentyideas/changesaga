@@ -15,7 +15,7 @@ func TestAttachedCodeGroupsExactChangesByFileWithAuthoredReason(t *testing.T) {
 	full := append(append([]gitdiff.Atom{}, linked...), gitdiff.Atom{Key: "extra", Kind: "line", Path: "src/api/handler.go", Side: "old", Line: 9, Content: "old", URI: "uri-extra"})
 	view := makeAttachedCodeView(flow.Title, flow.Target, linked, full, flow.Diffs)
 
-	if view == nil || view.Title != "Request flow" || view.ChangeCount != 3 || view.LineCount != 3 || view.LinkedLineCount != 2 || len(view.Files) != 1 {
+	if view == nil || view.Title != "Request flow" || view.ChangeCount != 3 || view.LineCount != 3 || view.Added != 2 || view.Deleted != 1 || view.LinkedLineCount != 2 || len(view.Files) != 1 {
 		t.Fatalf("unexpected attached code view: %#v", view)
 	}
 	file := view.Files[0]

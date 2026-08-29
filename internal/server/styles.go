@@ -144,8 +144,6 @@ a{color:var(--accent)}
 .file-tree .reviewed .tree-state{color:var(--green)}
 .file-tree .reviewed .tree-name{color:var(--muted)}
 .file-tree .counts{margin-left:auto;padding-left:8px;color:var(--faint);font:11px var(--mono)}
-.file-tree .counts .add{color:var(--green)}
-.file-tree .counts .del{color:var(--red)}
 
 /* Content ---------------------------------------------------------------- */
 .content{width:min(1080px,100%);padding:26px clamp(16px,3vw,40px) 96px}
@@ -300,6 +298,9 @@ section:hover>.section-actions .review-controls,.section:hover>.section-head>.se
 .icon-button:hover{background:var(--bg-inset);color:var(--ink)}
 .icon-button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent)}
 .diff-button{display:inline-flex;align-items:center;gap:4px;width:auto;padding:0 6px;font:11px var(--mono)}
+.diff-counts{display:inline-flex;gap:5px;font-weight:600}
+.diff-counts .add{color:var(--green)}
+.diff-counts .del{color:var(--red)}
 .permalink{position:relative;display:inline-grid;place-items:center;width:24px;height:24px;padding:0;border:0;background:transparent;color:var(--faint)}
 .permalink:hover{background:var(--bg-inset);color:var(--accent)}
 .permalink.copied:after{position:absolute;right:0;bottom:calc(100% + 4px);z-index:5;content:'Copied';padding:2px 6px;border-radius:4px;background:var(--copied-bg);color:var(--copied-ink);font:11px var(--ui);white-space:nowrap}
@@ -478,8 +479,6 @@ mark.annotation-revealed{box-shadow:0 0 0 2px var(--ink)}
 .file-head{position:sticky;top:calc(var(--top) + 35px);z-index:5;display:flex;align-items:center;gap:8px;padding:6px clamp(8px,1.4vw,14px);background:var(--bg-subtle);border-bottom:1px solid var(--line)}
 .file-head code{font:600 12.5px var(--mono);overflow-wrap:anywhere}
 .file-head .counts{margin-left:auto;font:11px var(--mono);color:var(--faint)}
-.file-head .counts .add{color:var(--green)}
-.file-head .counts .del{color:var(--red)}
 .reviewed-badge{display:inline-flex;align-items:center;gap:3px;color:var(--green);font:11px var(--mono)}
 .file-review-menu{position:relative}
 .file-review-menu summary{display:grid;place-items:center;width:24px;height:24px;list-style:none;cursor:pointer;border-radius:var(--radius);color:var(--muted)}
@@ -584,8 +583,6 @@ mark.annotation-revealed{box-shadow:0 0 0 2px var(--ink)}
 .manifest-file.has-gap>summary{background:var(--danger-bg)}
 .manifest-file.has-gap>summary .mfile-name{color:var(--red)}
 .manifest-file-stats{margin-left:auto;padding-left:10px;color:var(--faint);font:11px var(--mono);white-space:nowrap}
-.manifest-file-stats .add{color:var(--green)}
-.manifest-file-stats .del{color:var(--red)}
 .manifest-file-stats .gap{color:var(--red);font-weight:600}
 .manifest-file-detail{margin-left:calc(20px + var(--depth,0) * 13px);border-left:1px solid var(--line-soft)}
 .manifest-file-diff{max-height:min(54vh,620px);overflow:auto;border-block:1px solid var(--line-soft)}

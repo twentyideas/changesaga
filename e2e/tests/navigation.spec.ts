@@ -20,7 +20,7 @@ test("@critical navigates the saga, linked code, code tree, and coverage in both
   const overview = page.locator('[data-fragment-title="Overview"]');
   await overview.scrollIntoViewIfNeeded();
   await overview.hover();
-  await overview.locator(":scope > .fragment-head").getByRole("button", { name: /Open \d+ changed lines? in linked code/ }).click();
+  await overview.locator(":scope > .fragment-head").getByRole("button", { name: /Open linked code with \d+ additions? and \d+ deletions?/ }).click();
   const drawer = page.getByRole("complementary", { name: "Linked code" });
   await expect(drawer).toHaveAttribute("aria-hidden", "false");
   await expect(drawer.locator("details.attached-file")).toHaveCount(2);
@@ -104,7 +104,7 @@ test("renders Markdown, SVG, raster, and interactive HTML fragments", async ({ p
   const elementHotspot = diagramFragment.locator('[data-auto-landmark-hotspot="true"][data-element-id="render-boundary"]');
   await expect(elementHotspot).toBeVisible();
   await elementHotspot.hover();
-  await elementHotspot.getByRole("button", { name: /Open \d+ changed lines? in linked code/ }).click();
+  await elementHotspot.getByRole("button", { name: /Open linked code with \d+ additions? and \d+ deletions?/ }).click();
   const elementDrawer = page.getByRole("complementary", { name: "Linked code" });
   await expect(elementDrawer).toHaveAttribute("aria-hidden", "false");
   await expect(elementDrawer.locator("details.attached-file")).toHaveCount(1);
@@ -119,7 +119,7 @@ test("renders Markdown, SVG, raster, and interactive HTML fragments", async ({ p
   const edgeHotspot = diagramFragment.locator('[data-auto-landmark-hotspot="true"][data-element-id="evidence-handoff"]');
   await expect(edgeHotspot).toBeVisible();
   await edgeHotspot.hover();
-  await edgeHotspot.getByRole("button", { name: /Open \d+ changed lines? in linked code/ }).click();
+  await edgeHotspot.getByRole("button", { name: /Open linked code with \d+ additions? and \d+ deletions?/ }).click();
   await expect(elementDrawer).toHaveAttribute("aria-hidden", "false");
   await expect(elementDrawer.locator("details.attached-file")).toHaveCount(1);
   await elementDrawer.getByRole("button", { name: "Close linked code" }).click();

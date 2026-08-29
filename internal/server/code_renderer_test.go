@@ -2,11 +2,23 @@ package server
 
 import (
 	"bytes"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/twentyideas/changesaga/internal/gitdiff"
 )
+
+func TestDiffCountsHaveOneSharedRenderer(t *testing.T) {
+	addedRenderers := regexp.MustCompile(`[+]\{\{[^}]*Added\}\}`).FindAllString(pageTemplate, -1)
+	deletedRenderers := regexp.MustCompile(`−\{\{[^}]*Deleted\}\}`).FindAllString(pageTemplate, -1)
+	if len(addedRenderers) != 1 || len(deletedRenderers) != 1 {
+		t.Fatalf("added/deleted counts must be rendered only by diff-counts: added=%v deleted=%v", addedRenderers, deletedRenderers)
+	}
+	if uses := strings.Count(pageTemplate, `template "diff-counts"`); uses < 9 {
+		t.Fatalf("diff-counts is not shared across the review surfaces: uses=%d", uses)
+	}
+}
 
 func TestFocusedCodeRendererIncludesAccessibleLocalDiffControls(t *testing.T) {
 	tmpl := serverTemplate(t)
@@ -37,7 +49,7 @@ func TestFocusedCodeRendererIncludesAccessibleLocalDiffControls(t *testing.T) {
 		`data-context-row`, `aria-label="Unchanged line 6"`,
 		`aria-label="Removed old line 7"`, `aria-label="Added new line 7"`,
 		`data-selection-action="comment"`, `data-selection-action="suggestion"`, `data-selection-clear`,
-		`class="diff-row new selected"`, `href="#target-flow"`,
+		`class="diff-row new selected"`, `href="#target-flow"`, `class="diff-counts"`,
 	} {
 		if !strings.Contains(body, expected) {
 			t.Errorf("renderer omitted %q", expected)
