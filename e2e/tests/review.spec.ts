@@ -49,6 +49,21 @@ test("@critical creates a comment and reply, then resolves and reopens the threa
     "The boundary is the repository commit.\n"
   ]);
 
+  const activityResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/activity");
+  await page.locator("[data-open-activity]").click();
+  await activityResponse;
+  const activityDrawer = page.locator("#review-drawer");
+  await expect(page.getByRole("complementary", { name: "Review activity" })).toHaveCount(1);
+  await expect(activityDrawer).toHaveAttribute("aria-hidden", "false");
+  await expect(page.locator('[data-fragment-title="Overview"]')).toBeVisible();
+  const activityThread = activityDrawer.locator("[data-activity-item]").filter({ hasText: "Please explain the retry boundary." });
+  await expect(activityThread).toContainText("The boundary is the repository commit.");
+  await expect(activityThread.locator(".activity-message")).toHaveCount(2);
+  await expect(activityThread.locator(".activity-message.reply")).toHaveCount(1);
+  expect(await activityDrawer.evaluate((element) => element.getBoundingClientRect().width)).toBeLessThan(650);
+  await activityDrawer.getByRole("button", { name: "Close review activity" }).click();
+  await expect(activityDrawer).toHaveAttribute("aria-hidden", "true");
+
   const reloadedThread = page.locator("article.thread").filter({ hasText: "Please explain the retry boundary." });
   await submitWithNavigation(page, () => reloadedThread.getByRole("button", { name: "Resolve" }).click());
   await expect(page.locator("article.thread.resolved")).toContainText("Please explain the retry boundary.");

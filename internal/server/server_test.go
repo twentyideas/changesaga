@@ -137,10 +137,11 @@ func TestWorkspaceTabsAndClosedDrawerCarryAccessibleSemantics(t *testing.T) {
 		`role="tab" id="view-tab-saga"`,
 		`aria-controls="view-saga" aria-selected="true" tabindex="0"`,
 		`aria-controls="view-code" aria-selected="false" tabindex="-1"`,
+		`data-open-activity data-activity-href="/api/activity" aria-controls="review-drawer" aria-expanded="false"`,
 		`id="view-saga" role="tabpanel" aria-labelledby="view-tab-saga"`,
 		`id="view-code" role="tabpanel" aria-labelledby="view-tab-code"`,
 		`id="view-manifest" role="tabpanel" aria-labelledby="view-tab-manifest"`,
-		`<aside class="diff-drawer" aria-hidden="true" inert`,
+		`<aside class="diff-drawer" id="review-drawer" aria-hidden="true" inert`,
 		`data-open-fragment="{{.Anchor}}"`,
 	} {
 		if !strings.Contains(pageTemplate, fragment) {
@@ -156,7 +157,8 @@ func TestWorkspaceTabsAndClosedDrawerCarryAccessibleSemantics(t *testing.T) {
 		"openFragmentDrawer(fragmentDrawerLink.dataset.openFragment, fragmentDrawerLink)",
 		"hydrateTargetCode(targetCodeButton)",
 		"data-target-code-response",
-		"drawer.setAttribute('aria-label', mode === 'fragment' ? 'Related explanation' : 'Linked code')",
+		"const labels = {fragment:'Related explanation', activity:'Review activity', code:'Linked code'}",
+		"openActivityDrawer(activityButton.dataset.activityHref, activityButton)",
 	} {
 		if !strings.Contains(appJavaScript, fragment) {
 			t.Errorf("browser script no longer maintains %q", fragment)
@@ -1055,7 +1057,7 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 			t.Fatalf("complete coverage still congratulates the reviewer: %q", celebration)
 		}
 	}
-	if strings.Contains(renderedPage, "Attached code") || strings.Contains(renderedPage, "Linked diffs</h2>") || !strings.Contains(renderedPage, `<strong>Linked code</strong>`) {
+	if strings.Contains(renderedPage, "Attached code") || strings.Contains(renderedPage, "Linked diffs</h2>") || !strings.Contains(renderedPage, `<strong id="review-drawer-title">Linked code</strong>`) {
 		t.Fatal("attached-code drawer retained redundant header chrome")
 	}
 	if !strings.Contains(renderedPage, `class="attached-file" data-file-diff-href=`) || !strings.Contains(renderedPage, `data-file-diff-rows`) || !strings.Contains(renderedPage, "Adds the package entrypoint so the example compiles.") || !strings.Contains(renderedPage, "Open in Code Diff") || strings.Contains(renderedPage, `<details class="attached-file" open`) || strings.Contains(renderedPage, "Linked ranges only") {
@@ -1459,11 +1461,17 @@ func TestChapterReviewDirectoryProjectsIndependentStatesAndSignals(t *testing.T)
 	if items[0].Target != diagram.Target || items[0].ReviewState != "rejected" || items[0].Status != "Changes requested" || items[0].CommentCount != 2 {
 		t.Fatalf("diagram directory row lost its decision or combined discussion signal: %#v", items[0])
 	}
+	if items[0].ActivityHref != "/?activity=1&target="+url.QueryEscape(diagram.Target) {
+		t.Fatalf("diagram comments do not open their scoped activity: %#v", items[0])
+	}
 	if items[1].Target != child.Target || items[1].ReviewState != "approved" || items[1].Status != "Approved" || items[1].CommentCount != 1 {
 		t.Fatalf("nested section directory row is wrong: %#v", items[1])
 	}
 	if items[2].ReviewState != "" || items[2].Status != "Unreviewed" || items[2].StateClass != "unreviewed" {
 		t.Fatalf("legacy open state was not projected to unreviewed: %#v", items[2])
+	}
+	if items[2].ActivityHref != "" {
+		t.Fatalf("comment-free directory row received an activity link: %#v", items[2])
 	}
 	for _, item := range items {
 		if item.Target == chapter.Target {

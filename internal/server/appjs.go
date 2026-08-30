@@ -1088,7 +1088,7 @@ const appJavaScript = `(() => {
 	void setChapterOpen(chapter, button.getAttribute('aria-expanded') !== 'true');
   }
 
-  // Code Diff and Coverage are deliberately absent from the root document.
+  // Code Diff, Coverage, and Review Activity are deliberately absent from the root document.
   // Their endpoints return bounded HTML fragments, and a cold comparison may
   // answer 202 while its snapshot is still being built. Per-surface request
   // generations keep a late response for one file from replacing a newer deep
@@ -1104,7 +1104,9 @@ const appJavaScript = `(() => {
     const url = new URL(explicitHref || surface?.dataset.surfaceHref || '', location.href);
     if (!explicitHref) {
       const current = new URL(location.href);
-      ['file', 'diff', 'mode'].forEach(key => {
+      const carried = ['file', 'diff', 'mode'];
+      if (name === 'activity') carried.push('target');
+      carried.forEach(key => {
         if (current.searchParams.has(key)) url.searchParams.set(key, current.searchParams.get(key));
       });
     }
@@ -1175,6 +1177,7 @@ const appJavaScript = `(() => {
       within(root, '[data-file-diff-href]').forEach(file => { void hydrateReviewFile(file); });
       void hydrateRelatedOwners(root);
     }
+    if (name === 'activity') filterActivity();
     const id = decodeURIComponent(location.hash.replace(/^#/, ''));
     const destination = id ? document.getElementById(id) : null;
     if (destination?.closest('[data-review-surface="'+name+'"]')) {
@@ -1363,7 +1366,8 @@ const appJavaScript = `(() => {
     previous?.controller.abort();
     clearTimeout(reviewSurfaceRetries.get(name));
     const controller = new AbortController();
-    surfaceStatus(surface, 'loading', name === 'code' ? 'Loading Code Diff…' : 'Loading Coverage…', name === 'code' ? 'Loading changed files.' : 'Loading files and explanations.');
+    const activity = name === 'activity';
+    surfaceStatus(surface, 'loading', name === 'code' ? 'Loading Code Diff…' : activity ? 'Loading review activity…' : 'Loading Coverage…', name === 'code' ? 'Loading changed files.' : activity ? 'Loading decisions and conversations.' : 'Loading files and explanations.');
     const promise = fetch(url, {headers:{Accept:'text/html','X-Change-Saga-Async':'true'},credentials:'same-origin',signal:controller.signal}).then(async response => {
       if (response.status === 202) {
         const delay = retryDelay(response);
@@ -1380,7 +1384,7 @@ const appJavaScript = `(() => {
       return surface;
     }).catch(error => {
       if (error.name === 'AbortError') return surface;
-      surfaceStatus(surface, 'error', name === 'code' ? 'Code Diff could not be loaded.' : 'Coverage could not be loaded.', error.message, true);
+      surfaceStatus(surface, 'error', name === 'code' ? 'Code Diff could not be loaded.' : activity ? 'Review activity could not be loaded.' : 'Coverage could not be loaded.', error.message, true);
       return surface;
     }).finally(() => {
       if (reviewSurfaceRequests.get(name)?.promise === promise) reviewSurfaceRequests.delete(name);
@@ -1464,6 +1468,18 @@ const appJavaScript = `(() => {
       history.pushState({view: name}, '', url);
     }
     if (name === 'code' || name === 'manifest') void hydrateReviewSurface(name);
+  }
+
+  function filterActivity(selected = q('[data-activity-filter][aria-pressed="true"]')?.dataset.activityFilter || 'all') {
+    qa('[data-activity-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.activityFilter === selected)));
+    let visible = 0;
+    qa('[data-activity-item]').forEach(item => {
+      const match = selected === 'all' || item.dataset.activityState === selected;
+      item.hidden = !match;
+      if (match) visible++;
+    });
+    const empty = q('[data-activity-filter-empty]');
+    if (empty) empty.hidden = visible !== 0;
   }
 
   function filterManifest() {
@@ -1588,16 +1604,20 @@ const appJavaScript = `(() => {
     const drawer = q('.diff-drawer');
     if (!drawer) return;
     drawer.dataset.drawerMode = mode;
-    drawer.setAttribute('aria-label', mode === 'fragment' ? 'Related explanation' : 'Linked code');
+    const labels = {fragment:'Related explanation', activity:'Review activity', code:'Linked code'};
+    const icons = {fragment:'#i-book', activity:'#i-comment', code:'#i-diff'};
+    const label = labels[mode] || labels.code;
+    drawer.setAttribute('aria-label', label);
     const heading = q('.drawer-head strong', drawer);
     if (heading) heading.textContent = title;
     const icon = q('.drawer-head .i use', drawer);
-    if (icon) icon.setAttribute('href', mode === 'fragment' ? '#i-book' : '#i-diff');
+    if (icon) icon.setAttribute('href', icons[mode] || icons.code);
     const close = q('[data-close-drawer]', drawer);
     if (close) {
-      close.setAttribute('aria-label', mode === 'fragment' ? 'Close related explanation' : 'Close linked code');
+      close.setAttribute('aria-label', 'Close ' + label.toLowerCase());
       close.title = 'Close';
     }
+    q('[data-open-activity]')?.setAttribute('aria-expanded', String(mode === 'activity' && drawer.classList.contains('open')));
   }
 
   function restoreDrawerContent() {
@@ -1618,6 +1638,7 @@ const appJavaScript = `(() => {
     drawer.classList.add('open');
     drawer.removeAttribute('inert');
     drawer.setAttribute('aria-hidden', 'false');
+    if (drawer.dataset.drawerMode === 'activity') q('[data-open-activity]')?.setAttribute('aria-expanded', 'true');
     q('.drawer-backdrop').classList.add('open');
     document.body.style.overflow = 'hidden';
     q('[data-close-drawer]', drawer).focus();
@@ -1639,6 +1660,31 @@ const appJavaScript = `(() => {
     configureDrawer('code', attached?.dataset.attachedTitle ? 'Linked code · ' + attached.dataset.attachedTitle : 'Linked code');
     highlightCode(body);
     showDrawer(returnOpener);
+  }
+
+  async function openActivityDrawer(href, opener, updateURL = true) {
+    const destination = new URL(href || location.href, location.href);
+    const target = destination.searchParams.get('target') || '';
+    const apiURL = new URL('/api/activity', location.href);
+    if (target) apiURL.searchParams.set('target', target);
+    const drawer = q('.diff-drawer');
+    const returnOpener = drawer?.classList.contains('open') ? drawerOpener : opener;
+    restoreDrawerContent();
+    const surface = document.createElement('div');
+    surface.className = 'activity-drawer-surface';
+    surface.dataset.reviewSurface = 'activity';
+    surface.dataset.surfaceHref = '/api/activity';
+    q('.drawer-body')?.append(surface);
+    configureDrawer('activity', target ? 'Comments for this section' : 'Review activity');
+    showDrawer(returnOpener);
+    if (updateURL) {
+      const url = new URL(location.href);
+      url.searchParams.set('activity', '1');
+      if (target) url.searchParams.set('target', target); else url.searchParams.delete('target');
+      if (url.searchParams.get('view') === 'activity') url.searchParams.delete('view');
+      history.pushState({view:q('[data-view].active')?.dataset.view || 'saga', activity:true}, '', url);
+    }
+    return hydrateReviewSurface('activity', {href:apiURL.toString(), force:true});
   }
 
   // One changed file's diff body is fetched the first time a reviewer opens it
@@ -2213,10 +2259,11 @@ const appJavaScript = `(() => {
     });
   }
 
-  function closeDrawer() {
+  function closeDrawer(updateURL = true) {
     const drawer = q('.diff-drawer');
     if (!drawer) return;
     const wasOpen = drawer.classList.contains('open');
+    const wasActivity = drawer.dataset.drawerMode === 'activity';
     drawer.classList.remove('open');
     drawer.setAttribute('aria-hidden', 'true');
     // Return focus before the drawer becomes inert. WebKit does not always make
@@ -2229,6 +2276,14 @@ const appJavaScript = `(() => {
     restoreDrawerContent();
     drawerOpener = null;
     configureDrawer('code', 'Linked code');
+    q('[data-open-activity]')?.setAttribute('aria-expanded', 'false');
+    if (wasActivity && updateURL) {
+      const url = new URL(location.href);
+      url.searchParams.delete('activity');
+      url.searchParams.delete('target');
+      if (url.searchParams.get('view') === 'activity') url.searchParams.delete('view');
+      history.replaceState({view:q('[data-view].active')?.dataset.view || 'saga'}, '', url);
+    }
   }
 
   // A diff row already carries the change it is: its exact diff URI, the
@@ -2987,11 +3042,16 @@ const appJavaScript = `(() => {
     if (boundedLink && !boundedLink.hasAttribute('data-open-fragment') && !boundedLink.getAttribute('href')?.startsWith('#') && !event.defaultPrevented && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && (!boundedLink.target || boundedLink.target === '_self')) {
       const destination = new URL(boundedLink.href, location.href);
       const view = destination.searchParams.get('view');
+      if (destination.origin === location.origin && destination.pathname === location.pathname && (destination.searchParams.has('activity') || view === 'activity')) {
+        event.preventDefault();
+        void openActivityDrawer(destination.toString(), boundedLink);
+        return;
+      }
       if (destination.origin === location.origin && destination.pathname === location.pathname && (view === 'code' || view === 'manifest')) {
         event.preventDefault();
-		if (boundedLink.closest('.diff-drawer.open')) closeDrawer();
         history.pushState({view}, '', destination);
         setView(view, false);
+        if (boundedLink.closest('.diff-drawer.open')) closeDrawer(false);
         return;
       }
     }
@@ -3008,9 +3068,10 @@ const appJavaScript = `(() => {
 	  event.preventDefault();
       const id = decodeURIComponent(sagaLink.getAttribute('href').slice(1));
 	  const sagaURL = new URL(location.href);
-	  ['view', 'file', 'diff', 'mode'].forEach(key => sagaURL.searchParams.delete(key));
+	  ['view', 'file', 'diff', 'mode', 'activity', 'target'].forEach(key => sagaURL.searchParams.delete(key));
 	  sagaURL.hash = id;
 	  history.pushState({view:'saga'}, '', sagaURL);
+	  if (sagaLink.closest('.diff-drawer.open')) closeDrawer(false);
       // pushState deliberately does not dispatch hashchange or perform native
       // anchor scrolling. Run the same lazy reveal, view switch, highlight,
       // and scroll path used for initial and browser-history navigation.
@@ -3049,6 +3110,10 @@ const appJavaScript = `(() => {
     if (chapterToggle) { toggleChapter(chapterToggle); return; }
     const viewTab = event.target.closest('[data-view-tab]');
     if (viewTab) { setView(viewTab.dataset.viewTab); return; }
+    const activityButton = event.target.closest('[data-open-activity]');
+    if (activityButton) { event.preventDefault(); void openActivityDrawer(activityButton.dataset.activityHref, activityButton); return; }
+    const activityFilter = event.target.closest('[data-activity-filter]');
+    if (activityFilter) { filterActivity(activityFilter.dataset.activityFilter); return; }
     const manifestMode = event.target.closest('[data-manifest-mode]');
     if (manifestMode) { void activateManifestMode(manifestMode.dataset.manifestMode); return; }
     const treeToggle = event.target.closest('[data-toggle-tree]');
@@ -3440,16 +3505,18 @@ const appJavaScript = `(() => {
     reviewScrollTimer = setTimeout(() => progress.classList.remove('scrolling'), 650);
   }, {passive:true});
   const requestedView = new URL(location.href).searchParams.get('view');
+  const activityRequested = new URL(location.href).searchParams.has('activity') || requestedView === 'activity';
   const initialView = requestedView === 'code' || requestedView === 'manifest' ? requestedView : 'saga';
   setView(initialView, false);
   setManifestMode('code');
   const anchorResolving = initialView === 'saga'
     ? activateLandmark().then(revealHashedAnnotationBubble)
     : hydrateReviewSurface(initialView).then(revealHashedAnnotationBubble);
+  const activityResolving = activityRequested ? openActivityDrawer(location.href, null, false) : Promise.resolve();
   // The page arrives as a shell and fills in what is on screen. Saying when
   // that has finished is the difference between a reviewer who can see the
   // page has settled and automation that would otherwise have to guess.
-  void Promise.all([shellArriving, anchorResolving]).then(() => {
+  void Promise.all([shellArriving, anchorResolving, activityResolving]).then(() => {
     document.body.dataset.shellReady = 'true';
   });
   positionFragmentOverlays();
@@ -3460,7 +3527,10 @@ const appJavaScript = `(() => {
     else void activateLandmark().then(revealHashedAnnotationBubble);
   });
   addEventListener('popstate', () => {
-    const view = new URL(location.href).searchParams.get('view');
+    const url = new URL(location.href);
+    const view = url.searchParams.get('view');
     setView(view === 'code' || view === 'manifest' ? view : 'saga', false);
+    if (url.searchParams.has('activity') || view === 'activity') void openActivityDrawer(url.toString(), null, false);
+    else if (q('.diff-drawer')?.dataset.drawerMode === 'activity') closeDrawer(false);
   });
 })();`

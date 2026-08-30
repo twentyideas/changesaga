@@ -89,6 +89,7 @@ type pageData struct {
 	Saga          *saga.Saga
 	Root          *sectionView
 	Nav           []*navNodeView
+	ActivityCount int
 	Diagnostic    string
 	Code          *CodeReviewView
 	Manifest      *CoverageManifestView
@@ -155,6 +156,7 @@ type chapterReviewItem struct {
 	Status       string
 	CommentCount int
 	CommentLabel string
+	ActivityHref string
 	HasActivity  bool
 	ReviewState  string
 	ReviewAuthor string
@@ -359,6 +361,7 @@ func newMux(application *app) *http.ServeMux {
 	mux.HandleFunc("GET /app.js", application.javascript)
 	mux.HandleFunc("GET /theme.js", application.themeScript)
 	mux.HandleFunc("GET /api/code", application.codePage)
+	mux.HandleFunc("GET /api/activity", application.reviewActivity)
 	mux.HandleFunc("GET /api/coverage", application.coveragePage)
 	mux.HandleFunc("GET /api/coverage-file", application.coverageFilePage)
 	mux.HandleFunc("GET /api/coverage-target", application.coverageTargetPage)
@@ -871,6 +874,7 @@ func templateFuncs() template.FuncMap {
 		"domID":       domID,
 		"fileIcon":    fileIcon,
 		"anchorLabel": anchorLabel,
+		"lower":       strings.ToLower,
 		"reviewDiffSurface": func(path, codeHref string) reviewDiffSurfaceView {
 			return reviewDiffSurfaceView{Path: path, CodeHref: codeHref}
 		},
@@ -933,6 +937,7 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 	}
 	data.ReviewItems = makeReviewProgressItems(document.Section)
 	data.ReviewDecided, data.ReviewTotal = reviewProgressSummary(data.ReviewItems)
+	data.ActivityCount = reviewActivityCount(document)
 	data.Nav = makeNavTree(document.Section, threadsByTarget)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := a.template.ExecuteTemplate(w, "page", data); err != nil {
@@ -1116,6 +1121,9 @@ func makeChapterReviewItem(target, title, kind string, depth int, reviews []saga
 		State: "unreviewed", StateClass: "unreviewed", Status: "Unreviewed",
 		CommentCount: comments, HasActivity: rawState != "" || comments > 0,
 		ReviewAuthor: author, ReviewDetail: detail, ReviewBody: body,
+	}
+	if comments > 0 {
+		item.ActivityHref = "/?activity=1&target=" + url.QueryEscape(target)
 	}
 	if comments == 1 {
 		item.CommentLabel = "1 comment or annotation"
