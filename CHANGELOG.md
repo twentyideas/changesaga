@@ -10,6 +10,24 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+## [0.0.10] - 2026-08-29
+
+### Added
+
+- Review Activity now opens in a narrow slideout over the current saga or code
+  context. The global Activity control shows the complete history, while
+  chapter-directory comment counts open the same surface scoped to that review
+  target. Individual comments and replies are visually separated within each
+  thread so multi-reviewer conversations remain easy to follow.
+
+### Fixed
+
+- `change-saga open` now verifies that a remembered managed server can serve
+  both its runtime endpoint and review page before reusing it. Unhealthy or
+  half-started servers are stopped and replaced, and the browser opens only
+  after the replacement is ready, preventing stale processes from leaving the
+  reviewer spinning indefinitely.
+
 ## [0.0.9] - 2026-08-29
 
 ### Added
