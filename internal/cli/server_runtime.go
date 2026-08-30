@@ -26,6 +26,10 @@ import (
 const (
 	runtimeStateEnv = "CHANGE_SAGA_RUNTIME_STATE"
 	runtimeTokenEnv = "CHANGE_SAGA_RUNTIME_TOKEN"
+	// A managed server is local and its root page is intentionally bounded. If
+	// it cannot render a complete response within this window, reusing it would
+	// send the browser to a page that only spins.
+	detachedHealthTimeout = 2 * time.Second
 )
 
 type detachedServerState struct {
@@ -58,12 +62,21 @@ func startDetachedServer(ctx context.Context, root, sourceDir, addr string, open
 	if err != nil {
 		return err
 	}
-	if existing, readErr := readDetachedState(statePath); readErr == nil && detachedServerActive(ctx, existing) {
-		if openBrowser {
-			_ = reviewserver.OpenBrowser(existing.URL)
+	if existing, readErr := readDetachedState(statePath); readErr == nil {
+		if detachedServerActive(ctx, existing) {
+			if openBrowser {
+				_ = reviewserver.OpenBrowser(existing.URL)
+			}
+			fmt.Fprintf(out, "Change Saga is already running at %s (PID %d)\n", existing.URL, existing.PID)
+			return nil
 		}
-		fmt.Fprintf(out, "Change Saga is already running at %s (PID %d)\n", existing.URL, existing.PID)
-		return nil
+		// The control endpoint deliberately stays independent from page rendering
+		// so a wedged reviewer can still be shut down and replaced cleanly.
+		if detachedServerReachable(ctx, existing) {
+			if err := stopDetachedServer(ctx, existing); err != nil {
+				return fmt.Errorf("replace unresponsive detached server: %w", err)
+			}
+		}
 	}
 	_ = os.Remove(statePath)
 	token, err := runtimeToken()
@@ -82,9 +95,6 @@ func startDetachedServer(ctx context.Context, root, sourceDir, addr string, open
 		}
 		sourceDir = absSource
 		args = append(args, "--repo", sourceDir)
-	}
-	if openBrowser {
-		args = append(args, "--open")
 	}
 	args = append(args, absRoot)
 	logPath := strings.TrimSuffix(statePath, ".json") + ".log"
@@ -107,6 +117,9 @@ func startDetachedServer(ctx context.Context, root, sourceDir, addr string, open
 	for time.Now().Before(deadline) {
 		state, readErr := readDetachedState(statePath)
 		if readErr == nil && state.PID == pid && detachedServerActive(ctx, state) {
+			if openBrowser {
+				_ = reviewserver.OpenBrowser(state.URL)
+			}
 			fmt.Fprintf(out, "Change Saga is available at %s\nPID: %d\nLog: %s\n", state.URL, state.PID, state.Log)
 			return nil
 		}
@@ -172,13 +185,13 @@ func manageDetachedServers(ctx context.Context, operation string, args []string,
 		states[index].Active = detachedServerActive(ctx, states[index])
 	}
 	if operation == "stop" {
-		active := states[:0]
+		stoppable := states[:0]
 		for _, state := range states {
-			if state.Active {
-				active = append(active, state)
+			if state.Active || detachedServerReachable(ctx, state) {
+				stoppable = append(stoppable, state)
 			}
 		}
-		states = active
+		states = stoppable
 		if len(states) == 0 {
 			return fmt.Errorf("no matching detached Change Saga server is running")
 		}
@@ -301,6 +314,30 @@ func detachedStates() ([]detachedServerState, error) {
 }
 
 func detachedServerActive(ctx context.Context, state detachedServerState) bool {
+	if !detachedServerReachable(ctx, state) {
+		return false
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(state.URL, "/")+"/", nil)
+	if err != nil {
+		return false
+	}
+	client := &http.Client{Timeout: detachedHealthTimeout}
+	response, err := client.Do(request)
+	if err != nil {
+		return false
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return false
+	}
+	_, err = io.Copy(io.Discard, response.Body)
+	return err == nil
+}
+
+// detachedServerReachable checks only the small control plane. It is kept
+// separate from detachedServerActive because an unresponsive review page must
+// still be stoppable through `serve stop` and during automatic replacement.
+func detachedServerReachable(ctx context.Context, state detachedServerState) bool {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(state.URL, "/")+"/api/runtime", nil)
 	if err != nil {
 		return false
@@ -331,7 +368,7 @@ func stopDetachedServer(ctx context.Context, state detachedServerState) error {
 	}
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		if !detachedServerActive(ctx, state) {
+		if !detachedServerReachable(ctx, state) {
 			path, _ := detachedStatePath(state.Saga)
 			removeDetachedState(path, state.PID)
 			return nil
