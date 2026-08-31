@@ -23,15 +23,24 @@ type fragmentContentOutput struct {
 // depend on the on-disk package layout. stdin is bound at this boundary so the
 // implementation remains deterministic in tests.
 func SetFragmentContent(ctx context.Context, args []string, out io.Writer) error {
-	err := setFragmentContent(ctx, args, out, os.Stdin)
+	return setFragmentContentCommand(ctx, args, out, os.Stdin, narrativeAuthoring)
+}
+
+func setFragmentContentCommand(ctx context.Context, args []string, out io.Writer, stdin io.Reader, scope authoringScope) error {
+	err := setFragmentContentScoped(ctx, args, out, stdin, scope)
 	if err != nil && jsonFlagRequested(args) {
 		return reportJSONMutationFailure(out, err)
 	}
 	return err
 }
 
-func setFragmentContent(_ context.Context, args []string, out io.Writer, stdin io.Reader) error {
-	flags := commandFlags("set-fragment-content", commandUsage["set-fragment-content"], out)
+func setFragmentContent(ctx context.Context, args []string, out io.Writer, stdin io.Reader) error {
+	return setFragmentContentScoped(ctx, args, out, stdin, narrativeAuthoring)
+}
+
+func setFragmentContentScoped(_ context.Context, args []string, out io.Writer, stdin io.Reader, scope authoringScope) error {
+	command := scope.command("set-fragment-content")
+	flags := commandFlags(command, commandUsage[command], out)
 	target := flags.String("target", "", "fragment path, ID, or target URN")
 	source := flags.String("source", "", "content file, or - for standard input")
 	jsonOutput := flags.Bool("json", false, "emit one machine-readable JSON result")
@@ -40,7 +49,7 @@ func setFragmentContent(_ context.Context, args []string, out io.Writer, stdin i
 		return err
 	}
 	if flags.NArg() != 1 || *target == "" || *source == "" {
-		return fmt.Errorf("usage: %s", commandUsage["set-fragment-content"])
+		return fmt.Errorf("usage: %s", commandUsage[command])
 	}
 	if *jsonOutput && *quiet {
 		return fmt.Errorf("--json and --quiet cannot be combined")
@@ -61,7 +70,7 @@ func setFragmentContent(_ context.Context, args []string, out io.Writer, stdin i
 
 	result := fragmentContentOutput{OK: true, Bytes: len(data)}
 	err = authorMutation(flags.Arg(0), func(document *saga.Saga) error {
-		dir, targetURN, resolveErr := resolveTarget(document, *target, true)
+		dir, targetURN, resolveErr := scope.resolveTarget(document, *target, true)
 		if resolveErr != nil {
 			return resolveErr
 		}

@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://changesaga.dev/schema/v3/prototype-revision.schema.json",
+  "title": "Living Change Saga full prototype revision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "version", "id", "prototype", "parents", "title", "state", "source", "styles", "created_at"],
+  "properties": {
+    "$schema": { "const": "https://changesaga.dev/schema/v3/prototype-revision.schema.json" },
+    "version": { "const": 3 },
+    "id": { "$ref": "#/$defs/id" },
+    "prototype": { "$ref": "#/$defs/prototype_urn" },
+    "parents": { "type": "array", "maxItems": 10000, "uniqueItems": true, "items": { "$ref": "#/$defs/revision_urn" } },
+    "title": { "type": "string", "minLength": 1 },
+    "state": { "enum": ["draft", "ready", "retired"] },
+    "source": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "entrypoint", "content_digest"],
+          "properties": {
+            "kind": { "const": "html" },
+            "entrypoint": { "$ref": "#/$defs/safe_html_path" },
+            "content_digest": { "$ref": "#/$defs/digest" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "url"],
+          "properties": {
+            "kind": { "const": "external" },
+            "url": { "$ref": "#/$defs/http_url" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "embed_url", "fallback_url", "allowlist"],
+          "properties": {
+            "kind": { "const": "embed" },
+            "embed_url": { "type": "string", "format": "uri", "pattern": "^https://" },
+            "fallback_url": { "$ref": "#/$defs/http_url" },
+            "allowlist": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["provider", "embed_origin", "sandbox", "permissions"],
+              "properties": {
+                "provider": { "$ref": "#/$defs/id" },
+                "embed_origin": { "type": "string", "pattern": "^https://[^/?#]+$" },
+                "sandbox": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": { "enum": ["allow-forms", "allow-modals", "allow-popups", "allow-popups-to-escape-sandbox", "allow-presentation", "allow-same-origin", "allow-scripts"] }
+                },
+                "permissions": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": { "enum": ["clipboard-read", "clipboard-write", "fullscreen"] }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "styles": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "digest", "custom_properties", "roles"],
+        "properties": {
+          "path": { "$ref": "#/$defs/safe_css_path" },
+          "digest": { "$ref": "#/$defs/digest" },
+          "custom_properties": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^--[A-Za-z0-9_-]+$" } },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["role", "class"],
+              "properties": {
+                "role": { "$ref": "#/$defs/id" },
+                "class": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,127}$" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "request_id": { "$ref": "#/$defs/id" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "source": { "properties": { "kind": { "const": "html" } }, "required": ["kind"] } },
+        "required": ["source"]
+      },
+      "else": { "properties": { "styles": { "maxItems": 0 } } }
+    }
+  ],
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "prototype_urn": { "type": "string", "pattern": "^urn:change-saga:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:prototype:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "revision_urn": { "type": "string", "pattern": "^urn:change-saga:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:prototype:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:revision:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "http_url": { "type": "string", "format": "uri", "pattern": "^https?://" },
+    "safe_html_path": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\:])[^\\u0000]+\\.html$" },
+    "safe_css_path": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\:])[^\\u0000]+\\.css$" }
+  }
+}

@@ -22,6 +22,18 @@ type loadOptions struct {
 	skipCoverage bool
 }
 
+// hierarchyRoot distinguishes the two package trees that reuse the authored
+// chapter/section/fragment machinery. Only the Saga root may contain living
+// resource directories; the design root is an authored hierarchy root, not a
+// second Saga container.
+type hierarchyRoot uint8
+
+const (
+	nestedHierarchy hierarchyRoot = iota
+	sagaHierarchy
+	designHierarchy
+)
+
 var fullLoadCount atomic.Uint64
 
 // FullLoadCount reports process-local full Saga loads. It is diagnostic
@@ -74,9 +86,24 @@ func load(root string, options loadOptions) (*Saga, Validation, error) {
 	}
 	validateManifest(manifest, &validation)
 
-	section, err := loadSection(abs, abs, manifest, true, options, &validation)
+	section, err := loadSection(abs, abs, manifest, sagaHierarchy, options, &validation)
 	if err != nil {
 		return nil, validation, err
+	}
+	if manifest.Version == CurrentSagaVersion {
+		designDir := filepath.Join(abs, "___design")
+		if info, statErr := os.Lstat(designDir); statErr == nil && info.IsDir() && info.Mode()&os.ModeSymlink == 0 {
+			design, loadErr := loadSection(abs, designDir, manifest, designHierarchy, options, &validation)
+			if loadErr != nil {
+				return nil, validation, loadErr
+			}
+			// Design packages deliberately join the existing in-memory hierarchy.
+			// Every renderer and target index can therefore address them without a
+			// second, subtly different chapter/fragment implementation.
+			section.Fragments = append(section.Fragments, design.Fragments...)
+			section.Children = append(section.Children, design.Children...)
+			sortSectionContents(section)
+		}
 	}
 	document := &Saga{Root: abs, Manifest: manifest, Section: section}
 	if !options.outline && !options.skipCoverage && metadataDirectorySafe(abs, abs, "___claims", &validation) {
@@ -119,7 +146,7 @@ func load(root string, options loadOptions) (*Saga, Validation, error) {
 	return document, validation, nil
 }
 
-func loadSection(root, dir string, manifest Manifest, isRoot bool, options loadOptions, validation *Validation) (*Section, error) {
+func loadSection(root, dir string, manifest Manifest, hierarchy hierarchyRoot, options loadOptions, validation *Validation) (*Section, error) {
 	rel, err := filepath.Rel(root, dir)
 	if err != nil {
 		return nil, err
@@ -128,11 +155,18 @@ func loadSection(root, dir string, manifest Manifest, isRoot bool, options loadO
 		rel = ""
 	}
 	section := &Section{Path: filepath.ToSlash(rel), Kind: "section"}
-	if isRoot {
+	if hierarchy == sagaHierarchy {
 		section.Kind = "saga"
 		section.ID = manifest.ID + "-root"
 		section.Title = manifest.Title
 		section.Target = SagaTarget(manifest.ID)
+	} else if hierarchy == designHierarchy {
+		// This synthetic node is used only while the shared loader scans the
+		// physical root. Its children and fragments are joined to the Saga root
+		// above, so no invented design-root target escapes into the public model.
+		section.Kind = "design"
+		section.ID = manifest.ID + "-design-root"
+		section.Title = "Technical design"
 	} else {
 		if strings.HasSuffix(filepath.Base(dir), ".chapter") {
 			section.Kind = "chapter"
@@ -188,7 +222,7 @@ func loadSection(root, dir string, manifest Manifest, isRoot bool, options loadO
 				if name == "___diffs" {
 					section.HasDiffs = true
 				}
-				if !knownReservedDirectory(name, isRoot, manifest.Version) {
+				if !knownReservedDirectory(name, hierarchy == sagaHierarchy, manifest.Version) {
 					addIssue(validation, "error", displayPath(rel, name), "unknown reserved directory")
 				}
 			}
@@ -206,10 +240,10 @@ func loadSection(root, dir string, manifest Manifest, isRoot bool, options loadO
 		if reason := PortabilityWarning(name); reason != "" {
 			addIssue(validation, "warning", displayPath(rel, name), fmt.Sprintf("directory name %q %s", name, reason))
 		}
-		if isRoot && !strings.HasSuffix(name, ".fragment") && !strings.HasSuffix(name, ".chapter") {
+		if hierarchy != nestedHierarchy && !strings.HasSuffix(name, ".fragment") && !strings.HasSuffix(name, ".chapter") {
 			addIssue(validation, "error", displayPath(rel, name), "direct saga children must be .chapter or .fragment directories")
 		}
-		if strings.HasSuffix(name, ".chapter") && !isRoot {
+		if strings.HasSuffix(name, ".chapter") && hierarchy == nestedHierarchy {
 			addIssue(validation, "error", displayPath(rel, name), "chapters must be direct children of the saga root")
 		}
 		if strings.HasSuffix(name, ".fragment") {
@@ -220,12 +254,17 @@ func loadSection(root, dir string, manifest Manifest, isRoot bool, options loadO
 			section.Fragments = append(section.Fragments, fragment)
 			continue
 		}
-		child, err := loadSection(root, path, manifest, false, options, validation)
+		child, err := loadSection(root, path, manifest, nestedHierarchy, options, validation)
 		if err != nil {
 			return nil, err
 		}
 		section.Children = append(section.Children, child)
 	}
+	sortSectionContents(section)
+	return section, nil
+}
+
+func sortSectionContents(section *Section) {
 	sort.Slice(section.Fragments, func(i, j int) bool {
 		if section.Fragments[i].Order == section.Fragments[j].Order {
 			return section.Fragments[i].Path < section.Fragments[j].Path
@@ -238,7 +277,6 @@ func loadSection(root, dir string, manifest Manifest, isRoot bool, options loadO
 		}
 		return section.Children[i].Order < section.Children[j].Order
 	})
-	return section, nil
 }
 
 func loadFragment(root, dir, sagaID string, options loadOptions, validation *Validation) (*Fragment, error) {

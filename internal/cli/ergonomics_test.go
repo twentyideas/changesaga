@@ -214,6 +214,65 @@ func TestTopLevelHelpRecommendsTheAuthoringSkill(t *testing.T) {
 	}
 }
 
+func TestTopLevelHelpRoutesExistingAndNewWork(t *testing.T) {
+	var output bytes.Buffer
+	PrintHelp(&output)
+	text := output.String()
+	for _, want := range []string{
+		"Existing implementation or PR",
+		"small focused",
+		"normal PR may be enough",
+		"New feature or exploration",
+		"overlapping surfaces, not gates",
+		"waves of parallel workspaces",
+		"Parallel by design",
+		"acceptance-criterion coverage",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("top-level help omitted workflow guidance %q:\n%s", want, text)
+		}
+	}
+}
+
+func TestLivingCommandHelpExplainsParallelWorkflow(t *testing.T) {
+	checks := []struct {
+		name string
+		run  func() string
+		want []string
+	}{
+		{name: "init", run: func() string {
+			var output bytes.Buffer
+			_ = Init(context.Background(), []string{"-h"}, &output)
+			return output.String()
+		}, want: []string{"reviewer guide", "Small focused changes may not need a Saga"}},
+		{name: "story add", run: func() string {
+			var output bytes.Buffer
+			_ = Story(context.Background(), []string{"add", "-h"}, &output)
+			return output.String()
+		}, want: []string{"acceptance-criteria", "evolve alongside"}},
+		{name: "plan add-wave", run: func() string {
+			var output bytes.Buffer
+			_ = Plan(context.Background(), []string{"add-wave", "-h"}, &output)
+			return output.String()
+		}, want: []string{"parallel workspace lanes", "converge", "not dependency"}},
+		{name: "plan add-item", run: func() string {
+			var output bytes.Buffer
+			_ = Plan(context.Background(), []string{"add-item", "-h"}, &output)
+			return output.String()
+		}, want: []string{"independently assignable", "parallel work"}},
+	}
+	for _, check := range checks {
+		t.Run(check.name, func(t *testing.T) {
+			text := check.run()
+			for _, want := range check.want {
+				if !strings.Contains(text, want) {
+					t.Fatalf("help omitted %q:\n%s", want, text)
+				}
+			}
+		})
+	}
+}
+
 // The installed skill is the contract an agent follows. It has to route reads
 // through the versioned query API and name every operation, or an agent will
 // fall back to reading saga files whose layout is not a compatibility promise.

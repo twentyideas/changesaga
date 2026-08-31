@@ -151,6 +151,69 @@ func TestLoadSupportsV2AndV3SagaContainers(t *testing.T) {
 	}
 }
 
+func TestLoadV3DesignReusesAddressableHierarchyAndMutationIndex(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "design.saga")
+	writeTestFile(t, filepath.Join(root, "saga.json"), `{"version":3,"id":"design","title":"Living design","source":{"repository":"https://example.test/acme/app.git","base":"main","head":"HEAD"}}`)
+	writeTestFile(t, filepath.Join(root, "overview.fragment", "fragment.json"), `{"version":2,"id":"narrative-overview","title":"Overview","media_type":"text/markdown","entrypoint":"content.md"}`)
+	writeTestFile(t, filepath.Join(root, "overview.fragment", "content.md"), "Root narrative remains readable.\n")
+	writeTestFile(t, filepath.Join(root, "___design", "architecture.chapter", "chapter.json"), `{"version":2,"id":"architecture","title":"Architecture","order":2}`)
+	writeTestFile(t, filepath.Join(root, "___design", "architecture.chapter", "overview.fragment", "fragment.json"), `{"version":2,"id":"architecture-overview","title":"Architecture overview","media_type":"text/markdown","entrypoint":"content.md"}`)
+	writeTestFile(t, filepath.Join(root, "___design", "architecture.chapter", "overview.fragment", "content.md"), "Design overview.\n")
+	writeTestFile(t, filepath.Join(root, "___design", "architecture.chapter", "request-flow", "section.json"), `{"version":2,"id":"request-flow","title":"Request flow"}`)
+	writeTestFile(t, filepath.Join(root, "___design", "architecture.chapter", "request-flow", "sequence.fragment", "fragment.json"), `{"version":2,"id":"sequence","title":"Sequence","media_type":"image/svg+xml","entrypoint":"sequence.svg"}`)
+	writeTestFile(t, filepath.Join(root, "___design", "architecture.chapter", "request-flow", "sequence.fragment", "sequence.svg"), `<svg viewBox="0 0 10 10"><path id="retry-edge" d="M0 0 L10 10"/></svg>`)
+	writeTestFile(t, filepath.Join(root, "___design", "architecture.chapter", "request-flow", "sequence.fragment", "___landmarks", "retry-edge.landmark", "landmark.json"), `{"version":2,"id":"retry-edge","label":"Retry edge","description":"Retries failed requests.","selector":{"type":"element","element_id":"retry-edge"}}`)
+
+	document, validation, err := Load(root)
+	if err != nil || !validation.Valid {
+		t.Fatalf("Load(v3 design) = valid %v, err %v, issues %#v", validation.Valid, err, validation.Issues)
+	}
+	if len(document.Section.Fragments) != 1 || document.Section.Fragments[0].ID != "narrative-overview" {
+		t.Fatalf("root narrative changed: %#v", document.Section.Fragments)
+	}
+	if len(document.Section.Children) != 1 {
+		t.Fatalf("design chapter was not joined to the authored hierarchy: %#v", document.Section.Children)
+	}
+	chapter := document.Section.Children[0]
+	if chapter.Path != "___design/architecture.chapter" || chapter.Target != ChapterTarget("design", "architecture") || len(chapter.Children) != 1 {
+		t.Fatalf("design chapter = %#v", chapter)
+	}
+	fragment := chapter.Children[0].Fragments[0]
+	if fragment.Path != "___design/architecture.chapter/request-flow/sequence.fragment" || fragment.Target != FragmentTarget("design", "sequence") || len(fragment.Landmarks) != 1 || fragment.Landmarks[0].Target != LandmarkTarget("design", "sequence", "retry-edge") {
+		t.Fatalf("design fragment = %#v", fragment)
+	}
+
+	index, indexValidation, err := LoadMutationIndex(root)
+	if err != nil || !indexValidation.Valid {
+		t.Fatalf("LoadMutationIndex(v3 design) = valid %v, err %v, issues %#v", indexValidation.Valid, err, indexValidation.Issues)
+	}
+	for target, wantDir := range map[string]string{
+		chapter.Target:               filepath.Join(root, "___design", "architecture.chapter"),
+		fragment.Target:              fragment.Directory,
+		fragment.Landmarks[0].Target: fragment.Landmarks[0].Directory,
+	} {
+		if got := index.Targets[target]; got != wantDir {
+			t.Errorf("index target %s = %q, want %q", target, got, wantDir)
+		}
+	}
+}
+
+func TestLoadV3DesignRejectsIDsDuplicatedByRootNarrative(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "duplicate-design.saga")
+	writeTestFile(t, filepath.Join(root, "saga.json"), `{"version":3,"id":"test","title":"A saga","source":{"repository":"https://example.test/acme/app.git","base":"main","head":"HEAD"}}`)
+	for _, base := range []string{"overview.fragment", filepath.Join("___design", "overview.fragment")} {
+		writeTestFile(t, filepath.Join(root, base, "fragment.json"), `{"version":2,"id":"shared","media_type":"text/markdown","entrypoint":"content.md"}`)
+		writeTestFile(t, filepath.Join(root, base, "content.md"), "Content.\n")
+	}
+	_, validation, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if validation.Valid {
+		t.Fatal("root narrative and technical design reused one globally addressed ID")
+	}
+}
+
 func TestLivingRootsAreReservedOnlyForV3AndMustBeRealDirectories(t *testing.T) {
 	for _, name := range []string{"___requirements", "___design", "___workplan"} {
 		t.Run(name, func(t *testing.T) {
