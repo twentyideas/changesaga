@@ -47,9 +47,7 @@ func AddStory(root, sagaID string, input AddStoryInput) (MutationResult, error) 
 			if existing.Identity.ID != input.ID {
 				continue
 			}
-			if input.RequestID != "" && existing.Identity.RequestID == input.RequestID &&
-				len(existing.Revisions) == 1 && len(existing.Events) == 1 &&
-				equalStoryCreation(existing, identity, revision, event) {
+			if input.RequestID != "" && existing.Identity.RequestID == input.RequestID && equalStoryCreation(existing, identity, revision, event) {
 				result = MutationResult{URN: storyID, Path: storyPackagePath(input.ID), Replayed: true}
 				return nil
 			}
@@ -429,9 +427,29 @@ func copyCriteria(values []Criterion) []Criterion { return append([]Criterion{},
 
 func equalStoryCreation(existing Story, identity StoryIdentity, revision Revision, event LifecycleEvent) bool {
 	identity.CreatedAt = existing.Identity.CreatedAt
-	revision.CreatedAt = existing.Revisions[0].CreatedAt
-	event.CreatedAt = existing.Events[0].CreatedAt
-	return reflect.DeepEqual(existing.Identity, identity) && reflect.DeepEqual(existing.Revisions[0], revision) && reflect.DeepEqual(existing.Events[0], event)
+	if !reflect.DeepEqual(existing.Identity, identity) {
+		return false
+	}
+	var storedRevision *Revision
+	for index := range existing.Revisions {
+		if existing.Revisions[index].ID == revision.ID {
+			storedRevision = &existing.Revisions[index]
+			break
+		}
+	}
+	var storedEvent *LifecycleEvent
+	for index := range existing.Events {
+		if existing.Events[index].ID == event.ID {
+			storedEvent = &existing.Events[index]
+			break
+		}
+	}
+	if storedRevision == nil || storedEvent == nil {
+		return false
+	}
+	revision.CreatedAt = storedRevision.CreatedAt
+	event.CreatedAt = storedEvent.CreatedAt
+	return reflect.DeepEqual(*storedRevision, revision) && reflect.DeepEqual(*storedEvent, event)
 }
 
 func equalRevisionIgnoringTime(existing, wanted Revision) bool {
@@ -451,5 +469,10 @@ func equalCitationIgnoringTime(existing, wanted Citation) bool {
 
 func equalRelationIgnoringTime(existing, wanted Relation) bool {
 	wanted.CreatedAt = existing.CreatedAt
+	existing.State = RelationActive
+	existing.SupersededAt = nil
+	existing.SupersedeRequestID = ""
+	existing.Stale = false
+	existing.StaleReasons = nil
 	return reflect.DeepEqual(existing, wanted)
 }

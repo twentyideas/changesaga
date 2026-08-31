@@ -81,6 +81,18 @@ func TestStoryCreationIsAtomicAndRequestReplayIsIdempotent(t *testing.T) {
 	if err != nil || !second.Replayed || second.URN != first.URN {
 		t.Fatalf("story replay = %#v, %v", second, err)
 	}
+	_, err = ReviseStory(root, "test", ReviseStoryInput{
+		Story: first.URN, ID: "r2", Parents: []string{"urn:change-saga:test:story:checkout:revision:r1"},
+		Title: "Checkout revised", Statement: "The story evolved", Priority: "high",
+		AcceptanceCriteria: []Criterion{{ID: "works", Statement: "It still works"}}, CreatedAt: testTime.Add(time.Minute),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err = AddStory(root, "test", input)
+	if err != nil || !second.Replayed {
+		t.Fatalf("story replay after later revision = %#v, %v", second, err)
+	}
 
 	missingCitation := storyInput("invalid", "r1", "created", nil)
 	missingCitation.Citations = []string{"urn:change-saga:test:citation:missing"}

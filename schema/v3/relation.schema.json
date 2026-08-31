@@ -32,7 +32,14 @@
   ],
   "$defs": {
     "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
-    "urn": { "type": "string", "pattern": "^urn:change-saga:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:.+$" },
+    "urn": {
+      "type": "string",
+      "oneOf": [
+        { "pattern": "^urn:change-saga:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:(story|citation|relation|wave|work-item|dependency|contract|chapter|section|fragment|claim|verification):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+        { "pattern": "^urn:change-saga:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:story:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:criterion:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+        { "pattern": "^urn:change-saga:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:fragment:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:landmark:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" }
+      ]
+    },
     "revision_urn": { "type": "string", "pattern": "^urn:change-saga:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:(story|wave|work-item|contract):[A-Za-z0-9][A-Za-z0-9._-]{0,127}:revision:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
     "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
   }

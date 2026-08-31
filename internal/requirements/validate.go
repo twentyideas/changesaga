@@ -256,7 +256,11 @@ func validateRelationMatrix(problems *validationErrors, relation Relation, from,
 		require((from.Kind == endpointClaim || from.Kind == endpointVerification) && to.Kind == endpointCriterion, "a claim or verification source and criterion target")
 		require(relation.ToRevision != "", "a target criterion revision pin")
 	case RelationSupersedes:
-		require(from.Kind == to.Kind, "endpoints of the same resource kind")
+		sameKind := from.Kind == to.Kind
+		if from.Kind == endpointDesign && to.Kind == endpointDesign {
+			sameKind = from.DesignKind == to.DesignKind
+		}
+		require(sameKind, "endpoints of the same resource kind")
 	case RelationConflictsWith:
 		require(requirement(from.Kind) && requirement(to.Kind), "compatible story or criterion endpoints")
 	}
