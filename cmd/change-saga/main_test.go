@@ -60,3 +60,15 @@ func TestRunMutationJSONKeepsFailureOnStdout(t *testing.T) {
 		t.Fatalf("mutation failure = %#v, err=%v\n%s", result, err, stdout.String())
 	}
 }
+
+func TestRunDesignHelpUsesNestedDispatcher(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if got := run([]string{"design", "--help"}, &stdout, &stderr); got != 0 {
+		t.Fatalf("exit = %d, want 0; stderr=%q", got, stderr.String())
+	}
+	for _, operation := range []string{"design add-chapter", "design add-section", "design add-fragment", "design set-fragment-content"} {
+		if !bytes.Contains(stdout.Bytes(), []byte(operation)) {
+			t.Errorf("design help omitted %q:\n%s", operation, stdout.String())
+		}
+	}
+}

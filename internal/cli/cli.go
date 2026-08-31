@@ -84,35 +84,40 @@ func (e *StatusError) Error() string { return "command reported a non-success st
 // commandUsage is the single source of each command's usage line so the
 // overview, the per-command -h banner, and argument errors cannot drift apart.
 var commandOrder = []string{
-	"init", "upgrade", "add-chapter", "add-section", "add-fragment", "set-fragment-content", "add-landmark", "cover", "remove-coverage", "replace-coverage", "add-claim", "verify-claim",
+	"init", "upgrade", "design", "add-chapter", "add-section", "add-fragment", "set-fragment-content", "add-landmark", "cover", "remove-coverage", "replace-coverage", "add-claim", "verify-claim",
 	"thread", "reply", "review", "validate", "status", "compare", "query",
 	"serve", "open", "install-skill", "spec",
 }
 
 var commandUsage = map[string]string{
-	"init":                 "change-saga init [flags] <name.saga>",
-	"upgrade":              "change-saga upgrade --to 3 [--json] <saga>",
-	"add-chapter":          "change-saga add-chapter [flags] <saga> <name>",
-	"add-section":          "change-saga add-section [flags] <saga> <section/path>",
-	"add-fragment":         "change-saga add-fragment [flags] <saga>",
-	"set-fragment-content": "change-saga set-fragment-content --target TARGET --source FILE|- [--json|--quiet] <saga>",
-	"add-landmark":         "change-saga add-landmark [flags] <saga>",
-	"cover":                "change-saga cover [flags] [--batch FILE|-] [--dry-run] <saga>",
-	"remove-coverage":      "change-saga remove-coverage --record PATH [--dry-run] [--json|--quiet] <saga>",
-	"replace-coverage":     "change-saga replace-coverage --record PATH [coverage flags] [--batch FILE|-] [--dry-run] <saga>",
-	"add-claim":            "change-saga add-claim --target TARGET --kind KIND --statement TEXT --diff URI [--diff URI...] <saga>",
-	"verify-claim":         "change-saga verify-claim --claim ID --status STATUS --summary TEXT [flags] <saga>",
-	"thread":               "change-saga thread [flags] <saga>",
-	"reply":                "change-saga reply [flags] <saga>",
-	"review":               "change-saga review [flags] <saga>",
-	"validate":             "change-saga validate [--json] [--fix] <saga>",
-	"status":               "change-saga status [--json] [--repo PATH] <saga>",
-	"compare":              "change-saga compare [--json] [--repo PATH] (--against-saga PATH | --base REV [--head REV]) <saga>",
-	"query":                "change-saga query <operation> --saga PATH [--repo PATH] [operation flags]",
-	"serve":                "change-saga serve [--addr ADDR] [--repo PATH] [--open] [--detach] <saga>",
-	"open":                 "change-saga open [--addr ADDR] [--repo PATH] <saga>",
-	"install-skill":        "change-saga install-skill",
-	"spec":                 "change-saga spec [--json]",
+	"init":                        "change-saga init [flags] <name.saga>",
+	"upgrade":                     "change-saga upgrade --to 3 [--json] <saga>",
+	"design":                      "change-saga design <operation> [flags] <saga>",
+	"design-add-chapter":          "change-saga design add-chapter [flags] <saga> <name>",
+	"design-add-section":          "change-saga design add-section [flags] <saga> <section/path>",
+	"design-add-fragment":         "change-saga design add-fragment [flags] <saga>",
+	"design-set-fragment-content": "change-saga design set-fragment-content --target TARGET --source FILE|- [--json|--quiet] <saga>",
+	"add-chapter":                 "change-saga add-chapter [flags] <saga> <name>",
+	"add-section":                 "change-saga add-section [flags] <saga> <section/path>",
+	"add-fragment":                "change-saga add-fragment [flags] <saga>",
+	"set-fragment-content":        "change-saga set-fragment-content --target TARGET --source FILE|- [--json|--quiet] <saga>",
+	"add-landmark":                "change-saga add-landmark [flags] <saga>",
+	"cover":                       "change-saga cover [flags] [--batch FILE|-] [--dry-run] <saga>",
+	"remove-coverage":             "change-saga remove-coverage --record PATH [--dry-run] [--json|--quiet] <saga>",
+	"replace-coverage":            "change-saga replace-coverage --record PATH [coverage flags] [--batch FILE|-] [--dry-run] <saga>",
+	"add-claim":                   "change-saga add-claim --target TARGET --kind KIND --statement TEXT --diff URI [--diff URI...] <saga>",
+	"verify-claim":                "change-saga verify-claim --claim ID --status STATUS --summary TEXT [flags] <saga>",
+	"thread":                      "change-saga thread [flags] <saga>",
+	"reply":                       "change-saga reply [flags] <saga>",
+	"review":                      "change-saga review [flags] <saga>",
+	"validate":                    "change-saga validate [--json] [--fix] <saga>",
+	"status":                      "change-saga status [--json] [--repo PATH] <saga>",
+	"compare":                     "change-saga compare [--json] [--repo PATH] (--against-saga PATH | --base REV [--head REV]) <saga>",
+	"query":                       "change-saga query <operation> --saga PATH [--repo PATH] [operation flags]",
+	"serve":                       "change-saga serve [--addr ADDR] [--repo PATH] [--open] [--detach] <saga>",
+	"open":                        "change-saga open [--addr ADDR] [--repo PATH] <saga>",
+	"install-skill":               "change-saga install-skill",
+	"spec":                        "change-saga spec [--json]",
 }
 
 func PrintHelp(out io.Writer) {
@@ -154,6 +159,7 @@ func commandFlags(name, usage string, out io.Writer) *flag.FlagSet {
 
 var commandDescription = map[string]string{
 	"upgrade":              "Atomically adopt the v3 Saga container and create the requirements, design, and\nwork-plan roots. Existing v2 narrative and review records are preserved.",
+	"design":               "Author technical-design chapters, sections, and fragments beneath ___design by\nreusing the established addressable narrative package model.",
 	"set-fragment-content": "Replace a fragment entrypoint through the supported authoring API. Use --source -\nto read content from standard input; the fragment media type and metadata are preserved.",
 	"add-landmark":         "Create a coverable target for one Markdown heading, exact text span, HTML/SVG\nelement, or normalized image region inside a fragment. An SVG --element-id is\nmeasured into an on-canvas link automatically; --hotspot overrides its bounds.\nHTML elements need --hotspot for an on-canvas link. Visual landmarks require a\nsemantic --description for non-visual consumers.",
 	"cover": `Attach the exact diff atoms a narrative target explains. --target accepts a
@@ -284,8 +290,13 @@ func Init(ctx context.Context, args []string, out io.Writer) error {
 	return nil
 }
 
-func AddChapter(_ context.Context, args []string, out io.Writer) error {
-	flags := commandFlags("add-chapter", commandUsage["add-chapter"], out)
+func AddChapter(ctx context.Context, args []string, out io.Writer) error {
+	return addChapter(ctx, args, out, narrativeAuthoring)
+}
+
+func addChapter(_ context.Context, args []string, out io.Writer, scope authoringScope) error {
+	command := scope.command("add-chapter")
+	flags := commandFlags(command, commandUsage[command], out)
 	title := flags.String("title", "", "chapter title")
 	id := flags.String("id", "", "stable chapter identifier")
 	order := flags.Int("order", 0, "display order")
@@ -293,7 +304,7 @@ func AddChapter(_ context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 2 {
-		return fmt.Errorf("usage: %s", commandUsage["add-chapter"])
+		return fmt.Errorf("usage: %s", commandUsage[command])
 	}
 	name := strings.TrimSuffix(flags.Arg(1), ".chapter")
 	if name == "" || name == "." || name == ".." || filepath.IsAbs(name) || filepath.Clean(name) != name || filepath.Base(name) != name || strings.HasPrefix(name, "___") {
@@ -301,6 +312,10 @@ func AddChapter(_ context.Context, args []string, out io.Writer) error {
 	}
 	var created, createdID, createdTarget string
 	err := authorMutation(flags.Arg(0), func(document *saga.Saga) error {
+		hierarchyRoot, err := scope.hierarchyRoot(document)
+		if err != nil {
+			return err
+		}
 		chapterTitle, chapterID := *title, *id
 		if chapterTitle == "" {
 			chapterTitle = strings.ReplaceAll(name, "-", " ")
@@ -312,13 +327,13 @@ func AddChapter(_ context.Context, args []string, out io.Writer) error {
 		if !saga.ValidID(chapterID) || !saga.ValidID(overviewID) || targetIDExists(document, chapterID) || targetIDExists(document, overviewID) {
 			return fmt.Errorf("chapter id %q or its overview id is invalid or already used", chapterID)
 		}
-		dir := filepath.Join(document.Root, store.Slug(name)+".chapter")
+		dir := filepath.Join(hierarchyRoot, store.Slug(name)+".chapter")
 		manifest := saga.ChapterManifest{Version: saga.CurrentVersion, ID: chapterID, Title: chapterTitle, Order: *order}
 		overview := saga.FragmentManifest{Version: saga.CurrentVersion, ID: overviewID, MediaType: "text/markdown", Entrypoint: "content.md"}
 		// One staged rename: a failed chapter never leaves a manifest-less
 		// directory behind that would invalidate the saga for every later
 		// command.
-		err := store.CommitDir(document.Root, dir, func(stage string) error {
+		err = store.CommitDir(document.Root, dir, func(stage string) error {
 			if err := os.Chmod(stage, 0o755); err != nil {
 				return err
 			}
@@ -335,7 +350,8 @@ func AddChapter(_ context.Context, args []string, out io.Writer) error {
 		if errors.Is(err, fs.ErrExist) {
 			return fmt.Errorf("chapter %s already exists", filepath.Base(dir))
 		}
-		created = filepath.Base(dir)
+		rel, _ := filepath.Rel(document.Root, dir)
+		created = filepath.ToSlash(rel)
 		createdID = chapterID
 		createdTarget = saga.ChapterTarget(document.Manifest.ID, chapterID)
 		return err
@@ -345,12 +361,17 @@ func AddChapter(_ context.Context, args []string, out io.Writer) error {
 	}
 	fmt.Fprintf(out, "Added chapter %s\n", created)
 	fmt.Fprintf(out, "Target: %s\n", createdTarget)
-	fmt.Fprintf(out, "Next: change-saga add-section --title \"Section title\" %s %s/section-name\n", flags.Arg(0), createdID)
+	fmt.Fprintf(out, "Next: %s --title \"Section title\" %s %s/section-name\n", scope.commandText("add-section"), flags.Arg(0), createdID)
 	return nil
 }
 
-func AddSection(_ context.Context, args []string, out io.Writer) error {
-	flags := commandFlags("add-section", commandUsage["add-section"], out)
+func AddSection(ctx context.Context, args []string, out io.Writer) error {
+	return addSection(ctx, args, out, narrativeAuthoring)
+}
+
+func addSection(_ context.Context, args []string, out io.Writer, scope authoringScope) error {
+	command := scope.command("add-section")
+	flags := commandFlags(command, commandUsage[command], out)
 	title := flags.String("title", "", "section title")
 	id := flags.String("id", "", "stable section identifier")
 	order := flags.Int("order", 0, "display order")
@@ -358,7 +379,7 @@ func AddSection(_ context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 2 {
-		return fmt.Errorf("usage: %s", commandUsage["add-section"])
+		return fmt.Errorf("usage: %s", commandUsage[command])
 	}
 	sectionPath := filepath.Clean(flags.Arg(1))
 	parentPath, name := filepath.Dir(sectionPath), filepath.Base(sectionPath)
@@ -367,7 +388,7 @@ func AddSection(_ context.Context, args []string, out io.Writer) error {
 	}
 	var created, createdID, createdTarget string
 	err := authorMutation(flags.Arg(0), func(document *saga.Saga) error {
-		parentDir, _, err := resolveTarget(document, parentPath, false)
+		parentDir, _, err := scope.resolveTarget(document, parentPath, false)
 		if err != nil {
 			return fmt.Errorf("resolve parent: %w", err)
 		}
@@ -410,12 +431,17 @@ func AddSection(_ context.Context, args []string, out io.Writer) error {
 	}
 	fmt.Fprintf(out, "Added section %s\n", created)
 	fmt.Fprintf(out, "Target: %s\n", createdTarget)
-	fmt.Fprintf(out, "Next: change-saga add-fragment --section %s --title \"Fragment title\" %s\n", createdID, flags.Arg(0))
+	fmt.Fprintf(out, "Next: %s --section %s --title \"Fragment title\" %s\n", scope.commandText("add-fragment"), createdID, flags.Arg(0))
 	return nil
 }
 
-func AddFragment(_ context.Context, args []string, out io.Writer) error {
-	flags := commandFlags("add-fragment", commandUsage["add-fragment"], out)
+func AddFragment(ctx context.Context, args []string, out io.Writer) error {
+	return addFragment(ctx, args, out, narrativeAuthoring)
+}
+
+func addFragment(_ context.Context, args []string, out io.Writer, scope authoringScope) error {
+	command := scope.command("add-fragment")
+	flags := commandFlags(command, commandUsage[command], out)
 	section := flags.String("section", ".", "containing section")
 	id := flags.String("id", "", "stable fragment identifier")
 	title := flags.String("title", "", "fragment title")
@@ -429,7 +455,7 @@ func AddFragment(_ context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	if flags.NArg() != 1 {
-		return fmt.Errorf("usage: %s", commandUsage["add-fragment"])
+		return fmt.Errorf("usage: %s", commandUsage[command])
 	}
 	entrypoint, content, resolvedType, err := fragmentContent(*kind, *mediaType, *source)
 	if err != nil {
@@ -448,7 +474,7 @@ func AddFragment(_ context.Context, args []string, out io.Writer) error {
 	}
 	var created, createdTarget string
 	err = authorMutation(flags.Arg(0), func(document *saga.Saga) error {
-		sectionDir, _, err := resolveTarget(document, *section, false)
+		sectionDir, _, err := scope.resolveTarget(document, *section, false)
 		if err != nil {
 			return err
 		}
@@ -457,7 +483,11 @@ func AddFragment(_ context.Context, args []string, out io.Writer) error {
 			fragmentName = store.Slug(firstNonEmpty(*title, fragmentID, *kind))
 		}
 		if fragmentID == "" {
-			fragmentID = store.Slug(document.Manifest.ID + "-" + strings.ReplaceAll(filepath.ToSlash(*section), "/", "-") + "-" + fragmentName)
+			sectionName := filepath.ToSlash(*section)
+			if scope.design {
+				sectionName = "design-" + sectionName
+			}
+			fragmentID = store.Slug(document.Manifest.ID + "-" + strings.ReplaceAll(sectionName, "/", "-") + "-" + fragmentName)
 		}
 		if !saga.ValidID(fragmentID) || targetIDExists(document, fragmentID) {
 			return fmt.Errorf("fragment id %q is invalid or already used", fragmentID)
@@ -478,7 +508,7 @@ func AddFragment(_ context.Context, args []string, out io.Writer) error {
 	}
 	fmt.Fprintf(out, "Added fragment %s\n", created)
 	fmt.Fprintf(out, "Target: %s\n", createdTarget)
-	fmt.Fprintf(out, "Next: change-saga set-fragment-content --target %s --source FILE|- %s\n", createdTarget, flags.Arg(0))
+	fmt.Fprintf(out, "Next: %s --target %s --source FILE|- %s\n", scope.commandText("set-fragment-content"), createdTarget, flags.Arg(0))
 	return nil
 }
 

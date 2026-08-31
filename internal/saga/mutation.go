@@ -89,14 +89,22 @@ func LoadMutationIndex(root string) (MutationIndex, Validation, error) {
 		ReviewTargets: map[string]string{SagaTarget(manifest.ID): abs},
 	}
 	ids := map[string]string{}
-	if err := scanMutationSection(abs, abs, true, manifest.ID, manifest.Version, &index, ids, &validation); err != nil {
+	if err := scanMutationSection(abs, abs, sagaHierarchy, manifest.ID, manifest.Version, &index, ids, &validation); err != nil {
 		return MutationIndex{}, validation, err
+	}
+	if manifest.Version == CurrentSagaVersion {
+		designDir := filepath.Join(abs, "___design")
+		if info, statErr := os.Lstat(designDir); statErr == nil && info.IsDir() && info.Mode()&os.ModeSymlink == 0 {
+			if err := scanMutationSection(abs, designDir, designHierarchy, manifest.ID, manifest.Version, &index, ids, &validation); err != nil {
+				return MutationIndex{}, validation, err
+			}
+		}
 	}
 	validation.Valid = !hasErrors(validation.Issues)
 	return index, validation, nil
 }
 
-func scanMutationSection(root, dir string, isRoot bool, sagaID string, sagaVersion int, index *MutationIndex, ids map[string]string, validation *Validation) error {
+func scanMutationSection(root, dir string, hierarchy hierarchyRoot, sagaID string, sagaVersion int, index *MutationIndex, ids map[string]string, validation *Validation) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
@@ -107,7 +115,7 @@ func scanMutationSection(root, dir string, isRoot bool, sagaID string, sagaVersi
 		if strings.HasPrefix(name, "___") {
 			if entry.Type()&fs.ModeSymlink != 0 || !entry.IsDir() {
 				addIssue(validation, "error", relativePath(root, path), "reserved metadata path must be a real directory")
-			} else if !knownReservedDirectory(name, isRoot, sagaVersion) {
+			} else if !knownReservedDirectory(name, hierarchy == sagaHierarchy, sagaVersion) {
 				addIssue(validation, "error", relativePath(root, path), "unknown reserved directory")
 			}
 			continue
@@ -120,10 +128,10 @@ func scanMutationSection(root, dir string, isRoot bool, sagaID string, sagaVersi
 			}
 			continue
 		}
-		if isRoot && !strings.HasSuffix(name, ".fragment") && !strings.HasSuffix(name, ".chapter") {
+		if hierarchy != nestedHierarchy && !strings.HasSuffix(name, ".fragment") && !strings.HasSuffix(name, ".chapter") {
 			addIssue(validation, "error", relativePath(root, path), "direct saga children must be .chapter or .fragment directories")
 		}
-		if strings.HasSuffix(name, ".chapter") && !isRoot {
+		if strings.HasSuffix(name, ".chapter") && hierarchy == nestedHierarchy {
 			addIssue(validation, "error", relativePath(root, path), "chapters must be direct children of the saga root")
 		}
 		if strings.HasSuffix(name, ".fragment") {
@@ -162,7 +170,7 @@ func scanMutationSection(root, dir string, isRoot bool, sagaID string, sagaVersi
 			}
 			index.Targets[target], index.ReviewTargets[target] = path, path
 		}
-		if err := scanMutationSection(root, path, false, sagaID, sagaVersion, index, ids, validation); err != nil {
+		if err := scanMutationSection(root, path, nestedHierarchy, sagaID, sagaVersion, index, ids, validation); err != nil {
 			return err
 		}
 	}

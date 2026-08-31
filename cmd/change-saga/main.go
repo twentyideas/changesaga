@@ -39,6 +39,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		err = cli.Init(ctx, args[1:], stdout)
 	case "upgrade":
 		err = cli.Upgrade(ctx, args[1:], stdout)
+	case "design":
+		err = cli.Design(ctx, args[1:], stdout)
 	case "add-section":
 		err = cli.AddSection(ctx, args[1:], stdout)
 	case "add-chapter":
