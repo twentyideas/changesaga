@@ -7,6 +7,8 @@ import (
 	"errors"
 	"flag"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -185,6 +187,46 @@ func TestRequirementsMutationCommandsReturnJSONAndReplay(t *testing.T) {
 	if replay := decodeLivingOutput(t, &output); !replay.OK || !replay.Replayed {
 		t.Fatalf("supersede replay = %#v", replay)
 	}
+}
+
+func TestMutationFamiliesAdoptOnlyTheirOwnedOptionalRoot(t *testing.T) {
+	root := newLivingSaga(t)
+	for _, name := range []string{"___requirements", "___design", "___workplan"} {
+		if err := os.RemoveAll(filepath.Join(root, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	assertAbsent := func(name string) {
+		t.Helper()
+		if _, err := os.Stat(filepath.Join(root, name)); !os.IsNotExist(err) {
+			t.Fatalf("%s should remain absent, stat error = %v", name, err)
+		}
+	}
+
+	var output bytes.Buffer
+	if err := Citation(context.Background(), []string{
+		"add", root, "--id", "decision", "--kind", "decision", "--title", "Decision",
+		"--reference", "decision-1", "--request-id", "optional-requirements", "--json",
+	}, &output); err != nil {
+		t.Fatalf("adopt requirements root: %v\n%s", err, output.String())
+	}
+	if info, err := os.Stat(filepath.Join(root, "___requirements")); err != nil || !info.IsDir() {
+		t.Fatalf("requirements root was not adopted: %v", err)
+	}
+	assertAbsent("___design")
+	assertAbsent("___workplan")
+
+	output.Reset()
+	if err := Plan(context.Background(), []string{
+		"add-wave", root, "--id", "delivery", "--revision", "delivery-r1", "--title", "Delivery",
+		"--objective", "Coordinate delivery", "--request-id", "optional-workplan", "--json",
+	}, &output); err != nil {
+		t.Fatalf("adopt work-plan root: %v\n%s", err, output.String())
+	}
+	if info, err := os.Stat(filepath.Join(root, "___workplan")); err != nil || !info.IsDir() {
+		t.Fatalf("work-plan root was not adopted: %v", err)
+	}
+	assertAbsent("___design")
 }
 
 func TestPlanCommandsReturnJSONAndDelegateValidationAndReplay(t *testing.T) {
