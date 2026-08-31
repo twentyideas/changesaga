@@ -118,7 +118,11 @@ func Design(ctx context.Context, args []string, out io.Writer) error {
 }
 
 func printDesignHelp(out io.Writer) {
-	fmt.Fprintln(out, "Technical design authoring (Saga format v3)\n\nUsage:")
+	fmt.Fprintln(out, "Technical design authoring (Saga format v3)")
+	if description := commandDescription["design"]; description != "" {
+		fmt.Fprintf(out, "\n%s\n", description)
+	}
+	fmt.Fprintln(out, "\nUsage:")
 	for _, operation := range designOperations {
 		fmt.Fprintf(out, "  %s\n", commandUsage["design-"+operation])
 	}

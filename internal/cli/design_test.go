@@ -105,4 +105,9 @@ func TestDesignHelpListsSupportedOperations(t *testing.T) {
 			t.Errorf("design help omitted %s:\n%s", operation, output.String())
 		}
 	}
+	for _, guidance := range []string{"trace to user", "parallel authoring", "clean merges"} {
+		if !strings.Contains(output.String(), guidance) {
+			t.Fatalf("design help omitted workflow guidance %q:\n%s", guidance, output.String())
+		}
+	}
 }
