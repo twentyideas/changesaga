@@ -83,6 +83,29 @@ these prompts from the repository containing your change:
 
 > Use the change-saga cli to open this PR's Saga
 
+### Choose the workflow
+
+If the implementation or PR already exists, first ask whether its review is
+complex enough to need a Saga. A small focused change may be clearer as a
+normal PR. For a large change—one spanning multiple behaviors, risks, systems,
+or workstreams—the Saga is authored from the completed implementation and
+exact diff as the guide reviewers will follow. It does not need retroactive
+requirements, prototypes, technical design, or a work plan merely to fill out
+the format.
+
+For a new feature or exploration, a Saga can begin before implementation. A
+typical path starts with a prototype for the UX and UI, develops sourced user
+stories and acceptance criteria, turns those into a technical design, and then
+organizes implementation into dependency-aware waves of parallel workspaces.
+That is not a waterfall: prototypes and stories can evolve together, design can
+start while they mature, and work-plan drafting can overlap the design.
+
+Saga files are built for that parallelism too. Separate agents can own story
+revisions, prototype packages, design fragments, and work items, then merge the
+document alongside the implementation as work fans out and converges. Before
+peer review, consolidate those lanes and connect the delivered commits and
+exact diffs back to the acceptance criteria and design they satisfy.
+
 ### Expect to iterate
 
 Change Saga works with the coding assistant you already use, but authoring a
