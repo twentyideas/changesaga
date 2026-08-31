@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://changesaga.dev/schema/v3/workplan-revision.schema.json",
+  "title": "Living Saga work-plan definition revision",
+  "oneOf": [
+    {"$ref": "#/$defs/wave"},
+    {"$ref": "#/$defs/work_item"},
+    {"$ref": "#/$defs/contract"}
+  ],
+  "$defs": {
+    "base": {
+      "type": "object",
+      "properties": {
+        "$schema": {"const": "https://changesaga.dev/schema/v3/workplan-revision.schema.json"},
+        "version": {"const": 3},
+        "id": {"$ref": "#/$defs/id"},
+        "parents": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "created_at": {"type": "string", "format": "date-time"},
+        "request_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "request_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      },
+      "required": ["$schema", "version", "id", "parents", "created_at"]
+    },
+    "wave": {
+      "allOf": [
+        {"$ref": "#/$defs/base"},
+        {"type": "object", "additionalProperties": false,
+          "required": ["$schema", "version", "id", "wave", "parents", "title", "objective", "order", "entry_conditions", "exit_conditions", "created_at"],
+          "properties": {
+            "$schema": {}, "version": {}, "id": {}, "parents": {}, "created_at": {}, "request_id": {}, "request_digest": {},
+            "wave": {"type": "string"}, "title": {"type": "string", "minLength": 1}, "objective": {"type": "string", "minLength": 1}, "order": {"type": "integer"},
+            "entry_conditions": {"type": "array", "items": {"type": "string"}}, "exit_conditions": {"type": "array", "items": {"type": "string"}}
+          }}
+      ]
+    },
+    "work_item": {
+      "allOf": [
+        {"$ref": "#/$defs/base"},
+        {"type": "object", "additionalProperties": false,
+          "required": ["$schema", "version", "id", "work_item", "parents", "title", "objective", "deliverables", "relations", "dependencies", "contracts", "expected_touch_areas", "completion_checks", "merge_units", "created_at"],
+          "properties": {
+            "$schema": {}, "version": {}, "id": {}, "parents": {}, "created_at": {}, "request_id": {}, "request_digest": {},
+            "work_item": {"type": "string"}, "title": {"type": "string", "minLength": 1}, "objective": {"type": "string", "minLength": 1}, "wave": {"type": "string"},
+            "deliverables": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}, "relations": {"type": "array", "items": {"type": "string"}},
+            "dependencies": {"type": "array", "items": {"type": "string"}}, "contracts": {"type": "array", "items": {"type": "string"}},
+            "expected_touch_areas": {"type": "array", "items": {"$ref": "#/$defs/touch_area"}}, "completion_checks": {"type": "array", "items": {"type": "string"}},
+            "merge_units": {"type": "array", "items": {"$ref": "#/$defs/merge_unit"}}
+          }}
+      ]
+    },
+    "contract": {
+      "allOf": [
+        {"$ref": "#/$defs/base"},
+        {"type": "object", "additionalProperties": false,
+          "required": ["$schema", "version", "id", "contract", "parents", "kind", "provider", "consumer", "statement", "acceptance", "created_at"],
+          "properties": {
+            "$schema": {}, "version": {}, "id": {}, "parents": {}, "created_at": {}, "request_id": {}, "request_digest": {},
+            "contract": {"type": "string"}, "kind": {"enum": ["deliverable", "interface", "handoff", "quality_gate"]}, "provider": {"type": "string"}, "consumer": {"type": "string"},
+            "statement": {"type": "string", "minLength": 1}, "acceptance": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+          }}
+      ]
+    },
+    "touch_area": {
+      "type": "object", "additionalProperties": false, "required": ["repository", "selector", "intents"],
+      "properties": {"repository": {"type": "string", "format": "uri"}, "selector": {"type": "object", "additionalProperties": false, "required": ["kind", "value"], "properties": {"kind": {"enum": ["file", "directory", "glob", "logical"]}, "value": {"type": "string", "minLength": 1}}}, "intents": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["read", "add", "modify", "delete", "rename", "test", "document"]}}, "reason": {"type": "string"}}
+    },
+    "merge_unit": {
+      "type": "object", "additionalProperties": false, "required": ["id", "repository", "source_branch", "target_branch", "required"],
+      "properties": {"id": {"$ref": "#/$defs/id"}, "repository": {"type": "string", "format": "uri"}, "source_branch": {"type": "string", "minLength": 1}, "target_branch": {"type": "string", "minLength": 1}, "required": {"type": "boolean"}}
+    },
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}
+  }
+}

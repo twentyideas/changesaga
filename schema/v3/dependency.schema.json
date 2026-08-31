@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://changesaga.dev/schema/v3/dependency.schema.json",
+  "title": "Living Saga work dependency",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "version", "id", "prerequisite", "dependent", "condition", "reason", "created_at"],
+  "properties": {
+    "$schema": {"const": "https://changesaga.dev/schema/v3/dependency.schema.json"},
+    "version": {"const": 3},
+    "id": {"$ref": "#/$defs/id"},
+    "prerequisite": {"type": "string", "pattern": "^urn:change-saga:[^:]+:work-item:[^:]+$"},
+    "dependent": {"type": "string", "pattern": "^urn:change-saga:[^:]+:work-item:[^:]+$"},
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {"enum": ["progress_done", "merge_integrated", "contract_fulfilled"]},
+        "contract_revision": {"type": "string", "pattern": "^urn:change-saga:[^:]+:contract:[^:]+:revision:[^:]+$"}
+      },
+      "allOf": [
+        {"if": {"properties": {"kind": {"const": "contract_fulfilled"}}}, "then": {"required": ["contract_revision"]}},
+        {"if": {"properties": {"kind": {"enum": ["progress_done", "merge_integrated"]}}}, "then": {"not": {"required": ["contract_revision"]}}}
+      ]
+    },
+    "reason": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "request_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "request_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {"id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}}
+}

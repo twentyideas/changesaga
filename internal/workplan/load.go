@@ -521,7 +521,7 @@ func checkPackageID(plan *Plan, validation *Validation, dir, name, id string) {
 }
 
 func registerRequest(plan *Plan, validation *Validation, path, id, digest, operation, resource, eventID string) {
-	if id == "" {
+	if id == "" && digest == "" {
 		return
 	}
 	if !validRequestID(id) || !regexpDigest.MatchString(digest) {

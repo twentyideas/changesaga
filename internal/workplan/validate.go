@@ -54,6 +54,10 @@ func validateWave(plan *Plan, validation *Validation, wave *Wave) {
 		if revision.Schema != RevisionSchema || revision.Version != Version || !validID(revision.ID) || !validTime(revision.CreatedAt) || strings.TrimSpace(revision.Title) == "" || strings.TrimSpace(revision.Objective) == "" {
 			addIssue(validation, "error", path, "wave revision requires the v3 revision schema, stable id, title, objective, and UTC creation time")
 		}
+		validateRequestFields(validation, path, revision.RequestID, revision.RequestDigest)
+		if revision.Parents == nil || revision.EntryConditions == nil || revision.ExitConditions == nil {
+			addIssue(validation, "error", path, "wave revision collections must be arrays, not null")
+		}
 		if !referenceIs(revision.Wave, plan.SagaID, livingid.KindWave, wave.ID) {
 			addIssue(validation, "error", path, "wave revision target does not match its package")
 		}
@@ -117,6 +121,10 @@ func validateWorkItemRevision(plan *Plan, validation *Validation, itemID, path s
 	if revision.Schema != RevisionSchema || revision.Version != Version || !validID(revision.ID) || !validTime(revision.CreatedAt) || strings.TrimSpace(revision.Title) == "" || strings.TrimSpace(revision.Objective) == "" || len(revision.Deliverables) == 0 {
 		addIssue(validation, "error", path, "work-item revision requires the v3 revision schema, stable id, title, objective, deliverables, and UTC creation time")
 	}
+	validateRequestFields(validation, path, revision.RequestID, revision.RequestDigest)
+	if revision.Parents == nil || revision.Deliverables == nil || revision.Relations == nil || revision.Dependencies == nil || revision.Contracts == nil || revision.ExpectedTouchAreas == nil || revision.CompletionChecks == nil || revision.MergeUnits == nil {
+		addIssue(validation, "error", path, "work-item revision collections must be arrays, not null")
+	}
 	if !referenceIs(revision.WorkItem, plan.SagaID, livingid.KindWorkItem, itemID) {
 		addIssue(validation, "error", path, "work-item revision target does not match its package")
 	}
@@ -176,6 +184,10 @@ func validateContract(plan *Plan, validation *Validation, contract *Contract) {
 		if revision.Schema != RevisionSchema || revision.Version != Version || !validID(revision.ID) || !validTime(revision.CreatedAt) || !oneOf(revision.Kind, "deliverable", "interface", "handoff", "quality_gate") || strings.TrimSpace(revision.Statement) == "" || len(revision.Acceptance) == 0 {
 			addIssue(validation, "error", path, "contract revision requires the v3 revision schema, valid kind, statement, acceptance checks, and UTC creation time")
 		}
+		validateRequestFields(validation, path, revision.RequestID, revision.RequestDigest)
+		if revision.Parents == nil || revision.Acceptance == nil {
+			addIssue(validation, "error", path, "contract revision collections must be arrays, not null")
+		}
 		if !referenceIs(revision.Contract, plan.SagaID, livingid.KindContract, contract.ID) {
 			addIssue(validation, "error", path, "contract revision target does not match its package")
 		}
@@ -202,6 +214,9 @@ func validateContract(plan *Plan, validation *Validation, contract *Contract) {
 		if !oneOf(event.State, "proposed", "accepted", "fulfilled", "violated", "waived") {
 			addIssue(validation, "error", path, "invalid contract state")
 		}
+		if event.Evidence == nil {
+			addIssue(validation, "error", path, "contract evidence must be an array, not null")
+		}
 		if oneOf(event.State, "fulfilled", "violated", "waived") && strings.TrimSpace(event.Summary) == "" {
 			addIssue(validation, "error", path, "fulfilled, violated, and waived contract events require a summary")
 		}
@@ -220,6 +235,7 @@ func validateDependency(plan *Plan, validation *Validation, dependency *Dependen
 	if dependency.Schema != DependencySchema || dependency.Version != Version || !validID(dependency.ID) || !validTime(dependency.CreatedAt) || strings.TrimSpace(dependency.Reason) == "" {
 		addIssue(validation, "error", path, "dependency requires the v3 schema, stable id, reason, and UTC creation time")
 	}
+	validateRequestFields(validation, path, dependency.RequestID, dependency.RequestDigest)
 	if !workItemReference(plan, dependency.Prerequisite) || !workItemReference(plan, dependency.Dependent) {
 		addIssue(validation, "error", path, "dependency endpoints must be existing work items")
 	}
@@ -523,6 +539,10 @@ func validateEventBase(validation *Validation, path string, event EventBase) {
 	if event.Schema != EventSchema || event.Version != Version || !validID(event.ID) || !validTime(event.CreatedAt) {
 		addIssue(validation, "error", path, "event requires the v3 event schema, stable id, and UTC creation time")
 	}
+	validateRequestFields(validation, path, event.RequestID, event.RequestDigest)
+	if event.Parents == nil {
+		addIssue(validation, "error", path, "event parents must be an array, not null")
+	}
 }
 
 func validateTouchArea(validation *Validation, recordPath string, index int, area TouchArea) {
@@ -532,6 +552,9 @@ func validateTouchArea(validation *Validation, recordPath string, index int, are
 	}
 	if duplicateStrings(area.Intents) {
 		addIssue(validation, "error", recordPath, "touch-area intents must be unique")
+	}
+	if area.Intents == nil {
+		addIssue(validation, "error", recordPath, "touch-area intents must be an array, not null")
 	}
 	for _, intent := range area.Intents {
 		if !oneOf(intent, "read", "add", "modify", "delete", "rename", "test", "document") {
@@ -596,6 +619,15 @@ func validateStringList(validation *Validation, path, name string, values []stri
 		if strings.TrimSpace(value) == "" {
 			addIssue(validation, "error", path, name+" cannot contain empty values")
 		}
+	}
+}
+
+func validateRequestFields(validation *Validation, path, requestID, digest string) {
+	if requestID == "" && digest == "" {
+		return
+	}
+	if !validRequestID(requestID) || !regexpDigest.MatchString(digest) {
+		addIssue(validation, "error", path, "request_id and its 64-character request_digest must be present together")
 	}
 }
 
