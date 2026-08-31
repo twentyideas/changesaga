@@ -125,6 +125,62 @@ func TestLoadRejectsUnknownJSONFields(t *testing.T) {
 	}
 }
 
+func TestLoadSupportsV2AndV3SagaContainers(t *testing.T) {
+	for _, version := range []int{LegacySagaVersion, CurrentSagaVersion} {
+		t.Run(fmt.Sprintf("v%d", version), func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "test.saga")
+			writeTestFile(t, filepath.Join(root, "saga.json"), fmt.Sprintf(`{"$schema":%q,"version":%d,"id":"test","title":"A saga","source":{"repository":"https://example.test/a.git","base":"main","head":"HEAD"}}`, SagaSchemaURL(version), version))
+			writeTestFile(t, filepath.Join(root, "overview.fragment", "fragment.json"), `{"version":2,"id":"overview","media_type":"text/markdown","entrypoint":"content.md"}`)
+			writeTestFile(t, filepath.Join(root, "overview.fragment", "content.md"), "Story.\n")
+			if version == CurrentSagaVersion {
+				for _, name := range []string{"___requirements", "___design", "___workplan"} {
+					if err := os.MkdirAll(filepath.Join(root, name), 0o755); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+
+			document, validation, err := Load(root)
+			if err != nil || !validation.Valid {
+				t.Fatalf("Load(v%d) = valid %v, err %v, issues %#v", version, validation.Valid, err, validation.Issues)
+			}
+			if document.Manifest.Version != version || document.Section.Fragments[0].ID != "overview" {
+				t.Fatalf("unexpected v%d document: %#v", version, document)
+			}
+		})
+	}
+}
+
+func TestLivingRootsAreReservedOnlyForV3AndMustBeRealDirectories(t *testing.T) {
+	for _, name := range []string{"___requirements", "___design", "___workplan"} {
+		t.Run(name, func(t *testing.T) {
+			v2 := buildSaga(t, map[string]string{filepath.ToSlash(filepath.Join(name, "placeholder")): "present\n"})
+			validation, report := loadIssues(t, v2)
+			if validation.Valid || !strings.Contains(report, "unknown reserved directory") {
+				t.Fatalf("v2 accepted %s:\n%s", name, report)
+			}
+
+			v3 := buildSaga(t, map[string]string{
+				"saga.json": `{"version":3,"id":"test","title":"A saga","source":{"repository":"https://example.test/acme/app.git","base":"main","head":"HEAD"}}`,
+				filepath.ToSlash(filepath.Join(name, "placeholder")): "present\n",
+			})
+			validation, report = loadIssues(t, v3)
+			if !validation.Valid {
+				t.Fatalf("v3 rejected %s:\n%s", name, report)
+			}
+
+			fileRoot := buildSaga(t, map[string]string{
+				"saga.json": `{"version":3,"id":"test","title":"A saga","source":{"repository":"https://example.test/acme/app.git","base":"main","head":"HEAD"}}`,
+				name:        "not a directory\n",
+			})
+			validation, report = loadIssues(t, fileRoot)
+			if validation.Valid || !strings.Contains(report, "real directory") {
+				t.Fatalf("v3 accepted non-directory %s:\n%s", name, report)
+			}
+		})
+	}
+}
+
 func TestLoadRejectsMissingFragmentEntrypoint(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "test.saga")
 	writeTestFile(t, filepath.Join(root, "saga.json"), `{"version":2,"id":"test","title":"A saga","source":{"repository":"https://example.test/a.git","base":"main","head":"HEAD"}}`)

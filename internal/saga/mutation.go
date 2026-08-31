@@ -89,14 +89,14 @@ func LoadMutationIndex(root string) (MutationIndex, Validation, error) {
 		ReviewTargets: map[string]string{SagaTarget(manifest.ID): abs},
 	}
 	ids := map[string]string{}
-	if err := scanMutationSection(abs, abs, true, manifest.ID, &index, ids, &validation); err != nil {
+	if err := scanMutationSection(abs, abs, true, manifest.ID, manifest.Version, &index, ids, &validation); err != nil {
 		return MutationIndex{}, validation, err
 	}
 	validation.Valid = !hasErrors(validation.Issues)
 	return index, validation, nil
 }
 
-func scanMutationSection(root, dir string, isRoot bool, sagaID string, index *MutationIndex, ids map[string]string, validation *Validation) error {
+func scanMutationSection(root, dir string, isRoot bool, sagaID string, sagaVersion int, index *MutationIndex, ids map[string]string, validation *Validation) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
@@ -107,7 +107,7 @@ func scanMutationSection(root, dir string, isRoot bool, sagaID string, index *Mu
 		if strings.HasPrefix(name, "___") {
 			if entry.Type()&fs.ModeSymlink != 0 || !entry.IsDir() {
 				addIssue(validation, "error", relativePath(root, path), "reserved metadata path must be a real directory")
-			} else if !knownReservedDirectory(name, isRoot) {
+			} else if !knownReservedDirectory(name, isRoot, sagaVersion) {
 				addIssue(validation, "error", relativePath(root, path), "unknown reserved directory")
 			}
 			continue
@@ -162,7 +162,7 @@ func scanMutationSection(root, dir string, isRoot bool, sagaID string, index *Mu
 			}
 			index.Targets[target], index.ReviewTargets[target] = path, path
 		}
-		if err := scanMutationSection(root, path, false, sagaID, index, ids, validation); err != nil {
+		if err := scanMutationSection(root, path, false, sagaID, sagaVersion, index, ids, validation); err != nil {
 			return err
 		}
 	}

@@ -3,9 +3,36 @@ package saga
 import "time"
 
 const (
-	CurrentVersion = 2
-	SchemaURL      = "https://changesaga.dev/schema/v2/saga.schema.json"
+	// ComponentVersion is the version of the existing narrative, evidence, and
+	// review records. A v3 Saga container deliberately continues to use these
+	// byte-compatible v2 component records.
+	ComponentVersion = 2
+
+	LegacySagaVersion  = 2
+	CurrentSagaVersion = 3
+	V2SchemaURL        = "https://changesaga.dev/schema/v2/saga.schema.json"
+	V3SchemaURL        = "https://changesaga.dev/schema/v3/saga.schema.json"
+
+	// CurrentVersion and SchemaURL remain the v2 component/init aliases. Keeping
+	// them stable prevents adding v3-only roots without an explicit upgrade.
+	CurrentVersion = ComponentVersion
+	SchemaURL      = V2SchemaURL
 )
+
+func SupportedSagaVersion(version int) bool {
+	return version == LegacySagaVersion || version == CurrentSagaVersion
+}
+
+func SagaSchemaURL(version int) string {
+	switch version {
+	case LegacySagaVersion:
+		return V2SchemaURL
+	case CurrentSagaVersion:
+		return V3SchemaURL
+	default:
+		return ""
+	}
+}
 
 type Manifest struct {
 	Schema  string `json:"$schema,omitempty"`

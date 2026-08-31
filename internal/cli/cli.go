@@ -84,13 +84,14 @@ func (e *StatusError) Error() string { return "command reported a non-success st
 // commandUsage is the single source of each command's usage line so the
 // overview, the per-command -h banner, and argument errors cannot drift apart.
 var commandOrder = []string{
-	"init", "add-chapter", "add-section", "add-fragment", "set-fragment-content", "add-landmark", "cover", "remove-coverage", "replace-coverage", "add-claim", "verify-claim",
+	"init", "upgrade", "add-chapter", "add-section", "add-fragment", "set-fragment-content", "add-landmark", "cover", "remove-coverage", "replace-coverage", "add-claim", "verify-claim",
 	"thread", "reply", "review", "validate", "status", "compare", "query",
 	"serve", "open", "install-skill", "spec",
 }
 
 var commandUsage = map[string]string{
 	"init":                 "change-saga init [flags] <name.saga>",
+	"upgrade":              "change-saga upgrade --to 3 [--json] <saga>",
 	"add-chapter":          "change-saga add-chapter [flags] <saga> <name>",
 	"add-section":          "change-saga add-section [flags] <saga> <section/path>",
 	"add-fragment":         "change-saga add-fragment [flags] <saga>",
@@ -152,6 +153,7 @@ func commandFlags(name, usage string, out io.Writer) *flag.FlagSet {
 }
 
 var commandDescription = map[string]string{
+	"upgrade":              "Atomically adopt the v3 Saga container and create the requirements, design, and\nwork-plan roots. Existing v2 narrative and review records are preserved.",
 	"set-fragment-content": "Replace a fragment entrypoint through the supported authoring API. Use --source -\nto read content from standard input; the fragment media type and metadata are preserved.",
 	"add-landmark":         "Create a coverable target for one Markdown heading, exact text span, HTML/SVG\nelement, or normalized image region inside a fragment. An SVG --element-id is\nmeasured into an on-canvas link automatically; --hotspot overrides its bounds.\nHTML elements need --hotspot for an on-canvas link. Visual landmarks require a\nsemantic --description for non-visual consumers.",
 	"cover": `Attach the exact diff atoms a narrative target explains. --target accepts a

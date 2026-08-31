@@ -181,20 +181,24 @@ func loadSection(root, dir string, manifest Manifest, isRoot bool, options loadO
 	}
 	for _, entry := range entries {
 		name := entry.Name()
+		if strings.HasPrefix(name, "___") {
+			if entry.Type()&fs.ModeSymlink != 0 || !entry.IsDir() {
+				addIssue(validation, "error", displayPath(rel, name), "reserved metadata path must be a real directory")
+			} else {
+				if name == "___diffs" {
+					section.HasDiffs = true
+				}
+				if !knownReservedDirectory(name, isRoot, manifest.Version) {
+					addIssue(validation, "error", displayPath(rel, name), "unknown reserved directory")
+				}
+			}
+			continue
+		}
 		if !entry.IsDir() {
 			for _, suffix := range []string{".chapter", ".fragment"} {
 				if matches, problem := structuralEntry(entry, suffix); matches && problem != "" {
 					addIssue(validation, "error", displayPath(rel, name), problem)
 				}
-			}
-			continue
-		}
-		if strings.HasPrefix(name, "___") {
-			if name == "___diffs" {
-				section.HasDiffs = true
-			}
-			if !knownReservedDirectory(name, isRoot) {
-				addIssue(validation, "error", displayPath(rel, name), "unknown reserved directory")
 			}
 			continue
 		}
@@ -802,8 +806,17 @@ func structuralEntry(entry fs.DirEntry, suffix string) (matches bool, problem st
 	return true, ""
 }
 
-func knownReservedDirectory(name string, root bool) bool {
-	return name == "___diffs" || name == "___approvals" || root && (name == "___review" || name == "___claims" || name == "___verifications")
+func knownReservedDirectory(name string, root bool, sagaVersion int) bool {
+	if name == "___diffs" || name == "___approvals" {
+		return true
+	}
+	if !root {
+		return false
+	}
+	if name == "___review" || name == "___claims" || name == "___verifications" {
+		return true
+	}
+	return sagaVersion == CurrentSagaVersion && (name == "___requirements" || name == "___design" || name == "___workplan")
 }
 
 func metadataDirectorySafe(root, sectionDir, name string, validation *Validation) bool {

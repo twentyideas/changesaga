@@ -19,8 +19,8 @@ var svgViewBoxValidationPattern = regexp.MustCompile(`(?i)\bviewBox\s*=\s*["']([
 func ValidID(value string) bool { return stableID.MatchString(value) }
 
 func validateManifest(manifest Manifest, result *Validation) {
-	if manifest.Version != CurrentVersion {
-		addIssue(result, "error", "saga.json", fmt.Sprintf("unsupported version %d; expected %d", manifest.Version, CurrentVersion))
+	if !SupportedSagaVersion(manifest.Version) {
+		addIssue(result, "error", "saga.json", fmt.Sprintf("unsupported Saga version %d; expected 2 or 3", manifest.Version))
 	}
 	if !stableID.MatchString(manifest.ID) {
 		addIssue(result, "error", "saga.json", "id must be a stable 1-128 character identifier")
@@ -28,8 +28,8 @@ func validateManifest(manifest Manifest, result *Validation) {
 	if strings.TrimSpace(manifest.Title) == "" {
 		addIssue(result, "error", "saga.json", "title is required")
 	}
-	if manifest.Schema != "" && manifest.Schema != SchemaURL {
-		addIssue(result, "warning", "saga.json", fmt.Sprintf("$schema is %q; the current schema is %q", manifest.Schema, SchemaURL))
+	if expected := SagaSchemaURL(manifest.Version); manifest.Schema != "" && expected != "" && manifest.Schema != expected {
+		addIssue(result, "warning", "saga.json", fmt.Sprintf("$schema is %q; Saga version %d uses %q", manifest.Schema, manifest.Version, expected))
 	}
 	if manifest.PR != nil {
 		if manifest.PR.Number != nil && *manifest.PR.Number < 1 {
