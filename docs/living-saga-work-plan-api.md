@@ -240,18 +240,21 @@ reopen. A cancelled or superseded item is not reopened; a replacement is
 created instead.
 
 Concurrent branches can still introduce transitions from the same prior state.
-Both files remain history, deterministic ordering supplies a display state,
-and validation reports `concurrent_transition` until a compensating event
-names the selected current state and lists the competing event IDs in its
-`resolves` field. No event is deleted to resolve the conflict. The same
-reconciliation field is available to every work-plan state machine.
+Both files remain history and deterministic ordering supplies display order,
+but the current state is `conflicted`: readiness and other gates must not use a
+timestamp-selected winner. Validation and `query work-conflicts` report
+`concurrent_transition` until a compensating event names the selected current
+state and lists every competing event ID in its `resolves` field. No event is
+deleted to resolve the conflict. The same reconciliation field is available to
+every work-plan state machine.
 
 The API distinguishes:
 
-- `explicit_progress`: the latest recorded progress state;
+- `explicit_progress`: the recorded progress state, or `conflicted` when no
+  unique projection exists;
 - `dependency_ready`: whether every active incoming dependency is satisfied;
 - `effective_ready`: the item is active, not cancelled, and
-  `dependency_ready`; and
+  `dependency_ready`, with no unresolved state-machine conflict; and
 - `blockers`: the unsatisfied dependency conditions plus any latest explicit
   blocked reason.
 
@@ -517,11 +520,14 @@ one; history is never “unsuperseded” by deleting a pivot.
 
 ## Append-only ordering, attribution, and idempotency
 
-The latest event for a state machine is the greatest `(created_at, id)` pair,
-matching the review overlay. File names never determine order independently of
-the embedded ID. Timestamps are UTC RFC 3339 with nanoseconds. Clock skew can
-affect display order, which is why mutations also carry `from` and snapshots
-and why concurrent transitions are diagnosed.
+On a linear state history, the latest event is the greatest `(created_at, id)`
+pair, matching the review overlay. File names never determine order
+independently of the embedded ID. Timestamps are UTC RFC 3339 with nanoseconds.
+When two events transition from the same prior state, that ordering is only for
+display: the work-plan projection remains conflicted until a `resolves` event
+joins the alternatives. Clock skew therefore cannot silently choose readiness,
+contract fulfillment, ownership, or merge state. Mutations also carry `from`
+and snapshots so supported writers reject stale decisions before writing.
 
 Plan records contain no `author`, `created_by`, committer, or claimed workspace
 agent identity. Reads derive attribution from the Git commit that first
@@ -619,6 +625,9 @@ change-saga query work-events  --saga PATH [--item ID|URN] [--kind KIND]
                                [--since TIME] [--cursor TOKEN] [--limit N]
 change-saga query pivots       --saga PATH [--resource URN]
                                [--cursor TOKEN] [--limit N]
+change-saga query work-conflicts --saga PATH [--item ID|URN] [--wave ID]
+                                 [--kind KIND] [--severity blocking|warning|info]
+                                 [--cursor TOKEN] [--limit N]
 ```
 
 `work-plan` is unpaginated and returns plan identity, `present`, active counts,
@@ -646,12 +655,17 @@ prerequisite and dependent summaries, its condition, active state,
 may belong to the wave; the result is still graph edges, not a fabricated wave
 barrier.
 
-`contracts`, `touch-areas`, `work-events`, and `pivots` paginate respectively
-`data.contracts`, `data.touch_areas`, `data.events`, and `data.pivots`.
+`contracts`, `touch-areas`, `work-events`, `pivots`, and `work-conflicts`
+paginate respectively `data.contracts`, `data.touch_areas`, `data.events`,
+`data.pivots`, and `data.conflicts`.
 Touch-area rows include collision records derived at the same snapshot.
 `work-events` is the normalized append-only audit stream across wave,
 progress, dependency, contract, touch-area, workspace, and merge events and
-includes Git attribution.
+includes Git attribution. `work-conflicts` returns stable conflict IDs,
+severity, involved resource/event IDs, candidate projections, and the mutation
+or query links that can resolve or inspect the conflict. Conflict IDs are a
+deterministic digest of kind and sorted involved IDs, so clients can correlate
+the same unresolved condition across snapshots.
 
 Every cursor contains its operation, normalized filters, offset, and snapshot.
 A cursor used with another query or changed filters is `invalid_argument`; a
@@ -684,9 +698,8 @@ Structural errors include:
 - invalid event transitions, `from` mismatches, or malformed timestamps/OIDs;
 - active dependency cycles, self-edges, and duplicate semantic edges;
 - contract dependencies whose provider/consumer do not match the edge;
-- supersession cycles, competing pivots, mixed-kind decisions, and active
-  references to superseded resources; and
-- more than one active owner workspace for an item.
+- supersession cycles, mixed-kind decisions, and active references to
+  superseded resources.
 
 Non-fatal diagnostics include:
 
@@ -696,8 +709,18 @@ Non-fatal diagnostics include:
 - done items with required delivery still pending;
 - integrated items whose required merge is later reported reverted;
 - archived, missing, or unavailable externally observed workspaces;
-- concurrent transitions retained after a Git merge; and
+- concurrent transitions retained after a Git merge;
+- competing pivots over the same resource;
+- more than one active owner workspace for an item; and
 - stale branch, label, or source-branch snapshots from an external workspace.
+
+The concurrent-transition, competing-pivot, and multiple-owner diagnostics are
+`blocking` coordination conflicts and remain queryable so a merged plan can be
+reconciled append-only. They make the affected item or projection `conflicted`,
+suppress readiness derived from that projection, and reject ordinary follow-on
+state mutations until a compensating event or pivot names all alternatives.
+Touch collisions and dependency exceptions are `warning`; stale external
+observations are `info`. None makes unrelated Saga content unreadable.
 
 Validation never rejects an item because another wave is incomplete, because
 its dependency crosses or reverses wave order, or because its workspace is not
@@ -752,6 +775,9 @@ mutable dashboard database.
 - Wave columns show cohort membership and aggregate observations. They do not
   disable later-wave controls. Unsatisfied dependency gates are shown on the
   item and its graph edges.
+- Concurrent state heads and competing pivots are shown as alternatives with a
+  reconcile action. The view may order them chronologically, but it must not
+  present one as current or enable a gate that depends on the conflicted state.
 - Definite and possible touch collisions are advisory links between items and
   their current workspace owners. They never lock an editor.
 - External DevSwarm observations are visibly timestamped and marked
@@ -781,6 +807,7 @@ type WorkPlanSession interface {
     TouchAreas(context.Context, TouchAreaQuery) (TouchAreaPage, error)
     WorkEvents(context.Context, WorkEventQuery) (WorkEventPage, error)
     Pivots(context.Context, PivotQuery) (PivotPage, error)
+    WorkConflicts(context.Context, WorkConflictQuery) (WorkConflictPage, error)
 
     MutateWorkPlan(context.Context, WorkPlanMutation) (MutationResult, error)
 }
@@ -823,8 +850,10 @@ covered by automated tests:
 3. Two branches adding different waves, items, progress events, assignments,
    or merge events merge as disjoint files; identical stable-ID collisions do
    not overwrite either record.
-4. Event reduction is deterministic by `(created_at, id)` regardless of file
-   name, directory enumeration order, or modification time.
+4. Linear event reduction and display order are deterministic by
+   `(created_at, id)` regardless of file name, directory enumeration order, or
+   modification time. Concurrent transitions surface `conflicted` and cannot
+   satisfy readiness, ownership, contract, or integration gates by timestamp.
 5. `from` and `if_snapshot` reject stale progress, assignment, dependency,
    contract, touch-area, and merge transitions before any file is created.
 6. Repeating the same `request_id` and canonical payload returns the original
@@ -854,7 +883,9 @@ covered by automated tests:
     `--include-superseded`, and never redirects dependencies implicitly.
 15. Competing pivots, active references to superseded entities, duplicate
     semantic edges, multiple active owners, and concurrent transitions produce
-    stable diagnostics containing the relevant resource/event IDs.
+    stable diagnostics containing the relevant resource/event IDs. Valid
+    coordination conflicts remain available through `query work-conflicts`
+    and disappear only after an append-only reconciliation resolves them.
 16. Every new query has schema discovery, exactly one JSON envelope, stable
     empty arrays, one declared counted path, filter-before-total behavior, and
     cursor/snapshot rejection consistent with existing queries.
