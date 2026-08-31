@@ -1,6 +1,7 @@
 # Living Saga implementation map
 
-Status: **implementation planning; vocabulary is not yet normative**
+Status: exploratory Wave 1 input. The normative vocabulary and storage layout
+are frozen in [`living-saga-api.md`](living-saga-api.md).
 
 This note maps a low-conflict path from the current review-oriented v2 format
 to a Saga that can also carry evolving requirements and an executable work

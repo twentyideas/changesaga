@@ -1,6 +1,8 @@
 # Living Change Saga work-plan API
 
-Status: proposed design; no production implementation is included.
+Status: exploratory Wave 1 input. The converged implementation contract is
+[`living-saga-api.md`](living-saga-api.md). In particular, that contract models
+changes through ordinary resource revisions rather than a persisted pivot.
 
 Date: 2026-08-31
 

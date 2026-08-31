@@ -1,8 +1,8 @@
 # Living Change Saga requirements and traceability API
 
-Status: proposed design for an additive Change Saga format v2 capability.
-This document defines the persistent records and public CLI/query contract. It
-does not authorize an implementation or change the current `SPEC.md` by itself.
+Status: exploratory Wave 1 input. The converged implementation contract is
+[`living-saga-api.md`](living-saga-api.md), which resolves this draft's format,
+storage-root, vocabulary, and update-semantics decisions.
 
 ## 1. Decision summary
 
