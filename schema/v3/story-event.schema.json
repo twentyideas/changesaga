@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://changesaga.dev/schema/v3/story-event.schema.json",
+  "title": "Living Change Saga story lifecycle event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "version", "id", "story", "parents", "state", "created_at"],
+  "properties": {
+    "$schema": { "const": "https://changesaga.dev/schema/v3/story-event.schema.json" },
+    "version": { "const": 3 },
+    "id": { "$ref": "#/$defs/id" },
+    "story": { "$ref": "#/$defs/story_urn" },
+    "parents": {
+      "type": "array",
+      "maxItems": 10000,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/event_urn" }
+    },
+    "state": { "enum": ["proposed", "accepted", "deferred", "rejected", "retired"] },
+    "reason": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "request_id": { "$ref": "#/$defs/id" }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "story_urn": { "type": "string", "pattern": "^urn:change-saga:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:story:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "event_urn": { "type": "string", "pattern": "^urn:change-saga:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:story:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:event:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" }
+  }
+}

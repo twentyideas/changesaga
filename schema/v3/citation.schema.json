@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://changesaga.dev/schema/v3/citation.schema.json",
+  "title": "Living Change Saga immutable citation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "version", "id", "kind", "title", "reference", "created_at"],
+  "properties": {
+    "$schema": { "const": "https://changesaga.dev/schema/v3/citation.schema.json" },
+    "version": { "const": 3 },
+    "id": { "$ref": "#/$defs/id" },
+    "kind": { "enum": ["url", "repository_commit", "issue", "document", "decision"] },
+    "title": { "type": "string", "minLength": 1 },
+    "reference": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "request_id": { "$ref": "#/$defs/id" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "url" } }, "required": ["kind"] },
+      "then": { "properties": { "reference": { "type": "string", "format": "uri", "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://" } } }
+    }
+  ],
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" }
+  }
+}
