@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://changesaga.dev/schema/v3/saga.schema.json",
+  "title": "Change Saga v3 manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "id", "title", "source"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 3 },
+    "id": { "$ref": "#/$defs/id" },
+    "title": { "type": "string", "minLength": 1 },
+    "pr": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "number": { "type": "integer", "minimum": 1 },
+        "url": { "type": "string", "format": "uri" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "base", "head"],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "format": "uri",
+          "not": { "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://[^/?#]*@" },
+          "description": "Canonical absolute repository identity without URL userinfo credentials."
+        },
+        "base": { "type": "string", "minLength": 1 },
+        "head": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" }
+  }
+}
