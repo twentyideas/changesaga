@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://changesaga.dev/schema/v3/story-revision.schema.json",
+  "title": "Living Change Saga full story revision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "version", "id", "story", "parents", "title", "statement", "priority", "citations", "acceptance_criteria", "created_at"],
+  "properties": {
+    "$schema": { "const": "https://changesaga.dev/schema/v3/story-revision.schema.json" },
+    "version": { "const": 3 },
+    "id": { "$ref": "#/$defs/id" },
+    "story": { "$ref": "#/$defs/story_urn" },
+    "parents": {
+      "type": "array",
+      "maxItems": 10000,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/revision_urn" }
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "statement": { "type": "string", "minLength": 1 },
+    "priority": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "citations": {
+      "type": "array",
+      "maxItems": 20000,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/citation_urn" }
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "statement"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "statement": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "request_id": { "$ref": "#/$defs/id" }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "story_urn": { "type": "string", "pattern": "^urn:change-saga:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:story:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "revision_urn": { "type": "string", "pattern": "^urn:change-saga:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:story:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:revision:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "citation_urn": { "type": "string", "pattern": "^urn:change-saga:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:citation:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" }
+  }
+}
