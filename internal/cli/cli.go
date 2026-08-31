@@ -84,7 +84,7 @@ func (e *StatusError) Error() string { return "command reported a non-success st
 // commandUsage is the single source of each command's usage line so the
 // overview, the per-command -h banner, and argument errors cannot drift apart.
 var commandOrder = []string{
-	"init", "upgrade", "add-chapter", "add-section", "add-fragment", "set-fragment-content", "add-landmark", "cover", "remove-coverage", "replace-coverage", "add-claim", "verify-claim",
+	"init", "upgrade", "story", "citation", "relation", "plan", "add-chapter", "add-section", "add-fragment", "set-fragment-content", "add-landmark", "cover", "remove-coverage", "replace-coverage", "add-claim", "verify-claim",
 	"thread", "reply", "review", "validate", "status", "compare", "query",
 	"serve", "open", "install-skill", "spec",
 }
@@ -92,6 +92,25 @@ var commandOrder = []string{
 var commandUsage = map[string]string{
 	"init":                 "change-saga init [flags] <name.saga>",
 	"upgrade":              "change-saga upgrade --to 3 [--json] <saga>",
+	"story":                "change-saga story <add|revise|set-state> [flags] <saga>",
+	"story add":            "change-saga story add --id ID --revision ID --event ID --title TEXT --statement TEXT --priority TEXT [flags] <saga>",
+	"story revise":         "change-saga story revise --story URN --revision ID --parent URN... --title TEXT --statement TEXT --priority TEXT [flags] <saga>",
+	"story set-state":      "change-saga story set-state --story URN --event ID --parent URN... --state STATE [flags] <saga>",
+	"citation":             "change-saga citation add [flags] <saga>",
+	"citation add":         "change-saga citation add --id ID --kind KIND --title TEXT --reference LOCATOR [flags] <saga>",
+	"relation":             "change-saga relation <add|supersede> [flags] <saga>",
+	"relation add":         "change-saga relation add --id ID --type TYPE --from URN --to URN --rationale TEXT [flags] <saga>",
+	"relation supersede":   "change-saga relation supersede --relation URN [--request-id ID] [--json] <saga>",
+	"plan":                 "change-saga plan <add-wave|revise-wave|add-item|revise-item|add-dependency|add-contract|assign|progress|record-merge> [flags] <saga>",
+	"plan add-wave":        "change-saga plan add-wave --id ID --revision ID --title TEXT --objective TEXT --request-id ID [flags] <saga>",
+	"plan revise-wave":     "change-saga plan revise-wave --wave URN --revision ID --parent URN... --title TEXT --objective TEXT --request-id ID [flags] <saga>",
+	"plan add-item":        "change-saga plan add-item --id ID --revision ID --title TEXT --objective TEXT --deliverable TEXT... --request-id ID [flags] <saga>",
+	"plan revise-item":     "change-saga plan revise-item --item URN --revision ID --parent URN... --title TEXT --objective TEXT --deliverable TEXT... --request-id ID [flags] <saga>",
+	"plan add-dependency":  "change-saga plan add-dependency --id ID --prerequisite URN --dependent URN --condition KIND --reason TEXT --request-id ID [flags] <saga>",
+	"plan add-contract":    "change-saga plan add-contract --id ID --revision ID --kind KIND --provider URN --consumer URN --statement TEXT --acceptance TEXT... --request-id ID [flags] <saga>",
+	"plan assign":          "change-saga plan assign --item URN --workspace UUID --repository-id ID --branch NAME --request-id ID [flags] <saga>",
+	"plan progress":        "change-saga plan progress --item URN --from EVENT... --to STATE --request-id ID [flags] <saga>",
+	"plan record-merge":    "change-saga plan record-merge --item URN --unit ID --state STATE --request-id ID [flags] <saga>",
 	"add-chapter":          "change-saga add-chapter [flags] <saga> <name>",
 	"add-section":          "change-saga add-section [flags] <saga> <section/path>",
 	"add-fragment":         "change-saga add-fragment [flags] <saga>",
@@ -154,6 +173,10 @@ func commandFlags(name, usage string, out io.Writer) *flag.FlagSet {
 
 var commandDescription = map[string]string{
 	"upgrade":              "Atomically adopt the v3 Saga container and create the requirements, design, and\nwork-plan roots. Existing v2 narrative and review records are preserved.",
+	"story":                "Create and append revisions or lifecycle events to living-Saga stories.",
+	"citation":             "Create immutable provenance records for requirements and design decisions.",
+	"relation":             "Create or explicitly supersede pinned traceability relations.",
+	"plan":                 "Create and revise waves, work items, dependencies, contracts, assignments,\nprogress, and immutable merge evidence.",
 	"set-fragment-content": "Replace a fragment entrypoint through the supported authoring API. Use --source -\nto read content from standard input; the fragment media type and metadata are preserved.",
 	"add-landmark":         "Create a coverable target for one Markdown heading, exact text span, HTML/SVG\nelement, or normalized image region inside a fragment. An SVG --element-id is\nmeasured into an on-canvas link automatically; --hotspot overrides its bounds.\nHTML elements need --hotspot for an on-canvas link. Visual landmarks require a\nsemantic --description for non-visual consumers.",
 	"cover": `Attach the exact diff atoms a narrative target explains. --target accepts a
