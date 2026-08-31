@@ -42,6 +42,41 @@ verifications, and review records. Avoid aggregating unrelated work into shared
 files; merge the lanes before the final coverage and validation passes. This
 localizes Git conflicts but does not make parallel edits conflict-free.
 
+## Choose the workflow before authoring
+
+First determine whether the user is documenting an existing implementation or
+starting a new body of work.
+
+For an existing PR, branch, or focused changeset, decide whether the change is
+large enough to benefit from a guided review. Size means review complexity—not
+just line count—including multiple behaviors, risks, systems, or workstreams.
+A small focused change may be better served by the repository's normal PR
+process. For a large change with no existing saga, author the saga from the
+completed implementation and exact diff as the review guide. Requirements,
+prototypes, technical design, and a work plan remain optional historical
+context; do not invent them after the fact merely to fill every surface.
+
+For a new feature or exploration, begin a living saga early. A common
+progression is:
+
+1. prototype the UX and UI aesthetic;
+2. draft sourced user stories and acceptance criteria;
+3. develop a technical design that traces to those requirements; and
+4. organize delivery into dependency-aware waves, parallel workspace lanes,
+   and explicit convergence points.
+
+This progression is not a waterfall. Prototypes and stories may be created in
+either order and iterated together. Design can proceed while they mature, and
+work-plan drafting can overlap design. Treat revisions as normal living
+changes, preserving their history and refreshing stale downstream links.
+
+Parallel authoring is a core property of the document, not just of the code
+change. Partition ownership by stable stories, prototype packages, design
+fragments, and work items so agents can fan out and merge their Saga changes as
+well as their implementation. Before peer review, consolidate the lanes and
+connect the delivered commits and exact diffs through the acceptance criteria,
+design, and work plan that explain them.
+
 ## Locate the CLI
 
 Prefer an installed `change-saga` executable. In the Change Saga source repository, use

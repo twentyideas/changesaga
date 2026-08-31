@@ -72,3 +72,37 @@ func TestRunDesignHelpUsesNestedDispatcher(t *testing.T) {
 		}
 	}
 }
+
+func TestRunLivingMutationFamiliesUseTheSupportedJSONContract(t *testing.T) {
+	for _, family := range []string{"story", "citation", "relation", "plan"} {
+		t.Run(family, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			if got := run([]string{family, "unknown", "--json"}, &stdout, &stderr); got != 1 {
+				t.Fatalf("exit = %d, want 1", got)
+			}
+			if stderr.Len() != 0 {
+				t.Fatalf("structured mutation wrote stderr: %q", stderr.String())
+			}
+			var result struct {
+				OK        bool   `json:"ok"`
+				Operation string `json:"operation"`
+				Created   []any  `json:"created"`
+				EventIDs  []any  `json:"event_ids"`
+				Error     *struct {
+					Code    string `json:"code"`
+					Message string `json:"message"`
+				} `json:"error"`
+			}
+			decoder := json.NewDecoder(bytes.NewReader(stdout.Bytes()))
+			if err := decoder.Decode(&result); err != nil {
+				t.Fatalf("decode stdout: %v\n%s", err, stdout.String())
+			}
+			if err := decoder.Decode(&map[string]any{}); !errors.Is(err, io.EOF) {
+				t.Fatalf("stdout was not exactly one JSON value: %v\n%s", err, stdout.String())
+			}
+			if result.OK || result.Operation != family+" unknown" || result.Error == nil || result.Error.Code == "" || result.Created == nil || result.EventIDs == nil {
+				t.Fatalf("unexpected mutation failure: %#v", result)
+			}
+		})
+	}
+}
