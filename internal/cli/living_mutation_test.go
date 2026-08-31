@@ -125,6 +125,31 @@ func TestInstalledSkillChoosesWorkflowAndSupportsParallelAuthoring(t *testing.T)
 	}
 }
 
+func TestLivingMutationSubcommandHelpExplainsSemantics(t *testing.T) {
+	checks := []struct {
+		family    func(context.Context, []string, io.Writer) error
+		args      []string
+		fragments []string
+	}{
+		{Citation, []string{"add", "-h"}, []string{"requirement or decision came from", "not delivery evidence"}},
+		{Relation, []string{"add", "-h"}, []string{"typed rationale", "content digest", "go stale"}},
+		{Relation, []string{"supersede", "-h"}, []string{"without erasing", "pivot"}},
+		{Plan, []string{"add-contract", "-h"}, []string{"parallel provider and consumer", "stable seam"}},
+		{Plan, []string{"progress", "-h"}, []string{"helps coordination", "never proves"}},
+	}
+	for _, check := range checks {
+		var output bytes.Buffer
+		if err := check.family(context.Background(), check.args, &output); !errors.Is(err, flag.ErrHelp) {
+			t.Fatalf("help error = %v\n%s", err, output.String())
+		}
+		for _, fragment := range check.fragments {
+			if !strings.Contains(output.String(), fragment) {
+				t.Fatalf("help omitted %q:\n%s", fragment, output.String())
+			}
+		}
+	}
+}
+
 func TestRequirementsMutationCommandsReturnJSONAndReplay(t *testing.T) {
 	root := newLivingSaga(t)
 	ctx := context.Background()
