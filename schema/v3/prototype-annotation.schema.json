@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://changesaga.dev/schema/v3/prototype-annotation.schema.json",
+  "title": "Living Change Saga prototype annotation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "version", "id", "prototype", "target", "rationale", "story_revision", "selector", "created_at"],
+  "properties": {
+    "$schema": { "const": "https://changesaga.dev/schema/v3/prototype-annotation.schema.json" },
+    "version": { "const": 3 },
+    "id": { "$ref": "#/$defs/id" },
+    "prototype": { "$ref": "#/$defs/prototype_urn" },
+    "target": { "oneOf": [{ "$ref": "#/$defs/story_urn" }, { "$ref": "#/$defs/criterion_urn" }] },
+    "rationale": { "type": "string", "minLength": 1 },
+    "prototype_revision": { "$ref": "#/$defs/prototype_revision_urn" },
+    "prototype_content_digest": { "$ref": "#/$defs/digest" },
+    "story_revision": { "$ref": "#/$defs/story_revision_urn" },
+    "selector": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "element_id"],
+          "properties": { "kind": { "const": "element" }, "element_id": { "$ref": "#/$defs/id" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "exact_text"],
+          "properties": { "kind": { "const": "text" }, "exact_text": { "type": "string", "minLength": 1 } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "region"],
+          "properties": {
+            "kind": { "const": "region" },
+            "region": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["x", "y", "width", "height"],
+              "properties": {
+                "x": { "type": "number", "minimum": 0, "maximum": 1 },
+                "y": { "type": "number", "minimum": 0, "maximum": 1 },
+                "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+                "height": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": { "const": "provider" },
+            "provider_id": { "type": "string", "minLength": 1 },
+            "deep_link": { "$ref": "#/$defs/http_url" }
+          },
+          "anyOf": [{ "required": ["provider_id"] }, { "required": ["deep_link"] }]
+        }
+      ]
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "request_id": { "$ref": "#/$defs/id" }
+  },
+  "oneOf": [
+    { "required": ["prototype_revision"], "not": { "required": ["prototype_content_digest"] } },
+    { "required": ["prototype_content_digest"], "not": { "required": ["prototype_revision"] } }
+  ],
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "prototype_urn": { "type": "string", "pattern": "^urn:change-saga:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:prototype:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "prototype_revision_urn": { "type": "string", "pattern": "^urn:change-saga:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:prototype:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:revision:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "story_urn": { "type": "string", "pattern": "^urn:change-saga:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:story:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "criterion_urn": { "type": "string", "pattern": "^urn:change-saga:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:story:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:criterion:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "story_revision_urn": { "type": "string", "pattern": "^urn:change-saga:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:story:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:revision:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "http_url": { "type": "string", "format": "uri", "pattern": "^https?://" }
+  }
+}
