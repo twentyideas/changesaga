@@ -47,6 +47,7 @@ type Reference struct {
 	Kind       Kind
 	ID         string
 	ParentID   string
+	ParentKind Kind
 	DesignKind DesignKind
 }
 
@@ -70,18 +71,33 @@ func Build(reference Reference) (string, error) {
 	base := prefix + reference.SagaID + ":"
 	switch reference.Kind {
 	case KindStory, KindCitation, KindRelation, KindWave, KindWorkItem, KindDependency, KindContract:
-		if reference.ParentID != "" || reference.DesignKind != "" {
+		if reference.ParentID != "" || reference.ParentKind != "" || reference.DesignKind != "" {
 			return "", fmt.Errorf("%s reference cannot have a parent or design kind", reference.Kind)
 		}
 		return base + string(reference.Kind) + ":" + reference.ID, nil
-	case KindCriterion, KindRevision:
+	case KindCriterion:
 		if err := validateID("story", reference.ParentID); err != nil {
 			return "", err
 		}
-		if reference.DesignKind != "" {
-			return "", fmt.Errorf("%s reference cannot have a design kind", reference.Kind)
+		if reference.ParentKind != "" || reference.DesignKind != "" {
+			return "", fmt.Errorf("criterion reference cannot have a parent kind or design kind")
 		}
-		return base + "story:" + reference.ParentID + ":" + string(reference.Kind) + ":" + reference.ID, nil
+		return base + "story:" + reference.ParentID + ":criterion:" + reference.ID, nil
+	case KindRevision:
+		parentKind := reference.ParentKind
+		if parentKind == "" {
+			parentKind = KindStory
+		}
+		if parentKind != KindStory && parentKind != KindWave && parentKind != KindWorkItem && parentKind != KindContract {
+			return "", fmt.Errorf("revision parent kind must be story, wave, work-item, or contract")
+		}
+		if err := validateID(string(parentKind), reference.ParentID); err != nil {
+			return "", err
+		}
+		if reference.DesignKind != "" {
+			return "", fmt.Errorf("revision reference cannot have a design kind")
+		}
+		return base + string(parentKind) + ":" + reference.ParentID + ":revision:" + reference.ID, nil
 	case KindDesign:
 		return buildDesign(base, reference)
 	default:
@@ -163,8 +179,12 @@ func parseNested(parts []string) Reference {
 	switch {
 	case parts[3] == string(KindStory) && parts[5] == string(KindCriterion):
 		reference.Kind = KindCriterion
-	case parts[3] == string(KindStory) && parts[5] == string(KindRevision):
-		reference.Kind = KindRevision
+	case parts[5] == string(KindRevision):
+		reference.Kind, reference.ParentKind = KindRevision, Kind(parts[3])
+		if reference.ParentKind == KindStory {
+			// Preserve the original zero-value representation for story revisions.
+			reference.ParentKind = ""
+		}
 	case parts[3] == string(DesignFragment) && parts[5] == string(DesignLandmark):
 		reference.Kind, reference.DesignKind = KindDesign, DesignLandmark
 	}
@@ -191,6 +211,12 @@ func Criterion(sagaID, storyID, criterionID string) (string, error) {
 // Revision builds a stable revision URN within a story.
 func Revision(sagaID, storyID, revisionID string) (string, error) {
 	return Build(Reference{SagaID: sagaID, Kind: KindRevision, ParentID: storyID, ID: revisionID})
+}
+
+// DefinitionRevision builds a stable revision URN for a story, wave,
+// work-item, or contract definition.
+func DefinitionRevision(sagaID string, parentKind Kind, parentID, revisionID string) (string, error) {
+	return Build(Reference{SagaID: sagaID, Kind: KindRevision, ParentKind: parentKind, ParentID: parentID, ID: revisionID})
 }
 
 // Citation builds a stable citation URN.
