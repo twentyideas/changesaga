@@ -177,6 +177,18 @@ func TestLivingRootsAreReservedOnlyForV3AndMustBeRealDirectories(t *testing.T) {
 			if validation.Valid || !strings.Contains(report, "real directory") {
 				t.Fatalf("v3 accepted non-directory %s:\n%s", name, report)
 			}
+
+			symlinkRoot := buildSaga(t, map[string]string{
+				"saga.json": `{"version":3,"id":"test","title":"A saga","source":{"repository":"https://example.test/acme/app.git","base":"main","head":"HEAD"}}`,
+			})
+			outside := t.TempDir()
+			if err := os.Symlink(outside, filepath.Join(symlinkRoot, name)); err != nil {
+				t.Skipf("symlinks unavailable: %v", err)
+			}
+			validation, report = loadIssues(t, symlinkRoot)
+			if validation.Valid || !strings.Contains(report, "real directory") {
+				t.Fatalf("v3 accepted symlinked %s:\n%s", name, report)
+			}
 		})
 	}
 }

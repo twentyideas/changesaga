@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"testing"
 )
 
@@ -31,7 +32,7 @@ func TestV3SagaManifestSchemaIsPublishedAtItsVersionedID(t *testing.T) {
 	if got := schema["$schema"]; got != "https://json-schema.org/draft/2020-12/schema" {
 		t.Errorf("v3 schema dialect = %q, want draft 2020-12", got)
 	}
-	if got := schema["$id"]; got != "https://changesaga.dev/schema/v3/saga.schema.json" {
+	if got := schema["$id"]; got != V3SchemaURL {
 		t.Errorf("v3 schema $id = %q", got)
 	}
 	if got := schema["title"]; got != "Change Saga v3 manifest" {
@@ -40,8 +41,8 @@ func TestV3SagaManifestSchemaIsPublishedAtItsVersionedID(t *testing.T) {
 	if schema["additionalProperties"] != false {
 		t.Error("v3 manifest schema must remain closed")
 	}
-	if got := dig(t, schema, "properties", "version", "const"); got != json.Number("3") {
-		t.Errorf("v3 manifest version = %v, want 3", got)
+	if got := dig(t, schema, "properties", "version", "const"); got != json.Number(strconv.Itoa(CurrentSagaVersion)) {
+		t.Errorf("v3 manifest version = %v, want %d", got, CurrentSagaVersion)
 	}
 }
 

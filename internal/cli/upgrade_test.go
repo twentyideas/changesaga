@@ -129,6 +129,22 @@ func TestUpgradeJSONResultIsBounded(t *testing.T) {
 	}
 }
 
+func TestUpgradePreservesValidV2SymlinkedContent(t *testing.T) {
+	root := newAuthoredSaga(t)
+	link := filepath.Join(root, "overview.fragment", "alias.md")
+	if err := os.Symlink("content.md", link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := Upgrade(context.Background(), []string{"--to", "3", root}, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Lstat(link)
+	if err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("content symlink changed: info=%v err=%v", info, err)
+	}
+	assertValid(t, root)
+}
+
 func rootEntryNames(t *testing.T, root string) []string {
 	t.Helper()
 	entries, err := os.ReadDir(root)

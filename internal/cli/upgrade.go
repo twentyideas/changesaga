@@ -208,7 +208,11 @@ func copySagaForUpgrade(source, target string) error {
 			return err
 		}
 		if entry.Type()&os.ModeSymlink != 0 {
-			return fmt.Errorf("%s must not be a symlink", filepath.ToSlash(relative))
+			targetValue, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			return os.Symlink(targetValue, filepath.Join(target, relative))
 		}
 		info, err := entry.Info()
 		if err != nil {
