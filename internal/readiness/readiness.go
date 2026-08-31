@@ -72,7 +72,7 @@ func Evaluate(criteria []Criterion) Projection {
 			return blockers[i].Resource < blockers[j].Resource
 		})
 		sort.Slice(paths, func(i, j int) bool { return pathKey(paths[i]) < pathKey(paths[j]) })
-		delivered := len(evidence) > 0 && len(blockers) == 0 && len(paths) == 0
+		delivered := len(evidence) > 0 && !hasDeliveryBlocker(blockers) && len(paths) == 0
 		item := CriterionResult{
 			Criterion: input.URN, Designed: input.Designed, Planned: input.Planned,
 			Delivered: delivered, Evidence: evidence, Blockers: blockers, TransitivePaths: paths,
@@ -96,6 +96,19 @@ func Evaluate(criteria []Criterion) Projection {
 	result.DeliveryCoverage.Missing = len(ordered) - result.DeliveryCoverage.Covered
 	result.PeerReviewReady = len(ordered) > 0 && result.DeliveryCoverage.Missing == 0
 	return result
+}
+
+// Missing design or work-plan coverage is still useful planning guidance, but
+// those optional axes do not veto peer-review readiness when a criterion has a
+// complete immutable delivery path. Other blockers and transitive dependency
+// paths describe a broken delivery path and therefore still prevent delivery.
+func hasDeliveryBlocker(blockers []Blocker) bool {
+	for _, blocker := range blockers {
+		if blocker.Code != "design_missing" && blocker.Code != "work_item_missing" {
+			return true
+		}
+	}
+	return false
 }
 
 func uniqueSorted(values []string) []string {

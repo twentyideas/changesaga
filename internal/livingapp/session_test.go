@@ -13,6 +13,7 @@ import (
 	"github.com/twentyideas/changesaga/internal/livingid"
 	"github.com/twentyideas/changesaga/internal/readiness"
 	"github.com/twentyideas/changesaga/internal/requirements"
+	"github.com/twentyideas/changesaga/internal/saga"
 	"github.com/twentyideas/changesaga/internal/workplan"
 )
 
@@ -140,7 +141,7 @@ func TestMissingCrossDomainEndpointsMakeRelationsAndPathsStale(t *testing.T) {
 	root := livingFixture(t)
 	addAcceptedStory(t, root, "checkout", "fast")
 	createDeliveryItem(t, root, "checkout", "fast")
-	if err := os.RemoveAll(filepath.Join(root, "checkout-design.fragment")); err != nil {
+	if err := os.RemoveAll(filepath.Join(root, "___design", "checkout-design.fragment")); err != nil {
 		t.Fatal(err)
 	}
 	session := openFixture(t, root)
@@ -159,6 +160,29 @@ func TestMissingCrossDomainEndpointsMakeRelationsAndPathsStale(t *testing.T) {
 	trace := traceResult.Data.(TraceabilityPage).Criteria[0]
 	if len(trace.Design) != 0 || !hasBlocker(trace.Blockers, "design_missing") {
 		t.Fatalf("stale design still participated in traceability: %+v", trace)
+	}
+}
+
+func TestDesignContentChangeStalesPinnedRelations(t *testing.T) {
+	root := livingFixture(t)
+	addAcceptedStory(t, root, "checkout", "fast")
+	createDeliveryItem(t, root, "checkout", "fast")
+	path := filepath.Join(root, "___design", "checkout-design.fragment", "content.txt")
+	if err := os.WriteFile(path, []byte("revised design\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result, err := openFixture(t, root).Query(context.Background(), Query{Operation: "relations", Filters: Filters{State: "stale"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	relations := result.Data.(RelationPage).Relations
+	if len(relations) != 2 {
+		t.Fatalf("stale relations = %+v", relations)
+	}
+	for _, relation := range relations {
+		if !strings.Contains(strings.Join(relation.StaleReasons, ","), "content digest changed") {
+			t.Fatalf("relation did not report its stale design pin: %+v", relation)
+		}
 	}
 }
 
@@ -207,7 +231,7 @@ func createDeliveryItem(t *testing.T, root, storyID, criterionID string) {
 	criterion, _ := livingid.Criterion("test", storyID, criterionID)
 	revision, _ := livingid.Revision("test", storyID, "r1")
 	design, _ := livingid.Design("test", livingid.DesignFragment, storyID+"-design")
-	designDir := filepath.Join(root, storyID+"-design.fragment")
+	designDir := filepath.Join(root, "___design", storyID+"-design.fragment")
 	if err := os.MkdirAll(designDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +245,14 @@ func createDeliveryItem(t *testing.T, root, storyID, criterionID string) {
 	}
 	item, _ := livingid.WorkItem("test", storyID)
 	itemRevision, _ := livingid.DefinitionRevision("test", livingid.KindWorkItem, storyID, "r1")
-	digest := "sha256:" + strings.Repeat("a", 64)
+	document, validation, err := saga.Load(root)
+	if err != nil || !validation.Valid {
+		t.Fatalf("load design: valid=%v err=%v issues=%+v", validation.Valid, err, validation.Issues)
+	}
+	digest, exists, err := saga.CurrentDesignContentDigest(document, design)
+	if err != nil || !exists {
+		t.Fatalf("design digest: exists=%v err=%v", exists, err)
+	}
 	if _, err := requirements.AddRelation(root, "test", requirements.AddRelationInput{ID: "addresses-" + storyID, Type: requirements.RelationAddresses, From: design, To: criterion, Rationale: "current design", FromContentDigest: digest, ToRevision: revision, CreatedAt: fixtureTime, RequestID: "addresses-" + storyID}); err != nil {
 		t.Fatal(err)
 	}

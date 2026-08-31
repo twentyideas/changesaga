@@ -27,3 +27,16 @@ func TestEvaluateRetainsTransitiveBlockerPaths(t *testing.T) {
 		t.Fatalf("transitive blocker was lost: %+v", projection.Criteria[0])
 	}
 }
+
+func TestOptionalPlanningGapsDoNotVetoImmutableDeliveryEvidence(t *testing.T) {
+	projection := Evaluate([]Criterion{{
+		URN: "criterion:a", Evidence: []string{"git-oid:abc"},
+		DirectBlockers: []Blocker{{Code: "design_missing"}, {Code: "work_item_missing"}},
+	}})
+	if !projection.PeerReviewReady || !projection.Criteria[0].Delivered {
+		t.Fatalf("optional planning axes vetoed delivery: %+v", projection)
+	}
+	if projection.RequirementCoverage.Covered != 0 || projection.PlanCoverage.Covered != 0 || len(projection.Criteria[0].Blockers) != 2 {
+		t.Fatalf("independent coverage guidance was lost: %+v", projection)
+	}
+}

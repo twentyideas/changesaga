@@ -60,7 +60,7 @@ func Open(_ context.Context, options OpenOptions) (Session, error) {
 			return nil, appError(CodeInternal, "the session snapshot could not be created", false, nil, err)
 		}
 	}
-	adopted := doc.Manifest.Version == saga.CurrentSagaVersion && livingRootsPresent(root)
+	adopted := doc.Manifest.Version == saga.CurrentSagaVersion && livingRootPresent(root, "___requirements")
 	if doc.Manifest.Version != saga.CurrentSagaVersion {
 		return &session{
 			snapshot: snapshot, saga: doc, adopted: false,
@@ -76,7 +76,11 @@ func Open(_ context.Context, options OpenOptions) (Session, error) {
 	if !validation.Valid {
 		return nil, appError(CodeInvalidSaga, "the work plan is invalid", false, map[string]any{"issues": sanitizePlanIssues(validation.Issues)}, nil)
 	}
-	stale := requirements.StaleInputs{CurrentRevisions: map[string]string{}, CurrentContentDigests: map[string]string{}, Missing: map[string]bool{}}
+	designDigests, err := saga.CurrentDesignContentDigests(doc)
+	if err != nil {
+		return nil, appError(CodeInvalidSaga, "the technical design could not be indexed", false, nil, err)
+	}
+	stale := requirements.StaleInputs{CurrentRevisions: map[string]string{}, CurrentContentDigests: designDigests, Missing: map[string]bool{}}
 	for _, id := range sortedKeys(plan.WorkItems) {
 		item := plan.WorkItems[id]
 		if item.CurrentRevision != nil {
@@ -87,25 +91,18 @@ func Open(_ context.Context, options OpenOptions) (Session, error) {
 	if err != nil {
 		return nil, appError(CodeInvalidSaga, "the requirements could not be loaded", false, nil, err)
 	}
-	evaluateCrossDomainStaleness(&document, plan, doc)
+	evaluateCrossDomainStaleness(&document, plan, doc, designDigests)
 	return &session{snapshot: snapshot, requirements: document, plan: plan, saga: doc, adopted: adopted}, nil
 }
 
-func livingRootsPresent(root string) bool {
-	for _, name := range []string{"___requirements", "___design", "___workplan"} {
-		info, err := os.Lstat(filepath.Join(root, name))
-		if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
-			return false
-		}
-	}
-	return true
+func livingRootPresent(root, name string) bool {
+	info, err := os.Lstat(filepath.Join(root, name))
+	return err == nil && info.Mode()&os.ModeSymlink == 0 && info.IsDir()
 }
 
 // evaluateCrossDomainStaleness completes the projection that requirements
 // cannot compute without importing the work-plan and design domains.
-func evaluateCrossDomainStaleness(document *requirements.Document, plan workplan.Plan, doc *saga.Saga) {
-	designTargets := map[string]bool{}
-	indexDesignTargets(doc.Section, designTargets)
+func evaluateCrossDomainStaleness(document *requirements.Document, plan workplan.Plan, doc *saga.Saga, designDigests map[string]string) {
 	claims := map[string]bool{}
 	for _, claim := range doc.Claims {
 		claims["urn:change-saga:"+document.SagaID+":claim:"+claim.ID] = true
@@ -134,7 +131,7 @@ func evaluateCrossDomainStaleness(document *requirements.Document, plan workplan
 						appendStaleReason(relation, endpoint.name+" work-item revision changed")
 					}
 				case livingid.KindDesign:
-					if !designTargets[endpoint.urn] {
+					if _, exists := designDigests[endpoint.urn]; !exists {
 						appendStaleReason(relation, endpoint.name+" design endpoint is missing")
 					}
 				}
@@ -147,22 +144,6 @@ func evaluateCrossDomainStaleness(document *requirements.Document, plan workplan
 				appendStaleReason(relation, endpoint.name+" verification is missing")
 			}
 		}
-	}
-}
-
-func indexDesignTargets(section *saga.Section, targets map[string]bool) {
-	if section == nil {
-		return
-	}
-	targets[section.Target] = true
-	for _, fragment := range section.Fragments {
-		targets[fragment.Target] = true
-		for _, landmark := range fragment.Landmarks {
-			targets[landmark.Target] = true
-		}
-	}
-	for _, child := range section.Children {
-		indexDesignTargets(child, targets)
 	}
 }
 
