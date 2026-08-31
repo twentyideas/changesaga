@@ -71,6 +71,15 @@ func TestQueryCLIRealSeparateRepositoriesAllOperations(t *testing.T) {
 		{name: "mappings", args: []string{"mappings", "--sort", "scrutiny"}},
 		{name: "claims", args: []string{"claims", "--status", "verified"}},
 		{name: "verifications", args: []string{"verifications", "--claim", "secure-default"}},
+		{name: "requirements-not-adopted", args: []string{"requirements"}},
+		{name: "citations-not-adopted", args: []string{"citations"}},
+		{name: "relations-not-adopted", args: []string{"relations"}},
+		{name: "waves-not-adopted", args: []string{"waves"}},
+		{name: "work-items-not-adopted", args: []string{"work-items"}},
+		{name: "work-events-not-adopted", args: []string{"work-events"}},
+		{name: "work-conflicts-not-adopted", args: []string{"work-conflicts"}},
+		{name: "traceability-not-adopted", args: []string{"traceability"}},
+		{name: "readiness-not-adopted", args: []string{"readiness"}},
 	}
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -92,6 +101,17 @@ func TestQueryCLIRealSeparateRepositoriesAllOperations(t *testing.T) {
 	_, secondStatus, secondOverview := runRealQuery(t, append([]string{"overview"}, common...))
 	if firstStatus != 0 || secondStatus != 0 || firstOverview != secondOverview {
 		t.Fatalf("identical overview queries were not byte-deterministic\nfirst:  %s\nsecond: %s", firstOverview, secondOverview)
+	}
+	overviewEnvelope, _, _ := runRealQuery(t, append([]string{"overview"}, common...))
+	requirementsEnvelope, requirementsStatus, requirementsBody := runRealQuery(t, append([]string{"requirements"}, common...))
+	if requirementsStatus != 0 || requirementsEnvelope.Snapshot != overviewEnvelope.Snapshot || requirementsEnvelope.Page.Total != 0 {
+		t.Fatalf("living query did not share the established snapshot: overview=%q requirements=%#v body=%s", overviewEnvelope.Snapshot, requirementsEnvelope, requirementsBody)
+	}
+	readinessEnvelope, readinessStatus, readinessBody := runRealQuery(t, append([]string{"readiness"}, common...))
+	readinessData, _ := readinessEnvelope.Data.(map[string]any)
+	readinessSummary, _ := readinessData["summary"].(map[string]any)
+	if readinessStatus != 0 || readinessSummary["status"] != "not_applicable" {
+		t.Fatalf("ordinary saga readiness = %#v body=%s", readinessEnvelope, readinessBody)
 	}
 
 	large, status, body := runRealQuery(t, append([]string{"fragment", "--target", largeTarget, "--limit", fmt.Sprint(1 << 20)}, common...))
