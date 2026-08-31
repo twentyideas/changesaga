@@ -14,7 +14,7 @@ import (
 	"github.com/twentyideas/changesaga/internal/saga"
 )
 
-func TestUpgradeToV3PreservesV2ContentAndCreatesLivingRoots(t *testing.T) {
+func TestUpgradeToV3PreservesV2ContentWithoutAdoptingOptionalCapabilities(t *testing.T) {
 	root := newAuthoredSaga(t)
 	before, err := os.ReadFile(filepath.Join(root, "overview.fragment", "fragment.json"))
 	if err != nil {
@@ -28,10 +28,9 @@ func TestUpgradeToV3PreservesV2ContentAndCreatesLivingRoots(t *testing.T) {
 	if !strings.Contains(output.String(), "format v2 to v3") {
 		t.Fatalf("unexpected output: %q", output.String())
 	}
-	for _, name := range livingRootDirectories {
-		info, err := os.Lstat(filepath.Join(root, name))
-		if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-			t.Fatalf("%s is not a real directory: info=%v err=%v", name, info, err)
+	for _, name := range []string{"___requirements", "___design", "___workplan"} {
+		if _, err := os.Lstat(filepath.Join(root, name)); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("upgrade unexpectedly adopted %s: %v", name, err)
 		}
 	}
 	after, err := os.ReadFile(filepath.Join(root, "overview.fragment", "fragment.json"))
@@ -51,7 +50,7 @@ func TestUpgradeToV3PreservesV2ContentAndCreatesLivingRoots(t *testing.T) {
 }
 
 func TestUpgradeFailureRestoresExactV2ManifestAndNoLivingRoots(t *testing.T) {
-	steps := []string{"after-stage", "after-root:___requirements", "after-root:___workplan", "before-manifest", "after-manifest"}
+	steps := []string{"after-stage", "before-manifest", "after-manifest"}
 	for _, step := range steps {
 		t.Run(step, func(t *testing.T) {
 			root := newAuthoredSaga(t)

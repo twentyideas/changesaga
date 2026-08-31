@@ -14,7 +14,10 @@ import (
 	"github.com/twentyideas/changesaga/internal/store"
 )
 
-var livingRootDirectories = []string{"___requirements", "___design", "___workplan"}
+// A v3 upgrade changes only the container contract. Requirements, design, and
+// work-plan capabilities are adopted lazily by their owning mutations so an
+// ordinary review-only Saga does not acquire unused structure.
+var livingRootDirectories = []string{}
 
 // upgradeFaultHook is a package-local test seam for proving that every failure
 // before commit restores the original v2 tree.
