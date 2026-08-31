@@ -243,10 +243,18 @@ func validateRelationMatrix(problems *validationErrors, relation Relation, from,
 		require(requirement(from.Kind) && requirement(to.Kind), "story or criterion endpoints")
 	case RelationAddresses:
 		require(from.Kind == endpointDesign && requirement(to.Kind), "a design source and story or criterion target")
+		require(relation.FromContentDigest != "" && relation.ToRevision != "", "a source content digest and target revision pin")
 	case RelationImplements:
 		require(from.Kind == endpointWorkItem && (to.Kind == endpointDesign || to.Kind == endpointCriterion), "a work-item source and design or criterion target")
+		require(relation.FromRevision != "", "a source work-item revision pin")
+		if to.Kind == endpointDesign {
+			require(relation.ToContentDigest != "", "a target content digest")
+		} else {
+			require(relation.ToRevision != "", "a target criterion revision pin")
+		}
 	case RelationVerifies:
 		require((from.Kind == endpointClaim || from.Kind == endpointVerification) && to.Kind == endpointCriterion, "a claim or verification source and criterion target")
+		require(relation.ToRevision != "", "a target criterion revision pin")
 	case RelationSupersedes:
 		require(from.Kind == to.Kind, "endpoints of the same resource kind")
 	case RelationConflictsWith:
@@ -257,24 +265,28 @@ func validateRelationMatrix(problems *validationErrors, relation Relation, from,
 func validateEndpointPins(problems *validationErrors, side string, endpoint endpoint, revision, digest string) {
 	switch endpoint.Kind {
 	case endpointStory, endpointCriterion:
-		if revision == "" {
-			problems.add("%s story or criterion endpoint requires a pinned revision", side)
-		} else if storyID, err := parseStoryRevision(revision, endpoint.SagaID); err != nil || (endpoint.Kind == endpointStory && storyID != endpoint.ID) || (endpoint.Kind == endpointCriterion && storyID != endpoint.StoryID) {
-			problems.add("%s_revision does not pin the endpoint's story", side)
+		if revision != "" {
+			storyID, err := parseStoryRevision(revision, endpoint.SagaID)
+			if err != nil || (endpoint.Kind == endpointStory && storyID != endpoint.ID) || (endpoint.Kind == endpointCriterion && storyID != endpoint.StoryID) {
+				problems.add("%s_revision does not pin the endpoint's story", side)
+			}
 		}
 		if digest != "" {
 			problems.add("%s story or criterion endpoint cannot use a content digest", side)
 		}
 	case endpointDesign:
-		if digest == "" {
-			problems.add("%s design endpoint requires a pinned content digest", side)
-		}
 		if revision != "" {
 			problems.add("%s design endpoint cannot use a definition revision", side)
 		}
 	case endpointWorkItem:
-		if revision == "" {
-			problems.add("%s work-item endpoint requires a pinned revision", side)
+		if revision != "" {
+			ref, err := livingid.Parse(revision)
+			if err != nil || ref.Kind != livingid.KindRevision || ref.ParentKind != livingid.KindWorkItem || ref.SagaID != endpoint.SagaID || ref.ParentID != endpoint.ID {
+				problems.add("%s_revision does not pin the work-item endpoint", side)
+			}
+		}
+		if digest != "" {
+			problems.add("%s work-item endpoint cannot use a content digest", side)
 		}
 	case endpointClaim, endpointVerification, endpointCitation, endpointRelation:
 		if revision != "" || digest != "" {
@@ -603,7 +615,11 @@ func validLifecycleState(value LifecycleState) bool {
 }
 
 func allowedLifecycleTransition(from, to LifecycleState, reconciliation bool) bool {
-	if reconciliation && from == to {
+	// A multi-parent event is an explicit decision that reconciles competing
+	// heads. Requiring the chosen state to be reachable independently from every
+	// head would make disagreements with terminal rejected/retired heads
+	// impossible to resolve without erasing history.
+	if reconciliation {
 		return true
 	}
 	allowed := map[LifecycleState]map[LifecycleState]bool{

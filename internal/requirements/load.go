@@ -360,6 +360,11 @@ func evaluateStaleness(document *Document, inputs StaleInputs) {
 	}
 	for index := range document.Relations {
 		relation := &document.Relations[index]
+		if relation.State != RelationActive {
+			relation.Stale = false
+			relation.StaleReasons = nil
+			continue
+		}
 		reasons := []string{}
 		for _, pin := range []struct {
 			name, endpoint, revision, digest string
