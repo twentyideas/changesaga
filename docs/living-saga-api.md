@@ -9,13 +9,26 @@ inside a Saga and no persisted pivot resource.
 
 ## Product model
 
+Before authoring, choose between two workflows:
+
+- **Existing implementation or PR:** a small focused change may not need a
+  Saga. A large or review-complex change uses the Saga as a guide to the
+  completed implementation and exact diff. The planning surfaces are optional.
+- **New feature or exploration:** begin the Saga early and use its requirements,
+  prototype, technical-design, and work-plan surfaces as the feature develops.
+
+For new work, the usual progression is prototype, user stories and acceptance
+criteria, technical design, then implementation planning. That progression is
+orientation rather than a prerequisite chain. Prototypes and stories can be
+created in either order and iterated together; design and work-plan drafting can
+proceed while earlier surfaces mature.
+
 The format has four authored surfaces and one review overlay:
 
 ```text
-requirements -> technical design -> work plan -> delivery evidence
-                                                       |
-                                                       v
-                                                    review
+prototype <-> requirements <-> technical design
+                   \                /
+                    +-- work plan --+  -> delivery evidence -> review
 ```
 
 - Requirements define the intended outcome and acceptance criteria.
@@ -23,6 +36,13 @@ requirements -> technical design -> work plan -> delivery evidence
 - The work plan divides that design into parallel, mergeable workspace work.
 - Commits, exact diffs, and verifications establish what was delivered.
 - Review comments and approvals remain an independent overlay.
+
+Every authored surface is Git-native and partitioned for parallel work. Agents
+can own separate story revisions, prototype packages, design fragments, or work
+items, then merge those Saga changes alongside the code. Waves make the desired
+implementation fan-out, dependencies, convergence points, and merge order
+explicit. A final consolidation reconnects the delivered commits and exact
+diffs to the acceptance criteria and design they satisfy.
 
 The governing invariants are:
 

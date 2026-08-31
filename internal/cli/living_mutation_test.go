@@ -103,6 +103,28 @@ func TestLivingMutationFamilyHelpIsDeterministicAndHasNoPivot(t *testing.T) {
 	}
 }
 
+func TestInstalledSkillChoosesWorkflowAndSupportsParallelAuthoring(t *testing.T) {
+	var output bytes.Buffer
+	if err := InstallSkill(nil, &output); err != nil {
+		t.Fatal(err)
+	}
+	text := output.String()
+	for _, want := range []string{
+		"Choose the workflow before authoring",
+		"existing PR, branch, or focused changeset",
+		"small focused change",
+		"A common",
+		"progression is",
+		"not a waterfall",
+		"parallel workspace lanes",
+		"Parallel authoring is a core property",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("installed skill omitted %q:\n%s", want, text)
+		}
+	}
+}
+
 func TestRequirementsMutationCommandsReturnJSONAndReplay(t *testing.T) {
 	root := newLivingSaga(t)
 	ctx := context.Background()

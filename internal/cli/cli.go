@@ -135,7 +135,30 @@ var commandUsage = map[string]string{
 }
 
 func PrintHelp(out io.Writer) {
-	fmt.Fprint(out, "Change Saga — make every part of a large change reviewable\n\nUsage:\n")
+	fmt.Fprint(out, `Change Saga — make every part of a large change reviewable
+
+Choose the workflow:
+  Existing implementation or PR
+    Use a Saga when the change is large enough to need a guided review across
+    multiple behaviors, risks, systems, or workstreams. For a small focused
+    change, a normal PR may be enough. Author this Saga from the completed work
+    and its exact diff; requirements, prototypes, design, and work plan are optional.
+
+  New feature or exploration
+    Start a living Saga early. Prototype the UX and UI, draft user stories with
+    acceptance criteria, develop the technical design, then organize delivery
+    into dependency-aware waves of parallel workspaces that converge cleanly.
+    These are overlapping surfaces, not gates: prototypes and stories can
+    inform each other while design and work planning continue to mature.
+
+  Parallel by design
+    Partition Saga work by stable stories, prototypes, design fragments, and
+    work items. They are Git-native and intended to merge as agents fan out and
+    consolidate. Before peer review, connect the delivered commits and exact
+    diffs, verify acceptance-criterion coverage, and validate the whole Saga.
+
+Usage:
+`)
 	for _, command := range commandOrder {
 		fmt.Fprintf(out, "  %s\n", commandUsage[command])
 	}
@@ -172,11 +195,20 @@ func commandFlags(name, usage string, out io.Writer) *flag.FlagSet {
 }
 
 var commandDescription = map[string]string{
-	"upgrade":              "Atomically adopt the v3 Saga container and create the requirements, design, and\nwork-plan roots. Existing v2 narrative and review records are preserved.",
-	"story":                "Create and append revisions or lifecycle events to living-Saga stories.",
+	"init":                 "Start either a reviewer guide for an existing large change or a living Saga for\nnew work. Small focused changes may not need a Saga; optional planning surfaces\nare created only when their commands are used.",
+	"upgrade":              "Atomically adopt the v3 Saga container. Existing v2 narrative and review\nrecords are preserved; requirements, design, and work-plan roots remain optional.",
+	"story":                "Create and append revisions or lifecycle events to user stories and acceptance\ncriteria. Stories may lead, follow, or evolve alongside prototypes; cite their source\nand revise them as the feature is clarified.",
+	"story add":            "Add a sourced user story and its first complete acceptance-criteria revision.\nIt may begin from a prototype, precede one, or evolve alongside one.",
+	"story revise":         "Append a complete story revision as requirements or prototypes evolve. Name every\ncurrent parent head when reconciling concurrent edits; prior revisions remain history.",
+	"story set-state":      "Append a lifecycle decision without rewriting the story. Acceptance records intent,\nnot implementation completion or peer-review approval.",
 	"citation":             "Create immutable provenance records for requirements and design decisions.",
 	"relation":             "Create or explicitly supersede pinned traceability relations.",
-	"plan":                 "Create and revise waves, work items, dependencies, contracts, assignments,\nprogress, and immutable merge evidence.",
+	"plan":                 "Turn requirements and design into dependency-aware waves, parallel workspace\nassignments, explicit convergence, progress, and immutable merge evidence. Planning\nmay begin while the technical design is still maturing and must track later revisions.",
+	"plan add-wave":        "Add one delivery phase with explicit entry and exit conditions. Waves describe when\nparallel workspace lanes may fan out or must converge; display order is not dependency.",
+	"plan add-item":        "Add one independently assignable, mergeable unit of work and link it to the\nrequirements and design it advances. Keep ownership narrow enough for parallel work.",
+	"plan add-dependency":  "Record a real prerequisite between work items. Do not serialize independent items;\nuse dependencies to express the minimum safe fan-out and convergence graph.",
+	"plan assign":          "Bind a work item to a concrete workspace and branch so progress can be shown in the\nlive Saga. Assignment is coordination state, not evidence of implementation.",
+	"plan record-merge":    "Append merge evidence for a declared merge unit. A merged state contributes delivery\nevidence only when its immutable commit and diff links resolve.",
 	"set-fragment-content": "Replace a fragment entrypoint through the supported authoring API. Use --source -\nto read content from standard input; the fragment media type and metadata are preserved.",
 	"add-landmark":         "Create a coverable target for one Markdown heading, exact text span, HTML/SVG\nelement, or normalized image region inside a fragment. An SVG --element-id is\nmeasured into an on-canvas link automatically; --hotspot overrides its bounds.\nHTML elements need --hotspot for an on-canvas link. Visual landmarks require a\nsemantic --description for non-visual consumers.",
 	"cover": `Attach the exact diff atoms a narrative target explains. --target accepts a
@@ -1450,6 +1482,41 @@ const installSkillTemplate = `Install or update a project-local agent skill name
 A Change Saga is the authored change proposal submitted for review: a visual,
 executable successor to a flat pull-request title and description. It is the
 thing to be reviewed, not the review itself.
+
+## Choose the workflow before authoring
+
+First determine whether the user is documenting an existing implementation or
+starting a new body of work.
+
+For an existing PR, branch, or focused changeset, decide whether the change is
+large enough to benefit from a guided review. Size means review complexity—not
+just line count—including multiple behaviors, risks, systems, or workstreams.
+A small focused change may be better served by the repository's normal PR
+process. For a large change with no existing saga, author the saga from the
+completed implementation and exact diff as the review guide. Requirements,
+prototypes, technical design, and a work plan remain optional historical
+context; do not invent them after the fact merely to fill every surface.
+
+For a new feature or exploration, begin a living saga early. A common
+progression is:
+
+1. prototype the UX and UI aesthetic;
+2. draft sourced user stories and acceptance criteria;
+3. develop a technical design that traces to those requirements; and
+4. organize delivery into dependency-aware waves, parallel workspace lanes,
+   and explicit convergence points.
+
+This progression is not a waterfall. Prototypes and stories may be created in
+either order and iterated together. Design can proceed while they mature, and
+work-plan drafting can overlap design. Treat revisions as normal living
+changes, preserving their history and refreshing stale downstream links.
+
+Parallel authoring is a core property of the document, not just of the code
+change. Partition ownership by stable stories, prototype packages, design
+fragments, and work items so agents can fan out and merge their Saga changes as
+well as their implementation. Before peer review, consolidate the lanes and
+connect the delivered commits and exact diffs through the acceptance criteria,
+design, and work plan that explain them.
 
 When a user asks to draft, prepare, or create a pull request or otherwise make a
 large change ready for review, use the repository's existing PR-authoring
