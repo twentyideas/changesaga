@@ -48,6 +48,7 @@ func TestLivingQueriesAreDeterministicSnapshotBoundAndProgressIsNotProof(t *test
 	addAcceptedStory(t, root, "checkout", "fast")
 	addAcceptedStory(t, root, "refund", "clear")
 	createDeliveryItem(t, root, "checkout", "fast")
+	recordDoneProgress(t, root, "checkout")
 
 	session := openFixture(t, root)
 	first, err := session.Query(context.Background(), Query{Operation: "requirements", Limit: 1})
@@ -240,6 +241,23 @@ func recordIntegratedMerge(t *testing.T, root, item string) {
 		t.Fatal(err)
 	}
 	if _, err := workplan.RecordMerge(root, item, workplan.MergeEvent{EventBase: workplan.EventBase{Parents: []string{ready.URN}}, Unit: "main", State: "integrated", HeadOID: strings.Repeat("a", 40), MergeOID: strings.Repeat("b", 40)}, "merge-integrated"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func recordDoneProgress(t *testing.T, root, item string) {
+	t.Helper()
+	plan, validation, err := workplan.Load(root)
+	if err != nil || !validation.Valid || plan.WorkItems[item].CurrentProgress == nil {
+		t.Fatalf("load current progress: validation=%+v err=%v", validation, err)
+	}
+	current := plan.WorkItems[item].CurrentProgress
+	parent, _ := workplan.ProgressEventURN("test", item, current.ID)
+	inProgress, err := workplan.RecordProgress(root, item, workplan.ProgressEvent{EventBase: workplan.EventBase{Parents: []string{parent}}, State: "in_progress"}, "progress-in-progress")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := workplan.RecordProgress(root, item, workplan.ProgressEvent{EventBase: workplan.EventBase{Parents: []string{inProgress.URN}}, State: "done"}, "progress-done"); err != nil {
 		t.Fatal(err)
 	}
 }
