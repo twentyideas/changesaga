@@ -12,6 +12,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/twentyideas/changesaga/internal/livingapp"
 )
 
 type fakeQuerySession struct {
@@ -70,6 +72,11 @@ func (s *fakeQuerySession) Claims(_ context.Context, request claimQuery) (queryP
 
 func (s *fakeQuerySession) Verifications(_ context.Context, request verificationQuery) (queryPage, error) {
 	s.called, s.request = "verifications", request
+	return fakePage(s.called), s.err
+}
+
+func (s *fakeQuerySession) Living(_ context.Context, request livingQuery) (queryPage, error) {
+	s.called, s.request = request.Operation, request
 	return fakePage(s.called), s.err
 }
 
@@ -144,6 +151,16 @@ func TestQueryDispatchesEveryOperationAndPreservesArguments(t *testing.T) {
 		{"mappings", []string{"--target", "urn:target", "--sort", "path", "--minimum-score", "25", "--cursor", "c6", "--limit", "22"}, mappingQuery{Target: "urn:target", Sort: "path", MinimumScore: 25, Cursor: "c6", Limit: 22}},
 		{"claims", []string{"--target", "urn:target", "--status", "failed", "--cursor", "c7", "--limit", "23"}, claimQuery{Target: "urn:target", Status: "failed", Cursor: "c7", Limit: 23}},
 		{"verifications", []string{"--claim", "claim-1", "--status", "verified", "--cursor", "c8", "--limit", "24"}, verificationQuery{Claim: "claim-1", Status: "verified", Cursor: "c8", Limit: 24}},
+		{"requirements", []string{"--requirement", "story-1", "--state", "accepted", "--cursor", "c9", "--limit", "25"}, livingQuery{Operation: "requirements", Filters: livingapp.Filters{Requirement: "story-1", State: "accepted"}, Cursor: "c9", Limit: 25}},
+		{"requirement-history", []string{"--requirement", "story-1", "--cursor", "c10", "--limit", "26"}, livingQuery{Operation: "requirement-history", Filters: livingapp.Filters{Requirement: "story-1"}, Cursor: "c10", Limit: 26}},
+		{"citations", []string{"--citation", "policy", "--requirement", "story-1", "--cursor", "c11", "--limit", "27"}, livingQuery{Operation: "citations", Filters: livingapp.Filters{Requirement: "story-1", Citation: "policy"}, Cursor: "c11", Limit: 27}},
+		{"relations", []string{"--relation", "rel-1", "--type", "implements", "--from", "urn:from", "--to", "urn:to", "--state", "current", "--cursor", "c12", "--limit", "28"}, livingQuery{Operation: "relations", Filters: livingapp.Filters{State: "current", Kind: "implements", Relation: "rel-1", From: "urn:from", To: "urn:to"}, Cursor: "c12", Limit: 28}},
+		{"waves", []string{"--wave", "wave-1", "--cursor", "c13", "--limit", "29"}, livingQuery{Operation: "waves", Filters: livingapp.Filters{Wave: "wave-1"}, Cursor: "c13", Limit: 29}},
+		{"work-items", []string{"--item", "item-1", "--wave", "wave-1", "--status", "blocked", "--cursor", "c14", "--limit", "30"}, livingQuery{Operation: "work-items", Filters: livingapp.Filters{Status: "blocked", Wave: "wave-1", Item: "item-1"}, Cursor: "c14", Limit: 30}},
+		{"work-events", []string{"--item", "item-1", "--kind", "merge", "--cursor", "c15", "--limit", "31"}, livingQuery{Operation: "work-events", Filters: livingapp.Filters{Kind: "merge", Item: "item-1"}, Cursor: "c15", Limit: 31}},
+		{"work-conflicts", []string{"--item", "item-1", "--wave", "wave-1", "--kind", "progress_heads", "--cursor", "c16", "--limit", "32"}, livingQuery{Operation: "work-conflicts", Filters: livingapp.Filters{Kind: "progress_heads", Wave: "wave-1", Item: "item-1"}, Cursor: "c16", Limit: 32}},
+		{"traceability", []string{"--requirement", "story-1", "--criterion", "criterion-1", "--cursor", "c17", "--limit", "33"}, livingQuery{Operation: "traceability", Filters: livingapp.Filters{Requirement: "story-1", Kind: "criterion-1"}, Cursor: "c17", Limit: 33}},
+		{"readiness", []string{"--requirement", "story-1", "--status", "blocked", "--cursor", "c18", "--limit", "34"}, livingQuery{Operation: "readiness", Filters: livingapp.Filters{Requirement: "story-1", Status: "blocked"}, Cursor: "c18", Limit: 34}},
 	}
 
 	for _, test := range tests {
@@ -160,7 +177,7 @@ func TestQueryDispatchesEveryOperationAndPreservesArguments(t *testing.T) {
 				t.Fatal(err)
 			}
 			wantSummary := test.operation == "overview" || test.operation == "children"
-			if opened != (queryOpenOptions{SagaRoot: "review.saga", SourceDir: "source-repo", SummaryOnly: wantSummary}) {
+			if opened != (queryOpenOptions{SagaRoot: "review.saga", SourceDir: "source-repo", SummaryOnly: wantSummary, Operation: test.operation}) {
 				t.Fatalf("open options = %#v", opened)
 			}
 			if session.called != test.operation || !reflect.DeepEqual(session.request, test.want) {
@@ -230,6 +247,11 @@ func TestQueryRejectsAdversarialArgumentsBeforeOpening(t *testing.T) {
 		{"bad mapping score", []string{"mappings", "--saga", "x", "--minimum-score", "101"}},
 		{"bad claim status", []string{"claims", "--saga", "x", "--status", "trusted"}},
 		{"bad verification status", []string{"verifications", "--saga", "x", "--status", "approved"}},
+		{"missing requirement history target", []string{"requirement-history", "--saga", "x"}},
+		{"bad requirement state", []string{"requirements", "--saga", "x", "--state", "done"}},
+		{"bad relation state", []string{"relations", "--saga", "x", "--state", "fresh"}},
+		{"bad work event kind", []string{"work-events", "--saga", "x", "--kind", "proof"}},
+		{"bad readiness status", []string{"readiness", "--saga", "x", "--status", "approved"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -264,6 +286,10 @@ func TestQuerySchemaDescribesEveryResponseWithoutOpeningSession(t *testing.T) {
 		"overview": "data.coverage", "children": "data.children", "fragment": "data.content.data",
 		"fragment-diffs": "data.selectors", "diff-owners": "data.atoms", "reviews": "data.items",
 		"gaps": "data.gaps", "mappings": "data.mappings", "claims": "data.claims", "verifications": "data.verifications",
+		"requirements": "data.requirements", "requirement-history": "data.events", "citations": "data.citations",
+		"relations": "data.relations", "waves": "data.waves", "work-items": "data.items",
+		"work-events": "data.events", "work-conflicts": "data.conflicts", "traceability": "data.criteria",
+		"readiness": "data.requirements",
 	}
 	for operation, wantPath := range wantCountedPaths {
 		t.Run(operation, func(t *testing.T) {

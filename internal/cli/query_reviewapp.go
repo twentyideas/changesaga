@@ -3,14 +3,30 @@ package cli
 import (
 	"context"
 
+	"github.com/twentyideas/changesaga/internal/livingapp"
 	"github.com/twentyideas/changesaga/internal/reviewapp"
 )
 
 type reviewAppQuerySession struct {
-	session reviewapp.Session
+	session       reviewapp.Session
+	livingSession livingapp.Session
 }
 
 func openReviewAppSession(ctx context.Context, options queryOpenOptions) (querySession, error) {
+	if isLivingQueryOperation(options.Operation) {
+		// The existing review application owns the public saga/source snapshot.
+		// Reusing it keeps cursors and envelopes comparable across old and living
+		// query operations while livingapp remains a transport-neutral composer.
+		reviewSession, err := reviewapp.Open(ctx, reviewapp.OpenOptions{SagaRoot: options.SagaRoot, SourceDir: options.SourceDir, SummaryOnly: true})
+		if err != nil {
+			return nil, err
+		}
+		session, err := livingapp.Open(ctx, livingapp.OpenOptions{SagaRoot: options.SagaRoot, Snapshot: reviewSession.Snapshot()})
+		if err != nil {
+			return nil, err
+		}
+		return &reviewAppQuerySession{session: reviewSession, livingSession: session}, nil
+	}
 	session, err := reviewapp.Open(ctx, reviewapp.OpenOptions{SagaRoot: options.SagaRoot, SourceDir: options.SourceDir, SummaryOnly: options.SummaryOnly})
 	if err != nil {
 		return nil, err
@@ -18,7 +34,12 @@ func openReviewAppSession(ctx context.Context, options queryOpenOptions) (queryS
 	return &reviewAppQuerySession{session: session}, nil
 }
 
-func (s *reviewAppQuerySession) Snapshot() string { return s.session.Snapshot() }
+func (s *reviewAppQuerySession) Snapshot() string {
+	if s.livingSession != nil {
+		return s.livingSession.Snapshot()
+	}
+	return s.session.Snapshot()
+}
 
 func (s *reviewAppQuerySession) Overview(ctx context.Context, _ overviewQuery) (any, error) {
 	return s.session.Overview(ctx, reviewapp.OverviewQuery{})
@@ -68,6 +89,24 @@ func (s *reviewAppQuerySession) Verifications(ctx context.Context, query verific
 	return queryPage{Data: value, Page: queryPageFromApplication(value.Page)}, err
 }
 
+func (s *reviewAppQuerySession) Living(ctx context.Context, query livingQuery) (queryPage, error) {
+	value, err := s.livingSession.Query(ctx, livingapp.Query{Operation: query.Operation, Filters: query.Filters, Cursor: query.Cursor, Limit: query.Limit})
+	return queryPage{Data: value.Data, Page: queryPageFromLiving(value.Page)}, err
+}
+
 func queryPageFromApplication(page reviewapp.Page) queryPageEnvelope {
 	return queryPageEnvelope{Total: page.Total, Returned: page.Returned, HasMore: page.HasMore, NextCursor: page.NextCursor}
+}
+
+func queryPageFromLiving(page livingapp.Page) queryPageEnvelope {
+	return queryPageEnvelope{Total: page.Total, Returned: page.Returned, HasMore: page.HasMore, NextCursor: page.NextCursor}
+}
+
+func isLivingQueryOperation(operation string) bool {
+	switch operation {
+	case "requirements", "requirement-history", "citations", "relations", "waves", "work-items", "work-events", "work-conflicts", "traceability", "readiness":
+		return true
+	default:
+		return false
+	}
 }

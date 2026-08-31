@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/twentyideas/changesaga/internal/livingapp"
 	"github.com/twentyideas/changesaga/internal/reviewapp"
 )
 
@@ -27,6 +28,7 @@ type queryOpenOptions struct {
 	SagaRoot    string
 	SourceDir   string
 	SummaryOnly bool
+	Operation   string
 }
 
 type overviewQuery struct{}
@@ -91,6 +93,15 @@ type verificationQuery struct {
 	Limit  int
 }
 
+// livingQuery is a transport-only request. The application package owns all
+// graph composition, readiness policy, and cursor validation.
+type livingQuery struct {
+	Operation string
+	Filters   livingapp.Filters
+	Cursor    string
+	Limit     int
+}
+
 type queryPage struct {
 	Data any
 	Page queryPageEnvelope
@@ -108,6 +119,7 @@ type querySession interface {
 	Mappings(context.Context, mappingQuery) (queryPage, error)
 	Claims(context.Context, claimQuery) (queryPage, error)
 	Verifications(context.Context, verificationQuery) (queryPage, error)
+	Living(context.Context, livingQuery) (queryPage, error)
 }
 
 type querySessionOpener func(context.Context, queryOpenOptions) (querySession, error)
@@ -186,6 +198,16 @@ var queryOperations = []string{
 	"mappings",
 	"claims",
 	"verifications",
+	"requirements",
+	"requirement-history",
+	"citations",
+	"relations",
+	"waves",
+	"work-items",
+	"work-events",
+	"work-conflicts",
+	"traceability",
+	"readiness",
 }
 
 // queryPurpose says what each operation answers. It is keyed by the same
@@ -193,32 +215,52 @@ var queryOperations = []string{
 // install-skill prompt in particular — cannot describe an operation the CLI
 // does not have, or omit one it does.
 var queryPurpose = map[string]string{
-	"schema":         "the response paths and pagination contract for a query operation; no saga is required",
-	"overview":       "saga identity, source comparison, coverage summary, and the top of the hierarchy",
-	"children":       "one level of children under a target; a fragment's children are its landmarks",
-	"fragment":       "bounded fragment content by byte range, without reading files directly",
-	"fragment-diffs": "the diff atoms a saga, chapter, section, fragment, or landmark owns",
-	"diff-owners":    "the narrative targets that own a given diff atom, event, or file",
-	"reviews":        "the normalized review overlay: threads, messages, events, and approvals",
-	"gaps":           "uncovered atoms, stale selectors, and overlapping coverage",
-	"mappings":       "coverage records ranked by breadth and justification signals so scrutiny starts at the weakest mappings",
-	"claims":         "falsifiable author assertions, exact evidence, current mapping state, and latest verification result",
-	"verifications":  "append-only verification history for author claims",
+	"schema":              "the response paths and pagination contract for a query operation; no saga is required",
+	"overview":            "saga identity, source comparison, coverage summary, and the top of the hierarchy",
+	"children":            "one level of children under a target; a fragment's children are its landmarks",
+	"fragment":            "bounded fragment content by byte range, without reading files directly",
+	"fragment-diffs":      "the diff atoms a saga, chapter, section, fragment, or landmark owns",
+	"diff-owners":         "the narrative targets that own a given diff atom, event, or file",
+	"reviews":             "the normalized review overlay: threads, messages, events, and approvals",
+	"gaps":                "uncovered atoms, stale selectors, and overlapping coverage",
+	"mappings":            "coverage records ranked by breadth and justification signals so scrutiny starts at the weakest mappings",
+	"claims":              "falsifiable author assertions, exact evidence, current mapping state, and latest verification result",
+	"verifications":       "append-only verification history for author claims",
+	"requirements":        "current requirement definitions and lifecycle heads without fabricating winners for conflicts",
+	"requirement-history": "append-only revision and lifecycle history in deterministic graph order",
+	"citations":           "immutable requirement provenance records",
+	"relations":           "typed current, stale, and superseded living-Saga relations",
+	"waves":               "ordered work-plan coordination cohorts and derived item counts",
+	"work-items":          "current work-item definitions, progress, explicit dependency blockers, workspaces, and merge evidence",
+	"work-events":         "normalized append-only progress, workspace, merge, and contract events",
+	"work-conflicts":      "deterministically identified work-plan conflicts and competing heads",
+	"traceability":        "current requirement-to-design-to-work-to-evidence paths and transitive blockers",
+	"readiness":           "independent requirement, plan, and delivery coverage axes; only immutable delivery evidence gates peer-review readiness",
 }
 
 var queryUsage = map[string]string{
-	"":               "change-saga query <operation> --saga PATH [--repo PATH] [operation flags]",
-	"schema":         "change-saga query schema <operation>",
-	"overview":       "change-saga query overview --saga PATH [--repo PATH]",
-	"children":       "change-saga query children --saga PATH --parent TARGET [--cursor TOKEN] [--limit N] [--repo PATH]",
-	"fragment":       "change-saga query fragment --saga PATH --target FRAGMENT [--offset N] [--limit N] [--repo PATH]",
-	"fragment-diffs": "change-saga query fragment-diffs --saga PATH --target TARGET [--cursor TOKEN] [--limit N] [--repo PATH]",
-	"diff-owners":    "change-saga query diff-owners --saga PATH --diff URI [--cursor TOKEN] [--limit N] [--repo PATH]",
-	"reviews":        "change-saga query reviews --saga PATH [--target TARGET] [--thread ID] [--state STATE] [--cursor TOKEN] [--limit N] [--repo PATH]",
-	"gaps":           "change-saga query gaps --saga PATH [--kind uncovered|stale|overlap] [--cursor TOKEN] [--limit N] [--repo PATH]",
-	"mappings":       "change-saga query mappings --saga PATH [--target TARGET] [--sort scrutiny|target|path] [--minimum-score N] [--cursor TOKEN] [--limit N] [--repo PATH]",
-	"claims":         "change-saga query claims --saga PATH [--target TARGET] [--status unverified|verified|failed|inconclusive] [--cursor TOKEN] [--limit N] [--repo PATH]",
-	"verifications":  "change-saga query verifications --saga PATH [--claim ID] [--status unverified|verified|failed|inconclusive] [--cursor TOKEN] [--limit N] [--repo PATH]",
+	"":                    "change-saga query <operation> --saga PATH [--repo PATH] [operation flags]",
+	"schema":              "change-saga query schema <operation>",
+	"overview":            "change-saga query overview --saga PATH [--repo PATH]",
+	"children":            "change-saga query children --saga PATH --parent TARGET [--cursor TOKEN] [--limit N] [--repo PATH]",
+	"fragment":            "change-saga query fragment --saga PATH --target FRAGMENT [--offset N] [--limit N] [--repo PATH]",
+	"fragment-diffs":      "change-saga query fragment-diffs --saga PATH --target TARGET [--cursor TOKEN] [--limit N] [--repo PATH]",
+	"diff-owners":         "change-saga query diff-owners --saga PATH --diff URI [--cursor TOKEN] [--limit N] [--repo PATH]",
+	"reviews":             "change-saga query reviews --saga PATH [--target TARGET] [--thread ID] [--state STATE] [--cursor TOKEN] [--limit N] [--repo PATH]",
+	"gaps":                "change-saga query gaps --saga PATH [--kind uncovered|stale|overlap] [--cursor TOKEN] [--limit N] [--repo PATH]",
+	"mappings":            "change-saga query mappings --saga PATH [--target TARGET] [--sort scrutiny|target|path] [--minimum-score N] [--cursor TOKEN] [--limit N] [--repo PATH]",
+	"claims":              "change-saga query claims --saga PATH [--target TARGET] [--status unverified|verified|failed|inconclusive] [--cursor TOKEN] [--limit N] [--repo PATH]",
+	"verifications":       "change-saga query verifications --saga PATH [--claim ID] [--status unverified|verified|failed|inconclusive] [--cursor TOKEN] [--limit N] [--repo PATH]",
+	"requirements":        "change-saga query requirements --saga PATH [--requirement ID|URN] [--state STATE] [--cursor TOKEN] [--limit N]",
+	"requirement-history": "change-saga query requirement-history --saga PATH --requirement ID|URN [--cursor TOKEN] [--limit N]",
+	"citations":           "change-saga query citations --saga PATH [--citation ID|URN] [--requirement ID|URN] [--cursor TOKEN] [--limit N]",
+	"relations":           "change-saga query relations --saga PATH [--relation ID|URN] [--type TYPE] [--from URN] [--to URN] [--state STATE] [--cursor TOKEN] [--limit N]",
+	"waves":               "change-saga query waves --saga PATH [--wave ID|URN] [--cursor TOKEN] [--limit N]",
+	"work-items":          "change-saga query work-items --saga PATH [--item ID|URN] [--wave ID|URN] [--status STATE] [--cursor TOKEN] [--limit N]",
+	"work-events":         "change-saga query work-events --saga PATH [--item ID|URN] [--kind KIND] [--cursor TOKEN] [--limit N]",
+	"work-conflicts":      "change-saga query work-conflicts --saga PATH [--item ID|URN] [--wave ID|URN] [--kind KIND] [--cursor TOKEN] [--limit N]",
+	"traceability":        "change-saga query traceability --saga PATH [--requirement ID|URN] [--criterion ID|URN] [--cursor TOKEN] [--limit N]",
+	"readiness":           "change-saga query readiness --saga PATH [--requirement ID|URN] [--status ready|blocked] [--cursor TOKEN] [--limit N]",
 }
 
 // Query executes one read-only application query and writes exactly one JSON
@@ -254,6 +296,7 @@ func queryWithOpener(ctx context.Context, args []string, out io.Writer, open que
 		return writeQueryFailure(out, &queryError{Code: "invalid_argument", Message: err.Error()})
 	}
 	options.SummaryOnly = operation == "overview" || operation == "children"
+	options.Operation = operation
 
 	session, err := open(ctx, options)
 	if err != nil {
@@ -299,6 +342,10 @@ func queryWithOpener(ctx context.Context, args []string, out io.Writer, open que
 		var page queryPage
 		page, err = session.Verifications(ctx, request)
 		result, responsePage = page.Data, &page.Page
+	case livingQuery:
+		var page queryPage
+		page, err = session.Living(ctx, request)
+		result, responsePage = page.Data, &page.Page
 	default:
 		err = errors.New("unsupported query request")
 	}
@@ -337,26 +384,46 @@ func queryHelpFor(operation string) queryHelp {
 
 func querySchemaFor(operation string) querySchemaDescription {
 	paths := map[string][]string{
-		"overview":       {"data.saga", "data.source", "data.root", "data.overview_fragments", "data.chapters", "data.coverage"},
-		"children":       {"data.children"},
-		"fragment":       {"data.target", "data.content.data", "data.content.next_offset", "data.assets", "data.landmarks"},
-		"fragment-diffs": {"data.selectors", "data.atoms", "data.stale"},
-		"diff-owners":    {"data.atoms"},
-		"reviews":        {"data.items"},
-		"gaps":           {"data.gaps"},
-		"mappings":       {"data.mappings"},
-		"claims":         {"data.claims"},
-		"verifications":  {"data.verifications"},
+		"overview":            {"data.saga", "data.source", "data.root", "data.overview_fragments", "data.chapters", "data.coverage"},
+		"children":            {"data.children"},
+		"fragment":            {"data.target", "data.content.data", "data.content.next_offset", "data.assets", "data.landmarks"},
+		"fragment-diffs":      {"data.selectors", "data.atoms", "data.stale"},
+		"diff-owners":         {"data.atoms"},
+		"reviews":             {"data.items"},
+		"gaps":                {"data.gaps"},
+		"mappings":            {"data.mappings"},
+		"claims":              {"data.claims"},
+		"verifications":       {"data.verifications"},
+		"requirements":        {"data.requirements"},
+		"requirement-history": {"data.events"},
+		"citations":           {"data.citations"},
+		"relations":           {"data.relations"},
+		"waves":               {"data.waves"},
+		"work-items":          {"data.items"},
+		"work-events":         {"data.events"},
+		"work-conflicts":      {"data.conflicts"},
+		"traceability":        {"data.criteria"},
+		"readiness":           {"data.summary", "data.requirements"},
 	}
 	countedPaths := map[string]string{
-		"children":       "data.children",
-		"fragment-diffs": "data.selectors",
-		"diff-owners":    "data.atoms",
-		"reviews":        "data.items",
-		"gaps":           "data.gaps",
-		"mappings":       "data.mappings",
-		"claims":         "data.claims",
-		"verifications":  "data.verifications",
+		"children":            "data.children",
+		"fragment-diffs":      "data.selectors",
+		"diff-owners":         "data.atoms",
+		"reviews":             "data.items",
+		"gaps":                "data.gaps",
+		"mappings":            "data.mappings",
+		"claims":              "data.claims",
+		"verifications":       "data.verifications",
+		"requirements":        "data.requirements",
+		"requirement-history": "data.events",
+		"citations":           "data.citations",
+		"relations":           "data.relations",
+		"waves":               "data.waves",
+		"work-items":          "data.items",
+		"work-events":         "data.events",
+		"work-conflicts":      "data.conflicts",
+		"traceability":        "data.criteria",
+		"readiness":           "data.requirements",
 	}
 	pagination := queryPaginationDescription{Kind: "none"}
 	if operation == "fragment" {
@@ -380,6 +447,7 @@ func parseQuery(operation string, args []string) (any, queryOpenOptions, bool, e
 	sourceDir := flags.String("repo", "", "source repository checkout")
 
 	var parent, target, diff, cursor, thread, state, kind, sortOrder, claim string
+	var requirement, citation, relation, from, to, wave, item, criterion string
 	var offset int64
 	var limit optionalInt
 	var minimumScore optionalInt
@@ -424,6 +492,59 @@ func parseQuery(operation string, args []string) (any, queryOpenOptions, bool, e
 	case "verifications":
 		flags.StringVar(&claim, "claim", "", "optional claim id")
 		flags.StringVar(&state, "status", "", "unverified, verified, failed, or inconclusive")
+		flags.StringVar(&cursor, "cursor", "", "pagination cursor")
+		flags.Var(&limit, "limit", "page size")
+	case "requirements":
+		flags.StringVar(&requirement, "requirement", "", "optional requirement ID or URN")
+		flags.StringVar(&state, "state", "", "optional lifecycle state")
+		flags.StringVar(&cursor, "cursor", "", "pagination cursor")
+		flags.Var(&limit, "limit", "page size")
+	case "requirement-history":
+		flags.StringVar(&requirement, "requirement", "", "requirement ID or URN")
+		flags.StringVar(&cursor, "cursor", "", "pagination cursor")
+		flags.Var(&limit, "limit", "page size")
+	case "citations":
+		flags.StringVar(&citation, "citation", "", "optional citation ID or URN")
+		flags.StringVar(&requirement, "requirement", "", "optional requirement ID or URN")
+		flags.StringVar(&cursor, "cursor", "", "pagination cursor")
+		flags.Var(&limit, "limit", "page size")
+	case "relations":
+		flags.StringVar(&relation, "relation", "", "optional relation ID or URN")
+		flags.StringVar(&kind, "type", "", "optional relation type")
+		flags.StringVar(&from, "from", "", "optional source endpoint URN")
+		flags.StringVar(&to, "to", "", "optional target endpoint URN")
+		flags.StringVar(&state, "state", "", "active, superseded, stale, or current")
+		flags.StringVar(&cursor, "cursor", "", "pagination cursor")
+		flags.Var(&limit, "limit", "page size")
+	case "waves":
+		flags.StringVar(&wave, "wave", "", "optional wave ID or URN")
+		flags.StringVar(&cursor, "cursor", "", "pagination cursor")
+		flags.Var(&limit, "limit", "page size")
+	case "work-items":
+		flags.StringVar(&item, "item", "", "optional work-item ID or URN")
+		flags.StringVar(&wave, "wave", "", "optional wave ID or URN")
+		flags.StringVar(&state, "status", "", "optional progress state")
+		flags.StringVar(&cursor, "cursor", "", "pagination cursor")
+		flags.Var(&limit, "limit", "page size")
+	case "work-events":
+		flags.StringVar(&item, "item", "", "optional work-item ID or URN")
+		flags.StringVar(&kind, "kind", "", "progress, workspace, merge, or contract")
+		flags.StringVar(&cursor, "cursor", "", "pagination cursor")
+		flags.Var(&limit, "limit", "page size")
+	case "work-conflicts":
+		flags.StringVar(&item, "item", "", "optional work-item ID or URN")
+		flags.StringVar(&wave, "wave", "", "optional wave ID or URN")
+		flags.StringVar(&kind, "kind", "", "optional conflict kind")
+		flags.StringVar(&cursor, "cursor", "", "pagination cursor")
+		flags.Var(&limit, "limit", "page size")
+	case "traceability":
+		flags.StringVar(&requirement, "requirement", "", "optional requirement ID or URN")
+		flags.StringVar(&criterion, "criterion", "", "optional criterion ID or URN")
+		flags.StringVar(&cursor, "cursor", "", "pagination cursor")
+		flags.Var(&limit, "limit", "page size")
+	case "readiness":
+		flags.StringVar(&requirement, "requirement", "", "optional requirement ID or URN")
+		flags.StringVar(&state, "status", "", "ready or blocked")
 		flags.StringVar(&cursor, "cursor", "", "pagination cursor")
 		flags.Var(&limit, "limit", "page size")
 	}
@@ -471,6 +592,9 @@ func parseQuery(operation string, args []string) (any, queryOpenOptions, bool, e
 	if operation == "diff-owners" && strings.TrimSpace(diff) == "" {
 		return nil, queryOpenOptions{}, false, errors.New("--diff is required")
 	}
+	if operation == "requirement-history" && strings.TrimSpace(requirement) == "" {
+		return nil, queryOpenOptions{}, false, errors.New("--requirement is required")
+	}
 	if operation == "gaps" && kind != "" && kind != "uncovered" && kind != "stale" && kind != "overlap" {
 		return nil, queryOpenOptions{}, false, errors.New("--kind must be uncovered, stale, or overlap")
 	}
@@ -479,6 +603,21 @@ func parseQuery(operation string, args []string) (any, queryOpenOptions, bool, e
 	}
 	if (operation == "claims" || operation == "verifications") && state != "" && state != "unverified" && state != "verified" && state != "failed" && state != "inconclusive" {
 		return nil, queryOpenOptions{}, false, errors.New("--status must be unverified, verified, failed, or inconclusive")
+	}
+	if operation == "requirements" && state != "" && state != "proposed" && state != "accepted" && state != "deferred" && state != "rejected" && state != "retired" && state != "conflicted" {
+		return nil, queryOpenOptions{}, false, errors.New("--state must be proposed, accepted, deferred, rejected, retired, or conflicted")
+	}
+	if operation == "relations" && state != "" && state != "active" && state != "superseded" && state != "stale" && state != "current" {
+		return nil, queryOpenOptions{}, false, errors.New("--state must be active, superseded, stale, or current")
+	}
+	if operation == "work-items" && state != "" && state != "planned" && state != "ready" && state != "in_progress" && state != "blocked" && state != "done" && state != "cancelled" && state != "conflicted" {
+		return nil, queryOpenOptions{}, false, errors.New("--status is not a valid progress state")
+	}
+	if operation == "work-events" && kind != "" && kind != "progress" && kind != "workspace" && kind != "merge" && kind != "contract" {
+		return nil, queryOpenOptions{}, false, errors.New("--kind must be progress, workspace, merge, or contract")
+	}
+	if operation == "readiness" && state != "" && state != "ready" && state != "blocked" {
+		return nil, queryOpenOptions{}, false, errors.New("--status must be ready or blocked")
 	}
 
 	options := queryOpenOptions{SagaRoot: *sagaRoot, SourceDir: *sourceDir}
@@ -503,6 +642,17 @@ func parseQuery(operation string, args []string) (any, queryOpenOptions, bool, e
 		return claimQuery{Target: target, Status: state, Cursor: cursor, Limit: limit.value}, options, false, nil
 	case "verifications":
 		return verificationQuery{Claim: claim, Status: state, Cursor: cursor, Limit: limit.value}, options, false, nil
+	case "requirements", "requirement-history", "citations", "relations", "waves", "work-items", "work-events", "work-conflicts", "traceability", "readiness":
+		filters := livingapp.Filters{
+			Requirement: requirement, Kind: firstNonempty(kind, criterion), Citation: citation,
+			Relation: relation, From: from, To: to, Wave: wave, Item: item,
+		}
+		if operation == "requirements" || operation == "relations" {
+			filters.State = state
+		} else if operation == "work-items" || operation == "readiness" {
+			filters.Status = state
+		}
+		return livingQuery{Operation: operation, Filters: filters, Cursor: cursor, Limit: limit.value}, options, false, nil
 	default:
 		return nil, queryOpenOptions{}, false, fmt.Errorf("unknown query operation %q", operation)
 	}
@@ -525,6 +675,15 @@ func (v *optionalInt) Set(raw string) error {
 }
 
 func isHelpArg(arg string) bool { return arg == "help" || arg == "-h" || arg == "--help" }
+
+func firstNonempty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
 
 func writeQuerySuccess(out io.Writer, snapshot string, data any, page *queryPageEnvelope) error {
 	if page == nil {
@@ -573,6 +732,13 @@ func normalizeQueryError(err error) *queryError {
 		code := string(applicationErr.Code)
 		if _, ok := queryExitCodes[code]; ok {
 			return &queryError{Code: code, Message: applicationErr.Message, Retryable: applicationErr.Retryable, Details: applicationErr.Details}
+		}
+	}
+	var livingErr *livingapp.Error
+	if errors.As(err, &livingErr) {
+		code := string(livingErr.Code)
+		if _, ok := queryExitCodes[code]; ok {
+			return &queryError{Code: code, Message: livingErr.Message, Retryable: livingErr.Retryable, Details: livingErr.Details}
 		}
 	}
 	return &queryError{Code: "internal", Message: "an unexpected error occurred"}
