@@ -480,6 +480,27 @@ func planCoverage(document *saga.Saga, records []coverRecord, files []saga.DiffF
 		if document.Manifest.Version == saga.SlideSagaVersion && !strings.Contains(targetID, ":item:") {
 			return nil, recordError(records, i, fmt.Errorf("v4 evidence must target an Item; deck-, slide-, and Saga-level coverage is refused"))
 		}
+		if document.Manifest.Version == saga.SlideSagaVersion {
+			identity := strings.TrimSpace(record.Name)
+			if identity != "" {
+				identity = store.Slug(identity)
+			} else {
+				identity = stableGeneratedCoverageName(record, files[i])
+			}
+			full := filepath.Join(document.Root, saga.FlatEvidenceFilename(targetID, identity))
+			canonical := canonicalCoveragePath(full)
+			if other, taken := claimed[full]; taken {
+				return nil, recordError(records, i, fmt.Errorf("coverage identity collides with record %d, which also writes %s", other+1, filepath.Base(full)))
+			}
+			if _, statErr := os.Lstat(full); statErr == nil && !allowed[canonical] {
+				return nil, recordError(records, i, fmt.Errorf("coverage record %s already exists; use replace-coverage to reconcile it", filepath.Base(full)))
+			} else if statErr != nil && !os.IsNotExist(statErr) {
+				return nil, recordError(records, i, statErr)
+			}
+			claimed[full] = i
+			planned = append(planned, plannedRecord{targetID: targetID, file: files[i], dir: document.Root, path: full, relative: filepath.Base(full)})
+			continue
+		}
 		diffDir := filepath.Join(targetDir, "___diffs")
 		name, err := coverageName(record, files[i], diffDir, claimed, allowed)
 		if err != nil {

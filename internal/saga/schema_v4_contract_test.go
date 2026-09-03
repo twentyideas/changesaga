@@ -48,6 +48,15 @@ func TestV4ItemSchemaMakesCalloutAnEvidenceCapableItemKind(t *testing.T) {
 		t.Fatal("callout is not an Item kind")
 	}
 	if _, ok := schema["properties"].(map[string]any)["diffs"]; ok {
-		t.Fatal("evidence belongs in the Item package's ___diffs records, not item.json")
+		t.Fatal("evidence belongs in independent flat 40-e records, not item.json")
+	}
+	if _, ok := schema["properties"].(map[string]any)["rank"]; !ok {
+		t.Fatal("Items require a compact sortable rank")
+	}
+	if _, ok := schema["properties"].(map[string]any)["slide"]; !ok {
+		t.Fatal("flat Items must name their semantic parent slide")
+	}
+	if _, ok := loadV4Schema(t, "slide.schema.json")["properties"].(map[string]any)["deck"]; !ok {
+		t.Fatal("flat slides must name their semantic parent deck")
 	}
 }

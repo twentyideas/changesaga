@@ -12,7 +12,9 @@ The slide-native v4 preview treats a review as a sequence of visual arguments,
 not a report split into pages. Start it explicitly with `change-saga init --mode
 slides ...`. Each meaningful node, edge, region, transition, or overlaid
 callout is an Item and links directly to the exact diff it explains. Existing
-v2/v3 reports are not silently paginated or reinterpreted.
+v2/v3 reports are not silently paginated or reinterpreted. V4 uses compact,
+flat, category-prefixed files so deep checkout locations remain portable; its
+readable titles and stable target URNs live in the records rather than paths.
 
 Change Saga turns a large code change into a reviewable document. It gives the
 change an overview, chapters, diagrams, examples, and links to the exact code

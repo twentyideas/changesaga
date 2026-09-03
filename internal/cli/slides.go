@@ -2,11 +2,9 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"html"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -61,7 +59,6 @@ func AddDeck(_ context.Context, args []string, out io.Writer) error {
 		if *role != "change" {
 			return fmt.Errorf("v4 init creates the single overview deck; additional decks must use --role change")
 		}
-		dir := filepath.Join(document.Root, name+".deck")
 		chosenRank := rank.value
 		if !rank.set {
 			for _, deck := range document.Decks {
@@ -71,23 +68,16 @@ func AddDeck(_ context.Context, args []string, out io.Writer) error {
 			}
 		}
 		manifest := saga.DeckManifest{Version: saga.SlideSagaVersion, ID: *id, Title: *title, Role: *role, Rank: chosenRank, Objective: strings.TrimSpace(*objective)}
-		err := store.CommitDir(document.Root, dir, func(stage string) error {
-			if err := os.Chmod(stage, 0o755); err != nil {
-				return err
-			}
-			if err := os.Mkdir(filepath.Join(stage, "___approvals"), 0o755); err != nil {
-				return err
-			}
-			return store.WriteJSON(filepath.Join(stage, "deck.json"), manifest, true)
-		})
-		if errors.Is(err, fs.ErrExist) {
-			return fmt.Errorf("deck %s already exists", filepath.Base(dir))
-		}
+		target = saga.DeckTarget(document.Manifest.ID, *id)
+		filename, err := saga.FlatDeckFilename(target, chosenRank)
 		if err != nil {
 			return err
 		}
-		created, _ = filepath.Rel(document.Root, dir)
-		target = saga.DeckTarget(document.Manifest.ID, *id)
+		path := filepath.Join(document.Root, filename)
+		if err := store.WriteJSON(path, manifest, true); err != nil {
+			return err
+		}
+		created = filename
 		return nil
 	})
 	if err != nil {
@@ -110,7 +100,7 @@ func AddSlide(_ context.Context, args []string, out io.Writer) error {
 	rationale := flags.String("exception-rationale", "", "required reason for a custom layout")
 	source := flags.String("source", "", "SVG, image, or self-contained HTML source")
 	mediaType := flags.String("media-type", "image/svg+xml", "visual media type")
-	entrypoint := flags.String("entrypoint", "slide.svg", "entrypoint filename")
+	entrypoint := flags.String("entrypoint", "slide.svg", "simple filename whose extension selects the compact slide asset name")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -142,20 +132,22 @@ func AddSlide(_ context.Context, args []string, out io.Writer) error {
 	if reason := saga.EntrypointError(*entrypoint); reason != "" {
 		return fmt.Errorf("%s", reason)
 	}
+	if strings.Contains(*entrypoint, "/") {
+		return fmt.Errorf("v4 --entrypoint is a simple filename used only to select the slide asset extension; nested paths are refused")
+	}
 	var data []byte
-	sourceDirectory := false
 	var err error
 	if *source != "" {
 		info, statErr := os.Stat(*source)
 		if statErr != nil {
 			return fmt.Errorf("read slide source: %w", statErr)
 		}
-		sourceDirectory = info.IsDir()
-		if !sourceDirectory {
-			data, err = os.ReadFile(*source)
-			if err != nil {
-				return fmt.Errorf("read slide source: %w", err)
-			}
+		if info.IsDir() {
+			return fmt.Errorf("v4 slides require one self-contained SVG, image, or HTML file; source directories are not portable")
+		}
+		data, err = os.ReadFile(*source)
+		if err != nil {
+			return fmt.Errorf("read slide source: %w", err)
 		}
 	} else if *mediaType == "image/svg+xml" {
 		data = []byte(defaultSlideSVG(*title, *takeaway))
@@ -174,7 +166,6 @@ func AddSlide(_ context.Context, args []string, out io.Writer) error {
 		if !saga.ValidID(*id) || targetIDExists(document, *id) {
 			return fmt.Errorf("slide id %q is invalid or already used", *id)
 		}
-		dir := filepath.Join(deck.Directory, name+".slide")
 		chosenRank := rank.value
 		if !rank.set {
 			for _, slide := range deck.Slides {
@@ -183,42 +174,27 @@ func AddSlide(_ context.Context, args []string, out io.Writer) error {
 				}
 			}
 		}
-		manifest := saga.SlideManifest{Version: saga.SlideSagaVersion, ID: *id, Title: *title, Rank: chosenRank, Intent: *intent, Layout: *layout, MediaType: *mediaType, Entrypoint: *entrypoint, Takeaway: *takeaway, ReadingOrder: []string{}, ExceptionRationale: *rationale}
-		err := store.CommitDir(document.Root, dir, func(stage string) error {
-			if err := os.Chmod(stage, 0o755); err != nil {
-				return err
-			}
-			for _, reserved := range []string{"___items", "___approvals"} {
-				if err := os.Mkdir(filepath.Join(stage, reserved), 0o755); err != nil {
-					return err
-				}
-			}
-			if err := store.WriteJSON(filepath.Join(stage, "slide.json"), manifest, true); err != nil {
-				return err
-			}
-			if sourceDirectory {
-				if err := copyFragmentPackage(*source, stage); err != nil {
-					return err
-				}
-				if info, err := os.Stat(filepath.Join(stage, filepath.FromSlash(*entrypoint))); err != nil || info.IsDir() {
-					return fmt.Errorf("entrypoint %q does not exist in slide source directory", *entrypoint)
-				}
-				return nil
-			}
-			entry := filepath.Join(stage, filepath.FromSlash(*entrypoint))
-			if err := os.MkdirAll(filepath.Dir(entry), 0o755); err != nil {
-				return err
-			}
-			return store.WriteFile(entry, data, 0o644, true)
-		})
-		if errors.Is(err, fs.ErrExist) {
-			return fmt.Errorf("slide %s already exists", filepath.Base(dir))
-		}
+		target = saga.SlideTarget(document.Manifest.ID, *id)
+		filename, err := saga.FlatSlideFilename(deck.Target, target, chosenRank)
 		if err != nil {
 			return err
 		}
-		created, _ = filepath.Rel(document.Root, dir)
-		target = saga.SlideTarget(document.Manifest.ID, *id)
+		extension := filepath.Ext(*entrypoint)
+		assetName, err := saga.FlatSlideAssetFilename(filename, extension)
+		if err != nil {
+			return err
+		}
+		manifest := saga.SlideManifest{Version: saga.SlideSagaVersion, ID: *id, DeckID: deck.ID, Title: *title, Rank: chosenRank, Intent: *intent, Layout: *layout, MediaType: *mediaType, Entrypoint: assetName, Takeaway: *takeaway, ReadingOrder: []string{}, ExceptionRationale: *rationale}
+		assetPath := filepath.Join(document.Root, assetName)
+		manifestPath := filepath.Join(document.Root, filename)
+		if err := store.WriteFile(assetPath, data, 0o644, true); err != nil {
+			return err
+		}
+		if err := store.WriteJSON(manifestPath, manifest, true); err != nil {
+			_ = os.Remove(assetPath)
+			return err
+		}
+		created = filename
 		return nil
 	})
 	if err != nil {
@@ -242,6 +218,8 @@ func AddItem(_ context.Context, args []string, out io.Writer) error {
 	body := flags.String("body", "", "required concise callout body")
 	placement := flags.String("placement", "", "top, right, bottom, left, or overlay")
 	leader := flags.String("leader", "", "none, line, or arrow")
+	var rank optionalInt
+	flags.Var(&rank, "rank", "non-negative item order; defaults after the last item")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -324,33 +302,30 @@ func AddItem(_ context.Context, args []string, out io.Writer) error {
 		if strings.TrimSpace(*description) == "" {
 			return fmt.Errorf("--description is required so the visual item has a non-visual equivalent")
 		}
-		itemsDir, err := store.EnsureDirWithin(document.Root, filepath.Join(slide.Directory, "___items"))
+		chosenRank := rank.value
+		if !rank.set {
+			for _, item := range slide.Items {
+				if item.Rank >= chosenRank {
+					chosenRank = item.Rank + 10
+				}
+			}
+		}
+		target = saga.ItemTarget(document.Manifest.ID, slide.ID, *id)
+		filename, err := saga.FlatItemFilename(slide.Target, target, chosenRank)
 		if err != nil {
 			return err
 		}
-		dir := filepath.Join(itemsDir, *id+".item")
-		manifest := saga.ItemManifest{Version: saga.SlideSagaVersion, ID: *id, Kind: *kind, Label: *label, Description: strings.TrimSpace(*description), Selector: selector, Hotspot: hotspotRegion, About: *about, Body: *body, Placement: *placement, Leader: *leader}
-		if err := store.CommitDir(document.Root, dir, func(stage string) error {
-			if err := os.Chmod(stage, 0o755); err != nil {
-				return err
-			}
-			if err := os.Mkdir(filepath.Join(stage, "___diffs"), 0o755); err != nil {
-				return err
-			}
-			return store.WriteJSON(filepath.Join(stage, "item.json"), manifest, true)
-		}); err != nil {
-			if errors.Is(err, fs.ErrExist) {
-				return fmt.Errorf("item id %q already exists", *id)
-			}
+		path := filepath.Join(document.Root, filename)
+		manifest := saga.ItemManifest{Version: saga.SlideSagaVersion, ID: *id, SlideID: slide.ID, Rank: chosenRank, Kind: *kind, Label: *label, Description: strings.TrimSpace(*description), Selector: selector, Hotspot: hotspotRegion, About: *about, Body: *body, Placement: *placement, Leader: *leader}
+		if err := store.WriteJSON(path, manifest, true); err != nil {
 			return err
 		}
 		slide.ReadingOrder = append(slide.ReadingOrder, *id)
-		if err := store.WriteJSON(filepath.Join(slide.Directory, "slide.json"), slide.SlideManifest, false); err != nil {
-			_ = os.RemoveAll(dir)
+		if err := store.WriteJSON(filepath.Join(document.Root, filepath.FromSlash(slide.Path)), slide.SlideManifest, false); err != nil {
+			_ = os.Remove(path)
 			return err
 		}
-		created, _ = filepath.Rel(document.Root, dir)
-		target = saga.ItemTarget(document.Manifest.ID, slide.ID, *id)
+		created = filename
 		return nil
 	})
 	if err != nil {
@@ -416,7 +391,7 @@ func SetSlideContent(_ context.Context, args []string, out io.Writer) error {
 
 func findDeck(document *saga.Saga, value string) *saga.Deck {
 	for _, deck := range document.Decks {
-		if value == deck.ID || value == deck.Target || filepath.Clean(value) == filepath.Clean(deck.Path) || filepath.Clean(value) == filepath.Clean(deck.Directory) {
+		if value == deck.ID || value == deck.Target || filepath.Clean(value) == filepath.Clean(deck.Path) || document.Manifest.Version != saga.SlideSagaVersion && filepath.Clean(value) == filepath.Clean(deck.Directory) {
 			return deck
 		}
 	}
@@ -426,7 +401,7 @@ func findDeck(document *saga.Saga, value string) *saga.Deck {
 func findSlide(document *saga.Saga, value string) *saga.Slide {
 	for _, deck := range document.Decks {
 		for _, slide := range deck.Slides {
-			if value == slide.ID || value == slide.Target || filepath.Clean(value) == filepath.Clean(slide.Path) || filepath.Clean(value) == filepath.Clean(slide.Directory) {
+			if value == slide.ID || value == slide.Target || filepath.Clean(value) == filepath.Clean(slide.Path) || document.Manifest.Version != saga.SlideSagaVersion && filepath.Clean(value) == filepath.Clean(slide.Directory) {
 				return slide
 			}
 		}
@@ -454,4 +429,6 @@ This is a v4 visual review deck, not a paginated report.
 Author with ` + "`change-saga add-deck`" + `, ` + "`change-saga add-slide`" + `, and ` + "`change-saga add-item`" + `.
 Every meaningful visual node, edge, region, transition, or callout is an Item.
 Attach exact diff evidence to Items with ` + "`change-saga cover`" + `; deck- and slide-level evidence is refused.
+The package is intentionally flat and compact. Treat category-prefixed filenames
+as private storage; use stable IDs, target URNs, and ` + "`change-saga query`" + `.
 `

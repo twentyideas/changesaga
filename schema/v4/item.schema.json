@@ -3,10 +3,12 @@
   "$id": "https://changesaga.dev/schema/v4/item.schema.json",
   "title": "Change Saga v4 item",
   "type": "object", "additionalProperties": false,
-  "required": ["version", "id", "kind", "label", "description", "selector"],
+  "required": ["version", "id", "slide", "rank", "kind", "label", "description", "selector"],
   "properties": {
     "version": { "const": 4 },
     "id": { "$ref": "#/$defs/id" },
+    "slide": { "$ref": "#/$defs/id" },
+    "rank": { "type": "integer", "minimum": 0, "maximum": 9999 },
     "kind": { "enum": ["node", "edge", "region", "transition", "statement", "risk", "metric", "example", "callout"] },
     "label": { "type": "string", "minLength": 1, "maxLength": 100 },
     "description": { "type": "string", "minLength": 1, "maxLength": 240 },

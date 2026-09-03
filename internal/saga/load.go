@@ -20,6 +20,7 @@ import (
 type loadOptions struct {
 	outline      bool
 	skipCoverage bool
+	skipReviews  bool
 }
 
 // hierarchyRoot distinguishes the two package trees that reuse the authored
@@ -41,14 +42,32 @@ var fullLoadCount atomic.Uint64
 // path; review-only and mutation-index loads do not increment it.
 func FullLoadCount() uint64 { return fullLoadCount.Load() }
 
-// ReadManifest reads only saga.json. Format-aware front ends use it to refuse
+// ReadManifest reads only the root manifest. Format-aware front ends use it to refuse
 // ambiguous report/slide operations before opening a heavier application view.
 func ReadManifest(root string) (Manifest, error) {
 	var manifest Manifest
-	if err := readJSON(filepath.Join(root, "saga.json"), &manifest); err != nil {
+	path, err := rootManifestPath(root)
+	if err != nil {
+		return Manifest{}, err
+	}
+	if err := readJSON(path, &manifest); err != nil {
 		return Manifest{}, err
 	}
 	return manifest, nil
+}
+
+func rootManifestPath(root string) (string, error) {
+	legacy := filepath.Join(root, "saga.json")
+	flat := filepath.Join(root, FlatManifestName)
+	_, legacyErr := os.Lstat(legacy)
+	_, flatErr := os.Lstat(flat)
+	if legacyErr == nil && flatErr == nil {
+		return "", fmt.Errorf("ambiguous Saga root contains both saga.json and %s", FlatManifestName)
+	}
+	if flatErr == nil {
+		return flat, nil
+	}
+	return legacy, nil
 }
 
 func Load(root string) (*Saga, Validation, error) {
@@ -86,15 +105,27 @@ func load(root string, options loadOptions) (*Saga, Validation, error) {
 		return nil, Validation{}, fmt.Errorf("%s is not a directory", root)
 	}
 
+	manifestPath, err := rootManifestPath(abs)
+	if err != nil {
+		return nil, Validation{}, err
+	}
 	var manifest Manifest
-	if err := readJSON(filepath.Join(abs, "saga.json"), &manifest); err != nil {
-		return nil, Validation{}, fmt.Errorf("read saga.json: %w", err)
+	if err := readJSON(manifestPath, &manifest); err != nil {
+		return nil, Validation{}, fmt.Errorf("read %s: %w", filepath.Base(manifestPath), err)
 	}
 	validation := Validation{Valid: true, Issues: []Issue{}}
 	if !strings.HasSuffix(filepath.Base(abs), ".saga") {
 		addIssue(&validation, "error", ".", "saga root directory must end in .saga")
 	}
-	validateManifest(manifest, &validation)
+	validateManifest(manifest, filepath.Base(manifestPath), &validation)
+	if manifest.Version == SlideSagaVersion && filepath.Base(manifestPath) != FlatManifestName {
+		addIssue(&validation, "error", filepath.Base(manifestPath), "v4 requires the compact flat 00-saga.json manifest; nested preview Sagas must be regenerated")
+	}
+	if manifest.Version == SlideSagaVersion {
+		if issue := flatPathIssue(abs, strings.Repeat("x", FlatMaxBasename)); issue != "" {
+			addIssue(&validation, "error", ".", issue)
+		}
+	}
 
 	var section *Section
 	var decks []*Deck
@@ -104,12 +135,6 @@ func load(root string, options loadOptions) (*Saga, Validation, error) {
 			return nil, validation, err
 		}
 		section = projectDecks(manifest, decks)
-		if metadataDirectorySafe(abs, abs, "___approvals", &validation) {
-			section.Reviews, err = loadReviews(abs, filepath.Join(abs, "___approvals"), &validation)
-			if err != nil {
-				return nil, validation, err
-			}
-		}
 	} else {
 		section, err = loadSection(abs, abs, manifest, sagaHierarchy, options, &validation)
 		if err != nil {
@@ -132,19 +157,48 @@ func load(root string, options loadOptions) (*Saga, Validation, error) {
 		}
 	}
 	document := &Saga{Root: abs, Manifest: manifest, Section: section, Decks: decks}
-	if !options.outline && !options.skipCoverage && metadataDirectorySafe(abs, abs, "___claims", &validation) {
-		document.Claims, err = loadClaims(abs, &validation)
+	if manifest.Version == SlideSagaVersion && !options.skipReviews {
+		state, reviewValidation, reviewErr := loadFlatReviewState(MutationIndexFromDocument(document), options.outline)
+		if reviewErr != nil {
+			return nil, validation, reviewErr
+		}
+		validation.Issues = append(validation.Issues, reviewValidation.Issues...)
+		document.Threads, document.DiffReviews = state.Threads, state.DiffReviews
+		applyFlatReviews(document.Section, state.ByTarget)
+		for _, deck := range document.Decks {
+			deck.Reviews = state.ByTarget[deck.Target]
+			for _, slide := range deck.Slides {
+				slide.Reviews = state.ByTarget[slide.Target]
+				for _, item := range slide.Items {
+					item.Reviews = state.ByTarget[item.Target]
+				}
+			}
+		}
+	}
+	if !options.outline && !options.skipCoverage && manifest.Version == SlideSagaVersion {
+		document.Claims, err = loadClaims(abs, &validation, true)
 		if err != nil {
 			return nil, validation, err
 		}
-	}
-	if !options.outline && !options.skipCoverage && metadataDirectorySafe(abs, abs, "___verifications", &validation) {
-		document.Verifications, err = loadVerifications(abs, &validation)
+		document.Verifications, err = loadVerifications(abs, &validation, true)
 		if err != nil {
 			return nil, validation, err
 		}
+	} else if !options.outline && !options.skipCoverage {
+		if metadataDirectorySafe(abs, abs, "___claims", &validation) {
+			document.Claims, err = loadClaims(abs, &validation, false)
+			if err != nil {
+				return nil, validation, err
+			}
+		}
+		if metadataDirectorySafe(abs, abs, "___verifications", &validation) {
+			document.Verifications, err = loadVerifications(abs, &validation, false)
+			if err != nil {
+				return nil, validation, err
+			}
+		}
 	}
-	if metadataDirectorySafe(abs, abs, "___review", &validation) {
+	if manifest.Version != SlideSagaVersion && metadataDirectorySafe(abs, abs, "___review", &validation) {
 		reviewDir := filepath.Join(abs, "___review")
 		if metadataDirectorySafe(abs, reviewDir, "threads", &validation) {
 			if options.outline {
@@ -471,6 +525,30 @@ func LoadTargetDiffs(index MutationIndex, target string) ([]DiffFile, Validation
 		validation.Valid = false
 		return nil, validation, nil
 	}
+	if index.Manifest.Version == SlideSagaVersion {
+		prefix := "40-e-" + FlatTargetKey(target) + "-"
+		entries, err := os.ReadDir(index.Root)
+		if err != nil {
+			return nil, validation, err
+		}
+		var diffs []DiffFile
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.HasPrefix(entry.Name(), prefix) || !flatEvidenceName.MatchString(entry.Name()) {
+				continue
+			}
+			var value DiffFile
+			if err := readJSON(filepath.Join(index.Root, entry.Name()), &value); err != nil {
+				addIssue(&validation, "error", entry.Name(), err.Error())
+				continue
+			}
+			value.Path = entry.Name()
+			validateDiff(value, &validation)
+			diffs = append(diffs, value)
+		}
+		sort.Slice(diffs, func(i, j int) bool { return diffs[i].Path < diffs[j].Path })
+		validation.Valid = !hasErrors(validation.Issues)
+		return diffs, validation, nil
+	}
 	if !metadataDirectorySafe(index.Root, dir, "___diffs", &validation) {
 		validation.Valid = false
 		return nil, validation, nil
@@ -500,16 +578,38 @@ func loadReviews(root, dir string, validation *Validation) ([]Review, error) {
 	return result, err
 }
 
-func loadClaims(root string, validation *Validation) ([]Claim, error) {
+func loadClaims(root string, validation *Validation, flat bool) ([]Claim, error) {
 	var claims []Claim
-	err := loadFlatRecords(root, filepath.Join(root, "___claims"), "claim", validation, func(path string) {
+	dir := filepath.Join(root, "___claims")
+	loader := loadFlatRecords
+	if flat {
+		dir = root
+		loader = func(root, dir, kind string, validation *Validation, fn func(string)) error {
+			entries, err := os.ReadDir(dir)
+			if err != nil {
+				return err
+			}
+			for _, entry := range entries {
+				if flatRegular(entry) && flatClaimName.MatchString(entry.Name()) {
+					fn(filepath.Join(dir, entry.Name()))
+				}
+			}
+			return nil
+		}
+	}
+	err := loader(root, dir, "claim", validation, func(path string) {
 		var value Claim
 		if err := readJSON(path, &value); err != nil {
 			addIssue(validation, "error", relativePath(root, path), err.Error())
 			return
 		}
 		value.Path = path
-		if strings.TrimSuffix(filepath.Base(path), ".json") != value.ID {
+		if flat {
+			expected := FlatClaimFilename(value.ID)
+			if filepath.Base(path) != expected {
+				addIssue(validation, "error", relativePath(root, path), "claim filename key does not match its stable id")
+			}
+		} else if strings.TrimSuffix(filepath.Base(path), ".json") != value.ID {
 			addIssue(validation, "error", relativePath(root, path), fmt.Sprintf("claim id %q must match filename %q", value.ID, filepath.Base(path)))
 		}
 		validateClaim(value, relativePath(root, path), validation)
@@ -521,16 +621,38 @@ func loadClaims(root string, validation *Validation) ([]Claim, error) {
 	return claims, err
 }
 
-func loadVerifications(root string, validation *Validation) ([]Verification, error) {
+func loadVerifications(root string, validation *Validation, flat bool) ([]Verification, error) {
 	var verifications []Verification
-	err := loadFlatRecords(root, filepath.Join(root, "___verifications"), "verification", validation, func(path string) {
+	dir := filepath.Join(root, "___verifications")
+	loader := loadFlatRecords
+	if flat {
+		dir = root
+		loader = func(root, dir, kind string, validation *Validation, fn func(string)) error {
+			entries, err := os.ReadDir(dir)
+			if err != nil {
+				return err
+			}
+			for _, entry := range entries {
+				if flatRegular(entry) && flatVerificationName.MatchString(entry.Name()) {
+					fn(filepath.Join(dir, entry.Name()))
+				}
+			}
+			return nil
+		}
+	}
+	err := loader(root, dir, "verification", validation, func(path string) {
 		var value Verification
 		if err := readJSON(path, &value); err != nil {
 			addIssue(validation, "error", relativePath(root, path), err.Error())
 			return
 		}
 		value.Path = path
-		if strings.TrimSuffix(filepath.Base(path), ".json") != value.ID {
+		if flat {
+			expected := FlatVerificationFilename(value.Claim, value.ID)
+			if filepath.Base(path) != expected {
+				addIssue(validation, "error", relativePath(root, path), "verification filename keys do not match its claim and stable id")
+			}
+		} else if strings.TrimSuffix(filepath.Base(path), ".json") != value.ID {
 			addIssue(validation, "error", relativePath(root, path), fmt.Sprintf("verification id %q must match filename %q", value.ID, filepath.Base(path)))
 		}
 		validateVerification(value, relativePath(root, path), validation)

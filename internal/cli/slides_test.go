@@ -28,28 +28,38 @@ func TestSlideNativeAuthoringLoopAndCompatibilityRefusal(t *testing.T) {
 	if err := Init(context.Background(), []string{"--mode", "slides", "--repo", repo, "--base", "main", "--head", "HEAD", "--title", "Visual", root}, &output); err != nil {
 		t.Fatal(err)
 	}
+	if err := AddSlide(context.Background(), []string{"--deck", "overview", "--intent", "orient", "--layout", "hero", "--entrypoint", "assets/slide.svg", root, "nested-source"}, &output); err == nil || !strings.Contains(err.Error(), "simple filename") {
+		t.Fatalf("nested v4 entrypoint was not refused clearly: %v", err)
+	}
 	if err := AddSlide(context.Background(), []string{"--deck", "overview", "--intent", "orient", "--layout", "hero", "--title", "What changed", "--takeaway", "Validation now happens first.", root, "change-overview"}, &output); err != nil {
 		t.Fatal(err)
 	}
 	if err := AddItem(context.Background(), []string{"--slide", "change-overview", "--kind", "callout", "--id", "premise", "--element-id", "slide-title", "--label", "Review premise", "--description", "The high-level behavioral change.", "--body", "Invalid requests never reach persistence.", "--placement", "right", "--leader", "arrow", root}, &output); err != nil {
 		t.Fatal(err)
 	}
-	interactive := filepath.Join(t.TempDir(), "interactive")
-	writeFile(t, filepath.Join(interactive, "index.html"), `<main id="decision">Choose a path</main><script src="app.js"></script>`)
-	writeFile(t, filepath.Join(interactive, "app.js"), `document.querySelector('#decision').dataset.ready = 'true'`)
+	interactive := filepath.Join(t.TempDir(), "interactive.html")
+	writeFile(t, interactive, `<main id="decision">Choose a path</main><script>document.querySelector('#decision').dataset.ready = 'true'</script>`)
 	if err := AddSlide(context.Background(), []string{"--deck", "overview", "--intent", "compare", "--layout", "before-after", "--rank", "1", "--title", "Interactive comparison", "--takeaway", "The alternate path remains inspectable.", "--media-type", "text/html", "--entrypoint", "index.html", "--source", interactive, root, "interactive-comparison"}, &output); err != nil {
 		t.Fatal(err)
 	}
 	if err := AddItem(context.Background(), []string{"--slide", "interactive-comparison", "--kind", "statement", "--id", "decision", "--element-id", "decision", "--description", "The alternate path decision.", root}, &output); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(root, "overview.deck", "interactive-comparison.slide", "app.js")); err != nil {
-		t.Fatalf("slide package asset was not copied: %v", err)
-	}
-
 	document, validation, err := saga.Load(root)
 	if err != nil || !validation.Valid {
 		t.Fatalf("authored v4 invalid: valid=%v err=%v issues=%#v", validation.Valid, err, validation.Issues)
+	}
+	if _, err := os.Stat(filepath.Join(root, document.Decks[0].Slides[1].Entrypoint)); err != nil {
+		t.Fatalf("compact slide asset was not written: %v", err)
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || len(entry.Name()) > saga.FlatMaxBasename {
+			t.Fatalf("v4 output is not compact and flat: %s", entry.Name())
+		}
 	}
 	item := document.Decks[0].Slides[0].Items[0]
 	uri, err := diffuri.Build(diffuri.Reference{Repository: document.Manifest.Source.Repository, Base: "main", Head: "HEAD", Kind: "line", Path: "README.md", Side: "new", Start: 1, End: 1})
@@ -62,11 +72,20 @@ func TestSlideNativeAuthoringLoopAndCompatibilityRefusal(t *testing.T) {
 	if err := Cover(context.Background(), []string{"--target", item.Target, "--uri", uri, root}, &output); err != nil {
 		t.Fatalf("item coverage failed: %v", err)
 	}
-	if err := Review(context.Background(), []string{"--target", item.Target, "--state", "approved", "--body", "Focused evidence checked.", root}, &output); err != nil {
-		t.Fatalf("item review failed: %v", err)
+	if err := Review(context.Background(), []string{"--target", item.Path, "--state", "approved", "--body", "Focused evidence checked.", root}, &output); err != nil {
+		t.Fatalf("item review by compact record path failed: %v", err)
+	}
+	if err := Thread(context.Background(), []string{"--target", item.Target, "--body", "Keep the validation boundary visible.", root}, &output); err != nil {
+		t.Fatalf("flat thread failed: %v", err)
+	}
+	if err := AddClaim(context.Background(), []string{"--id", "validation-boundary", "--target", item.Target, "--statement", "Validation runs before persistence.", "--diff", uri, root}, &output); err != nil {
+		t.Fatalf("flat claim failed: %v", err)
+	}
+	if err := VerifyClaim(context.Background(), []string{"--id", "validation-check", "--claim", "validation-boundary", "--status", "verified", "--method", "inspection", "--summary", "The mapped line establishes the boundary.", root}, &output); err != nil {
+		t.Fatalf("flat verification failed: %v", err)
 	}
 	document, validation, err = saga.Load(root)
-	if err != nil || !validation.Valid || len(document.Decks[0].Slides[0].Items[0].Reviews) != 1 {
+	if err != nil || !validation.Valid || len(document.Decks[0].Slides[0].Items[0].Reviews) != 1 || len(document.Threads) != 1 || len(document.Threads[0].Messages) != 1 || len(document.Claims) != 1 || len(document.Verifications) != 1 {
 		t.Fatalf("item review was not preserved: valid=%v err=%v items=%#v", validation.Valid, err, document.Decks[0].Slides[0].Items)
 	}
 	var queryOutput bytes.Buffer

@@ -83,35 +83,35 @@ only normal owner of implementation evidence; a callout is one item kind.
 
 ```text
 checkout.saga/
-  saga.json
-  overview.deck/
-    deck.json
-    goal.slide/
-      slide.json
-      system-map.svg
-      ___items/
-        request-path.item/
-          item.json
-          ___diffs/*.json
-  validation.deck/
-    deck.json
-    before-after.slide/
-      slide.json
-      comparison.svg
-      ___items/...
-  ___claims/...
-  ___verifications/...
-  ___review/...
-  ___migration/...
+  00-saga.json
+  01-readme.md
+  10-d-0000-b3d965f8a739.json
+  20-s-b3d965f8a739-0000-e96d5ab8b8c4.json
+  20-s-b3d965f8a739-0000-e96d5ab8b8c4.svg
+  30-i-e96d5ab8b8c4-0000-b74ed26c821d.json
+  40-e-b74ed26c821d-17ae340f8c15.json
+  50-c-fc21a7e31215.json
+  60-v-fc21a7e31215-a7c490f4ed82.json
+  80-t-b74ed26c821d-6da710dd9134.json
+  81-m-6da710dd9134-bc0a824c6081.json
 ```
 
-Each deck and slide is an independent directory. Sibling order uses a
-non-negative integer `rank`, sorted by `(rank, path)`. The CLI appends in steps
-of ten, leaving ordinary insertion space without editing siblings. Equal
-concurrent ranks have a deterministic path tie-break and a validation warning.
-Assets live with their slide. Editing the same slide is intentionally a
-same-concept conflict; unrelated slides, items, evidence, and review events
-merge as file additions.
+V4 contains no directories. Category prefixes make ordinary lexical listings
+group manifests, authored content, evidence, claims, and review history.
+Deterministic 12-hex keys are derived from stable semantic targets; titles and
+source paths never enter filenames. Fixed-width ranks sort siblings, and the
+JSON repeats the semantic identity so validation can reject a renamed or
+misfiled record. The CLI appends ranks in steps of ten, leaving insertion space.
+A slide manifest and its single self-contained visual share one basename.
+Unrelated slides, items, evidence, and review events remain independent files.
+
+This is also the portability boundary. The earlier nested preview produced a
+150-character relative evidence path (273 characters in a real checkout).
+Windows still exposes a 260-character `MAX_PATH` compatibility boundary unless
+both the OS and each application opt into long paths. V4 therefore caps a
+basename at 64 characters and preflights a conservative 240-character absolute
+path budget rather than requiring every Git, shell, archive, and editor in the
+workflow to opt in ([Microsoft MAX_PATH guidance](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation)).
 
 The root manifest adds a required, closed presentation declaration:
 
@@ -141,12 +141,13 @@ A slide manifest contains:
 {
   "version": 4,
   "id": "reject-before-write",
+  "deck": "validation",
   "title": "Invalid requests stop before persistence",
   "rank": 10,
   "intent": "explain",
   "layout": "diagram",
   "media_type": "image/svg+xml",
-  "entrypoint": "flow.svg",
+  "entrypoint": "20-s-b3d965f8a739-0010-e96d5ab8b8c4.svg",
   "takeaway": "Validation now guards the only path into storage.",
   "reading_order": ["request", "validate", "persist", "reject-early"]
 }
@@ -159,7 +160,8 @@ escape hatch with a required exception rationale. SVG, raster image, and
 sandboxed HTML remain possible entrypoints; prose formats are deliberately not
 slide entrypoints.
 
-An item retains the useful landmark selector model and adds `kind`: `node`,
+An item names its parent with `slide` and retains the useful landmark selector
+model while adding `kind`: `node`,
 `edge`, `region`, `transition`, `statement`, `risk`, `metric`, `example`, or
 `callout`. Every item has a concise `label` and non-visual `description`.
 Selectors remain SVG/HTML element IDs, image regions, or exact text. A callout
@@ -168,7 +170,8 @@ free-standing or name another item in `about`, while carrying its own label,
 body, placement, and leader-line presentation. A node and a callout about that
 node may own different focused diffs; overlapping ownership requires explicit
 justification. Each meaningful diagram node and edge has its own item. Evidence
-files remain byte-compatible `saga-diff://v1` records inside the item package.
+files remain byte-compatible `saga-diff://v1` records; the compact `40-e`
+filename binds each record to its Item target.
 Slide-, deck-, and Saga-level mappings do not count toward v4 coverage; even a
 whole-slide image or file event needs an explicit item.
 
@@ -287,10 +290,10 @@ Preservation rules are strict:
 | Deep links | Store independent alias records. One-to-one aliases redirect; one-to-many aliases open a migration landing view listing successors. |
 | External Saga references | Add deck/slide/item target kinds. Revision-pinned legacy references keep resolving at their old revision; refreshed references follow explicit aliases, never silent retargeting. |
 
-The independent alias/migration records belong under `___migration/<rewrite-id>/`
+The independent alias/migration records use their own reserved flat category
 and are additive files so parallel rewrites do not contend on one map. This
 mirrors the repository’s strongest prior art: append-only reviews, claims, and
-relations. One-package-per-slide also follows PresentationML’s proven “one part
+relations. One-record-per-slide also follows PresentationML’s proven “one part
 per slide” boundary without adopting its centralized slide list
 ([PresentationML structure](https://learn.microsoft.com/en-us/office/open-xml/presentation/structure-of-a-presentationml-document)).
 
@@ -328,7 +331,8 @@ merges.
 
 This branch now implements the contract-first slice: closed v4 Saga/deck/slide/
 item schemas; native runtime types and targets; explicit v4 initialization and
-authoring commands; Item-only coverage; `change-saga.ai/v2` slide queries;
+authoring commands; compact flat storage with path-budget preflight; Item-only
+coverage; `change-saga.ai/v2` slide queries;
 closed runtime validation for reading order, callout relationships, standard
 Item density, and evidence placement; and a one-slide-at-a-time renderer that
 reuses the evidence drawer, annotations, reviews, and deep links. V2/v3 remain

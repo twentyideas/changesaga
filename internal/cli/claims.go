@@ -78,11 +78,18 @@ func AddClaim(_ context.Context, args []string, out io.Writer) error {
 				return fmt.Errorf("claim id %q already exists", *id)
 			}
 		}
-		dir, err := store.EnsureDirWithin(document.Root, filepath.Join(document.Root, "___claims"))
-		if err != nil {
-			return err
+		dir := document.Root
+		filename := *id + ".json"
+		if document.Manifest.Version == saga.SlideSagaVersion {
+			filename = saga.FlatClaimFilename(*id)
+		} else {
+			var err error
+			dir, err = store.EnsureDirWithin(document.Root, filepath.Join(document.Root, "___claims"))
+			if err != nil {
+				return err
+			}
 		}
-		path := filepath.Join(dir, *id+".json")
+		path := filepath.Join(dir, filename)
 		value := saga.Claim{
 			Version: saga.CurrentVersion, ID: *id, Target: resolvedTarget, Kind: *kind,
 			Statement: strings.TrimSpace(*statement), Evidence: append([]string{}, evidence...), CreatedAt: time.Now().UTC(),
@@ -153,11 +160,18 @@ func VerifyClaim(_ context.Context, args []string, out io.Writer) error {
 				return fmt.Errorf("verification id %q already exists", *id)
 			}
 		}
-		dir, err := store.EnsureDirWithin(document.Root, filepath.Join(document.Root, "___verifications"))
-		if err != nil {
-			return err
+		dir := document.Root
+		filename := *id + ".json"
+		if document.Manifest.Version == saga.SlideSagaVersion {
+			filename = saga.FlatVerificationFilename(*claimID, *id)
+		} else {
+			var err error
+			dir, err = store.EnsureDirWithin(document.Root, filepath.Join(document.Root, "___verifications"))
+			if err != nil {
+				return err
+			}
 		}
-		path := filepath.Join(dir, *id+".json")
+		path := filepath.Join(dir, filename)
 		value := saga.Verification{
 			Version: saga.CurrentVersion, ID: *id, Claim: *claimID, Status: *status, Method: *method,
 			Summary: strings.TrimSpace(*summary), Command: strings.TrimSpace(*command), CreatedAt: time.Now().UTC(),

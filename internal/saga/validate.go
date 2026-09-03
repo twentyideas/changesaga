@@ -18,49 +18,49 @@ var svgViewBoxValidationPattern = regexp.MustCompile(`(?i)\bviewBox\s*=\s*["']([
 
 func ValidID(value string) bool { return stableID.MatchString(value) }
 
-func validateManifest(manifest Manifest, result *Validation) {
+func validateManifest(manifest Manifest, path string, result *Validation) {
 	if !SupportedSagaVersion(manifest.Version) {
-		addIssue(result, "error", "saga.json", fmt.Sprintf("unsupported Saga version %d; expected 2, 3, or 4", manifest.Version))
+		addIssue(result, "error", path, fmt.Sprintf("unsupported Saga version %d; expected 2, 3, or 4", manifest.Version))
 	}
 	if !stableID.MatchString(manifest.ID) {
-		addIssue(result, "error", "saga.json", "id must be a stable 1-128 character identifier")
+		addIssue(result, "error", path, "id must be a stable 1-128 character identifier")
 	}
 	if strings.TrimSpace(manifest.Title) == "" {
-		addIssue(result, "error", "saga.json", "title is required")
+		addIssue(result, "error", path, "title is required")
 	}
 	if expected := SagaSchemaURL(manifest.Version); manifest.Schema != "" && expected != "" && manifest.Schema != expected {
-		addIssue(result, "warning", "saga.json", fmt.Sprintf("$schema is %q; Saga version %d uses %q", manifest.Schema, manifest.Version, expected))
+		addIssue(result, "warning", path, fmt.Sprintf("$schema is %q; Saga version %d uses %q", manifest.Schema, manifest.Version, expected))
 	}
 	if manifest.PR != nil {
 		if manifest.PR.Number != nil && *manifest.PR.Number < 1 {
-			addIssue(result, "error", "saga.json", "pr.number must be a positive pull request number")
+			addIssue(result, "error", path, "pr.number must be a positive pull request number")
 		}
 		if manifest.PR.URL != "" {
 			if parsed, err := url.Parse(manifest.PR.URL); err != nil || !parsed.IsAbs() {
-				addIssue(result, "error", "saga.json", "pr.url must be an absolute URI")
+				addIssue(result, "error", path, "pr.url must be an absolute URI")
 			}
 		}
 	}
-	validateRepositoryIdentity(manifest.Source.Repository, "saga.json", result)
+	validateRepositoryIdentity(manifest.Source.Repository, path, result)
 	if strings.TrimSpace(manifest.Source.Base) == "" || strings.TrimSpace(manifest.Source.Head) == "" {
-		addIssue(result, "error", "saga.json", "source.base and source.head are required")
+		addIssue(result, "error", path, "source.base and source.head are required")
 	}
 	if manifest.Version == SlideSagaVersion {
 		if manifest.Presentation == nil {
-			addIssue(result, "error", "saga.json", "v4 requires presentation mode metadata")
+			addIssue(result, "error", path, "v4 requires presentation mode metadata")
 		} else {
 			if manifest.Presentation.Mode != "slides" {
-				addIssue(result, "error", "saga.json", "v4 presentation.mode must be slides")
+				addIssue(result, "error", path, "v4 presentation.mode must be slides")
 			}
 			if manifest.Presentation.AspectRatio != "16:9" {
-				addIssue(result, "error", "saga.json", "v4 presentation.aspect_ratio must be 16:9")
+				addIssue(result, "error", path, "v4 presentation.aspect_ratio must be 16:9")
 			}
 			if !stableID.MatchString(manifest.Presentation.OverviewDeck) {
-				addIssue(result, "error", "saga.json", "v4 presentation.overview_deck must be a stable deck id")
+				addIssue(result, "error", path, "v4 presentation.overview_deck must be a stable deck id")
 			}
 		}
 	} else if manifest.Presentation != nil {
-		addIssue(result, "error", "saga.json", "presentation mode is only valid for a v4 slide-native Saga")
+		addIssue(result, "error", path, "presentation mode is only valid for a v4 slide-native Saga")
 	}
 }
 

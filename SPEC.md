@@ -7,18 +7,33 @@ Saga v4 is a distinct, intentionally incompatible document mode declared by
 `aspect_ratio` is `16:9`, and `overview_deck` names the single overview deck.
 Its normative schemas are under [`schema/v4`](schema/v4).
 
-The only authored hierarchy is `Saga → Deck → Slide → Item`. Decks are direct
-`<id>.deck` children, slides are direct `<id>.slide` children of a deck, and
-Items are independent `___items/<id>.item` packages. A callout is an Item kind;
-it may refer to a sibling Item through `about` and may own exact diff evidence.
-All non-decorative Items appear exactly once in the slide `reading_order`.
+The only authored hierarchy is `Saga → Deck → Slide → Item`, but the v4 storage
+is deliberately flat. `00-saga.json` is the root manifest. Compact category
+prefixes group independently mergeable deck (`10-d`), slide (`20-s`), Item
+(`30-i`), evidence (`40-e`), claim/verification (`50-c`/`60-v`), and review
+(`80`–`85`) records. Fixed-width ranks and deterministic 12-hex target keys
+make ordinary filename sorting stable without putting titles or source paths
+in filenames. JSON contains semantic IDs, titles, and parent hints; queries
+derive the stable target URNs. URNs, never storage filenames, are the durable
+link contract.
 
-Coverage in v4 is valid only inside an Item's `___diffs`. Root-, deck-, and
-slide-level coverage is rejected. Chapter, section, fragment, landmark, and v3
-living-document roots are not reinterpreted when a v4 document is loaded.
+Slide content shares its manifest stem and differs only by extension. V4
+slides are one self-contained SVG, raster image, or HTML file; nested asset
+packages are refused. Items have their own rank and all non-decorative Items
+appear exactly once in the slide `reading_order`. A callout is an Item kind; it
+may refer to a sibling Item through `about` and may own exact diff evidence.
+
+Coverage in v4 is a `40-e` record whose filename keys it to an Item. Root-,
+deck-, and slide-level coverage is rejected. Chapter, section, fragment,
+landmark, nested preview-v4 packages, and v3 living-document roots are not
+reinterpreted when a v4 document is loaded.
 Migration therefore requires an explicit rewrite into a separate destination,
 with evidence reconciled atom by atom; changing the manifest version is never
 a migration.
+
+Every v4 root entry is a regular file, basenames are limited to 64 characters,
+ranks fit `0000`–`9999`, and the CLI reserves a conservative 240-character
+absolute path budget including room for the longest permitted basename.
 
 Stable targets are:
 

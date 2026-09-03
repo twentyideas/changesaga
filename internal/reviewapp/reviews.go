@@ -63,7 +63,7 @@ func (s *session) normalizeThread(ctx context.Context, resolver *gitattribution.
 	thread := ReviewThread{
 		ID: stored.ID, Kind: stored.Kind, Target: stored.Target, Anchor: stored.Anchor, Suggestion: stored.Suggestion,
 		State: stored.State, CreatedAt: stored.CreatedAt, Messages: []ReviewMessage{}, Events: []ReviewEvent{},
-		Attribution: attribution(ctx, resolver, filepath.Join(stored.Directory, "thread.json")), LegacyClaimedAuthor: stored.CreatedBy,
+		Attribution: attribution(ctx, resolver, firstReviewPath(stored.Path, filepath.Join(stored.Directory, "thread.json"))), LegacyClaimedAuthor: stored.CreatedBy,
 	}
 	if thread.Kind == "" {
 		thread.Kind = "comment"
@@ -91,6 +91,13 @@ func (s *session) normalizeThread(ctx context.Context, resolver *gitattribution.
 		})
 	}
 	return thread
+}
+
+func firstReviewPath(preferred, fallback string) string {
+	if preferred != "" {
+		return preferred
+	}
+	return fallback
 }
 
 func normalizeTargetReview(ctx context.Context, resolver *gitattribution.Resolver, target string, review saga.Review) ReviewEvent {

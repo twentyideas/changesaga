@@ -340,6 +340,11 @@ func Init(ctx context.Context, args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
+	if *mode == "slides" {
+		if err := saga.ValidateFlatRoot(absRoot); err != nil {
+			return err
+		}
+	}
 	// The saga itself is staged and published atomically; its containing
 	// directories are ordinary parents and may be created up front. The parent
 	// is then resolved, because a saga may legitimately live under a symlinked
@@ -352,35 +357,49 @@ func Init(ctx context.Context, args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
+	if *mode == "slides" {
+		if err := saga.ValidateFlatRoot(filepath.Join(parent, filepath.Base(absRoot))); err != nil {
+			return err
+		}
+	}
 	err = store.CommitDir(parent, filepath.Join(parent, filepath.Base(absRoot)), func(stage string) error {
 		if err := os.Chmod(stage, 0o755); err != nil {
 			return err
 		}
-		reservedDirs := []string{"___approvals", "___claims", "___verifications", filepath.Join("___review", "threads"), filepath.Join("___review", "diffs")}
-		if *mode != "slides" {
-			reservedDirs = append(reservedDirs, "___diffs")
+		reservedDirs := []string{"___approvals", "___claims", "___verifications", filepath.Join("___review", "threads"), filepath.Join("___review", "diffs"), "___diffs"}
+		if *mode == "slides" {
+			reservedDirs = nil
 		}
 		for _, dir := range reservedDirs {
 			if err := os.MkdirAll(filepath.Join(stage, dir), 0o755); err != nil {
 				return err
 			}
 		}
-		if err := store.WriteJSON(filepath.Join(stage, "saga.json"), manifest, true); err != nil {
+		manifestName := "saga.json"
+		if *mode == "slides" {
+			manifestName = saga.FlatManifestName
+		}
+		if err := store.WriteJSON(filepath.Join(stage, manifestName), manifest, true); err != nil {
 			return err
 		}
 		readme := reviewerBootstrapREADME
 		if *mode == "slides" {
 			readme = slideNativeBootstrapREADME
 		}
-		if err := store.WriteFile(filepath.Join(stage, "README.md"), []byte(readme), 0o644, true); err != nil {
+		readmeName := "README.md"
+		if *mode == "slides" {
+			readmeName = "01-readme.md"
+		}
+		if err := store.WriteFile(filepath.Join(stage, readmeName), []byte(readme), 0o644, true); err != nil {
 			return err
 		}
 		if *mode == "slides" {
-			deckDir := filepath.Join(stage, "overview.deck")
-			if err := os.MkdirAll(filepath.Join(deckDir, "___approvals"), 0o755); err != nil {
+			deck := saga.DeckManifest{Version: saga.SlideSagaVersion, ID: "overview", Title: "Overview", Role: "overview", Rank: 0, Objective: "Orient the reviewer to the change and its review path."}
+			name, err := saga.FlatDeckFilename(saga.DeckTarget(manifest.ID, deck.ID), deck.Rank)
+			if err != nil {
 				return err
 			}
-			return store.WriteJSON(filepath.Join(deckDir, "deck.json"), saga.DeckManifest{Version: saga.SlideSagaVersion, ID: "overview", Title: "Overview", Role: "overview", Rank: 0, Objective: "Orient the reviewer to the change and its review path."}, true)
+			return store.WriteJSON(filepath.Join(stage, name), deck, true)
 		}
 		return populateFragment(filepath.Join(stage, "overview.fragment"), overview, "", nil)
 	})
@@ -721,11 +740,15 @@ func Review(_ context.Context, args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	targetDir, _, err := resolveTarget(document, *target, true)
+	targetDir, resolvedTarget, err := resolveTarget(document, *target, true)
 	if err != nil {
 		return err
 	}
-	if err := reviewstore.AddReview(document.Root, targetDir, *state, *body); err != nil {
+	reviewTarget := targetDir
+	if document.Manifest.Version == saga.SlideSagaVersion {
+		reviewTarget = resolvedTarget
+	}
+	if err := reviewstore.AddReview(document.Root, reviewTarget, *state, *body); err != nil {
 		return err
 	}
 	fmt.Fprintf(out, "Recorded %s review for %s\n", *state, *target)
@@ -1023,6 +1046,11 @@ func Spec(args []string, out io.Writer) error {
 			"reserved_directories": []string{"___diffs", "___approvals", "___claims", "___verifications", "___review"},
 			"author_assertions":    "one claim per ___claims/*.json; one append-only result per ___verifications/*.json",
 			"review_storage":       "append-only; one thread, message, or event record per path",
+			"slide_native_v4": map[string]any{
+				"manifest": saga.FlatManifestName, "layout": "flat", "max_basename": saga.FlatMaxBasename, "max_absolute_path": saga.FlatMaxPath,
+				"categories": map[string]string{"10-d": "deck", "20-s": "slide", "30-i": "item", "40-e": "evidence", "50-c": "claim", "60-v": "verification", "80-85": "review"},
+				"content":    "one self-contained visual file sharing its slide manifest stem",
+			},
 		})
 	}
 	fmt.Fprint(out, specText)
@@ -1189,6 +1217,9 @@ func resolveTarget(document *saga.Saga, value string, allowFragment bool) (strin
 		candidate = filepath.Join(document.Root, candidate)
 	}
 	candidateAbs, _ := filepath.Abs(candidate)
+	if dir, target, found := resolveTargetRecordPath(document, candidateAbs, allowFragment); found {
+		return dir, target, nil
+	}
 	var directTarget string
 	walkTargets(document.Root, document.Section, func(target, dir string, fragment bool) {
 		dirAbs, _ := filepath.Abs(dir)
@@ -1219,6 +1250,47 @@ func resolveTarget(document *saga.Saga, value string, allowFragment bool) (strin
 		return "", "", fmt.Errorf("target %q is not a valid %s%s", value, map[bool]string{true: "chapter, section, fragment, or landmark", false: "chapter or section"}[allowFragment], targetHint(document, allowFragment))
 	}
 	return abs, foundTarget, nil
+}
+
+// resolveTargetRecordPath recognizes the manifest filename printed by v4
+// authoring commands. All v4 targets share the Saga root as their storage
+// directory, so comparing Directory alone would make every slide and Item
+// collide. The Path field remains unique and is also useful for legacy targets.
+func resolveTargetRecordPath(document *saga.Saga, candidateAbs string, allowFragment bool) (string, string, bool) {
+	var foundDir, foundTarget string
+	var walk func(*saga.Section)
+	walk = func(section *saga.Section) {
+		if section.Path != "" {
+			pathAbs, _ := filepath.Abs(filepath.Join(document.Root, filepath.FromSlash(section.Path)))
+			if pathAbs == candidateAbs {
+				foundDir = pathAbs
+				if document.Manifest.Version == saga.SlideSagaVersion {
+					foundDir = document.Root
+				}
+				foundTarget = section.Target
+			}
+		}
+		if allowFragment {
+			for _, fragment := range section.Fragments {
+				pathAbs, _ := filepath.Abs(filepath.Join(document.Root, filepath.FromSlash(fragment.Path)))
+				if fragment.Path != "" && pathAbs == candidateAbs {
+					foundDir, foundTarget = fragment.Directory, fragment.Target
+				}
+				for index := range fragment.Landmarks {
+					landmark := &fragment.Landmarks[index]
+					pathAbs, _ := filepath.Abs(filepath.Join(document.Root, filepath.FromSlash(landmark.Path)))
+					if landmark.Path != "" && pathAbs == candidateAbs {
+						foundDir, foundTarget = landmark.Directory, landmark.Target
+					}
+				}
+			}
+		}
+		for _, child := range section.Children {
+			walk(child)
+		}
+	}
+	walk(document.Section)
+	return foundDir, foundTarget, foundTarget != ""
 }
 
 // resolveTargetID makes the stable IDs printed by authoring commands usable
@@ -1294,11 +1366,11 @@ func resolveLandmark(document *saga.Saga, fragmentPath, landmarkID string, allow
 	if strings.TrimSpace(fragmentPath) == "" {
 		return "", "", fmt.Errorf("landmark target %q must name its fragment, as <fragment-path>#<landmark-id>", "#"+landmarkID)
 	}
-	fragmentDir, fragmentTarget, err := resolveTarget(document, fragmentPath, true)
+	_, fragmentTarget, err := resolveTarget(document, fragmentPath, true)
 	if err != nil {
 		return "", "", err
 	}
-	fragment := findFragment(document.Section, fragmentDir)
+	fragment := findFragmentByTarget(document.Section, fragmentTarget)
 	if fragment == nil {
 		return "", "", fmt.Errorf("%q is not a fragment, so it cannot contain landmark %q", fragmentPath, landmarkID)
 	}
@@ -1316,6 +1388,23 @@ func resolveLandmark(document *saga.Saga, fragmentPath, landmarkID string, allow
 		available = append(available, fragment.Landmarks[index].ID)
 	}
 	return "", "", fmt.Errorf("fragment %q has no landmark %q; it declares %s", fragmentPath, landmarkID, strings.Join(available, ", "))
+}
+
+func findFragmentByTarget(section *saga.Section, target string) *saga.Fragment {
+	var found *saga.Fragment
+	var walk func(*saga.Section)
+	walk = func(current *saga.Section) {
+		for _, fragment := range current.Fragments {
+			if fragment.Target == target {
+				found = fragment
+			}
+		}
+		for _, child := range current.Children {
+			walk(child)
+		}
+	}
+	walk(section)
+	return found
 }
 
 func findFragment(section *saga.Section, dir string) *saga.Fragment {
@@ -1589,6 +1678,13 @@ every product diff atom to the narrowest Item; v4 refuses Saga-, deck-, and
 slide-level coverage. Read it with the v2 ` + "`slide`" + ` and ` + "`slide-diffs`" + ` query
 operations. Never migrate by editing a report's manifest version.
 
+V4 storage is flat and deliberately opaque: ` + "`00-saga.json`" + ` plus compact
+category-prefixed records (` + "`10-d`" + ` decks, ` + "`20-s`" + ` slides, ` + "`30-i`" + ` Items,
+` + "`40-e`" + ` evidence, and ` + "`80`" + `–` + "`85`" + ` reviews). Titles and source paths belong
+inside records, never filenames. Always use CLI commands and query targets;
+never invent, rename, nest, glob, or infer meaning from v4 storage files. Slide
+HTML must be self-contained.
+
 ## Choose the workflow before authoring
 
 First determine whether the user is documenting an existing implementation or
@@ -1807,7 +1903,19 @@ const defaultSVGFragment = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
 </svg>
 `
 
-const specText = `Change Saga format v2 (experimental)
+const specText = `Change Saga formats (experimental)
+
+Slide-native v4 is an intentionally incompatible visual format. Its root
+manifest is 00-saga.json and every persistent object is a regular file at the
+Saga root. Compact prefixes group decks (10-d), slides (20-s), Items (30-i),
+evidence (40-e), claims/verifications (50-c/60-v), and review history (80-85).
+Fixed-width ranks and deterministic keys make ordinary filename sorting stable;
+semantic IDs, titles, parentage, and durable target URNs remain in the records.
+Basenames are at most 64 characters and the default portability budget is 240
+characters for an absolute path. Each slide owns one self-contained SVG, image,
+or HTML file sharing its manifest stem. Evidence may target only Items.
+
+Change Saga format v2
 
 A saga root includes a reviewer-facing README.md with safe installation,
 opening, and structured-query guidance. The file is informational bootstrap

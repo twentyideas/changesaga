@@ -66,6 +66,7 @@ type DeckManifest struct {
 type SlideManifest struct {
 	Version            int      `json:"version"`
 	ID                 string   `json:"id"`
+	DeckID             string   `json:"deck"`
 	Title              string   `json:"title"`
 	Rank               int      `json:"rank"`
 	Intent             string   `json:"intent"`
@@ -80,6 +81,8 @@ type SlideManifest struct {
 type ItemManifest struct {
 	Version     int              `json:"version"`
 	ID          string           `json:"id"`
+	SlideID     string           `json:"slide"`
+	Rank        int              `json:"rank"`
 	Kind        string           `json:"kind"`
 	Label       string           `json:"label"`
 	Description string           `json:"description,omitempty"`
@@ -279,6 +282,7 @@ type Review struct {
 }
 
 type Thread struct {
+	Path              string        `json:"-"`
 	Version           int           `json:"version"`
 	ID                string        `json:"id"`
 	Target            string        `json:"target"`

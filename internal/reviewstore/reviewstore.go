@@ -49,6 +49,27 @@ func AddThread(root, target, body string, anchor saga.Anchor, kind, replacement 
 		if err := verifyAnchorRepository(index, anchor); err != nil {
 			return err
 		}
+		if index.Manifest.Version == saga.SlideSagaVersion {
+			thread := saga.ThreadManifest{Version: saga.CurrentVersion, ID: id, Target: target, Anchor: anchor, Kind: kind, CreatedAt: now}
+			if kind == "suggestion" {
+				thread.Suggestion = &saga.Suggestion{Replacement: replacement}
+			}
+			threadPath := filepath.Join(root, saga.FlatThreadFilename(target, id))
+			if err := store.WriteJSON(threadPath, thread, true); err != nil {
+				return err
+			}
+			written := []string{threadPath}
+			if err := injectMutationFault("after-thread-manifest"); err != nil {
+				removeFlatFiles(written)
+				return err
+			}
+			_, messageFiles, err := addFlatMessage(root, id, "", body, attachments, now)
+			written = append(written, messageFiles...)
+			if err != nil {
+				removeFlatFiles(written)
+			}
+			return err
+		}
 		threadsDir, err := store.EnsureDirWithin(root, filepath.Join(root, "___review", "threads"))
 		if err != nil {
 			return err
@@ -87,13 +108,16 @@ func AddDiffReview(root, uri, state string) error {
 		if err := verifySagaRepository(index, reference); err != nil {
 			return err
 		}
+		now := time.Now().UTC()
+		id := store.EventID(now)
+		review := saga.DiffReview{Version: saga.CurrentVersion, ID: id, URI: uri, State: state, CreatedAt: now}
+		if index.Manifest.Version == saga.SlideSagaVersion {
+			return store.WriteJSON(filepath.Join(root, saga.FlatDiffReviewFilename(id)), review, true)
+		}
 		dir, err := store.EnsureDirWithin(root, filepath.Join(root, "___review", "diffs"))
 		if err != nil {
 			return err
 		}
-		now := time.Now().UTC()
-		id := store.EventID(now)
-		review := saga.DiffReview{Version: saga.CurrentVersion, ID: id, URI: uri, State: state, CreatedAt: now}
 		return store.WriteJSON(filepath.Join(dir, id+"-"+state+".json"), review, true)
 	})
 }
@@ -110,7 +134,14 @@ func AddReply(root, threadID, body string, attachments []string) (id string, err
 	}
 	now := time.Now().UTC()
 	id = store.EventID(now)
-	err = mutate(root, func(saga.MutationIndex) error {
+	err = mutate(root, func(index saga.MutationIndex) error {
+		if index.Manifest.Version == saga.SlideSagaVersion {
+			if _, err := flatThreadPath(root, threadID); err != nil {
+				return err
+			}
+			_, _, err := addFlatMessage(root, threadID, id, body, attachments, now)
+			return err
+		}
 		threadDir, err := existingThreadDir(root, threadID)
 		if err != nil {
 			return err
@@ -134,7 +165,16 @@ func SetState(root, threadID, state string) error {
 	if state != "open" && state != "resolved" && state != "withdrawn" {
 		return fmt.Errorf("thread state must be open, resolved, or withdrawn")
 	}
-	return mutate(root, func(saga.MutationIndex) error {
+	return mutate(root, func(index saga.MutationIndex) error {
+		if index.Manifest.Version == saga.SlideSagaVersion {
+			if _, err := flatThreadPath(root, threadID); err != nil {
+				return err
+			}
+			now := time.Now().UTC()
+			id := store.EventID(now)
+			event := saga.ThreadEvent{Version: saga.CurrentVersion, ID: id, State: state, CreatedAt: now}
+			return store.WriteJSON(filepath.Join(root, saga.FlatThreadEventFilename(threadID, id)), event, true)
+		}
 		threadDir, err := existingThreadDir(root, threadID)
 		if err != nil {
 			return err
@@ -158,6 +198,15 @@ func SetAnchor(root, threadID string, anchor saga.Anchor) error {
 		if err := verifyAnchorRepository(index, anchor); err != nil {
 			return err
 		}
+		if index.Manifest.Version == saga.SlideSagaVersion {
+			if _, err := flatThreadPath(root, threadID); err != nil {
+				return err
+			}
+			now := time.Now().UTC()
+			id := store.EventID(now)
+			event := saga.ThreadEvent{Version: saga.CurrentVersion, ID: id, Anchor: &anchor, CreatedAt: now}
+			return store.WriteJSON(filepath.Join(root, saga.FlatThreadEventFilename(threadID, id)), event, true)
+		}
 		threadDir, err := existingThreadDir(root, threadID)
 		if err != nil {
 			return err
@@ -173,12 +222,21 @@ func SetAnchor(root, threadID string, anchor saga.Anchor) error {
 	})
 }
 
-func AddReview(root, targetDir, state, body string) error {
+func AddReview(root, targetValue, state, body string) error {
 	if state != "approved" && state != "rejected" && state != "closed" && state != "open" {
 		return fmt.Errorf("review requires approved, rejected, closed, or open state")
 	}
 	return mutate(root, func(index saga.MutationIndex) error {
-		cleanTarget, err := filepath.Abs(targetDir)
+		if index.Manifest.Version == saga.SlideSagaVersion {
+			if _, ok := index.ReviewTargets[targetValue]; !ok {
+				return fmt.Errorf("review target does not exist")
+			}
+			now := time.Now().UTC()
+			id := store.EventID(now)
+			review := saga.Review{Version: saga.CurrentVersion, ID: id, State: state, Body: strings.TrimSpace(body), CreatedAt: now}
+			return store.WriteJSON(filepath.Join(root, saga.FlatReviewFilename(targetValue, id)), review, true)
+		}
+		cleanTarget, err := filepath.Abs(targetValue)
 		if err != nil {
 			return err
 		}
@@ -192,7 +250,7 @@ func AddReview(root, targetDir, state, body string) error {
 		if !known {
 			return fmt.Errorf("review target does not exist")
 		}
-		dir, err := store.EnsureDirWithin(root, filepath.Join(targetDir, "___approvals"))
+		dir, err := store.EnsureDirWithin(root, filepath.Join(targetValue, "___approvals"))
 		if err != nil {
 			return err
 		}
@@ -201,6 +259,92 @@ func AddReview(root, targetDir, state, body string) error {
 		review := saga.Review{Version: saga.CurrentVersion, ID: id, State: state, Body: strings.TrimSpace(body), CreatedAt: now}
 		return store.WriteJSON(filepath.Join(dir, id+"-"+state+".json"), review, true)
 	})
+}
+
+func flatThreadPath(root, threadID string) (string, error) {
+	if !saga.ValidID(threadID) {
+		return "", fmt.Errorf("thread %q is not a stable identifier", threadID)
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return "", err
+	}
+	suffix := "-" + saga.FlatKey("thread\x00"+threadID) + ".json"
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "80-t-") && strings.HasSuffix(entry.Name(), suffix) {
+			return filepath.Join(root, entry.Name()), nil
+		}
+	}
+	return "", fmt.Errorf("thread %q does not exist", threadID)
+}
+
+func addFlatMessage(root, threadID, id, body string, attachments []string, now time.Time) (string, []string, error) {
+	if id == "" {
+		id = store.EventID(now)
+	}
+	messagePath := filepath.Join(root, saga.FlatMessageFilename(threadID, id))
+	message := saga.MessageManifest{Version: saga.CurrentVersion, ID: id, CreatedAt: now}
+	if err := store.WriteJSON(messagePath, message, true); err != nil {
+		return "", nil, err
+	}
+	written := []string{messagePath}
+	addFragment := func(order int, fragmentID, title, mediaType, extension string, data []byte) error {
+		manifestName, err := saga.FlatAttachmentFilename(id, order, fragmentID)
+		if err != nil {
+			return err
+		}
+		assetName, err := saga.FlatSlideAssetFilename(manifestName, extension)
+		if err != nil {
+			return err
+		}
+		assetPath := filepath.Join(root, assetName)
+		if err := store.WriteFile(assetPath, data, 0o644, true); err != nil {
+			return err
+		}
+		written = append(written, assetPath)
+		manifest := saga.FragmentManifest{Version: saga.CurrentVersion, ID: fragmentID, Title: title, MediaType: mediaType, Entrypoint: assetName, Order: order}
+		manifestPath := filepath.Join(root, manifestName)
+		if err := store.WriteJSON(manifestPath, manifest, true); err != nil {
+			return err
+		}
+		written = append(written, manifestPath)
+		return nil
+	}
+	order := 0
+	if strings.TrimSpace(body) != "" {
+		if err := addFragment(order, id+"-body", "", "text/markdown", ".md", []byte(body+"\n")); err != nil {
+			removeFlatFiles(written)
+			return "", nil, err
+		}
+		order++
+	}
+	for i, source := range attachments {
+		data, err := os.ReadFile(source)
+		if err != nil {
+			removeFlatFiles(written)
+			return "", nil, err
+		}
+		extension := strings.ToLower(filepath.Ext(source))
+		if extension == "" {
+			extension = ".bin"
+		}
+		if err := addFragment(order, fmt.Sprintf("%s-attachment-%d", id, i+1), filepath.Base(source), attachmentMediaType(source), extension, data); err != nil {
+			removeFlatFiles(written)
+			return "", nil, err
+		}
+		if err := injectMutationFault("after-attachment"); err != nil {
+			removeFlatFiles(written)
+			return "", nil, err
+		}
+		order++
+	}
+	return id, written, nil
+}
+
+func removeFlatFiles(paths []string) {
+	for i := len(paths) - 1; i >= 0; i-- {
+		_ = os.Remove(paths[i])
+	}
 }
 
 // verifySagaRepository refuses review records whose diff identity belongs to a

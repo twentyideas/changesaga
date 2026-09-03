@@ -77,17 +77,21 @@ func LoadMutationIndex(root string) (MutationIndex, Validation, error) {
 	if !info.IsDir() {
 		return MutationIndex{}, Validation{}, fmt.Errorf("%s is not a directory", root)
 	}
+	manifestPath, err := rootManifestPath(abs)
+	if err != nil {
+		return MutationIndex{}, Validation{}, err
+	}
 	var manifest Manifest
-	if err := readJSON(filepath.Join(abs, "saga.json"), &manifest); err != nil {
-		return MutationIndex{}, Validation{}, fmt.Errorf("read saga.json: %w", err)
+	if err := readJSON(manifestPath, &manifest); err != nil {
+		return MutationIndex{}, Validation{}, fmt.Errorf("read %s: %w", filepath.Base(manifestPath), err)
 	}
 	validation := Validation{Valid: true, Issues: []Issue{}}
 	if !strings.HasSuffix(filepath.Base(abs), ".saga") {
 		addIssue(&validation, "error", ".", "saga root directory must end in .saga")
 	}
-	validateManifest(manifest, &validation)
+	validateManifest(manifest, filepath.Base(manifestPath), &validation)
 	if manifest.Version == SlideSagaVersion {
-		document, loadedValidation, loadErr := load(abs, loadOptions{skipCoverage: true})
+		document, loadedValidation, loadErr := load(abs, loadOptions{skipCoverage: true, skipReviews: true})
 		if loadErr != nil {
 			return MutationIndex{}, loadedValidation, loadErr
 		}
@@ -281,6 +285,9 @@ func registerMutationID(id, path string, validation *Validation, ids map[string]
 // LoadReviewState reads only review-owned paths named by a validated mutation
 // index. It never opens coverage mappings or ordinary authored fragments.
 func LoadReviewState(index MutationIndex) (ReviewState, Validation, error) {
+	if index.Manifest.Version == SlideSagaVersion {
+		return loadFlatReviewState(index, false)
+	}
 	validation := Validation{Valid: true, Issues: []Issue{}}
 	state := ReviewState{ByTarget: map[string][]Review{}}
 	for target, dir := range index.ReviewTargets {
@@ -314,7 +321,11 @@ func LoadReviewState(index MutationIndex) (ReviewState, Validation, error) {
 	}
 	repository, _ := diffuri.CanonicalRepository(index.Manifest.Source.Repository)
 	for _, thread := range state.Threads {
-		path := relativePath(index.Root, filepath.Join(thread.Directory, "thread.json"))
+		path := thread.Path
+		if path == "" {
+			path = filepath.Join(thread.Directory, "thread.json")
+		}
+		path = relativePath(index.Root, path)
 		if _, ok := index.Targets[thread.Target]; !ok {
 			addIssue(&validation, "error", path, "thread target does not exist")
 		}
