@@ -212,11 +212,15 @@ contains information absent from the other.
 
 ## Renderer and review workflow
 
-Opening v4 lands on the overview deck and shows one slide. A compact deck map
-and slide picker provide random access; Previous/Next and unmodified arrow/Page
-keys provide sequential access when focus is not inside an interactive element.
-There is no autoplay. The active slide has an accessible name and its deck and
-position are visible (for example, “Validation · 2 of 5”). Hiding the total, as
+Opening v4 lands on the overview deck and gives the current slide the entire
+review pane below the application header. A collapsible presentation-style rail
+shows a live thumbnail and title for every slide, grouped by deck. Previous/Next
+and unmodified arrow/Page keys provide sequential access when focus is not
+inside an interactive element. There is no autoplay. The active slide has an
+accessible name and its deck and position are visible (for example,
+“Validation · 2 of 5”). A presentation control enters fullscreen, hides the
+application chrome and review overlays, and leaves only the maximally fitted
+16:9 slide plus quiet navigation and an exit affordance. Hiding the total, as
 the experiment does, weakens orientation and resumption; WAI’s carousel pattern
 explicitly supports named slides and position/set-size when useful
 ([WAI carousel pattern](https://www.w3.org/WAI/ARIA/apg/patterns/carousel/)).

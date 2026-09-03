@@ -21,6 +21,7 @@ const appJavaScript = `(() => {
   let pinnedBubble = null;
   let bubbleHideTimer = null;
   const noteDefaultColor = '#f2bd4b';
+  const slideSidebarKey = 'change-saga-slide-sidebar-collapsed';
 
   function nativeSlides() { return qa('[data-native-slide]'); }
 
@@ -38,8 +39,16 @@ const appJavaScript = `(() => {
     const shell = active.closest('[data-slide-native]');
     const position = q('[data-slide-position]', shell);
     const deckTitle = q('[data-slide-deck-title]', shell);
+    const slideTitle = q('[data-current-slide-title]', shell);
     if (position) position.textContent = (bounded + 1) + ' / ' + slides.length;
     if (deckTitle) deckTitle.textContent = active.dataset.deckTitle || '';
+    if (slideTitle) slideTitle.textContent = active.dataset.slideTitle || '';
+    qa('[data-slide-thumbnail]').forEach(thumbnail => {
+      const selected = thumbnail.dataset.slideTarget === active.dataset.slideTarget;
+      thumbnail.setAttribute('aria-current', String(selected));
+      thumbnail.closest('[data-slide-thumbnail-card]')?.classList.toggle('active', selected);
+      if (selected && updateHash) thumbnail.scrollIntoView({block:'nearest'});
+    });
     const previous = q('[data-slide-previous]', shell);
     const next = q('[data-slide-next]', shell);
     if (previous) previous.disabled = bounded === 0;
@@ -57,6 +66,55 @@ const appJavaScript = `(() => {
     const id = decodeURIComponent(location.hash.replace(/^#/, ''));
     const requested = id ? document.getElementById(id)?.closest?.('[data-native-slide]') : null;
     activateNativeSlide(requested ? slides.indexOf(requested) : Math.max(0, slides.findIndex(slide => !slide.hidden)));
+  }
+
+  function setSlideSidebarCollapsed(collapsed, persist = true) {
+    const shell = q('.slide-shell');
+    if (!shell) return;
+    shell.classList.toggle('slide-sidebar-collapsed', collapsed);
+    qa('[data-slide-sidebar-toggle]').forEach(button => {
+      button.setAttribute('aria-expanded', String(!collapsed));
+      button.setAttribute('aria-label', collapsed ? 'Show slide navigator' : 'Hide slide navigator');
+      button.title = collapsed ? 'Show slide navigator' : 'Hide slide navigator';
+    });
+    if (persist) try { localStorage.setItem(slideSidebarKey, collapsed ? 'true' : 'false'); } catch {}
+    globalThis.requestAnimationFrame?.(positionFragmentOverlays);
+  }
+
+  function syncSlideSidebarState() {
+    let collapsed = false;
+    try { collapsed = localStorage.getItem(slideSidebarKey) === 'true'; } catch {}
+    setSlideSidebarCollapsed(collapsed, false);
+  }
+
+  function syncSlidePresentation() {
+    const body = document.body;
+    if (!body?.classList) return;
+    const active = Boolean(document.fullscreenElement) || body.classList.contains('presentation-fallback');
+    body.classList.toggle('presentation-mode', active);
+    qa('[data-slide-present]').forEach(button => button.setAttribute('aria-pressed', String(active)));
+    const exit = q('[data-slide-exit-presentation]');
+    if (exit) exit.hidden = !active;
+    globalThis.requestAnimationFrame?.(positionFragmentOverlays);
+  }
+
+  async function toggleSlidePresentation() {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      return;
+    }
+    if (document.body.classList.contains('presentation-fallback')) {
+      document.body.classList.remove('presentation-fallback');
+      syncSlidePresentation();
+      return;
+    }
+    try {
+      if (!document.documentElement.requestFullscreen) throw new Error('fullscreen unavailable');
+      await document.documentElement.requestFullscreen();
+    } catch (_) {
+      document.body.classList.add('presentation-fallback');
+      syncSlidePresentation();
+    }
   }
 
   const languageKeywords = {
@@ -1496,6 +1554,7 @@ const appJavaScript = `(() => {
     if (codeMeta) codeMeta.hidden = name !== 'code';
     const shell = q('[data-shell]');
     if (shell) shell.classList.toggle('code-mode', name === 'code');
+    qa('[data-slide-sidebar-toggle],[data-slide-present]').forEach(button => { button.hidden = name !== 'saga'; });
     // A hidden view measures as zero, so the bubbles are placed once the saga
     // view is actually on screen.
     if (name === 'saga') globalThis.requestAnimationFrame?.(positionFragmentOverlays);
@@ -3052,6 +3111,23 @@ const appJavaScript = `(() => {
   });
 
   document.addEventListener('click', event => {
+    const slideThumbnail = event.target.closest?.('[data-slide-thumbnail]');
+    if (slideThumbnail) {
+      const slides = nativeSlides();
+      const index = slides.findIndex(slide => slide.dataset.slideTarget === slideThumbnail.dataset.slideTarget);
+      if (index >= 0) activateNativeSlide(index, true);
+      return;
+    }
+    const slideSidebarToggle = event.target.closest?.('[data-slide-sidebar-toggle]');
+    if (slideSidebarToggle) {
+      const collapsed = q('.slide-shell')?.classList.contains('slide-sidebar-collapsed');
+      setSlideSidebarCollapsed(!collapsed);
+      return;
+    }
+    if (event.target.closest?.('[data-slide-present],[data-slide-exit-presentation]')) {
+      void toggleSlidePresentation();
+      return;
+    }
     const slideDirection = event.target.closest?.('[data-slide-previous],[data-slide-next]');
     if (slideDirection) {
       const slides = nativeSlides();
@@ -3268,6 +3344,11 @@ const appJavaScript = `(() => {
   });
 
   document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && document.body.classList.contains('presentation-fallback')) {
+      document.body.classList.remove('presentation-fallback');
+      syncSlidePresentation();
+      return;
+    }
     if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && nativeSlides().length && !selectedAnnotation && !annotationDraft && !event.target.matches?.('input,textarea,select,[contenteditable="true"]')) {
       const slides = nativeSlides();
       const current = slides.findIndex(slide => !slide.hidden);
@@ -3545,9 +3626,12 @@ const appJavaScript = `(() => {
   q('[data-annotation-color]')?.addEventListener('input', event => { annotationColorTouched = true; annotationColor = normalizedAnnotationColor(event.target.value); });
   q('[data-annotation-color]')?.addEventListener('change', event => { if (selectedAnnotation) recolorSelectedAnnotation(event.target.value); });
   prepareContext();
+  syncSlideSidebarState();
+  syncSlidePresentation();
   highlightCode();
   applyDiffLayout('inline');
   addEventListener('resize', () => { applyDiffLayout(diffLayout); positionFragmentOverlays(); });
+  document.addEventListener('fullscreenchange', syncSlidePresentation);
   addEventListener('scroll', () => {
     const progress = q('[data-review-progress]');
     if (!progress) return;

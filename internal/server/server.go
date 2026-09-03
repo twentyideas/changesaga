@@ -1710,7 +1710,11 @@ func (a *app) fragmentFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "The saga could not be loaded. Run change-saga validate for details.", http.StatusInternalServerError)
 		return
 	}
-	fragmentDir, ok := index.Targets[saga.FragmentTarget(index.Manifest.ID, r.PathValue("id"))]
+	assetTarget := saga.FragmentTarget(index.Manifest.ID, r.PathValue("id"))
+	if index.Manifest.Version == saga.SlideSagaVersion {
+		assetTarget = saga.SlideTarget(index.Manifest.ID, r.PathValue("id"))
+	}
+	fragmentDir, ok := index.Targets[assetTarget]
 	if !ok {
 		http.NotFound(w, r)
 		return
