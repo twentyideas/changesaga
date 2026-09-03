@@ -41,6 +41,16 @@ var fullLoadCount atomic.Uint64
 // path; review-only and mutation-index loads do not increment it.
 func FullLoadCount() uint64 { return fullLoadCount.Load() }
 
+// ReadManifest reads only saga.json. Format-aware front ends use it to refuse
+// ambiguous report/slide operations before opening a heavier application view.
+func ReadManifest(root string) (Manifest, error) {
+	var manifest Manifest
+	if err := readJSON(filepath.Join(root, "saga.json"), &manifest); err != nil {
+		return Manifest{}, err
+	}
+	return manifest, nil
+}
+
 func Load(root string) (*Saga, Validation, error) {
 	fullLoadCount.Add(1)
 	return load(root, loadOptions{})
@@ -86,9 +96,25 @@ func load(root string, options loadOptions) (*Saga, Validation, error) {
 	}
 	validateManifest(manifest, &validation)
 
-	section, err := loadSection(abs, abs, manifest, sagaHierarchy, options, &validation)
-	if err != nil {
-		return nil, validation, err
+	var section *Section
+	var decks []*Deck
+	if manifest.Version == SlideSagaVersion {
+		decks, err = loadDecks(abs, manifest, options, &validation)
+		if err != nil {
+			return nil, validation, err
+		}
+		section = projectDecks(manifest, decks)
+		if metadataDirectorySafe(abs, abs, "___approvals", &validation) {
+			section.Reviews, err = loadReviews(abs, filepath.Join(abs, "___approvals"), &validation)
+			if err != nil {
+				return nil, validation, err
+			}
+		}
+	} else {
+		section, err = loadSection(abs, abs, manifest, sagaHierarchy, options, &validation)
+		if err != nil {
+			return nil, validation, err
+		}
 	}
 	if manifest.Version == CurrentSagaVersion {
 		designDir := filepath.Join(abs, "___design")
@@ -105,7 +131,7 @@ func load(root string, options loadOptions) (*Saga, Validation, error) {
 			sortSectionContents(section)
 		}
 	}
-	document := &Saga{Root: abs, Manifest: manifest, Section: section}
+	document := &Saga{Root: abs, Manifest: manifest, Section: section, Decks: decks}
 	if !options.outline && !options.skipCoverage && metadataDirectorySafe(abs, abs, "___claims", &validation) {
 		document.Claims, err = loadClaims(abs, &validation)
 		if err != nil {
@@ -854,7 +880,7 @@ func knownReservedDirectory(name string, root bool, sagaVersion int) bool {
 	if name == "___review" || name == "___claims" || name == "___verifications" {
 		return true
 	}
-	return sagaVersion == CurrentSagaVersion && (name == "___requirements" || name == "___design" || name == "___workplan")
+	return (sagaVersion == CurrentSagaVersion || sagaVersion == SlideSagaVersion) && (name == "___requirements" || name == "___design" || name == "___workplan")
 }
 
 func metadataDirectorySafe(root, sectionDir, name string, validation *Validation) bool {

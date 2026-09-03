@@ -97,6 +97,9 @@ func AddLandmark(_ context.Context, args []string, out io.Writer) error {
 
 	var created, targetURN, createdMediaType string
 	err := authorMutation(flags.Arg(0), func(document *saga.Saga) error {
+		if document.Manifest.Version == saga.SlideSagaVersion {
+			return fmt.Errorf("add-landmark is unavailable for v4 slide-native Sagas; use add-item")
+		}
 		targetDir, resolved, err := resolveTarget(document, *target, true)
 		if err != nil {
 			return err

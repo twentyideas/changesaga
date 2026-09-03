@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://changesaga.dev/schema/v4/deck.schema.json",
+  "title": "Change Saga v4 deck",
+  "type": "object", "additionalProperties": false,
+  "required": ["version", "id", "title", "role", "rank", "objective"],
+  "properties": {
+    "version": { "const": 4 },
+    "id": { "$ref": "#/$defs/id" },
+    "title": { "type": "string", "minLength": 1 },
+    "role": { "enum": ["overview", "change"] },
+    "rank": { "type": "integer", "minimum": 0 },
+    "objective": { "type": "string", "minLength": 1, "maxLength": 240 }
+  },
+  "$defs": { "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" } }
+}

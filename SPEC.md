@@ -1,4 +1,34 @@
-# Change Saga format v2
+# Change Saga formats
+
+## Slide-native v4 preview
+
+Saga v4 is a distinct, intentionally incompatible document mode declared by
+`version: 4` and a closed `presentation` object whose `mode` is `slides`,
+`aspect_ratio` is `16:9`, and `overview_deck` names the single overview deck.
+Its normative schemas are under [`schema/v4`](schema/v4).
+
+The only authored hierarchy is `Saga → Deck → Slide → Item`. Decks are direct
+`<id>.deck` children, slides are direct `<id>.slide` children of a deck, and
+Items are independent `___items/<id>.item` packages. A callout is an Item kind;
+it may refer to a sibling Item through `about` and may own exact diff evidence.
+All non-decorative Items appear exactly once in the slide `reading_order`.
+
+Coverage in v4 is valid only inside an Item's `___diffs`. Root-, deck-, and
+slide-level coverage is rejected. Chapter, section, fragment, landmark, and v3
+living-document roots are not reinterpreted when a v4 document is loaded.
+Migration therefore requires an explicit rewrite into a separate destination,
+with evidence reconciled atom by atom; changing the manifest version is never
+a migration.
+
+Stable targets are:
+
+```text
+urn:change-saga:<saga-id>:deck:<deck-id>
+urn:change-saga:<saga-id>:slide:<slide-id>
+urn:change-saga:<saga-id>:slide:<slide-id>:item:<item-id>
+```
+
+## Report format v2
 
 Status: experimental. Version 2 supersedes the unpublished v1 draft.
 

@@ -49,6 +49,27 @@ shift is otherwise easy to miss.
 
 ## Visual-first contract
 
+### Slide-native v4
+
+Slide-native review is a visual argument, not a report broken into pages. Each
+slide has one intent, one takeaway of at most 180 characters, and one bounded
+layout. Use 1–7 semantic Items and put every non-decorative node, edge, region,
+transition, example, risk, metric, statement, and callout in `reading_order`.
+Every Item needs a concise label, a semantic description that stands without
+the picture, and an element or normalized-region selector.
+
+A callout is an overlaid Item, not a different evidence layer. It may name the
+Item it explains with `about`, and its own `___diffs` may point to the exact code
+that substantiates the callout. Keep callout bodies at 240 characters or less.
+Do not attach coverage to the Saga, deck, or slide. If an atom does not belong
+to an existing Item, improve the visual composition or add a focused Item.
+
+At 1280×720 and 1024×576, verify that nothing clips or overlaps, labels remain
+legible, the reading order matches the intended scan path, every Item can be
+focused without obscuring another, and the slide still makes sense in a narrow
+linear reading view. `layout: custom` requires a rationale and does not waive
+evidence, contrast, focus, geometry, or text-equivalent checks.
+
 Treat visuals and examples as the primary explanation, not decoration added
 after the prose:
 

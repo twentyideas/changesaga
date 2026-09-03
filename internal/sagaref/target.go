@@ -19,6 +19,9 @@ const (
 	TargetSection      TargetKind = "section"
 	TargetFragment     TargetKind = "fragment"
 	TargetLandmark     TargetKind = "landmark"
+	TargetDeck         TargetKind = "deck"
+	TargetSlide        TargetKind = "slide"
+	TargetItem         TargetKind = "item"
 	TargetWorkItem     TargetKind = "work-item"
 	TargetClaim        TargetKind = "claim"
 	TargetVerification TargetKind = "verification"
@@ -47,7 +50,7 @@ func ParseTarget(value string) (Target, error) {
 		target.Kind = TargetKind(parts[3])
 		target.ID = parts[4]
 		switch target.Kind {
-		case TargetStory, TargetPrototype, TargetChapter, TargetSection, TargetFragment, TargetWorkItem, TargetClaim, TargetVerification:
+		case TargetStory, TargetPrototype, TargetChapter, TargetSection, TargetFragment, TargetDeck, TargetSlide, TargetWorkItem, TargetClaim, TargetVerification:
 		default:
 			return Target{}, fmt.Errorf("unsupported cross-Saga target kind %q", parts[3])
 		}
@@ -58,6 +61,8 @@ func ParseTarget(value string) (Target, error) {
 			target.Kind = TargetCriterion
 		case parts[3] == "fragment" && parts[5] == "landmark":
 			target.Kind = TargetLandmark
+		case parts[3] == "slide" && parts[5] == "item":
+			target.Kind = TargetItem
 		default:
 			return Target{}, fmt.Errorf("unsupported nested cross-Saga target shape")
 		}
@@ -82,7 +87,7 @@ func (target Target) URN() string {
 	}
 	base := "urn:change-saga:" + target.SagaID + ":"
 	switch target.Kind {
-	case TargetStory, TargetPrototype, TargetChapter, TargetSection, TargetFragment, TargetWorkItem, TargetClaim, TargetVerification:
+	case TargetStory, TargetPrototype, TargetChapter, TargetSection, TargetFragment, TargetDeck, TargetSlide, TargetWorkItem, TargetClaim, TargetVerification:
 		if target.ParentID != "" {
 			return ""
 		}
@@ -97,6 +102,11 @@ func (target Target) URN() string {
 			return ""
 		}
 		return base + "fragment:" + target.ParentID + ":landmark:" + target.ID
+	case TargetItem:
+		if !livingid.ValidID(target.ParentID) {
+			return ""
+		}
+		return base + "slide:" + target.ParentID + ":item:" + target.ID
 	default:
 		return ""
 	}

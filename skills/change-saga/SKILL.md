@@ -97,7 +97,7 @@ Use `change-saga query`, the versioned read API, for every read of an existing
 saga during both authoring and review. It is deterministic and paginated, never
 starts the server, and never mutates either repository.
 
-The operations are `schema`, `overview`, `children`, `fragment`, `fragment-diffs`,
+The operations are `schema`, `overview`, `children`, `fragment`, `fragment-diffs`, `slide`, `slide-diffs`,
 `diff-owners`, `reviews`, `gaps`, `mappings`, `claims`, and `verifications`. Start at `query overview`, walk one level
 at a time with `query children`, read narrative content through `query
 fragment`, navigate evidence in both directions with `query fragment-diffs` and
@@ -128,6 +128,29 @@ whether evidence belongs to the node itself or to one of its landmarks or
 children.
 
 ## Author a saga
+
+For a new visual review deck, choose the intentionally incompatible v4 mode:
+
+```sh
+change-saga init --mode slides --base <base> --head <head> --title "<title>" <name>.saga
+```
+
+Do not convert an existing report by changing its version or laying its prose
+out on pages. Rewrite it as a deck. The authoring spine is `Saga → Deck → Slide
+→ Item`: use `add-deck`, `add-slide`, `set-slide-content`, and `add-item`. A
+slide is one 16:9 visual composition with one takeaway. An Item is a meaningful
+node, edge, region, transition, statement, risk, metric, example, or callout.
+A callout may point at another Item with `--about`, and it may own diff evidence
+itself. Put every non-decorative Item in `reading_order`; `add-item` does this
+automatically. Attach every exact diff atom to the narrowest Item. v4 refuses
+Saga-, deck-, and slide-level coverage. Use `query slide` and `query
+slide-diffs`; v4 deliberately refuses the report-oriented fragment queries.
+
+Apply the density and composition checks in
+[references/authoring.md](references/authoring.md). If the change cannot be
+explained without a wall of text or more than seven semantic Items on one
+standard slide, split the visual argument across slides rather than shrinking
+it.
 
 1. Resolve the request to an exact source comparison. For a PR number or URL,
    use the available hosting integration or CLI to obtain its title, URL, base,

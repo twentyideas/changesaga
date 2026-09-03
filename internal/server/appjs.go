@@ -22,6 +22,43 @@ const appJavaScript = `(() => {
   let bubbleHideTimer = null;
   const noteDefaultColor = '#f2bd4b';
 
+  function nativeSlides() { return qa('[data-native-slide]'); }
+
+  function activateNativeSlide(index, updateHash = false) {
+    const slides = nativeSlides();
+    if (!slides.length) return;
+    const bounded = Math.max(0, Math.min(slides.length - 1, index));
+    slides.forEach((slide, current) => {
+      const active = current === bounded;
+      slide.hidden = !active;
+      slide.classList.toggle('active', active);
+      slide.setAttribute('aria-hidden', String(!active));
+    });
+    const active = slides[bounded];
+    const shell = active.closest('[data-slide-native]');
+    const position = q('[data-slide-position]', shell);
+    const deckTitle = q('[data-slide-deck-title]', shell);
+    if (position) position.textContent = (bounded + 1) + ' / ' + slides.length;
+    if (deckTitle) deckTitle.textContent = active.dataset.deckTitle || '';
+    const previous = q('[data-slide-previous]', shell);
+    const next = q('[data-slide-next]', shell);
+    if (previous) previous.disabled = bounded === 0;
+    if (next) next.disabled = bounded === slides.length - 1;
+    if (updateHash) {
+      const anchor = q('.fragment', active)?.id;
+      if (anchor) history.replaceState(history.state, '', location.pathname + location.search + '#' + encodeURIComponent(anchor));
+    }
+    positionFragmentOverlays();
+  }
+
+  function syncNativeSlideForHash() {
+    const slides = nativeSlides();
+    if (!slides.length) return;
+    const id = decodeURIComponent(location.hash.replace(/^#/, ''));
+    const requested = id ? document.getElementById(id)?.closest?.('[data-native-slide]') : null;
+    activateNativeSlide(requested ? slides.indexOf(requested) : Math.max(0, slides.findIndex(slide => !slide.hidden)));
+  }
+
   const languageKeywords = {
     go: new Set('break case chan const continue default defer else fallthrough for func go goto if import interface map package range return select struct switch type var'.split(' ')),
     javascript: new Set('async await break case catch class const continue debugger default delete do else export extends finally for from function get if import in instanceof let new of return set static super switch this throw try typeof var void while with yield'.split(' ')),
@@ -3015,6 +3052,13 @@ const appJavaScript = `(() => {
   });
 
   document.addEventListener('click', event => {
+    const slideDirection = event.target.closest?.('[data-slide-previous],[data-slide-next]');
+    if (slideDirection) {
+      const slides = nativeSlides();
+      const current = slides.findIndex(slide => !slide.hidden);
+      activateNativeSlide(current + (slideDirection.matches('[data-slide-next]') ? 1 : -1), true);
+      return;
+    }
     const retryFile = event.target.closest?.('[data-retry-file]');
     if (retryFile) {
       void hydrateReviewFile(retryFile.closest('[data-file-diff-href]'), {force:true});
@@ -3224,6 +3268,13 @@ const appJavaScript = `(() => {
   });
 
   document.addEventListener('keydown', event => {
+    if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && nativeSlides().length && !selectedAnnotation && !annotationDraft && !event.target.matches?.('input,textarea,select,[contenteditable="true"]')) {
+      const slides = nativeSlides();
+      const current = slides.findIndex(slide => !slide.hidden);
+      event.preventDefault();
+      activateNativeSlide(current + (event.key === 'ArrowRight' ? 1 : -1), true);
+      return;
+    }
     const editingField = event.target.closest?.('.sticky-note-text');
     if (editingField) {
       const note = editingField.closest('.sticky-note');
@@ -3512,6 +3563,7 @@ const appJavaScript = `(() => {
   const anchorResolving = initialView === 'saga'
     ? activateLandmark().then(revealHashedAnnotationBubble)
     : hydrateReviewSurface(initialView).then(revealHashedAnnotationBubble);
+	 syncNativeSlideForHash();
   const activityResolving = activityRequested ? openActivityDrawer(location.href, null, false) : Promise.resolve();
   // The page arrives as a shell and fills in what is on screen. Saying when
   // that has finished is the difference between a reviewer who can see the
@@ -3522,6 +3574,7 @@ const appJavaScript = `(() => {
   positionFragmentOverlays();
   globalThis.requestAnimationFrame?.(positionFragmentOverlays);
   addEventListener('hashchange', () => {
+	 syncNativeSlideForHash();
     const view = new URL(location.href).searchParams.get('view');
     if (view === 'code' || view === 'manifest') void hydrateReviewSurface(view).then(revealHashedAnnotationBubble);
     else void activateLandmark().then(revealHashedAnnotationBubble);

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://changesaga.dev/schema/v4/saga.schema.json",
+  "title": "Change Saga v4 slide-native manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "id", "title", "source", "presentation"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 4 },
+    "id": { "$ref": "#/$defs/id" },
+    "title": { "type": "string", "minLength": 1 },
+    "pr": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "number": { "type": "integer", "minimum": 1 },
+        "url": { "type": "string", "format": "uri" }
+      }
+    },
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["repository", "base", "head"],
+      "properties": {
+        "repository": { "type": "string", "format": "uri", "not": { "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://[^/?#]*@" } },
+        "base": { "type": "string", "minLength": 1 },
+        "head": { "type": "string", "minLength": 1 }
+      }
+    },
+    "presentation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mode", "aspect_ratio", "overview_deck"],
+      "properties": {
+        "mode": { "const": "slides" },
+        "aspect_ratio": { "const": "16:9" },
+        "overview_deck": { "$ref": "#/$defs/id" }
+      }
+    }
+  },
+  "$defs": { "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" } }
+}

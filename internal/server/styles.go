@@ -61,6 +61,24 @@ a{color:var(--accent)}
 .i{width:16px;height:16px;flex:none;display:block}
 .ficon{width:14px;height:14px;flex:none}
 
+/* Slide-native review ---------------------------------------------------- */
+.slide-native{max-width:1180px;margin:0 auto;padding:22px 28px 36px}
+.slide-native-header,.slide-native-controls{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.slide-native-header{margin-bottom:10px;color:var(--muted)}
+.slide-native-header>div{display:flex;align-items:baseline;gap:10px}.slide-native-header strong{color:var(--ink)}
+.slide-native-stage{position:relative;width:100%;aspect-ratio:16/9;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--bg-subtle);box-shadow:var(--shadow)}
+.slide-native-slide{position:absolute;inset:0;overflow:auto;background:var(--bg)}
+.slide-native-slide[hidden]{display:none}.slide-native-slide.active{display:block}
+.slide-native-slide .fragment{margin:0;border:0;border-radius:0;height:100%;min-height:100%;background:transparent}
+.slide-native-slide .fragment-head{position:absolute;z-index:5;right:12px;top:10px;border:0;background:var(--frosted-bg);border-radius:8px}
+.slide-native-slide .fragment-stage{height:100%;min-height:100%;display:grid;place-items:center;padding:0}
+.slide-native-slide .fragment-frame{width:100%;height:100%;min-height:0;border:0;border-radius:0}
+.slide-native-slide .fragment-image{display:block;width:100%;height:100%;max-height:none;object-fit:contain}
+.slide-native-controls{padding-top:12px;color:var(--muted)}
+.slide-native-controls .btn{min-width:88px;padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+.slide-native-controls .btn:hover{background:var(--button-hover)}
+@media(max-width:720px){.slide-native{padding:12px}.slide-native-stage{aspect-ratio:auto;min-height:68vh}.slide-native-slide{position:absolute}}
+
 /* Top bar ---------------------------------------------------------------- */
 .topbar{position:sticky;top:0;z-index:30;height:var(--top);display:flex;align-items:center;gap:14px;padding:0 12px;background:var(--bg);border-bottom:1px solid var(--line)}
 .brand{display:flex;align-items:center;gap:6px;color:var(--muted);font:600 11px var(--mono);letter-spacing:.04em}

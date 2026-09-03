@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://changesaga.dev/schema/v4/item.schema.json",
+  "title": "Change Saga v4 item",
+  "type": "object", "additionalProperties": false,
+  "required": ["version", "id", "kind", "label", "description", "selector"],
+  "properties": {
+    "version": { "const": 4 },
+    "id": { "$ref": "#/$defs/id" },
+    "kind": { "enum": ["node", "edge", "region", "transition", "statement", "risk", "metric", "example", "callout"] },
+    "label": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "description": { "type": "string", "minLength": 1, "maxLength": 240 },
+    "selector": { "$ref": "#/$defs/selector" },
+    "hotspot": { "$ref": "#/$defs/region" },
+    "about": { "$ref": "#/$defs/id" },
+    "body": { "type": "string", "minLength": 1, "maxLength": 240 },
+    "placement": { "enum": ["top", "right", "bottom", "left", "overlay"] },
+    "leader": { "enum": ["none", "line", "arrow"] }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "callout" } }, "required": ["kind"] },
+      "then": { "required": ["body"] },
+      "else": { "not": { "anyOf": [{ "required": ["about"] }, { "required": ["body"] }, { "required": ["placement"] }, { "required": ["leader"] }] } }
+    }
+  ],
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+    "region": {
+      "type": "object", "additionalProperties": false, "required": ["x", "y", "width", "height"],
+      "properties": { "x": { "type": "number", "minimum": 0, "maximum": 1 }, "y": { "type": "number", "minimum": 0, "maximum": 1 }, "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }, "height": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 } }
+    },
+    "selector": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["type", "element_id"], "properties": { "type": { "const": "element" }, "element_id": { "type": "string", "minLength": 1 } } },
+        { "type": "object", "additionalProperties": false, "required": ["type", "exact"], "properties": { "type": { "const": "text" }, "exact": { "type": "string", "minLength": 1 }, "prefix": { "type": "string" }, "suffix": { "type": "string" } } },
+        { "type": "object", "additionalProperties": false, "required": ["type", "x", "y", "width", "height"], "properties": { "type": { "const": "region" }, "x": { "type": "number", "minimum": 0, "maximum": 1 }, "y": { "type": "number", "minimum": 0, "maximum": 1 }, "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }, "height": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 } } }
+      ]
+    }
+  }
+}

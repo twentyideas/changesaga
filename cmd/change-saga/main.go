@@ -49,6 +49,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 		err = cli.Plan(ctx, args[1:], stdout)
 	case "design":
 		err = cli.Design(ctx, args[1:], stdout)
+	case "add-deck":
+		err = cli.AddDeck(ctx, args[1:], stdout)
+	case "add-slide":
+		err = cli.AddSlide(ctx, args[1:], stdout)
+	case "set-slide-content":
+		err = cli.SetSlideContent(ctx, args[1:], stdout)
+	case "add-item":
+		err = cli.AddItem(ctx, args[1:], stdout)
 	case "add-section":
 		err = cli.AddSection(ctx, args[1:], stdout)
 	case "add-chapter":

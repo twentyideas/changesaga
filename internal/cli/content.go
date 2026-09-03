@@ -70,6 +70,9 @@ func setFragmentContentScoped(_ context.Context, args []string, out io.Writer, s
 
 	result := fragmentContentOutput{OK: true, Bytes: len(data)}
 	err = authorMutation(flags.Arg(0), func(document *saga.Saga) error {
+		if document.Manifest.Version == saga.SlideSagaVersion {
+			return fmt.Errorf("set-fragment-content is unavailable for v4 slide-native Sagas; use set-slide-content")
+		}
 		dir, targetURN, resolveErr := scope.resolveTarget(document, *target, true)
 		if resolveErr != nil {
 			return resolveErr

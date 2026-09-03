@@ -87,6 +87,7 @@ func OpenBrowser(rawURL string) error { return launchBrowser(rawURL) }
 
 type pageData struct {
 	Saga          *saga.Saga
+	SlideNative   bool
 	Root          *sectionView
 	Nav           []*navNodeView
 	ActivityCount int
@@ -227,12 +228,16 @@ type fragmentView struct {
 
 type landmarkView struct {
 	saga.Landmark
-	DOMID       string
-	Title       string
-	ChangeCount int
-	Attached    *attachedCodeView
-	Threads     []*threadView
-	Region      *saga.LandmarkRegion
+	DOMID        string
+	Title        string
+	ChangeCount  int
+	Attached     *attachedCodeView
+	Threads      []*threadView
+	Region       *saga.LandmarkRegion
+	ReviewState  string
+	ReviewAuthor string
+	ReviewDetail string
+	ReviewBody   string
 }
 
 type diffAtomView struct {
@@ -908,6 +913,13 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "The saga could not be loaded. Run change-saga validate for details.", http.StatusInternalServerError)
 		return
 	}
+	if document.Manifest.Version == saga.SlideSagaVersion {
+		document = a.narrativeDocument(r.Context())
+		if document == nil {
+			http.Error(w, "The slide deck could not be loaded. Run change-saga validate for details.", http.StatusInternalServerError)
+			return
+		}
+	}
 	chapterID, chapterRoute := requestedChapter(r)
 	if r.URL.Path != "/" {
 		if !chapterRoute {
@@ -928,9 +940,14 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 	// fragments as descriptors, one summary per chapter, and the navigation
 	// outline. Everything below that arrives from /api/section and
 	// /api/fragment as a reviewer opens it.
-	rootView := makeSectionView(document.Section, viewScope{threads: threadsByTarget}.shell())
+	scope := viewScope{threads: threadsByTarget}
+	if document.Manifest.Version != saga.SlideSagaVersion {
+		scope = scope.shell()
+	}
+	rootView := makeSectionView(document.Section, scope)
 	data := pageData{
 		Saga:           document,
+		SlideNative:    document.Manifest.Version == saga.SlideSagaVersion,
 		Root:           rootView,
 		MutationToken:  a.mutationToken,
 		CoverageTotals: a.cachedCoverageTotals(),
@@ -1412,12 +1429,14 @@ func makeFragmentView(fragment *saga.Fragment, scope viewScope) *fragmentView {
 		}
 		changeCount, attached := scopedAttachedCode(scope, landmark.Label, landmark.Target, landmark.Diffs)
 		changeCount = lazyChangeCount(landmark.HasDiffs, changeCount)
-		view.LandmarkViews = append(view.LandmarkViews, &landmarkView{
+		landmarkView := &landmarkView{
 			Landmark: landmark, DOMID: view.DOMID + "--" + landmark.ID, Title: landmark.Label,
 			ChangeCount: changeCount,
 			Attached:    attached,
 			Threads:     scope.threads[landmark.Target], Region: region,
-		})
+		}
+		landmarkView.ReviewState, landmarkView.ReviewAuthor, landmarkView.ReviewDetail, landmarkView.ReviewBody = latestReview(landmark.Reviews)
+		view.LandmarkViews = append(view.LandmarkViews, landmarkView)
 	}
 	switch fragment.MediaType {
 	case "text/markdown":

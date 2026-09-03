@@ -1,7 +1,8 @@
 # Slide-native Change Saga
 
-Status: design recommendation, 2026-09-02  
-Scope: intentionally breaking narrative format; no production implementation
+Status: implemented contract-first preview, 2026-09-03
+Scope: intentionally breaking narrative format; semantic rewrite and rendered
+composition gates remain staged work
 
 ## Recommendation
 
@@ -10,17 +11,18 @@ Saga is explicitly `presentation.mode: "slides"`; v2/v3 remain report Sagas and
 must never be silently paginated. Retire `chapter`, `section`, and narrative
 `fragment` from the v4 authoring model. The new spine is:
 
-> **Saga → Deck → Slide → Callout → exact diff atoms**
+> **Saga → Deck → Slide → Item → exact diff atoms**
 
 The human experience is an image-first visual argument. Each slide makes one
 high-level point through a diagram, screenshot, state transition, comparison,
 or worked example. Short labels and sentences sit next to what they explain.
-Selecting a callout opens the exact supporting diff without losing the slide.
-Every product diff atom must be owned by a callout; 100% coverage remains an
+Selecting an item—including an overlaid callout—opens the exact supporting diff
+without losing the slide. Every product diff atom must be owned by an item;
+100% coverage remains an
 omission check, not proof that the explanation is good.
 
 “Every diff captured visually” does not mean drawing every changed line. It
-means grouping exact atoms under the visual claim they realize: a node, edge,
+means grouping exact atoms under the visual item they realize: a node, edge,
 transition, risk badge, before/after region, or concise callout. Supporting
 plumbing still needs a visible conceptual owner; it does not need screen space
 proportional to its line count.
@@ -76,8 +78,8 @@ V4 has no narrative chapters or sections. A **deck** is the independently
 reviewable boundary that chapters were trying to be, but it contains only a
 short ordered sequence of slides. One deck has `role: overview`; the others
 explain coherent behaviors, workflows, or risks. A **slide** is the atomic
-review surface. A **callout** is an addressable concept on that slide and the
-only normal owner of implementation evidence.
+review surface. An **item** is an addressable concept on that slide and the
+only normal owner of implementation evidence; a callout is one item kind.
 
 ```text
 checkout.saga/
@@ -87,28 +89,29 @@ checkout.saga/
     goal.slide/
       slide.json
       system-map.svg
-      ___callouts/
-        request-path.callout/
-          callout.json
+      ___items/
+        request-path.item/
+          item.json
           ___diffs/*.json
   validation.deck/
     deck.json
     before-after.slide/
       slide.json
       comparison.svg
-      ___callouts/...
+      ___items/...
   ___claims/...
   ___verifications/...
   ___review/...
   ___migration/...
 ```
 
-Each deck and slide is an independent directory. Sibling order uses an opaque,
-CLI-generated fractional `rank`, sorted by `(rank, id)`, so inserting one slide
-does not renumber or edit siblings. Equal concurrent ranks have a deterministic
-ID tie-break and a validation warning. Assets live with their slide. Editing
-the same slide is intentionally a same-concept conflict; unrelated slides,
-callouts, evidence, and review events merge as file additions.
+Each deck and slide is an independent directory. Sibling order uses a
+non-negative integer `rank`, sorted by `(rank, path)`. The CLI appends in steps
+of ten, leaving ordinary insertion space without editing siblings. Equal
+concurrent ranks have a deterministic path tie-break and a validation warning.
+Assets live with their slide. Editing the same slide is intentionally a
+same-concept conflict; unrelated slides, items, evidence, and review events
+merge as file additions.
 
 The root manifest adds a required, closed presentation declaration:
 
@@ -139,33 +142,38 @@ A slide manifest contains:
   "version": 4,
   "id": "reject-before-write",
   "title": "Invalid requests stop before persistence",
-  "rank": "U7",
-  "intent": "workflow",
+  "rank": 10,
+  "intent": "explain",
   "layout": "diagram",
   "media_type": "image/svg+xml",
   "entrypoint": "flow.svg",
   "takeaway": "Validation now guards the only path into storage.",
-  "reading_order": ["request", "validate", "persist", "failure"]
+  "reading_order": ["request", "validate", "persist", "reject-early"]
 }
 ```
 
-`intent` is one of `system-map`, `workflow`, `state-change`, `before-after`,
-`decision`, `risk`, `verification`, or `statement`. `layout` selects a bounded
-renderer template (`diagram`, `sequence`, `comparison`, `split`, `code`,
-`media`, or `statement`); `custom` is an explicit escape hatch with a required
-exception rationale. SVG, raster image, sandboxed HTML, and Markdown remain
-possible entrypoints, but Markdown is no longer the default.
+`intent` is one of `orient`, `explain`, `compare`, `trace`, `prove`, `risk`, or
+`conclude`. `layout` selects a bounded renderer template (`hero`, `diagram`,
+`before-after`, `sequence`, `evidence`, or `risk`); `custom` is an explicit
+escape hatch with a required exception rationale. SVG, raster image, and
+sandboxed HTML remain possible entrypoints; prose formats are deliberately not
+slide entrypoints.
 
-A callout retains the useful landmark selector model and adds `kind`
-(`behavior|architecture|risk|decision|evidence`) plus a concise visible `label`
-and non-visual `description`. Selectors remain SVG/HTML element IDs, image
-regions, or exact text. Each meaningful diagram node and edge has its own
-callout. Evidence files remain byte-compatible `saga-diff://v1` records inside
-the callout package. Slide-, deck-, and Saga-level mappings do not count toward
-v4 coverage; even a whole-slide image or file event needs an explicit callout.
+An item retains the useful landmark selector model and adds `kind`: `node`,
+`edge`, `region`, `transition`, `statement`, `risk`, `metric`, `example`, or
+`callout`. Every item has a concise `label` and non-visual `description`.
+Selectors remain SVG/HTML element IDs, image regions, or exact text. A callout
+is an evidence-bearing item subtype, not second-class decoration: it may be
+free-standing or name another item in `about`, while carrying its own label,
+body, placement, and leader-line presentation. A node and a callout about that
+node may own different focused diffs; overlapping ownership requires explicit
+justification. Each meaningful diagram node and edge has its own item. Evidence
+files remain byte-compatible `saga-diff://v1` records inside the item package.
+Slide-, deck-, and Saga-level mappings do not count toward v4 coverage; even a
+whole-slide image or file event needs an explicit item.
 
 Targets become `urn:change-saga:<saga>:deck:<id>`,
-`…:slide:<id>`, and `…:slide:<slide-id>:callout:<id>`. The versioned query API
+`…:slide:<id>`, and `…:slide:<slide-id>:item:<id>`. The versioned query API
 also advances to `change-saga.ai/v2` with `overview`, `children`, `slide`,
 `slide-diffs`, and the existing bidirectional evidence/review operations. V1
 continues to read v2/v3; clients never have to guess which hierarchy they got.
@@ -181,12 +189,12 @@ limits are product defaults to test with real reviewers, not universal facts.
 | Deck scale | Overview has 2–5 slides; change decks have 3–10. Larger decks fail readiness and must split by reviewer decision or workflow. |
 | One idea | Unique title and one-sentence takeaway are required; one `intent`; at most three primary regions. |
 | Image-first | Every non-title slide has a primary visual occupying at least 40% of the usable stage, except `statement` and `code`; at least two thirds of a deck's non-title slides are visual; two prose-only slides may not be adjacent. |
-| Callouts | 1–7 visible callouts; every non-decorative node/edge is in `reading_order`; callout text is adjacent to or connected to its target. |
+| Items | 1–7 primary visible items; every non-decorative node/edge/callout is in `reading_order`; a callout is adjacent to or connected to the item named by `about`. |
 | Density | No more than 60 explanatory words, six bullets, one nesting level, 12 table cells, or 14 visible code lines. Hitting any two maxima is a warning even when each passes. |
 | Geometry | Render at 1280×720 and 1024×576; no clipping, overlap, horizontal/vertical slide scroll, or content outside a 48px safe area. No shrink-to-fit. |
 | Legibility | Body/callout text ≥24 CSS px and code ≥18 CSS px at 1280×720; text lines ≤80 characters; renderer fails computed sizes, not declared CSS. |
-| Evidence | Every current product diff atom is owned by at least one callout; stale and broad mappings fail readiness; repeated ownership requires justification. |
-| Accessibility | Unique title, explicit reading order, text equivalent for every meaningful visual, keyboard-reachable callouts, 4.5:1 normal-text and 3:1 large-text/non-text contrast, and pointer targets at least 24×24 CSS px. |
+| Evidence | Every current product diff atom is owned by at least one item; stale and broad mappings fail readiness; repeated ownership requires justification. |
+| Accessibility | Unique title, explicit reading order, text equivalent for every meaningful visual, keyboard-reachable items, 4.5:1 normal-text and 3:1 large-text/non-text contrast, and pointer targets at least 24×24 CSS px. |
 | Escape hatch | `layout: custom` still passes geometry, evidence, contrast, focus, and text-equivalent checks and records each waived semantic limit with a reason. |
 
 These accessibility thresholds follow WCAG 2.2’s contrast, reflow, focus, and
@@ -197,7 +205,7 @@ match Microsoft’s presentation accessibility guidance
 
 A fixed canvas alone cannot satisfy zoom/reflow needs. The same semantic model
 must produce a **Reading mode** that stacks title, takeaway, visual description,
-ordered callouts, evidence links, and discussions at 320 CSS px without
+ordered items, callout text, evidence links, and discussions at 320 CSS px without
 two-dimensional scrolling. Presentation mode shows exactly one slide; Reading
 mode is the accessible, printable, searchable linear projection. Neither mode
 contains information absent from the other.
@@ -213,9 +221,9 @@ the experiment does, weakens orientation and resumption; WAI’s carousel patter
 explicitly supports named slides and position/set-size when useful
 ([WAI carousel pattern](https://www.w3.org/WAI/ARIA/apg/patterns/carousel/)).
 
-Callouts are quiet until hover, focus, or a “show evidence” toggle. Activating
-one opens its exact diff in the existing drawer and preserves slide, focus, and
-annotation state. Comments can target the whole slide or a callout; freehand and
+Item affordances are quiet until hover, focus, or a “show evidence” toggle.
+Activating one—including a callout overlay—opens its exact diff in the existing drawer and preserves slide, focus, and
+annotation state. Comments can target the whole slide or any item; freehand and
 region annotations stay normalized to the slide stage. Deep links load only
 the owning deck, slide, and target. Lazy shell/locate/hydration mechanics from
 the committed renderer should be reused, but the DOM and API are native deck
@@ -234,7 +242,7 @@ Compatibility should be deliberately asymmetric:
 - the slide renderer refuses v2/v3 with `legacy_report_requires_rewrite`;
 - v4 rejects `.chapter`, section manifests, and narrative `.fragment` packages;
 - `add-chapter`, `add-section`, and `add-fragment` refuse v4; `add-deck`,
-  `add-slide`, `set-slide-content`, and `add-callout` refuse v2/v3;
+  `add-slide`, `set-slide-content`, and `add-item` refuse v2/v3;
 - no renderer flag treats one legacy fragment as one slide, no content is
   truncated or auto-shrunk, and no approval is inherited merely because all old
   diff atoms can be mapped;
@@ -256,7 +264,7 @@ The emitted plan inventories every legacy target, landmark, claim, thread,
 approval, external reference, and diff atom through the query API. The agent
 must mark each narrative target `reuse`, `rewrite`, `split`, `merge`, or
 `historical-only`, provide successor targets and a reason, and assign every diff
-atom to a new callout. Dry-run validates the complete graph, renders a contact
+atom to a new item. Dry-run validates the complete graph, renders a contact
 sheet, and reports uncovered/stale evidence, ambiguous anchors, density failures,
 and records that cannot carry. Apply writes a new Saga atomically and never
 changes or deletes the source. Interrupted runs resume from content-addressed
@@ -266,14 +274,14 @@ Preservation rules are strict:
 
 | Record | Rewrite behavior |
 | --- | --- |
-| Diff evidence | Copy canonical URIs and notes byte-for-byte when still current; author new ownership at callouts; never widen selectors. |
-| Visual landmarks | Reuse IDs only when the asset/element is retained; otherwise create callouts and an explicit old→new map. |
-| Claims | Create a replacement claim targeting the new callout and a `supersedes` relation; do not mutate the old claim. |
+| Diff evidence | Copy canonical URIs and notes byte-for-byte when still current; author new ownership at items; never widen selectors. |
+| Visual landmarks | Reuse IDs only when the asset/element is retained; otherwise create items and an explicit old→new map. |
+| Claims | Create a replacement claim targeting the new item and a `supersedes` relation; do not mutate the old claim. |
 | Verifications | Do not carry by default. A new analysis result may cite the old verification only when the statement and evidence are unchanged. |
 | Threads/annotations | Preserve in migration history. Keep active only when content and selector/geometry digests are identical; otherwise mark `needs_reanchor` and link to candidate successors. Never guess after split/merge. |
 | Approvals | Never activate on rewritten content. Preserve historical decisions and require fresh deck/slide review. |
 | Deep links | Store independent alias records. One-to-one aliases redirect; one-to-many aliases open a migration landing view listing successors. |
-| External Saga references | Add deck/slide/callout target kinds. Revision-pinned legacy references keep resolving at their old revision; refreshed references follow explicit aliases, never silent retargeting. |
+| External Saga references | Add deck/slide/item target kinds. Revision-pinned legacy references keep resolving at their old revision; refreshed references follow explicit aliases, never silent retargeting. |
 
 The independent alias/migration records belong under `___migration/<rewrite-id>/`
 and are additive files so parallel rewrites do not contend on one map. This
@@ -289,8 +297,8 @@ default only after the pilot. The primary authoring loop in help and the skill
 becomes:
 
 1. inspect the diff and draft a storyboard of decks, slides, and takeaways;
-2. add visual-first slides and semantic callouts;
-3. attach exact atoms to callouts while draining `query gaps`;
+2. add visual-first slides and semantic items, including evidence-bearing callouts;
+3. attach exact atoms to items while draining `query gaps`;
 4. render a contact sheet and run `validate --render`;
 5. audit broad mappings, claims, and accessibility; then open the deck.
 
@@ -312,10 +320,25 @@ merges.
 
 ## Staged rollout and proof
 
+### Current branch checkpoint
+
+This branch now implements the contract-first slice: closed v4 Saga/deck/slide/
+item schemas; native runtime types and targets; explicit v4 initialization and
+authoring commands; Item-only coverage; `change-saga.ai/v2` slide queries;
+closed runtime validation for reading order, callout relationships, standard
+Item density, and evidence placement; and a one-slide-at-a-time renderer that
+reuses the evidence drawer, annotations, reviews, and deep links. V2/v3 remain
+the default and their authoring paths explicitly refuse v4.
+
+The semantic rewrite command, rendered geometry/contrast/font gates, Reading
+mode, contact sheets, and external-reference alias records remain later rollout
+stages. They should not be weakened into heuristics merely to call the preview
+complete.
+
 1. **Contract first.** Publish v4 schemas, URNs, query v2, rewrite-plan schema,
    renderer behavior, and fixtures before production writers. Add schema/runtime
    parity tests and prove v2/v3 bytes and rendering are unchanged.
-2. **Opt-in vertical slice.** Implement `init --mode slides`, deck/slide/callout
+2. **Opt-in vertical slice.** Implement `init --mode slides`, deck/slide/item
    authoring, query, validation, one standard SVG layout, Reading mode, deep
    links, annotations, evidence drawer, and contact sheet. Keep legacy as the
    default.
@@ -333,7 +356,7 @@ merges.
    deprecation window; never auto-rewrite on open.
 
 Required automated coverage includes malformed/closed schemas; concurrent
-slide/callout/event merges; stable ordering; split/merge alias graphs;
+slide/item/event merges; stable ordering; split/merge alias graphs;
 all-or-nothing rewrite and interruption recovery; no carried approval;
 annotation reanchor refusal; bidirectional diff ownership; stale evidence;
 cross-Saga pinned and refreshed resolution; unique IDs and deep links; geometry,

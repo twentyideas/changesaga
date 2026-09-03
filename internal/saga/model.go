@@ -10,8 +10,10 @@ const (
 
 	LegacySagaVersion  = 2
 	CurrentSagaVersion = 3
+	SlideSagaVersion   = 4
 	V2SchemaURL        = "https://changesaga.dev/schema/v2/saga.schema.json"
 	V3SchemaURL        = "https://changesaga.dev/schema/v3/saga.schema.json"
+	V4SchemaURL        = "https://changesaga.dev/schema/v4/saga.schema.json"
 
 	// CurrentVersion and SchemaURL remain the v2 component/init aliases. Keeping
 	// them stable prevents adding v3-only roots without an explicit upgrade.
@@ -20,7 +22,7 @@ const (
 )
 
 func SupportedSagaVersion(version int) bool {
-	return version == LegacySagaVersion || version == CurrentSagaVersion
+	return version == LegacySagaVersion || version == CurrentSagaVersion || version == SlideSagaVersion
 }
 
 func SagaSchemaURL(version int) string {
@@ -29,18 +31,92 @@ func SagaSchemaURL(version int) string {
 		return V2SchemaURL
 	case CurrentSagaVersion:
 		return V3SchemaURL
+	case SlideSagaVersion:
+		return V4SchemaURL
 	default:
 		return ""
 	}
 }
 
 type Manifest struct {
-	Schema  string `json:"$schema,omitempty"`
-	Version int    `json:"version"`
-	ID      string `json:"id"`
-	Title   string `json:"title"`
-	PR      *PR    `json:"pr,omitempty"`
-	Source  Source `json:"source"`
+	Schema       string        `json:"$schema,omitempty"`
+	Version      int           `json:"version"`
+	ID           string        `json:"id"`
+	Title        string        `json:"title"`
+	PR           *PR           `json:"pr,omitempty"`
+	Source       Source        `json:"source"`
+	Presentation *Presentation `json:"presentation,omitempty"`
+}
+
+type Presentation struct {
+	Mode         string `json:"mode"`
+	AspectRatio  string `json:"aspect_ratio"`
+	OverviewDeck string `json:"overview_deck"`
+}
+
+type DeckManifest struct {
+	Version   int    `json:"version"`
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	Role      string `json:"role"`
+	Rank      int    `json:"rank"`
+	Objective string `json:"objective"`
+}
+
+type SlideManifest struct {
+	Version            int      `json:"version"`
+	ID                 string   `json:"id"`
+	Title              string   `json:"title"`
+	Rank               int      `json:"rank"`
+	Intent             string   `json:"intent"`
+	Layout             string   `json:"layout"`
+	MediaType          string   `json:"media_type"`
+	Entrypoint         string   `json:"entrypoint"`
+	Takeaway           string   `json:"takeaway"`
+	ReadingOrder       []string `json:"reading_order"`
+	ExceptionRationale string   `json:"exception_rationale,omitempty"`
+}
+
+type ItemManifest struct {
+	Version     int              `json:"version"`
+	ID          string           `json:"id"`
+	Kind        string           `json:"kind"`
+	Label       string           `json:"label"`
+	Description string           `json:"description,omitempty"`
+	Selector    LandmarkSelector `json:"selector"`
+	Hotspot     *LandmarkRegion  `json:"hotspot,omitempty"`
+	About       string           `json:"about,omitempty"`
+	Body        string           `json:"body,omitempty"`
+	Placement   string           `json:"placement,omitempty"`
+	Leader      string           `json:"leader,omitempty"`
+}
+
+type Deck struct {
+	Path      string `json:"path"`
+	Directory string `json:"-"`
+	DeckManifest
+	Target  string   `json:"target"`
+	Slides  []*Slide `json:"slides"`
+	Reviews []Review `json:"reviews,omitempty"`
+}
+
+type Slide struct {
+	Path      string `json:"path"`
+	Directory string `json:"-"`
+	SlideManifest
+	Target  string   `json:"target"`
+	Items   []*Item  `json:"items"`
+	Reviews []Review `json:"reviews,omitempty"`
+}
+
+type Item struct {
+	Path      string `json:"path"`
+	Directory string `json:"-"`
+	ItemManifest
+	Target   string     `json:"target"`
+	Diffs    []DiffFile `json:"diffs,omitempty"`
+	HasDiffs bool       `json:"-"`
+	Reviews  []Review   `json:"reviews,omitempty"`
 }
 
 // PR uses a pointer for Number so an absent pull request number stays absent.
@@ -98,18 +174,19 @@ type FragmentManifest struct {
 }
 
 type Fragment struct {
-	Path       string     `json:"path"`
-	Directory  string     `json:"-"`
-	ID         string     `json:"id"`
-	Title      string     `json:"title,omitempty"`
-	MediaType  string     `json:"media_type"`
-	Entrypoint string     `json:"entrypoint"`
-	Order      int        `json:"order,omitempty"`
-	Target     string     `json:"target"`
-	Diffs      []DiffFile `json:"diffs,omitempty"`
-	HasDiffs   bool       `json:"-"`
-	Landmarks  []Landmark `json:"landmarks,omitempty"`
-	Reviews    []Review   `json:"reviews,omitempty"`
+	Path       string         `json:"path"`
+	Directory  string         `json:"-"`
+	ID         string         `json:"id"`
+	Title      string         `json:"title,omitempty"`
+	MediaType  string         `json:"media_type"`
+	Entrypoint string         `json:"entrypoint"`
+	Order      int            `json:"order,omitempty"`
+	Target     string         `json:"target"`
+	Diffs      []DiffFile     `json:"diffs,omitempty"`
+	HasDiffs   bool           `json:"-"`
+	Landmarks  []Landmark     `json:"landmarks,omitempty"`
+	Reviews    []Review       `json:"reviews,omitempty"`
+	SlideMeta  *SlideManifest `json:"-"`
 }
 
 type Landmark struct {
@@ -124,6 +201,8 @@ type Landmark struct {
 	Target      string           `json:"target"`
 	Diffs       []DiffFile       `json:"diffs,omitempty"`
 	HasDiffs    bool             `json:"-"`
+	ItemMeta    *ItemManifest    `json:"-"`
+	Reviews     []Review         `json:"reviews,omitempty"`
 }
 
 type LandmarkSelector struct {
@@ -317,6 +396,7 @@ type Saga struct {
 	Root          string         `json:"root"`
 	Manifest      Manifest       `json:"manifest"`
 	Section       *Section       `json:"section"`
+	Decks         []*Deck        `json:"decks,omitempty"`
 	Threads       []*Thread      `json:"threads,omitempty"`
 	DiffReviews   []DiffReview   `json:"diff_reviews,omitempty"`
 	Claims        []Claim        `json:"claims,omitempty"`
@@ -352,4 +432,16 @@ func FragmentTarget(sagaID, fragmentID string) string {
 
 func LandmarkTarget(sagaID, fragmentID, landmarkID string) string {
 	return FragmentTarget(sagaID, fragmentID) + ":landmark:" + landmarkID
+}
+
+func DeckTarget(sagaID, deckID string) string {
+	return "urn:change-saga:" + sagaID + ":deck:" + deckID
+}
+
+func SlideTarget(sagaID, slideID string) string {
+	return "urn:change-saga:" + sagaID + ":slide:" + slideID
+}
+
+func ItemTarget(sagaID, slideID, itemID string) string {
+	return SlideTarget(sagaID, slideID) + ":item:" + itemID
 }

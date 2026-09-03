@@ -274,8 +274,12 @@ func (s *session) indexSection(section *saga.Section, parent string) {
 		s.indexDiffs(section.Target, section.Diffs)
 	}
 	for _, fragment := range section.Fragments {
+		fragmentKind := "fragment"
+		if fragment.SlideMeta != nil {
+			fragmentKind = "slide"
+		}
 		fragmentEntry := &targetEntry{
-			node:  Node{Kind: "fragment", Target: fragment.Target, Parent: section.Target, ID: fragment.ID, Title: fragment.Title, Order: fragment.Order, MediaType: fragment.MediaType},
+			node:  Node{Kind: fragmentKind, Target: fragment.Target, Parent: section.Target, ID: fragment.ID, Title: fragment.Title, Order: fragment.Order, MediaType: fragment.MediaType},
 			diffs: fragment.Diffs, reviews: fragment.Reviews, fragment: fragment,
 		}
 		if fragmentEntry.node.Title == "" {
@@ -295,10 +299,21 @@ func (s *session) indexSection(section *saga.Section, parent string) {
 		entry.children = append(entry.children, fragment.Target)
 		for i := range fragment.Landmarks {
 			landmark := &fragment.Landmarks[i]
+			landmarkKind := "landmark"
+			if fragment.SlideMeta != nil {
+				landmarkKind = "item"
+			}
 			landmarkEntry := &targetEntry{node: Node{
-				Kind: "landmark", Target: landmark.Target, Parent: fragment.Target, ID: landmark.ID, Title: landmark.Label,
+				Kind: landmarkKind, Target: landmark.Target, Parent: fragment.Target, ID: landmark.ID, Title: landmark.Label,
 				Description: landmark.Description, Selector: landmarkValue(landmark.Selector),
-			}, diffs: landmark.Diffs}
+			}, diffs: landmark.Diffs, reviews: landmark.Reviews}
+			if landmark.ItemMeta != nil {
+				landmarkEntry.node.ItemKind = landmark.ItemMeta.Kind
+				landmarkEntry.node.About = landmark.ItemMeta.About
+				landmarkEntry.node.Body = landmark.ItemMeta.Body
+				landmarkEntry.node.Placement = landmark.ItemMeta.Placement
+				landmarkEntry.node.Leader = landmark.ItemMeta.Leader
+			}
 			s.targets[landmark.Target] = landmarkEntry
 			if !s.summaryOnly {
 				s.indexDiffs(landmark.Target, landmark.Diffs)
@@ -390,11 +405,16 @@ func (s *session) Overview(ctx context.Context, _ OverviewQuery) (Overview, erro
 		result.OverviewFragments = append(result.OverviewFragments, s.finishNode(fragment.Target, false))
 	}
 	for _, child := range root.Children {
-		if child.Kind != "chapter" {
+		if child.Kind != "chapter" && child.Kind != "deck" {
 			continue
 		}
 		node := s.finishNode(child.Target, true)
-		result.Chapters = append(result.Chapters, ChapterSummary{Node: node, ChildCount: len(child.Children), FragmentCount: len(child.Fragments), OwnsCurrent: node.Diffs.Current > 0, OwnsStale: node.Diffs.Stale > 0})
+		summary := ChapterSummary{Node: node, ChildCount: len(child.Children), FragmentCount: len(child.Fragments), OwnsCurrent: node.Diffs.Current > 0, OwnsStale: node.Diffs.Stale > 0}
+		if child.Kind == "deck" {
+			result.Decks = append(result.Decks, summary)
+		} else {
+			result.Chapters = append(result.Chapters, summary)
+		}
 	}
 	return result, nil
 }
@@ -484,16 +504,24 @@ func (s *session) ReadFragment(ctx context.Context, query FragmentQuery) (Fragme
 	landmarks := []SemanticLandmark{}
 	for _, child := range entry.children {
 		landmark := s.targets[child]
-		if landmark == nil || landmark.node.Kind != "landmark" {
+		if landmark == nil || (landmark.node.Kind != "landmark" && landmark.node.Kind != "item") {
 			continue
 		}
 		finished := s.finishNode(child, false)
 		landmarks = append(landmarks, SemanticLandmark{
 			Target: child, ID: finished.ID, Label: finished.Title, Description: finished.Description,
-			Selector: finished.Selector, Diffs: finished.Diffs,
+			Selector: finished.Selector, Diffs: finished.Diffs, Kind: finished.ItemKind, About: finished.About,
+			Body: finished.Body, Placement: finished.Placement, Leader: finished.Leader,
 		})
 	}
-	return FragmentContent{Target: query.Target, ID: entry.fragment.ID, Title: entry.node.Title, MediaType: entry.fragment.MediaType, Content: chunk, Assets: append([]AssetSummary{}, value.assets...), Landmarks: landmarks}, nil
+	result := FragmentContent{Target: query.Target, ID: entry.fragment.ID, Title: entry.node.Title, MediaType: entry.fragment.MediaType, Content: chunk, Assets: append([]AssetSummary{}, value.assets...), Landmarks: landmarks}
+	if entry.fragment.SlideMeta != nil {
+		result.Intent = entry.fragment.SlideMeta.Intent
+		result.Layout = entry.fragment.SlideMeta.Layout
+		result.Takeaway = entry.fragment.SlideMeta.Takeaway
+		result.ReadingOrder = append([]string(nil), entry.fragment.SlideMeta.ReadingOrder...)
+	}
+	return result, nil
 }
 
 func (s *session) FragmentDiffs(ctx context.Context, query FragmentDiffQuery) (FragmentDiffs, error) {

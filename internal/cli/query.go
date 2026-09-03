@@ -12,9 +12,11 @@ import (
 
 	"github.com/twentyideas/changesaga/internal/livingapp"
 	"github.com/twentyideas/changesaga/internal/reviewapp"
+	"github.com/twentyideas/changesaga/internal/saga"
 )
 
 const querySchema = "change-saga.ai/v1"
+const slideQuerySchema = "change-saga.ai/v2"
 
 const (
 	maxQueryPageSize     = 1000
@@ -29,6 +31,7 @@ type queryOpenOptions struct {
 	SourceDir   string
 	SummaryOnly bool
 	Operation   string
+	SlideMode   bool
 }
 
 type overviewQuery struct{}
@@ -192,6 +195,8 @@ var queryOperations = []string{
 	"children",
 	"fragment",
 	"fragment-diffs",
+	"slide",
+	"slide-diffs",
 	"diff-owners",
 	"reviews",
 	"gaps",
@@ -220,6 +225,8 @@ var queryPurpose = map[string]string{
 	"children":            "one level of children under a target; a fragment's children are its landmarks",
 	"fragment":            "bounded fragment content by byte range, without reading files directly",
 	"fragment-diffs":      "the diff atoms a saga, chapter, section, fragment, or landmark owns",
+	"slide":               "bounded visual slide content and its ordered semantic Items",
+	"slide-diffs":         "the exact diff atoms owned by a slide Item",
 	"diff-owners":         "the narrative targets that own a given diff atom, event, or file",
 	"reviews":             "the normalized review overlay: threads, messages, events, and approvals",
 	"gaps":                "uncovered atoms, stale selectors, and overlapping coverage",
@@ -245,6 +252,8 @@ var queryUsage = map[string]string{
 	"children":            "change-saga query children --saga PATH --parent TARGET [--cursor TOKEN] [--limit N] [--repo PATH]",
 	"fragment":            "change-saga query fragment --saga PATH --target FRAGMENT [--offset N] [--limit N] [--repo PATH]",
 	"fragment-diffs":      "change-saga query fragment-diffs --saga PATH --target TARGET [--cursor TOKEN] [--limit N] [--repo PATH]",
+	"slide":               "change-saga query slide --saga PATH --target SLIDE [--offset N] [--limit N] [--repo PATH]",
+	"slide-diffs":         "change-saga query slide-diffs --saga PATH --target ITEM [--cursor TOKEN] [--limit N] [--repo PATH]",
 	"diff-owners":         "change-saga query diff-owners --saga PATH --diff URI [--cursor TOKEN] [--limit N] [--repo PATH]",
 	"reviews":             "change-saga query reviews --saga PATH [--target TARGET] [--thread ID] [--state STATE] [--cursor TOKEN] [--limit N] [--repo PATH]",
 	"gaps":                "change-saga query gaps --saga PATH [--kind uncovered|stale|overlap] [--cursor TOKEN] [--limit N] [--repo PATH]",
@@ -290,17 +299,35 @@ func queryWithOpener(ctx context.Context, args []string, out io.Writer, open que
 
 	request, options, help, err := parseQuery(operation, args[1:])
 	if help {
+		if operation == "slide" || operation == "slide-diffs" {
+			return writeQuerySuccessSchema(out, slideQuerySchema, "", queryHelpFor(operation), nil)
+		}
 		return writeQuerySuccess(out, "", queryHelpFor(operation), nil)
 	}
 	if err != nil {
-		return writeQueryFailure(out, &queryError{Code: "invalid_argument", Message: err.Error()})
+		return writeQueryOperationFailure(out, operation, &queryError{Code: "invalid_argument", Message: err.Error()})
 	}
 	options.SummaryOnly = operation == "overview" || operation == "children"
 	options.Operation = operation
+	manifest, manifestErr := saga.ReadManifest(options.SagaRoot)
+	if manifestErr == nil {
+		options.SlideMode = manifest.Version == saga.SlideSagaVersion
+	}
+	if operation == "slide" || operation == "slide-diffs" || operation == "fragment" || operation == "fragment-diffs" {
+		if manifestErr != nil && (operation == "slide" || operation == "slide-diffs") {
+			return writeQueryOperationFailure(out, operation, normalizeQueryError(manifestErr))
+		}
+		if manifestErr == nil && (operation == "slide" || operation == "slide-diffs") && manifest.Version != saga.SlideSagaVersion {
+			return writeQueryOperationFailure(out, operation, &queryError{Code: "invalid_argument", Message: "slide queries require a v4 slide-native Saga"})
+		}
+		if manifestErr == nil && (operation == "fragment" || operation == "fragment-diffs") && manifest.Version == saga.SlideSagaVersion {
+			return writeQueryOperationFailure(out, operation, &queryError{Code: "invalid_argument", Message: "v4 does not expose slides as fragments; use slide or slide-diffs"})
+		}
+	}
 
 	session, err := open(ctx, options)
 	if err != nil {
-		return writeQueryFailure(out, normalizeQueryError(err))
+		return writeQueryOperationFailure(out, operation, normalizeQueryError(err))
 	}
 
 	var result any
@@ -350,7 +377,10 @@ func queryWithOpener(ctx context.Context, args []string, out io.Writer, open que
 		err = errors.New("unsupported query request")
 	}
 	if err != nil {
-		return writeQueryFailure(out, normalizeQueryError(err))
+		return writeQueryOperationFailure(out, operation, normalizeQueryError(err))
+	}
+	if options.SlideMode || operation == "slide" || operation == "slide-diffs" {
+		return writeQuerySuccessSchema(out, slideQuerySchema, session.Snapshot(), result, responsePage)
 	}
 	return writeQuerySuccess(out, session.Snapshot(), result, responsePage)
 }
@@ -367,6 +397,9 @@ func writeQuerySchema(args []string, out io.Writer) error {
 		return writeQueryFailure(out, &queryError{Code: "invalid_argument", Message: "unknown schema operation", Details: map[string]any{"allowed": queryDataOperations()}})
 	}
 	description := querySchemaFor(operation)
+	if operation == "slide" || operation == "slide-diffs" {
+		return writeQuerySuccessSchema(out, slideQuerySchema, "", description, nil)
+	}
 	return writeQuerySuccess(out, "", description, nil)
 }
 
@@ -388,6 +421,8 @@ func querySchemaFor(operation string) querySchemaDescription {
 		"children":            {"data.children"},
 		"fragment":            {"data.target", "data.content.data", "data.content.next_offset", "data.assets", "data.landmarks"},
 		"fragment-diffs":      {"data.selectors", "data.atoms", "data.stale"},
+		"slide":               {"data.target", "data.intent", "data.layout", "data.takeaway", "data.content.data", "data.assets", "data.items", "data.reading_order"},
+		"slide-diffs":         {"data.selectors", "data.atoms", "data.stale"},
 		"diff-owners":         {"data.atoms"},
 		"reviews":             {"data.items"},
 		"gaps":                {"data.gaps"},
@@ -408,6 +443,7 @@ func querySchemaFor(operation string) querySchemaDescription {
 	countedPaths := map[string]string{
 		"children":            "data.children",
 		"fragment-diffs":      "data.selectors",
+		"slide-diffs":         "data.selectors",
 		"diff-owners":         "data.atoms",
 		"reviews":             "data.items",
 		"gaps":                "data.gaps",
@@ -426,7 +462,7 @@ func querySchemaFor(operation string) querySchemaDescription {
 		"readiness":           "data.requirements",
 	}
 	pagination := queryPaginationDescription{Kind: "none"}
-	if operation == "fragment" {
+	if operation == "fragment" || operation == "slide" {
 		pagination = queryPaginationDescription{Kind: "byte-offset", NextOffsetPath: "data.content.next_offset"}
 	} else if operation != "overview" {
 		pagination = queryPaginationDescription{
@@ -456,11 +492,11 @@ func parseQuery(operation string, args []string) (any, queryOpenOptions, bool, e
 		flags.StringVar(&parent, "parent", "", "parent target URN")
 		flags.StringVar(&cursor, "cursor", "", "pagination cursor")
 		flags.Var(&limit, "limit", "page size")
-	case "fragment":
+	case "fragment", "slide":
 		flags.StringVar(&target, "target", "", "fragment target URN")
 		flags.Int64Var(&offset, "offset", 0, "content byte offset")
 		flags.Var(&limit, "limit", "content byte limit")
-	case "fragment-diffs":
+	case "fragment-diffs", "slide-diffs":
 		flags.StringVar(&target, "target", "", "saga target URN")
 		flags.StringVar(&cursor, "cursor", "", "pagination cursor")
 		flags.Var(&limit, "limit", "page size")
@@ -571,7 +607,7 @@ func parseQuery(operation string, args []string) (any, queryOpenOptions, bool, e
 		return nil, queryOpenOptions{}, false, errors.New("--saga is required")
 	}
 	maxLimit := maxQueryPageSize
-	if operation == "fragment" {
+	if operation == "fragment" || operation == "slide" {
 		maxLimit = maxFragmentChunkSize
 	}
 	if limit.set && (limit.value < 1 || limit.value > maxLimit) {
@@ -586,7 +622,7 @@ func parseQuery(operation string, args []string) (any, queryOpenOptions, bool, e
 	if operation == "children" && strings.TrimSpace(parent) == "" {
 		return nil, queryOpenOptions{}, false, errors.New("--parent is required")
 	}
-	if (operation == "fragment" || operation == "fragment-diffs") && strings.TrimSpace(target) == "" {
+	if (operation == "fragment" || operation == "fragment-diffs" || operation == "slide" || operation == "slide-diffs") && strings.TrimSpace(target) == "" {
 		return nil, queryOpenOptions{}, false, errors.New("--target is required")
 	}
 	if operation == "diff-owners" && strings.TrimSpace(diff) == "" {
@@ -626,9 +662,9 @@ func parseQuery(operation string, args []string) (any, queryOpenOptions, bool, e
 		return overviewQuery{}, options, false, nil
 	case "children":
 		return childrenQuery{Parent: parent, Cursor: cursor, Limit: limit.value}, options, false, nil
-	case "fragment":
+	case "fragment", "slide":
 		return fragmentQuery{Target: target, Offset: offset, Limit: limit.value}, options, false, nil
-	case "fragment-diffs":
+	case "fragment-diffs", "slide-diffs":
 		return fragmentDiffQuery{Target: target, Cursor: cursor, Limit: limit.value}, options, false, nil
 	case "diff-owners":
 		return diffOwnerQuery{Diff: diff, Cursor: cursor, Limit: limit.value}, options, false, nil
@@ -686,11 +722,15 @@ func firstNonempty(values ...string) string {
 }
 
 func writeQuerySuccess(out io.Writer, snapshot string, data any, page *queryPageEnvelope) error {
+	return writeQuerySuccessSchema(out, querySchema, snapshot, data, page)
+}
+
+func writeQuerySuccessSchema(out io.Writer, schema string, snapshot string, data any, page *queryPageEnvelope) error {
 	if page == nil {
 		page = &queryPageEnvelope{Total: 1, Returned: 1}
 	}
 	return encodeQueryEnvelope(out, queryEnvelope{
-		Schema:   querySchema,
+		Schema:   schema,
 		OK:       true,
 		Snapshot: snapshot,
 		Data:     data,
@@ -699,8 +739,20 @@ func writeQuerySuccess(out io.Writer, snapshot string, data any, page *queryPage
 }
 
 func writeQueryFailure(out io.Writer, queryErr *queryError) error {
+	return writeQueryFailureSchema(out, querySchema, queryErr)
+}
+
+func writeQueryOperationFailure(out io.Writer, operation string, queryErr *queryError) error {
+	schema := querySchema
+	if operation == "slide" || operation == "slide-diffs" {
+		schema = slideQuerySchema
+	}
+	return writeQueryFailureSchema(out, schema, queryErr)
+}
+
+func writeQueryFailureSchema(out io.Writer, schema string, queryErr *queryError) error {
 	if err := encodeQueryEnvelope(out, queryEnvelope{
-		Schema: querySchema,
+		Schema: schema,
 		OK:     false,
 		Error: &queryErrorEnvelope{
 			Code:      queryErr.Code,

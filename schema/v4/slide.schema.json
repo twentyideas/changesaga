@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://changesaga.dev/schema/v4/slide.schema.json",
+  "title": "Change Saga v4 slide",
+  "type": "object", "additionalProperties": false,
+  "required": ["version", "id", "title", "rank", "intent", "layout", "media_type", "entrypoint", "takeaway", "reading_order"],
+  "properties": {
+    "version": { "const": 4 },
+    "id": { "$ref": "#/$defs/id" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "rank": { "type": "integer", "minimum": 0 },
+    "intent": { "enum": ["orient", "explain", "compare", "trace", "prove", "risk", "conclude"] },
+    "layout": { "enum": ["hero", "diagram", "before-after", "sequence", "evidence", "risk", "custom"] },
+    "media_type": { "enum": ["image/svg+xml", "image/png", "image/jpeg", "image/webp", "text/html"] },
+    "entrypoint": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" },
+    "takeaway": { "type": "string", "minLength": 1, "maxLength": 180 },
+    "reading_order": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+    "exception_rationale": { "type": "string", "minLength": 1, "maxLength": 240 }
+  },
+  "allOf": [
+    { "if": { "properties": { "layout": { "const": "custom" } }, "required": ["layout"] }, "then": { "required": ["exception_rationale"] } }
+  ],
+  "$defs": { "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" } }
+}

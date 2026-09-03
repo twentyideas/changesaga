@@ -20,7 +20,7 @@ func ValidID(value string) bool { return stableID.MatchString(value) }
 
 func validateManifest(manifest Manifest, result *Validation) {
 	if !SupportedSagaVersion(manifest.Version) {
-		addIssue(result, "error", "saga.json", fmt.Sprintf("unsupported Saga version %d; expected 2 or 3", manifest.Version))
+		addIssue(result, "error", "saga.json", fmt.Sprintf("unsupported Saga version %d; expected 2, 3, or 4", manifest.Version))
 	}
 	if !stableID.MatchString(manifest.ID) {
 		addIssue(result, "error", "saga.json", "id must be a stable 1-128 character identifier")
@@ -44,6 +44,23 @@ func validateManifest(manifest Manifest, result *Validation) {
 	validateRepositoryIdentity(manifest.Source.Repository, "saga.json", result)
 	if strings.TrimSpace(manifest.Source.Base) == "" || strings.TrimSpace(manifest.Source.Head) == "" {
 		addIssue(result, "error", "saga.json", "source.base and source.head are required")
+	}
+	if manifest.Version == SlideSagaVersion {
+		if manifest.Presentation == nil {
+			addIssue(result, "error", "saga.json", "v4 requires presentation mode metadata")
+		} else {
+			if manifest.Presentation.Mode != "slides" {
+				addIssue(result, "error", "saga.json", "v4 presentation.mode must be slides")
+			}
+			if manifest.Presentation.AspectRatio != "16:9" {
+				addIssue(result, "error", "saga.json", "v4 presentation.aspect_ratio must be 16:9")
+			}
+			if !stableID.MatchString(manifest.Presentation.OverviewDeck) {
+				addIssue(result, "error", "saga.json", "v4 presentation.overview_deck must be a stable deck id")
+			}
+		}
+	} else if manifest.Presentation != nil {
+		addIssue(result, "error", "saga.json", "presentation mode is only valid for a v4 slide-native Saga")
 	}
 }
 
@@ -648,12 +665,20 @@ func validateVisualMappings(fragment *Fragment, result *Validation) {
 		return
 	}
 	if len(fragment.Landmarks) == 0 {
-		addIssue(result, "warning", fragment.Path, "visual fragment has no addressable landmarks; mark meaningful nodes or regions so reviewers can link them to code")
+		message := "visual fragment has no addressable landmarks; mark meaningful nodes or regions so reviewers can link them to code"
+		if fragment.SlideMeta != nil {
+			message = "slide has no semantic Items; mark every meaningful node, edge, region, transition, and callout"
+		}
+		addIssue(result, "warning", fragment.Path, message)
 	}
 	mapped := len(fragment.Diffs) > 0
 	for _, landmark := range fragment.Landmarks {
 		if strings.TrimSpace(landmark.Description) == "" {
-			addIssue(result, "warning", landmark.Path, "visual landmark has no semantic description; add what this element means so non-visual consumers do not have to parse its geometry")
+			message := "visual landmark has no semantic description; add what this element means so non-visual consumers do not have to parse its geometry"
+			if fragment.SlideMeta != nil {
+				message = "Item has no semantic description; add its non-visual equivalent"
+			}
+			addIssue(result, "warning", landmark.Path, message)
 		}
 		if len(landmark.Diffs) > 0 {
 			mapped = true
@@ -666,7 +691,11 @@ func validateVisualMappings(fragment *Fragment, result *Validation) {
 		}
 	}
 	if !mapped {
-		addIssue(result, "warning", fragment.Path, "visual fragment has no directly linked code; attach exact diff evidence to the fragment or its landmarks")
+		message := "visual fragment has no directly linked code; attach exact diff evidence to the fragment or its landmarks"
+		if fragment.SlideMeta != nil {
+			message = "slide has no Item-linked code; attach every exact diff atom to the Item it realizes"
+		}
+		addIssue(result, "warning", fragment.Path, message)
 	}
 }
 

@@ -150,6 +150,11 @@ type Node struct {
 	MediaType   string         `json:"media_type,omitempty"`
 	Bytes       int64          `json:"bytes,omitempty"`
 	Selector    *LandmarkValue `json:"selector,omitempty"`
+	ItemKind    string         `json:"item_kind,omitempty"`
+	About       string         `json:"about,omitempty"`
+	Body        string         `json:"body,omitempty"`
+	Placement   string         `json:"placement,omitempty"`
+	Leader      string         `json:"leader,omitempty"`
 }
 
 type LandmarkValue struct {
@@ -171,6 +176,7 @@ type Overview struct {
 	Root              Node             `json:"root"`
 	OverviewFragments []Node           `json:"overview_fragments"`
 	Chapters          []ChapterSummary `json:"chapters"`
+	Decks             []ChapterSummary `json:"decks,omitempty"`
 	Coverage          CoverageSummary  `json:"coverage"`
 }
 
@@ -214,13 +220,17 @@ type AssetSummary struct {
 }
 
 type FragmentContent struct {
-	Target    string             `json:"target"`
-	ID        string             `json:"id"`
-	Title     string             `json:"title"`
-	MediaType string             `json:"media_type"`
-	Content   FragmentChunk      `json:"content"`
-	Assets    []AssetSummary     `json:"assets"`
-	Landmarks []SemanticLandmark `json:"landmarks"`
+	Target       string             `json:"target"`
+	ID           string             `json:"id"`
+	Title        string             `json:"title"`
+	MediaType    string             `json:"media_type"`
+	Content      FragmentChunk      `json:"content"`
+	Assets       []AssetSummary     `json:"assets"`
+	Landmarks    []SemanticLandmark `json:"landmarks"`
+	Intent       string             `json:"intent,omitempty"`
+	Layout       string             `json:"layout,omitempty"`
+	Takeaway     string             `json:"takeaway,omitempty"`
+	ReadingOrder []string           `json:"reading_order,omitempty"`
 }
 
 type SemanticLandmark struct {
@@ -230,6 +240,11 @@ type SemanticLandmark struct {
 	Description string         `json:"description,omitempty"`
 	Selector    *LandmarkValue `json:"selector"`
 	Diffs       CompactDiffs   `json:"diffs"`
+	Kind        string         `json:"kind,omitempty"`
+	About       string         `json:"about,omitempty"`
+	Body        string         `json:"body,omitempty"`
+	Placement   string         `json:"placement,omitempty"`
+	Leader      string         `json:"leader,omitempty"`
 }
 
 type ResolvedSelector struct {

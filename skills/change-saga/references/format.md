@@ -1,4 +1,45 @@
-# Change Saga v2 quick reference
+# Change Saga format quick reference
+
+## Slide-native v4
+
+v4 is an intentionally incompatible visual document mode. It does not contain
+chapters, sections, fragments, or landmarks:
+
+```text
+<name>.saga/
+  saga.json                       # version 4; presentation.mode = slides
+  overview.deck/
+    deck.json
+    change-overview.slide/
+      slide.json
+      slide.svg
+      ___items/
+        validation.item/
+          item.json
+          ___diffs/
+```
+
+Targets are `urn:change-saga:<saga>:deck:<deck>`,
+`urn:change-saga:<saga>:slide:<slide>`, and
+`urn:change-saga:<saga>:slide:<slide>:item:<item>`. Only the Item target may own
+coverage. Items include `callout`; a callout can name another Item with `about`
+and can own its own exact diff atoms.
+
+```sh
+change-saga init --mode slides --base main --head HEAD --title "Title" review.saga
+change-saga add-slide --deck overview --intent orient --layout hero --title "What changed" review.saga change-overview
+change-saga set-slide-content --target change-overview --source ./overview.svg review.saga
+change-saga add-item --slide change-overview --kind callout --id reject-early --element-id reject-early --description "Invalid input stops before persistence." --body "No write begins for invalid input." review.saga
+change-saga cover --target reject-early --uri 'saga-diff://v1/line?...' --note "Moves validation ahead of persistence." review.saga
+change-saga query slide --saga review.saga --target change-overview
+change-saga query slide-diffs --saga review.saga --target reject-early
+```
+
+Never migrate by editing `version` or renaming report packages. A later
+AI-assisted rewrite command must create a separate v4 destination and preserve
+the source until its coverage/evidence ledger is reconciled.
+
+## Report v2/v3
 
 ## Layout
 

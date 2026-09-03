@@ -477,6 +477,9 @@ func planCoverage(document *saga.Saga, records []coverRecord, files []saga.DiffF
 		if err != nil {
 			return nil, recordError(records, i, err)
 		}
+		if document.Manifest.Version == saga.SlideSagaVersion && !strings.Contains(targetID, ":item:") {
+			return nil, recordError(records, i, fmt.Errorf("v4 evidence must target an Item; deck-, slide-, and Saga-level coverage is refused"))
+		}
 		diffDir := filepath.Join(targetDir, "___diffs")
 		name, err := coverageName(record, files[i], diffDir, claimed, allowed)
 		if err != nil {

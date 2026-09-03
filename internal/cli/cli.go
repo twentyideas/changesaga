@@ -84,7 +84,7 @@ func (e *StatusError) Error() string { return "command reported a non-success st
 // commandUsage is the single source of each command's usage line so the
 // overview, the per-command -h banner, and argument errors cannot drift apart.
 var commandOrder = []string{
-	"init", "upgrade", "story", "citation", "relation", "design", "plan", "add-chapter", "add-section", "add-fragment", "set-fragment-content", "add-landmark", "cover", "remove-coverage", "replace-coverage", "add-claim", "verify-claim",
+	"init", "upgrade", "story", "citation", "relation", "design", "plan", "add-deck", "add-slide", "set-slide-content", "add-item", "add-chapter", "add-section", "add-fragment", "set-fragment-content", "add-landmark", "cover", "remove-coverage", "replace-coverage", "add-claim", "verify-claim",
 	"thread", "reply", "review", "validate", "status", "compare", "query",
 	"serve", "open", "install-skill", "spec",
 }
@@ -116,6 +116,10 @@ var commandUsage = map[string]string{
 	"plan assign":                 "change-saga plan assign --item URN --workspace UUID --repository-id ID --branch NAME --request-id ID [flags] <saga>",
 	"plan progress":               "change-saga plan progress --item URN --from EVENT... --to STATE --request-id ID [flags] <saga>",
 	"plan record-merge":           "change-saga plan record-merge --item URN --unit ID --state STATE --request-id ID [flags] <saga>",
+	"add-deck":                    "change-saga add-deck [flags] <saga> <name>",
+	"add-slide":                   "change-saga add-slide --deck TARGET --intent INTENT --layout LAYOUT [flags] <saga> <name>",
+	"set-slide-content":           "change-saga set-slide-content --target TARGET --source FILE|- [--json|--quiet] <saga>",
+	"add-item":                    "change-saga add-item --slide TARGET --kind KIND [selector] [flags] <saga>",
 	"add-chapter":                 "change-saga add-chapter [flags] <saga> <name>",
 	"add-section":                 "change-saga add-section [flags] <saga> <section/path>",
 	"add-fragment":                "change-saga add-fragment [flags] <saga>",
@@ -143,6 +147,11 @@ func PrintHelp(out io.Writer) {
 	fmt.Fprint(out, `Change Saga — make every part of a large change reviewable
 
 Choose the workflow:
+  Visual review deck (v4 preview)
+    Start with "init --mode slides". Explain the change as a sequence of 16:9
+    visual arguments. Every meaningful node, edge, region, and callout is an
+    Item; exact diff evidence attaches to Items, never to a whole slide.
+
   Existing implementation or PR
     Use a Saga when the change is large enough to need a guided review across
     multiple behaviors, risks, systems, or workstreams. For a small focused
@@ -200,7 +209,7 @@ func commandFlags(name, usage string, out io.Writer) *flag.FlagSet {
 }
 
 var commandDescription = map[string]string{
-	"init":                        "Start either a reviewer guide for an existing large change or a living Saga for\nnew work. Small focused changes may not need a Saga; optional planning surfaces\nare created only when their commands are used.",
+	"init":                        "Start a reviewer guide or living Saga. Small focused changes may not need a Saga.\nChoose --mode slides for the intentionally incompatible v4 visual review format;\nexisting reports are never silently paginated.",
 	"upgrade":                     "Atomically adopt the v3 Saga container. Existing v2 narrative and review\nrecords are preserved; requirements, design, and work-plan roots remain optional.",
 	"story":                       "Create and append revisions or lifecycle events to user stories and acceptance\ncriteria. Stories may lead, follow, or evolve alongside prototypes; cite their source\nand revise them as the feature is clarified.",
 	"story add":                   "Add a sourced user story and its first complete acceptance-criteria revision.\nIt may begin from a prototype, precede one, or evolve alongside one.",
@@ -226,10 +235,15 @@ var commandDescription = map[string]string{
 	"plan assign":                 "Bind a work item to a concrete workspace and branch so progress can be shown in the\nlive Saga. Assignment is coordination state, not evidence of implementation.",
 	"plan progress":               "Append explicit workspace progress against the item. Progress helps coordination but\nnever proves correctness, acceptance-criterion coverage, or delivery.",
 	"plan record-merge":           "Append merge evidence for a declared merge unit. A merged state contributes delivery\nevidence only when its immutable commit and diff links resolve.",
+	"add-deck":                    "Add an independently reviewable deck to a v4 slide-native Saga. Exactly one deck is\nthe overview; change decks organize one coherent reviewer concern.",
+	"add-slide":                   "Add a visual-first 16:9 slide to a v4 deck. Standard layouts are bounded composition\ncontracts; custom layouts require an explicit rationale.",
+	"set-slide-content":           "Replace a slide's visual entrypoint while preserving its stable target and items.",
+	"add-item":                    "Add one semantic visual item, including an evidence-bearing callout overlay, and append\nit to the slide reading order. Exact diff evidence attaches here.",
 	"set-fragment-content":        "Replace a fragment entrypoint through the supported authoring API. Use --source -\nto read content from standard input; the fragment media type and metadata are preserved.",
 	"add-landmark":                "Create a coverable target for one Markdown heading, exact text span, HTML/SVG\nelement, or normalized image region inside a fragment. An SVG --element-id is\nmeasured into an on-canvas link automatically; --hotspot overrides its bounds.\nHTML elements need --hotspot for an on-canvas link. Visual landmarks require a\nsemantic --description for non-visual consumers.",
-	"cover": `Attach the exact diff atoms a narrative target explains. --target accepts a
-section or fragment path, a target URN, or <fragment-path>#<landmark-id>.
+	"cover": `Attach the exact diff atoms a review target explains. In v4 the target must
+be an Item. Report mode also accepts section/fragment paths, target URNs, and
+<fragment-path>#<landmark-id>.
 --batch reads newline-delimited JSON records (or one JSON array) with the
 per-record fields target, path, side, lines, changed_lines, event, old_path,
 new_path, note, name, and uris; the whole batch is resolved before anything is written, and a
@@ -267,6 +281,7 @@ func Init(ctx context.Context, args []string, out io.Writer) error {
 	allowRepositoryMismatch := flags.Bool("allow-repository-mismatch", false, "accept an explicitly declared repository that differs from origin")
 	prNumber := flags.Int("pr", 0, "pull request number")
 	prURL := flags.String("pr-url", "", "pull request URL")
+	mode := flags.String("mode", "report", "document mode: report or slides (intentionally incompatible)")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -299,11 +314,19 @@ func Init(ctx context.Context, args []string, out io.Writer) error {
 			return fmt.Errorf("--pr-url must be an absolute URI")
 		}
 	}
+	if *mode != "report" && *mode != "slides" {
+		return fmt.Errorf("--mode must be report or slides")
+	}
 	repositoryURI, _, err := discoverRepository(ctx, *repoDir, *repository, *allowLocalRepository, *allowRepositoryMismatch)
 	if err != nil {
 		return err
 	}
 	manifest := saga.Manifest{Schema: saga.SchemaURL, Version: saga.CurrentVersion, ID: *id, Title: *title, Source: saga.Source{Repository: repositoryURI, Base: *base, Head: *head}}
+	if *mode == "slides" {
+		manifest.Schema = saga.V4SchemaURL
+		manifest.Version = saga.SlideSagaVersion
+		manifest.Presentation = &saga.Presentation{Mode: "slides", AspectRatio: "16:9", OverviewDeck: "overview"}
+	}
 	if *prNumber != 0 || *prURL != "" {
 		manifest.PR = &saga.PR{URL: *prURL}
 		if *prNumber != 0 {
@@ -333,7 +356,11 @@ func Init(ctx context.Context, args []string, out io.Writer) error {
 		if err := os.Chmod(stage, 0o755); err != nil {
 			return err
 		}
-		for _, dir := range []string{"___diffs", "___approvals", "___claims", "___verifications", filepath.Join("___review", "threads"), filepath.Join("___review", "diffs")} {
+		reservedDirs := []string{"___approvals", "___claims", "___verifications", filepath.Join("___review", "threads"), filepath.Join("___review", "diffs")}
+		if *mode != "slides" {
+			reservedDirs = append(reservedDirs, "___diffs")
+		}
+		for _, dir := range reservedDirs {
 			if err := os.MkdirAll(filepath.Join(stage, dir), 0o755); err != nil {
 				return err
 			}
@@ -341,8 +368,19 @@ func Init(ctx context.Context, args []string, out io.Writer) error {
 		if err := store.WriteJSON(filepath.Join(stage, "saga.json"), manifest, true); err != nil {
 			return err
 		}
-		if err := store.WriteFile(filepath.Join(stage, "README.md"), []byte(reviewerBootstrapREADME), 0o644, true); err != nil {
+		readme := reviewerBootstrapREADME
+		if *mode == "slides" {
+			readme = slideNativeBootstrapREADME
+		}
+		if err := store.WriteFile(filepath.Join(stage, "README.md"), []byte(readme), 0o644, true); err != nil {
 			return err
+		}
+		if *mode == "slides" {
+			deckDir := filepath.Join(stage, "overview.deck")
+			if err := os.MkdirAll(filepath.Join(deckDir, "___approvals"), 0o755); err != nil {
+				return err
+			}
+			return store.WriteJSON(filepath.Join(deckDir, "deck.json"), saga.DeckManifest{Version: saga.SlideSagaVersion, ID: "overview", Title: "Overview", Role: "overview", Rank: 0, Objective: "Orient the reviewer to the change and its review path."}, true)
 		}
 		return populateFragment(filepath.Join(stage, "overview.fragment"), overview, "", nil)
 	})
@@ -352,7 +390,11 @@ func Init(ctx context.Context, args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "Created %s\nNext: change-saga add-chapter --title \"Architecture\" %s architecture\n", root, root)
+	if *mode == "slides" {
+		fmt.Fprintf(out, "Created slide-native %s\nNext: change-saga add-slide --deck overview --intent orient --layout hero --title \"What changed\" %s change-overview\n", root, root)
+	} else {
+		fmt.Fprintf(out, "Created %s\nNext: change-saga add-chapter --title \"Architecture\" %s architecture\n", root, root)
+	}
 	return nil
 }
 
@@ -378,6 +420,9 @@ func addChapter(_ context.Context, args []string, out io.Writer, scope authoring
 	}
 	var created, createdID, createdTarget string
 	err := authorMutation(flags.Arg(0), func(document *saga.Saga) error {
+		if document.Manifest.Version == saga.SlideSagaVersion {
+			return fmt.Errorf("add-chapter is unavailable for v4 slide-native Sagas; use add-deck")
+		}
 		hierarchyRoot, err := scope.hierarchyRoot(document)
 		if err != nil {
 			return err
@@ -454,6 +499,9 @@ func addSection(_ context.Context, args []string, out io.Writer, scope authoring
 	}
 	var created, createdID, createdTarget string
 	err := authorMutation(flags.Arg(0), func(document *saga.Saga) error {
+		if document.Manifest.Version == saga.SlideSagaVersion {
+			return fmt.Errorf("add-section is unavailable for v4 slide-native Sagas; use add-slide")
+		}
 		parentDir, _, err := scope.resolveTarget(document, parentPath, false)
 		if err != nil {
 			return fmt.Errorf("resolve parent: %w", err)
@@ -540,6 +588,9 @@ func addFragment(_ context.Context, args []string, out io.Writer, scope authorin
 	}
 	var created, createdTarget string
 	err = authorMutation(flags.Arg(0), func(document *saga.Saga) error {
+		if document.Manifest.Version == saga.SlideSagaVersion {
+			return fmt.Errorf("add-fragment is unavailable for v4 slide-native Sagas; use add-slide")
+		}
 		sectionDir, _, err := scope.resolveTarget(document, *section, false)
 		if err != nil {
 			return err
@@ -657,7 +708,7 @@ func Reply(_ context.Context, args []string, out io.Writer) error {
 
 func Review(_ context.Context, args []string, out io.Writer) error {
 	flags := commandFlags("review", commandUsage["review"], out)
-	target := flags.String("target", ".", "saga, chapter, section, or fragment path")
+	target := flags.String("target", ".", "review target path, ID, or URN; v4 supports decks, slides, and Items")
 	state := flags.String("state", "", "approved, rejected, closed, or open")
 	body := flags.String("body", "", "optional review note")
 	if err := flags.Parse(args); err != nil {
@@ -1467,7 +1518,7 @@ func copyFragmentPackage(source, target string) error {
 		if entry.Type()&os.ModeSymlink != 0 {
 			return fmt.Errorf("fragment source cannot contain symlink %s", rel)
 		}
-		if strings.HasPrefix(entry.Name(), "___") || rel == "fragment.json" {
+		if strings.HasPrefix(entry.Name(), "___") || rel == "fragment.json" || rel == "slide.json" {
 			if entry.IsDir() {
 				return filepath.SkipDir
 			}
@@ -1523,6 +1574,20 @@ const installSkillTemplate = `Install or update a project-local agent skill name
 A Change Saga is the authored change proposal submitted for review: a visual,
 executable successor to a flat pull-request title and description. It is the
 thing to be reviewed, not the review itself.
+
+## Slide-native v4
+
+For a new visual review deck, initialize with ` + "`change-saga init --mode slides`" + `.
+This is an intentionally incompatible format, not a pagination option for an
+existing report. Its spine is Saga → Deck → Slide → Item. Author with
+` + "`add-deck`" + `, ` + "`add-slide`" + `, ` + "`set-slide-content`" + `, and ` + "`add-item`" + `.
+Each slide is one 16:9 visual argument with one takeaway and no more than seven
+semantic Items in a standard layout. Nodes, edges, regions, transitions,
+examples, risks, metrics, statements, and overlaid callouts are all Items. A
+callout may name another Item and may own its own exact diff evidence. Attach
+every product diff atom to the narrowest Item; v4 refuses Saga-, deck-, and
+slide-level coverage. Read it with the v2 ` + "`slide`" + ` and ` + "`slide-diffs`" + ` query
+operations. Never migrate by editing a report's manifest version.
 
 ## Choose the workflow before authoring
 

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"strings"
 
 	"github.com/twentyideas/changesaga/internal/livingapp"
 	"github.com/twentyideas/changesaga/internal/reviewapp"
@@ -10,6 +11,30 @@ import (
 type reviewAppQuerySession struct {
 	session       reviewapp.Session
 	livingSession livingapp.Session
+	operation     string
+	slideMode     bool
+}
+
+type slideOverview struct {
+	Saga     reviewapp.SagaIdentity     `json:"saga"`
+	Source   reviewapp.SourceSnapshot   `json:"source"`
+	Root     reviewapp.Node             `json:"root"`
+	Decks    []reviewapp.ChapterSummary `json:"decks"`
+	Coverage reviewapp.CoverageSummary  `json:"coverage"`
+}
+
+type slideQueryContent struct {
+	Target       string                       `json:"target"`
+	ID           string                       `json:"id"`
+	Title        string                       `json:"title"`
+	Intent       string                       `json:"intent"`
+	Layout       string                       `json:"layout"`
+	Takeaway     string                       `json:"takeaway"`
+	MediaType    string                       `json:"media_type"`
+	Content      reviewapp.FragmentChunk      `json:"content"`
+	Assets       []reviewapp.AssetSummary     `json:"assets"`
+	Items        []reviewapp.SemanticLandmark `json:"items"`
+	ReadingOrder []string                     `json:"reading_order"`
 }
 
 func openReviewAppSession(ctx context.Context, options queryOpenOptions) (querySession, error) {
@@ -25,13 +50,13 @@ func openReviewAppSession(ctx context.Context, options queryOpenOptions) (queryS
 		if err != nil {
 			return nil, err
 		}
-		return &reviewAppQuerySession{session: reviewSession, livingSession: session}, nil
+		return &reviewAppQuerySession{session: reviewSession, livingSession: session, operation: options.Operation, slideMode: options.SlideMode}, nil
 	}
 	session, err := reviewapp.Open(ctx, reviewapp.OpenOptions{SagaRoot: options.SagaRoot, SourceDir: options.SourceDir, SummaryOnly: options.SummaryOnly})
 	if err != nil {
 		return nil, err
 	}
-	return &reviewAppQuerySession{session: session}, nil
+	return &reviewAppQuerySession{session: session, operation: options.Operation, slideMode: options.SlideMode}, nil
 }
 
 func (s *reviewAppQuerySession) Snapshot() string {
@@ -42,7 +67,11 @@ func (s *reviewAppQuerySession) Snapshot() string {
 }
 
 func (s *reviewAppQuerySession) Overview(ctx context.Context, _ overviewQuery) (any, error) {
-	return s.session.Overview(ctx, reviewapp.OverviewQuery{})
+	value, err := s.session.Overview(ctx, reviewapp.OverviewQuery{})
+	if err != nil || !s.slideMode {
+		return value, err
+	}
+	return slideOverview{Saga: value.Saga, Source: value.Source, Root: value.Root, Decks: value.Decks, Coverage: value.Coverage}, nil
 }
 
 func (s *reviewAppQuerySession) Children(ctx context.Context, query childrenQuery) (queryPage, error) {
@@ -51,10 +80,17 @@ func (s *reviewAppQuerySession) Children(ctx context.Context, query childrenQuer
 }
 
 func (s *reviewAppQuerySession) ReadFragment(ctx context.Context, query fragmentQuery) (any, error) {
-	return s.session.ReadFragment(ctx, reviewapp.FragmentQuery{Target: query.Target, Offset: query.Offset, Limit: query.Limit})
+	value, err := s.session.ReadFragment(ctx, reviewapp.FragmentQuery{Target: query.Target, Offset: query.Offset, Limit: query.Limit})
+	if err != nil || s.operation != "slide" {
+		return value, err
+	}
+	return slideQueryContent{Target: value.Target, ID: value.ID, Title: value.Title, Intent: value.Intent, Layout: value.Layout, Takeaway: value.Takeaway, MediaType: value.MediaType, Content: value.Content, Assets: value.Assets, Items: value.Landmarks, ReadingOrder: value.ReadingOrder}, nil
 }
 
 func (s *reviewAppQuerySession) FragmentDiffs(ctx context.Context, query fragmentDiffQuery) (queryPage, error) {
+	if s.operation == "slide-diffs" && !strings.Contains(query.Target, ":item:") {
+		return queryPage{}, &queryError{Code: "invalid_argument", Message: "slide-diffs target must identify an Item"}
+	}
 	value, err := s.session.FragmentDiffs(ctx, reviewapp.FragmentDiffQuery{Target: query.Target, Cursor: query.Cursor, Limit: query.Limit})
 	return queryPage{Data: value, Page: queryPageFromApplication(value.Page)}, err
 }

@@ -49,6 +49,9 @@ func MutationIndexFromDocument(document *Saga) MutationIndex {
 			for landmarkIndex := range fragment.Landmarks {
 				landmark := &fragment.Landmarks[landmarkIndex]
 				index.Targets[landmark.Target] = landmark.Directory
+				if document.Manifest.Version == SlideSagaVersion {
+					index.ReviewTargets[landmark.Target] = landmark.Directory
+				}
 			}
 		}
 		for _, child := range section.Children {
@@ -83,6 +86,13 @@ func LoadMutationIndex(root string) (MutationIndex, Validation, error) {
 		addIssue(&validation, "error", ".", "saga root directory must end in .saga")
 	}
 	validateManifest(manifest, &validation)
+	if manifest.Version == SlideSagaVersion {
+		document, loadedValidation, loadErr := load(abs, loadOptions{skipCoverage: true})
+		if loadErr != nil {
+			return MutationIndex{}, loadedValidation, loadErr
+		}
+		return MutationIndexFromDocument(document), loadedValidation, nil
+	}
 	index := MutationIndex{
 		Root: abs, Manifest: manifest,
 		Targets:       map[string]string{SagaTarget(manifest.ID): abs},

@@ -178,3 +178,14 @@ func TestVersionedQueryBoundaryUsesPinnedIdentity(t *testing.T) {
 		}
 	}
 }
+
+func TestVersionedQueryBoundaryUsesV2ForSlideTargets(t *testing.T) {
+	reference := testReference("urn:change-saga:checkout:slide:reject-early:item:guard")
+	request, err := NewQueryRequest(reference)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.Schema != SlideQueryAPIVersion || request.TargetURN != reference.TargetURN || request.Revision != reference.Revision {
+		t.Fatalf("slide reference lost its v2 pinned identity: %#v", request)
+	}
+}
