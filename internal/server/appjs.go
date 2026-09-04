@@ -108,6 +108,7 @@ const appJavaScript = `(() => {
       syncSlidePresentation();
       return;
     }
+    if (q('.diff-drawer.open')) closeDrawer(false);
     try {
       if (!document.documentElement.requestFullscreen) throw new Error('fullscreen unavailable');
       await document.documentElement.requestFullscreen();

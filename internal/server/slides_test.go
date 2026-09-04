@@ -47,6 +47,17 @@ func TestSlideNativeTemplateRendersADeckInsteadOfChapters(t *testing.T) {
 			t.Fatalf("slide interaction contract %q missing", contract)
 		}
 	}
+	for _, contract := range []string{
+		`.slide-thumbnail-hit:hover{background:transparent}`,
+		`body.presentation-mode .diff-drawer,body.presentation-mode .drawer-backdrop{display:none}`,
+	} {
+		if !strings.Contains(pageStyles, contract) {
+			t.Fatalf("slide overlay isolation contract %q missing", contract)
+		}
+	}
+	if !strings.Contains(appJavaScript, `if (q('.diff-drawer.open')) closeDrawer(false);`) {
+		t.Fatal("presentation mode did not close the review drawer before entering fullscreen")
+	}
 }
 
 func TestSlideNativeAssetRouteResolvesTheSlideTarget(t *testing.T) {

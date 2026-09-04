@@ -90,6 +90,7 @@ a{color:var(--accent)}
 .slide-thumbnail-status[data-review-state=rejected]{border-color:var(--red);background:var(--reject-bg);color:var(--red)}
 .slide-thumbnail-status[data-review-state=rejected]::before{content:'!'}
 .slide-thumbnail-hit{position:absolute;z-index:2;inset:0;width:100%;padding:0;border:0;border-radius:5px;background:transparent}
+.slide-thumbnail-hit:hover{background:transparent}
 .slide-thumbnail-hit:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .slide-thumbnail-card:hover .slide-thumbnail-preview{border-color:var(--faint)}
 .slide-thumbnail-card.active{color:var(--ink);font-weight:600}
@@ -119,6 +120,7 @@ body.presentation-mode{overflow:hidden;background:#000}
 body.presentation-mode>.topbar,body.presentation-mode .slide-shell>.slide-sidebar,body.presentation-mode .manifest-view,body.presentation-mode .annotation-toolbox{display:none}
 body.presentation-mode .slide-shell{display:block;width:100vw;height:100vh;min-height:0;background:#000}
 body.presentation-mode .slide-shell:not(.code-mode)>.content{width:100vw;height:100vh}
+body.presentation-mode .diff-drawer,body.presentation-mode .drawer-backdrop{display:none}
 body.presentation-mode .slide-native-stage{width:min(100vw,177.7778vh);height:auto;max-height:100vh;box-shadow:none}
 body.presentation-mode .slide-native-header,body.presentation-mode .slide-native-slide .fragment-head{opacity:0;pointer-events:none}
 body.presentation-mode .slide-native-slide .review-overlay,body.presentation-mode .slide-native-slide .landmark-hotspot,body.presentation-mode .slide-native-slide .sticky-note,body.presentation-mode .slide-native-slide .annotation-bubble{display:none}
