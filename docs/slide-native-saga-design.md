@@ -191,6 +191,8 @@ limits are product defaults to test with real reviewers, not universal facts.
 | --- | --- |
 | Deck scale | Overview has 2–5 slides; change decks have 3–10. Larger decks fail readiness and must split by reviewer decision or workflow. |
 | One idea | Unique title and one-sentence takeaway are required; one `intent`; at most three primary regions. |
+| Form fit | The visual grammar encodes the actual relationship: boundaries, containment, directed flow, time, states, cardinality, branches, matched comparison, or failure propagation. A card grid is not a neutral fallback. |
+| Deck diversity | A contact-sheet audit fails when unrelated reviewer questions reduce to the same primitive topology. Reuse a visual grammar only when the underlying relationship is genuinely the same. |
 | Image-first | Every non-title slide has a primary visual occupying at least 40% of the usable stage, except `statement` and `code`; at least two thirds of a deck's non-title slides are visual; two prose-only slides may not be adjacent. |
 | Items | 1–7 primary visible items; every non-decorative node/edge/callout is in `reading_order`; a callout is adjacent to or connected to the item named by `about`. |
 | Density | No more than 60 explanatory words, six bullets, one nesting level, 12 table cells, or 14 visible code lines. Hitting any two maxima is a warning even when each passes. |

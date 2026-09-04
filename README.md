@@ -15,6 +15,9 @@ callout is an Item and links directly to the exact diff it explains. Existing
 v2/v3 reports are not silently paginated or reinterpreted. V4 uses compact,
 flat, category-prefixed files so deep checkout locations remain portable; its
 readable titles and stable target URNs live in the records rather than paths.
+Slide form follows meaning: architecture, data flow, sequence, lifecycle,
+entity, logic, comparison, failure, and evidence questions should not collapse
+into one repeated card template.
 
 Change Saga turns a large code change into a reviewable document. It gives the
 change an overview, chapters, diagrams, examples, and links to the exact code

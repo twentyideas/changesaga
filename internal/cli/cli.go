@@ -149,8 +149,9 @@ func PrintHelp(out io.Writer) {
 Choose the workflow:
   Visual review deck (v4 preview)
     Start with "init --mode slides". Explain the change as a sequence of 16:9
-    visual arguments. Every meaningful node, edge, region, and callout is an
-    Item; exact diff evidence attaches to Items, never to a whole slide.
+    visual arguments whose form matches the relationship being explained—not
+    a repeated card template. Every meaningful node, edge, region, and callout
+    is an Item; exact diff evidence attaches to Items, never to a whole slide.
 
   Existing implementation or PR
     Use a Saga when the change is large enough to need a guided review across
@@ -236,7 +237,7 @@ var commandDescription = map[string]string{
 	"plan progress":               "Append explicit workspace progress against the item. Progress helps coordination but\nnever proves correctness, acceptance-criterion coverage, or delivery.",
 	"plan record-merge":           "Append merge evidence for a declared merge unit. A merged state contributes delivery\nevidence only when its immutable commit and diff links resolve.",
 	"add-deck":                    "Add an independently reviewable deck to a v4 slide-native Saga. Exactly one deck is\nthe overview; change decks organize one coherent reviewer concern.",
-	"add-slide":                   "Add a visual-first 16:9 slide to a v4 deck. Standard layouts are bounded composition\ncontracts; custom layouts require an explicit rationale.",
+	"add-slide":                   "Add one visual argument to a v4 deck. Intent names the reviewer job; layout names\ngeometry, not meaning. Choose a purpose-fit system, architecture, data-flow, sequence,\nstate, entity, logic, comparison, failure, or evidence diagram before choosing styling.",
 	"set-slide-content":           "Replace a slide's visual entrypoint while preserving its stable target and items.",
 	"add-item":                    "Add one semantic visual item, including an evidence-bearing callout overlay, and append\nit to the slide reading order. Exact diff evidence attaches here.",
 	"set-fragment-content":        "Replace a fragment entrypoint through the supported authoring API. Use --source -\nto read content from standard input; the fragment media type and metadata are preserved.",
@@ -1050,6 +1051,14 @@ func Spec(args []string, out io.Writer) error {
 				"manifest": saga.FlatManifestName, "layout": "flat", "max_basename": saga.FlatMaxBasename, "max_absolute_path": saga.FlatMaxPath,
 				"categories": map[string]string{"10-d": "deck", "20-s": "slide", "30-i": "item", "40-e": "evidence", "50-c": "claim", "60-v": "verification", "80-85": "review"},
 				"content":    "one self-contained visual file sharing its slide manifest stem",
+				"visual_forms": map[string]string{
+					"system-context": "actors, external systems, boundaries, and changed interfaces", "architecture": "containment, dependencies, and responsibilities",
+					"data-flow": "directed inputs, transformations, storage, and outputs", "sequence": "participants, time, calls, responses, and exceptional returns",
+					"state-machine": "states, events, guards, and terminal states", "entity-relationship": "entities, keys, ownership, and cardinality",
+					"logic-flow": "predicates, branches, joins, loops, and outcomes", "before-after": "matched axes and the meaningful delta",
+					"failure-path": "trigger, propagation, containment, cleanup, recovery, and outcome", "evidence": "claims or risks connected to tests, measurements, or observations",
+				},
+				"composition_audits": []string{"silhouette", "relationship", "contact-sheet"},
 			},
 		})
 	}
@@ -1685,6 +1694,62 @@ inside records, never filenames. Always use CLI commands and query targets;
 never invent, rename, nest, glob, or infer meaning from v4 storage files. Slide
 HTML must be self-contained.
 
+### Storyboard visual questions before creating slides
+
+Do not start by choosing a reusable SVG template. First inspect the change and
+write a private storyboard. For every proposed slide, name:
+
+- the specific reviewer question it answers, not merely its topic;
+- its rhetorical intent and one-sentence takeaway;
+- the relationship the picture must make visible;
+- the visual form that truthfully encodes that relationship; and
+- the meaningful nodes, edges, states, regions, or callouts that will become
+  evidence-bearing Items.
+
+Choose visual form from the explanation, not from styling convenience:
+
+- a system-context diagram shows actors, external systems, trust or ownership
+  boundaries, and the changed interface;
+- an architecture/composition diagram shows containment, dependencies,
+  responsibilities, and what moved or was introduced;
+- a data-flow diagram shows direction, inputs, transformations, storage, and
+  outputs;
+- a sequence diagram shows participants, time ordering, calls, responses, and
+  exceptional returns;
+- a state machine shows states, labeled events, guards, and terminal states;
+- an entity-relationship diagram shows entities, keys, ownership, and
+  cardinality;
+- a logic or decision flow shows predicates, branches, joins, loops, and
+  outcomes;
+- a before/after comparison uses matched axes and highlights the meaningful
+  delta;
+- a failure-path diagram traces trigger, propagation, containment, cleanup,
+  recovery, and observable outcome; and
+- an evidence view connects a concrete claim or risk to tests, measurements,
+  or observable results.
+
+` + "`intent`" + ` states the slide's job and ` + "`layout`" + ` states its canvas arrangement;
+neither is a substitute for the correct visual form. A grid or row of labeled
+cards is valid only when category membership or matched comparison is itself
+the relationship being explained. Do not use cards as a universal container
+for architecture, flow, lifecycle, data, or failure semantics. Boxes connected
+only by reading order are an outline, not a diagram.
+
+Before handoff, run three visual audits:
+
+1. **Silhouette test:** mentally remove labels, prose, and color. The remaining
+   topology should still communicate whether this is containment, flow,
+   sequence, state, entity structure, branching, or comparison.
+2. **Relationship test:** every relationship essential to the takeaway is
+   visibly encoded with an edge, boundary, lane, nesting, cardinality, axis,
+   or transition—not left to nearby prose.
+3. **Contact-sheet test:** inspect all slides together. Reuse a visual grammar
+   only when the underlying relationship is genuinely the same. If unrelated
+   slides reduce to the same number and arrangement of cards, rewrite them.
+
+Perform these audits before chasing complete diff coverage. Coverage is the
+final omission check; it must not rationalize a generic visual after the fact.
+
 ## Choose the workflow before authoring
 
 First determine whether the user is documenting an existing implementation or
@@ -1914,6 +1979,17 @@ semantic IDs, titles, parentage, and durable target URNs remain in the records.
 Basenames are at most 64 characters and the default portability budget is 240
 characters for an absolute path. Each slide owns one self-contained SVG, image,
 or HTML file sharing its manifest stem. Evidence may target only Items.
+
+For authoring, ` + "`intent`" + ` names the reviewer job and ` + "`layout`" + ` names the canvas
+arrangement; neither names the diagram's meaning. Storyboard the specific
+question, relationship, and visual form before creating a slide. Use system
+boundaries for context, containment and dependencies for architecture,
+directed transformations for data flow, lanes and messages for sequence,
+labeled transitions for state, keys and cardinality for entity relationships,
+branches for logic, matched axes for before/after, and
+trigger-to-recovery paths for failure behavior. A repeated row of cards is not
+a neutral visual language. Audit silhouette, encoded relationships, and the
+whole contact sheet before treating coverage as complete.
 
 Change Saga format v2
 

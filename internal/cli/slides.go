@@ -92,8 +92,8 @@ func AddSlide(_ context.Context, args []string, out io.Writer) error {
 	deckTarget := flags.String("deck", "", "containing deck path, id, or URN")
 	id := flags.String("id", "", "stable slide identifier")
 	title := flags.String("title", "", "slide title")
-	intent := flags.String("intent", "", "orient, explain, compare, trace, prove, risk, or conclude")
-	layout := flags.String("layout", "", "hero, diagram, before-after, sequence, evidence, risk, or custom")
+	intent := flags.String("intent", "", "reviewer job: orient, explain, compare, trace, prove, risk, or conclude")
+	layout := flags.String("layout", "", "canvas arrangement, not diagram meaning: hero, diagram, before-after, sequence, evidence, risk, or custom")
 	var rank optionalInt
 	flags.Var(&rank, "rank", "non-negative review order; defaults after the last slide")
 	takeaway := flags.String("takeaway", "", "single reviewer takeaway (maximum 180 characters)")
@@ -429,6 +429,19 @@ This is a v4 visual review deck, not a paginated report.
 Author with ` + "`change-saga add-deck`" + `, ` + "`change-saga add-slide`" + `, and ` + "`change-saga add-item`" + `.
 Every meaningful visual node, edge, region, transition, or callout is an Item.
 Attach exact diff evidence to Items with ` + "`change-saga cover`" + `; deck- and slide-level evidence is refused.
+
+Before authoring, storyboard the reviewer question and truthful visual form of
+each slide. Use boundaries for systems, containment/dependencies for
+architecture, directed edges for data flow, lanes/messages for sequence,
+states and labeled transitions for lifecycle, entities and cardinalities for
+data models, branches for logic, and trigger/propagation/containment/recovery
+for failure paths. A row of labeled cards is not a default diagram.
+
+Audit the deck as a contact sheet before handoff. If slides remain
+indistinguishable after labels and colors are ignored—or several unrelated
+questions use the same primitive topology—rewrite them before mapping more
+evidence. Coverage detects omissions; it cannot turn a weak visual into an explanation.
+
 The package is intentionally flat and compact. Treat category-prefixed filenames
 as private storage; use stable IDs, target URNs, and ` + "`change-saga query`" + `.
 `

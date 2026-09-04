@@ -35,6 +35,17 @@ Every v4 root entry is a regular file, basenames are limited to 64 characters,
 ranks fit `0000`–`9999`, and the CLI reserves a conservative 240-character
 absolute path budget including room for the longest permitted basename.
 
+For authoring, `intent` identifies the reviewer job and `layout` identifies the
+canvas arrangement. Authors choose the visual form from the relationship being
+explained: boundaries for system context, containment and dependencies for
+architecture, directed transformations for data flow, lanes and messages for
+sequence, labeled transitions for state, keys and cardinality for entities,
+branches for logic, matched axes for comparison, and trigger-to-recovery paths
+for failure behavior. A repeated card grid is valid only when categorization or
+matched comparison is itself the claim. Authors audit slide silhouettes,
+visible relationship encoding, and the whole-deck contact sheet before using
+coverage as the final omission check.
+
 Stable targets are:
 
 ```text

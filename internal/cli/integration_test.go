@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -157,6 +158,8 @@ func TestInstallSkillPrintsPortableAuthoringContract(t *testing.T) {
 		"change-saga query mappings --sort scrutiny", "change-saga add-claim", "change-saga verify-claim",
 		"change-saga compare --json", "must_update", "new_content", "source diffs only",
 		"read the code diff independently", "All-atoms-mapped is an omission invariant",
+		"Storyboard visual questions", "system-context diagram", "state machine", "entity-relationship diagram",
+		"Silhouette test", "Relationship test", "Contact-sheet test", "Do not use cards as a universal container",
 	} {
 		if !strings.Contains(text, expected) {
 			t.Errorf("install-skill output omitted %q", expected)
@@ -169,6 +172,29 @@ func TestInstallSkillPrintsPortableAuthoringContract(t *testing.T) {
 	}
 	if err := InstallSkill([]string{"unexpected"}, &output); err == nil {
 		t.Fatal("install-skill accepted positional arguments")
+	}
+}
+
+func TestSpecJSONExposesPurposeFitVisualFormsAndAudits(t *testing.T) {
+	var output bytes.Buffer
+	if err := Spec([]string{"--json"}, &output); err != nil {
+		t.Fatal(err)
+	}
+	var contract map[string]any
+	if err := json.Unmarshal(output.Bytes(), &contract); err != nil {
+		t.Fatal(err)
+	}
+	v4, ok := contract["slide_native_v4"].(map[string]any)
+	if !ok {
+		t.Fatalf("spec omitted slide-native contract: %#v", contract)
+	}
+	forms, ok := v4["visual_forms"].(map[string]any)
+	if !ok || forms["data-flow"] == nil || forms["state-machine"] == nil || forms["entity-relationship"] == nil || forms["failure-path"] == nil {
+		t.Fatalf("spec omitted purpose-fit visual forms: %#v", forms)
+	}
+	audits, ok := v4["composition_audits"].([]any)
+	if !ok || len(audits) != 3 {
+		t.Fatalf("spec omitted composition audits: %#v", v4["composition_audits"])
 	}
 }
 
