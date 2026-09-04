@@ -149,7 +149,7 @@ func catalogFilesForEvidence(catalog gitdiff.Catalog, evidence []saga.DiffFile) 
 // it reads the authored evidence for each explanation, but only retains the
 // explanations that name the selected catalog file. It never reads source
 // bodies or constructs the global coverage graph.
-func (a *app) catalogFileNarrativeOwners(document *saga.Saga, catalog gitdiff.Catalog, filePath string) ([]*ManifestOwnerView, error) {
+func (a *app) catalogFileNarrativeOwners(document *saga.Saga, catalog gitdiff.Catalog, filePath string) ([]*RelatedSagaChapterView, error) {
 	if filePath == "" {
 		return nil, nil
 	}
@@ -175,25 +175,11 @@ func (a *app) catalogFileNarrativeOwners(document *saga.Saga, catalog gitdiff.Ca
 			targets[target] = true
 		}
 	}
-	var owners []*ManifestOwnerView
-	for _, location := range locations {
-		if !targets[location.target] {
-			continue
-		}
-		title := location.title
-		if title == "" {
-			title = location.itemID
-		}
-		kind := "Fragment"
-		if location.target != location.fragment.Target {
-			kind = "Landmark"
-		}
-		owners = append(owners, &ManifestOwnerView{
-			Target: location.target, Title: title, Kind: kind,
-			Chapter: location.chapterTitle, Href: location.fragmentHref,
-		})
+	owned := make(map[string][]string, len(targets))
+	for target := range targets {
+		owned[target] = []string{target}
 	}
-	return owners, nil
+	return makeRelatedSagaViewsForTargets(locations, owned), nil
 }
 
 type targetEvidenceResult struct {

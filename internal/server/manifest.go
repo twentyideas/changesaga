@@ -83,6 +83,7 @@ type ManifestOwnerView struct {
 	Kind    string
 	Chapter string
 	Href    string
+	Slide   *SlideReferenceView
 }
 
 type ManifestTargetView struct {
@@ -417,20 +418,23 @@ func manifestOwner(target string, locations map[string]manifestTargetLocation) *
 func indexManifestTargets(document *saga.Saga) map[string]manifestTargetLocation {
 	result := map[string]manifestTargetLocation{}
 	order := 0
-	add := func(target, title, kind, chapter, href string) {
+	add := func(target, title, kind, chapter, href string, slide *SlideReferenceView) {
 		order++
 		result[target] = manifestTargetLocation{ManifestOwnerView: ManifestOwnerView{
-			Target: target, Title: title, Kind: kind, Chapter: chapter, Href: href,
+			Target: target, Title: title, Kind: kind, Chapter: chapter, Href: href, Slide: slide,
 		}, order: order}
 	}
-	add(document.Section.Target, document.Manifest.Title, "Saga", "Overview", sagaHref(document.Section.Target))
+	add(document.Section.Target, document.Manifest.Title, "Saga", "Overview", sagaHref(document.Section.Target), nil)
 	var walk func(*saga.Section, string, string)
 	walk = func(section *saga.Section, chapter, chapterHref string) {
 		if section.Kind == "chapter" {
 			chapter, chapterHref = section.Title, ""
-			add(section.Target, section.Title, "Chapter", chapter, sagaHref(section.Target))
+			add(section.Target, section.Title, "Chapter", chapter, sagaHref(section.Target), nil)
+		} else if section.Kind == "deck" {
+			chapter, chapterHref = section.Title, sagaHref(section.Target)
+			add(section.Target, section.Title, "Deck", chapter, chapterHref, nil)
 		} else if section.Kind == "section" {
-			add(section.Target, section.Title, "Section", chapter, sagaHref(section.Target))
+			add(section.Target, section.Title, "Section", chapter, sagaHref(section.Target), nil)
 		}
 		for _, fragment := range section.Fragments {
 			title := fragment.Title
@@ -438,10 +442,25 @@ func indexManifestTargets(document *saga.Saga) map[string]manifestTargetLocation
 				title = fragment.ID
 			}
 			fragmentHref := sagaHref(fragment.Target)
-			add(fragment.Target, title, "Fragment", chapter, fragmentHref)
+			var slide *SlideReferenceView
+			kind := "Fragment"
+			if fragment.SlideMeta != nil {
+				state, _, _, _ := latestReview(fragment.Reviews)
+				slide = &SlideReferenceView{
+					ID: fragment.ID, Title: title, Target: fragment.Target,
+					Anchor: strings.TrimPrefix(fragmentHref, "#"), Href: fragmentHref,
+					URL: fragmentAssetURL(fragment), MediaType: fragment.MediaType, ReviewState: state,
+				}
+				kind = "Slide"
+			}
+			add(fragment.Target, title, kind, chapter, fragmentHref, slide)
 			for index := range fragment.Landmarks {
 				landmark := &fragment.Landmarks[index]
-				add(landmark.Target, landmark.Label, "Landmark", chapter, fragmentHref+"--"+landmark.ID)
+				landmarkKind := "Landmark"
+				if landmark.ItemMeta != nil {
+					landmarkKind = "Item"
+				}
+				add(landmark.Target, landmark.Label, landmarkKind, chapter, fragmentHref+"--"+landmark.ID, slide)
 			}
 		}
 		for _, child := range section.Children {

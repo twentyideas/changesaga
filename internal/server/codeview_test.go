@@ -188,6 +188,71 @@ func TestRelatedSagaLinksBackToExactLandmark(t *testing.T) {
 	}
 }
 
+func TestRelatedSagaRollsItemOwnersUpToSlidesAndGroupsByDeck(t *testing.T) {
+	deckTarget := saga.DeckTarget("visual", "overview")
+	firstTarget := saga.SlideTarget("visual", "flow")
+	secondTarget := saga.SlideTarget("visual", "failure")
+	first := &saga.Fragment{
+		ID: "flow", Title: "Request flow", Target: firstTarget, MediaType: "image/svg+xml", Entrypoint: "flow.svg",
+		SlideMeta: &saga.SlideManifest{ID: "flow", DeckID: "overview"},
+		Reviews:   []saga.Review{{State: "approved", CreatedAt: time.Now()}},
+		Landmarks: []saga.Landmark{
+			{ID: "client", Label: "Client", Target: saga.ItemTarget("visual", "flow", "client")},
+			{ID: "server", Label: "Server", Target: saga.ItemTarget("visual", "flow", "server")},
+		},
+	}
+	second := &saga.Fragment{
+		ID: "failure", Title: "Failure path", Target: secondTarget, MediaType: "text/html", Entrypoint: "failure.html",
+		SlideMeta: &saga.SlideManifest{ID: "failure", DeckID: "overview"},
+		Landmarks: []saga.Landmark{{ID: "timeout", Label: "Timeout", Target: saga.ItemTarget("visual", "failure", "timeout")}},
+	}
+	document := &saga.Saga{
+		Manifest: saga.Manifest{Version: saga.SlideSagaVersion, ID: "visual", Title: "Visual review"},
+		Section: &saga.Section{Kind: "saga", ID: "visual-root", Target: saga.SagaTarget("visual"), Children: []*saga.Section{{
+			Kind: "deck", ID: "overview", Title: "System tour", Target: deckTarget, Fragments: []*saga.Fragment{first, second},
+		}}},
+	}
+	locations := indexNarrativeFragments(document)
+	atoms := []*diffAtomView{
+		{Atom: gitdiff.Atom{Key: "client", URI: "diff://client"}},
+		{Atom: gitdiff.Atom{Key: "server", URI: "diff://server"}},
+		{Atom: gitdiff.Atom{Key: "timeout", URI: "diff://timeout"}},
+	}
+	result := makeRelatedSagaViews(locations, atoms, map[string][]coverage.Assignment{
+		"client":  {{Target: first.Landmarks[0].Target}},
+		"server":  {{Target: first.Landmarks[1].Target}},
+		"timeout": {{Target: second.Landmarks[0].Target}},
+	})
+	if len(result) != 1 || result[0].Title != "System tour" || !result[0].SlideNative || len(result[0].Fragments) != 2 {
+		t.Fatalf("slide owners were not grouped by deck: %#v", result)
+	}
+	flow := result[0].Fragments[0].Slide
+	if flow == nil || flow.Title != "Request flow" || flow.ItemCount != 2 || flow.URL != "/f/flow/flow.svg" || flow.ReviewState != "approved" || flow.Href != sagaHref(firstTarget) {
+		t.Fatalf("item owners did not roll up to the visual slide reference: %#v", flow)
+	}
+	if failure := result[0].Fragments[1].Slide; failure == nil || failure.ItemCount != 1 || failure.MediaType != "text/html" {
+		t.Fatalf("second slide reference = %#v", failure)
+	}
+	var rendered strings.Builder
+	if err := serverTemplate(t).ExecuteTemplate(&rendered, "file-owners", fileOwnersView{Groups: result}); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Count(rendered.String(), `class="related-slide"`); got != 2 || strings.Contains(rendered.String(), ">Client<") || strings.Count(rendered.String(), ">System tour<") != 1 {
+		t.Fatalf("visual slide references were not deduplicated and grouped: %s", rendered.String())
+	}
+	owner := manifestOwner(first.Landmarks[0].Target, indexManifestTargets(document))
+	if owner.Slide == nil || owner.Slide.Target != first.Target || owner.Title != "Client" || owner.Chapter != "System tour" {
+		t.Fatalf("coverage owner lost its exact Item or parent slide: %#v", owner)
+	}
+	rendered.Reset()
+	if err := serverTemplate(t).ExecuteTemplate(&rendered, "manifest-owner-reference", owner); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(rendered.String(), `class="manifest-slide-owner"`) || !strings.Contains(rendered.String(), "Request flow") || !strings.Contains(rendered.String(), "Client") {
+		t.Fatalf("coverage did not render its slide and exact Item: %s", rendered.String())
+	}
+}
+
 func TestFileViewsAttachRendererContextWithoutChangingAtoms(t *testing.T) {
 	old := gitdiff.Atom{Key: "line:app.go:old:2", Kind: "line", Path: "app.go", Side: "old", Line: 2, Content: "old", URI: "old-uri"}
 	added := gitdiff.Atom{Key: "line:app.go:new:2", Kind: "line", Path: "app.go", Side: "new", Line: 2, Content: "new", URI: "new-uri"}

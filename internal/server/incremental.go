@@ -228,7 +228,7 @@ func (a *app) codePage(w http.ResponseWriter, r *http.Request) {
 }
 
 type fileOwnersView struct {
-	Owners       []*ManifestOwnerView
+	Groups       []*RelatedSagaChapterView
 	RelatedEmpty string
 }
 
@@ -248,13 +248,13 @@ func (a *app) fileOwners(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "file is required", http.StatusBadRequest)
 		return
 	}
-	owners, err := a.catalogFileNarrativeOwners(document, catalog, filePath)
+	groups, err := a.catalogFileNarrativeOwners(document, catalog, filePath)
 	if err != nil {
 		http.Error(w, "The explanations for this file could not be loaded.", http.StatusInternalServerError)
 		return
 	}
 	writeIncrementalHeaders(w, "text/html; charset=utf-8")
-	if err := a.template.ExecuteTemplate(w, "file-owners", fileOwnersView{Owners: owners, RelatedEmpty: "Nothing in the story explains this file yet."}); err != nil {
+	if err := a.template.ExecuteTemplate(w, "file-owners", fileOwnersView{Groups: groups, RelatedEmpty: "Nothing in the story explains this file yet."}); err != nil {
 		http.Error(w, "The explanations for this file could not be rendered.", http.StatusInternalServerError)
 	}
 }

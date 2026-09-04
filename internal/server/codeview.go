@@ -103,12 +103,13 @@ type ChangedFileTreeNode struct {
 }
 
 type RelatedSagaChapterView struct {
-	ID        string
-	Title     string
-	Target    string
-	Anchor    string
-	Href      string
-	Fragments []*RelatedSagaFragmentView
+	ID          string
+	Title       string
+	Target      string
+	Anchor      string
+	Href        string
+	SlideNative bool
+	Fragments   []*RelatedSagaFragmentView
 }
 
 type RelatedSagaFragmentView struct {
@@ -119,6 +120,22 @@ type RelatedSagaFragmentView struct {
 	Anchor   string
 	Href     string
 	DiffURIs []string
+	Slide    *SlideReferenceView
+}
+
+// SlideReferenceView is the common visual language for a slide referenced
+// outside the presentation surface. Evidence remains owned by Items, while
+// navigation rolls those references up to the slide a reviewer can recognize.
+type SlideReferenceView struct {
+	ID          string
+	Title       string
+	Target      string
+	Anchor      string
+	Href        string
+	URL         string
+	MediaType   string
+	ReviewState string
+	ItemCount   int
 }
 
 // FragmentOwnershipView is the forward fragment-to-diff half of the ownership
@@ -356,17 +373,28 @@ func finalizeTreeNode(node *ChangedFileTreeNode, depth int) {
 }
 
 type narrativeLocation struct {
-	fragment      *saga.Fragment
-	target        string
-	itemID        string
-	title         string
-	diffs         []saga.DiffFile
-	hasDiffs      bool
-	chapterID     string
-	chapterTitle  string
-	chapterTarget string
-	chapterHref   string
-	fragmentHref  string
+	fragment         *saga.Fragment
+	target           string
+	itemID           string
+	title            string
+	diffs            []saga.DiffFile
+	hasDiffs         bool
+	chapterID        string
+	chapterTitle     string
+	chapterTarget    string
+	chapterHref      string
+	fragmentHref     string
+	deckID           string
+	deckTitle        string
+	deckTarget       string
+	deckHref         string
+	slideID          string
+	slideTitle       string
+	slideTarget      string
+	slideHref        string
+	slideURL         string
+	slideMediaType   string
+	slideReviewState string
 }
 
 func indexNarrativeFragments(document *saga.Saga) []narrativeLocation {
@@ -376,6 +404,9 @@ func indexNarrativeFragments(document *saga.Saga) []narrativeLocation {
 		if section.Kind == "chapter" {
 			chapter.chapterID, chapter.chapterTitle, chapter.chapterTarget = section.ID, section.Title, section.Target
 			chapter.chapterHref = sagaHref(section.Target)
+		} else if section.Kind == "deck" {
+			chapter.deckID, chapter.deckTitle, chapter.deckTarget = section.ID, section.Title, section.Target
+			chapter.deckHref = sagaHref(section.Target)
 		}
 		for _, fragment := range section.Fragments {
 			location := chapter
@@ -385,6 +416,13 @@ func indexNarrativeFragments(document *saga.Saga) []narrativeLocation {
 			location.fragment = fragment
 			location.target, location.itemID, location.title, location.diffs, location.hasDiffs = fragment.Target, fragment.ID, fragment.Title, fragment.Diffs, fragment.HasDiffs
 			location.fragmentHref = sagaHref(fragment.Target)
+			if fragment.SlideMeta != nil {
+				location.slideID, location.slideTitle, location.slideTarget = fragment.ID, fragment.Title, fragment.Target
+				location.slideHref = location.fragmentHref
+				location.slideURL = fragmentAssetURL(fragment)
+				location.slideMediaType = fragment.MediaType
+				location.slideReviewState, _, _, _ = latestReview(fragment.Reviews)
+			}
 			result = append(result, location)
 			for index := range fragment.Landmarks {
 				landmark := &fragment.Landmarks[index]
@@ -412,7 +450,12 @@ func makeRelatedSagaViews(locations []narrativeLocation, atoms []*diffAtomView, 
 			}
 		}
 	}
+	return makeRelatedSagaViewsForTargets(locations, ownedURIs)
+}
+
+func makeRelatedSagaViewsForTargets(locations []narrativeLocation, ownedURIs map[string][]string) []*RelatedSagaChapterView {
 	groups := map[string]*RelatedSagaChapterView{}
+	slides := map[string]*RelatedSagaFragmentView{}
 	var result []*RelatedSagaChapterView
 	for _, location := range locations {
 		uris := ownedURIs[location.target]
@@ -420,11 +463,42 @@ func makeRelatedSagaViews(locations []narrativeLocation, atoms []*diffAtomView, 
 			continue
 		}
 		groupKey := location.chapterTarget
+		groupID, groupTitle, groupTarget, groupHref := location.chapterID, location.chapterTitle, location.chapterTarget, location.chapterHref
+		if location.slideTarget != "" {
+			groupKey = location.deckTarget
+			groupID, groupTitle, groupTarget, groupHref = location.deckID, location.deckTitle, location.deckTarget, location.deckHref
+		}
 		group := groups[groupKey]
 		if group == nil {
-			group = &RelatedSagaChapterView{ID: location.chapterID, Title: location.chapterTitle, Target: location.chapterTarget, Anchor: domID(location.chapterTarget), Href: location.chapterHref}
+			group = &RelatedSagaChapterView{ID: groupID, Title: groupTitle, Target: groupTarget, Anchor: domID(groupTarget), Href: groupHref, SlideNative: location.slideTarget != ""}
 			groups[groupKey] = group
 			result = append(result, group)
+		}
+		if location.slideTarget != "" {
+			key := groupKey + "\x00" + location.slideTarget
+			view := slides[key]
+			if view == nil {
+				view = &RelatedSagaFragmentView{
+					ID: location.slideID, Title: location.slideTitle, Target: location.slideTarget,
+					Anchor: strings.TrimPrefix(location.slideHref, "#"), Href: location.slideHref,
+					Slide: &SlideReferenceView{
+						ID: location.slideID, Title: location.slideTitle, Target: location.slideTarget,
+						Anchor: strings.TrimPrefix(location.slideHref, "#"), Href: location.slideHref,
+						URL: location.slideURL, MediaType: location.slideMediaType, ReviewState: location.slideReviewState,
+					},
+				}
+				slides[key] = view
+				group.Fragments = append(group.Fragments, view)
+			}
+			for _, uri := range uris {
+				if !contains(view.DiffURIs, uri) {
+					view.DiffURIs = append(view.DiffURIs, uri)
+				}
+			}
+			if location.target != location.slideTarget {
+				view.Slide.ItemCount++
+			}
+			continue
 		}
 		title := location.title
 		if title == "" {

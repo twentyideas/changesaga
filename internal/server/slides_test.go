@@ -139,6 +139,9 @@ func TestSlideNativeCoverageAndActivityUseTheFlatReviewOverlay(t *testing.T) {
 			t.Fatalf("flat activity is missing %q: %s", expected, activity.Body.String())
 		}
 	}
+	if got := strings.Count(activity.Body.String(), `class="activity-slide-preview"`); got != 2 {
+		t.Fatalf("slide and Item activity should both carry their visual slide reference; got %d: %s", got, activity.Body.String())
+	}
 
 	coverage = httptest.NewRecorder()
 	handler.ServeHTTP(coverage, httptest.NewRequest(http.MethodGet, "/api/coverage", nil))

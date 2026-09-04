@@ -1437,7 +1437,7 @@ func makeFragmentView(fragment *saga.Fragment, scope viewScope) *fragmentView {
 	}
 	view := &fragmentView{Fragment: fragment, DOMID: domID(fragment.Target), DirectoryManaged: scope.directoryManaged}
 	view.ReviewState, view.ReviewAuthor, view.ReviewDetail, view.ReviewBody = latestReview(fragment.Reviews)
-	view.URL = "/f/" + url.PathEscape(fragment.ID) + "/" + strings.Join(pathEscapeParts(fragment.Entrypoint), "/")
+	view.URL = fragmentAssetURL(fragment)
 	if scope.deferContent {
 		// A descriptor names the explanation and carries its review controls.
 		// The content, its landmarks, and its linked code arrive from
@@ -1494,6 +1494,10 @@ func makeFragmentView(fragment *saga.Fragment, scope viewScope) *fragmentView {
 		view.Image = strings.HasPrefix(fragment.MediaType, "image/")
 	}
 	return view
+}
+
+func fragmentAssetURL(fragment *saga.Fragment) string {
+	return "/f/" + url.PathEscape(fragment.ID) + "/" + strings.Join(pathEscapeParts(fragment.Entrypoint), "/")
 }
 
 // A negative count is an internal render state: authored evidence exists, but

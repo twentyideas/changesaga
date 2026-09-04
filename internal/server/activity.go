@@ -44,6 +44,7 @@ type reviewActivityItem struct {
 	UpdatedAt         time.Time
 	Body              template.HTML
 	Thread            *threadView
+	Slide             *SlideReferenceView
 }
 
 type reviewActivityTarget struct {
@@ -51,6 +52,7 @@ type reviewActivityTarget struct {
 	Context string
 	Kind    string
 	Owner   string
+	Slide   *SlideReferenceView
 }
 
 // reviewActivity renders the append-only review exchange without opening the
@@ -122,6 +124,7 @@ func makeReviewActivityView(document *saga.Saga, scope string) *reviewActivityVi
 				TargetTitle: place.Title, TargetContext: place.Context, TargetKind: place.Kind,
 				Href: sagaHref(target), Author: review.Author, AttributionDetail: review.AttributionDetail,
 				CreatedAt: review.CreatedAt, UpdatedAt: review.CreatedAt,
+				Slide: place.Slide,
 			}
 			if strings.TrimSpace(review.Body) != "" {
 				item.Body = markdownWithAnchors(review.Body, item.DOMID)
@@ -173,7 +176,7 @@ func makeReviewActivityView(document *saga.Saga, scope string) *reviewActivityVi
 			TargetTitle: place.Title, TargetContext: place.Context, TargetKind: place.Kind,
 			Href: reviewActivityThreadHref(thread), Author: thread.CreatedBy,
 			AttributionDetail: thread.AttributionDetail, CreatedAt: thread.CreatedAt, UpdatedAt: updated,
-			Thread: makeThreadView(thread),
+			Thread: makeThreadView(thread), Slide: place.Slide,
 		}
 		view.Items = append(view.Items, item)
 		view.Threads++
@@ -243,13 +246,23 @@ func reviewActivityTargets(root *saga.Section) map[string]reviewActivityTarget {
 			if fragment.SlideMeta != nil {
 				fragmentKind = "Slide"
 			}
-			result[fragment.Target] = reviewActivityTarget{Title: activityTitle(fragment.Title, fragment.ID), Context: fragmentContext, Kind: fragmentKind}
+			var slide *SlideReferenceView
+			if fragment.SlideMeta != nil {
+				fragmentHref := sagaHref(fragment.Target)
+				state, _, _, _ := latestReview(fragment.Reviews)
+				slide = &SlideReferenceView{
+					ID: fragment.ID, Title: activityTitle(fragment.Title, fragment.ID), Target: fragment.Target,
+					Anchor: strings.TrimPrefix(fragmentHref, "#"), Href: fragmentHref,
+					URL: fragmentAssetURL(fragment), MediaType: fragment.MediaType, ReviewState: state,
+				}
+			}
+			result[fragment.Target] = reviewActivityTarget{Title: activityTitle(fragment.Title, fragment.ID), Context: fragmentContext, Kind: fragmentKind, Slide: slide}
 			for _, landmark := range fragment.Landmarks {
 				landmarkKind := "Marked place"
 				if landmark.ItemMeta != nil {
 					landmarkKind = "Item"
 				}
-				result[landmark.Target] = reviewActivityTarget{Title: activityTitle(landmark.Label, landmark.ID), Context: activityTitle(fragment.Title, fragment.ID), Kind: landmarkKind, Owner: fragment.Target}
+				result[landmark.Target] = reviewActivityTarget{Title: activityTitle(landmark.Label, landmark.ID), Context: activityTitle(fragment.Title, fragment.ID), Kind: landmarkKind, Owner: fragment.Target, Slide: slide}
 			}
 		}
 		for _, child := range section.Children {
