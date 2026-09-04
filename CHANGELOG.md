@@ -10,6 +10,19 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-04
+
+### Changed
+
+- The README now introduces Change Saga concisely and uses the slide-native
+  Saga and its video walkthrough as the canonical example.
+
+### Fixed
+
+- Slide thumbnails remain visible when hovered, and entering presentation mode
+  closes and suppresses any linked-code drawer backdrop instead of allowing an
+  opaque layer to cover the slide.
+
 ## [0.1.0] - 2026-09-04
 
 ### Added
