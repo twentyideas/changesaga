@@ -1,6 +1,4 @@
 
-
-
 # Change Saga
 
 [![CI](https://github.com/twentyideas/changesaga/actions/workflows/ci.yml/badge.svg)](https://github.com/twentyideas/changesaga/actions/workflows/ci.yml)
@@ -9,43 +7,17 @@
 ![license: MIT](https://img.shields.io/badge/license-MIT-blue)
 [![Made with ❤️ using DevSwarm](https://img.shields.io/badge/Made%20with%20%E2%9D%A4%EF%B8%8F%20using-DevSwarm-5F2AFF?labelColor=0A022E&logo=data%3Aimage%2Fpng%3Bbase64%2CiVBORw0KGgoAAAANSUhEUgAAAEAAAAAiCAQAAABFXBcEAAACEElEQVR42s1Y63mDMAw8ugErsAIdwR2BjsAKrMAKWSEdgRXICGQEMsL1RwhIIIFpXhX%2F7E%2F2WY%2BTBKCEAFhxko7TemDPGOmZXzUAQumUt3VHCIKpUimGVRA8MlaONx2ApYKWcg0CAfAgFJrhEAAsuEeKQQsEG7F%2BWLEBQTBXx4Tx%2FSnbXQDa61sJzM%2FMXRss0QpDVtwrlXCeYdWbJNP1CVjgOO5c8JmcCSABM7RIx50TTo4RMwRHv0E27nwnP5wuVuHXyRfQfgFZiB39aUfVYkdn1jIUCYC19iFsH%2BoAUx%2FAoP09njGDNgvF4Zo%2BIopJsnQtAOhklVlUKhvkAoIXKPTSz6UTAmC2tBbdAJcsp5iM0%2Fu7eACDRq3OmgDoO8JwCl2ycNNvC4AO5lqcZlh5aeae2Yg5M9l%2FldFXz9M0Xw4A5uknENvsvwFgYdGjY9GO6VVhVv1oxQXja5qhG2DHVMVF1AYRte1fASxqZ%2BMyRaaviWP%2Frap%2BS8fOqQwK2gcuQjPFK0TfuOKC5mEuaNdc8O4gxDPSMI1NQw4KRt%2F2FCLKjIK3QcX13VRcbVCx2XLLUOz3AYATU5wX%2FICpGr65HI8NSbe85IENSWGPLv%2BjJdtsSuvoprSziH2tKfXb8jO%2BHtaW52iEvtWWv28wecVoFiJHs7cPp%2BZ4Xt49nhc7xnNYE703uqz9oAjiB4VBy1J%2BAQwDuoYAr7YrAAAAAElFTkSuQmCC)](https://devswarm.ai)
 
+Change Saga turns a large code change into a guided visual review: a sequence
+of slides that explains what changed, why it matters, and what may surprise a
+reviewer. Instead of reconstructing intent from file-by-file diffs, reviewers
+get the system context, tradeoffs, and intentional deviations first.
+
+Each part of that story links directly to the exact code behind it, and Change
+Saga checks that every changed line is accounted for. Reviewers can move from
+the big picture to its evidence—and back—without losing context. Change Saga is
+experimental, and its formats may change before 1.0.
+
 https://github.com/user-attachments/assets/50822415-a92a-4c62-831e-9b0373db55f6
-
-
-Change Saga is experimental. Its formats may change before 1.0.
-
-The slide-native v4 preview treats a review as a sequence of visual arguments,
-not a report split into pages. Start it explicitly with `change-saga init --mode
-slides ...`. Each meaningful node, edge, region, transition, or overlaid
-callout is an Item and links directly to the exact diff it explains. Existing
-v2/v3 reports are not silently paginated or reinterpreted. V4 uses compact,
-flat, category-prefixed files so deep checkout locations remain portable; its
-readable titles and stable target URNs live in the records rather than paths.
-Review decisions are explicitly per slide and appear on slide thumbnails;
-Items remain precise evidence and comment targets.
-Slide form follows meaning: architecture, data flow, sequence, lifecycle,
-entity, logic, comparison, failure, and evidence questions should not collapse
-into one repeated card template.
-
-More importantly, a Saga should surface what may surprise the reviewer. It
-establishes enough of the surrounding system to build the right mental model,
-then highlights counterintuitive behavior, hidden coupling, meaningful
-tradeoffs, and intentional deviations from repository conventions. A strong
-surprise callout makes the reasonable expectation, the actual design, why they
-differ, and the consequence visible in context and links that explanation to
-exact code. It does not manufacture novelty or spend scarce attention restating
-obvious diffs.
-
-Change Saga turns a large code change into a reviewable document. It gives the
-change an overview, chapters, diagrams, examples, and links to the exact code
-behind each explanation. You can quickly move from any part of the document to
-the code diffs it explains, or from a diff back to every relevant part of the
-document. Critically, Change Saga validates that every change in the diff is
-mapped somewhere in the document. Mapping catches omissions; it is not a claim
-that the explanation or code is correct. The result lives in Git beside the
-code, can be reviewed a chapter at a time, and takes code review to its next
-logical layer above the code itself.
-
 
 ## Install
 
@@ -68,40 +40,19 @@ change-saga version
 change-saga help
 ```
 
-## Try the example Saga
+## Try the canonical example Saga
 
-The repository includes a slide-native example that reviews the change which
-introduced the v4 format itself. From a source checkout, open it with:
+The repository's [canonical example Saga](docs/sagas/examples/slide-native-format.saga)
+reviews the change that introduced the slide-native v4 format itself. The video
+above walks through this same Saga. After installing Change Saga, open it from
+a source checkout with:
 
 ```sh
-./bin/change-saga open docs/sagas/examples/slide-native-format.saga
+change-saga open docs/sagas/examples/slide-native-format.saga
 ```
 
 The example is intentionally self-referential: its semantic Items link every
 changed line in `6740031..974eaa3` to the visual argument that explains it.
-
-This repository's own since-inception Saga is attached to the `v0.0.6`
-release. After installing Change Saga, download it and open the local reviewer.
-
-macOS and Linux:
-
-```sh
-demo_dir="$(mktemp -d)" && \
-  curl -fsSL https://github.com/twentyideas/changesaga/releases/download/v0.0.6/change.saga.zip \
-    -o "$demo_dir/change.saga.zip" && \
-  unzip -q "$demo_dir/change.saga.zip" -d "$demo_dir" && \
-  change-saga open "$demo_dir/change.saga"
-```
-
-Windows PowerShell:
-
-```powershell
-$demo = Join-Path ([IO.Path]::GetTempPath()) ("change-saga-" + [guid]::NewGuid())
-New-Item -ItemType Directory -Path $demo | Out-Null
-Invoke-WebRequest https://github.com/twentyideas/changesaga/releases/download/v0.0.6/change.saga.zip -OutFile "$demo/change.saga.zip"
-Expand-Archive "$demo/change.saga.zip" -DestinationPath $demo
-change-saga open "$demo/change.saga"
-```
 
 ## Quick start
 
