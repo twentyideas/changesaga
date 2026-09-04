@@ -40,7 +40,7 @@ that the explanation or code is correct. The result lives in Git beside the
 code, can be reviewed a chapter at a time, and takes code review to its next
 logical layer above the code itself.
 
-![Change Saga overview](docs/assets/change-saga-overview.gif)
+[![Watch the Change Saga example](docs/assets/change-saga-example.png)](docs/assets/change-saga-example.mp4)
 
 ## Install
 
