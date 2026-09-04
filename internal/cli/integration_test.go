@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -159,7 +160,8 @@ func TestInstallSkillPrintsPortableAuthoringContract(t *testing.T) {
 		"change-saga compare --json", "must_update", "new_content", "source diffs only",
 		"read the code diff independently", "All-atoms-mapped is an omission invariant",
 		"Storyboard visual questions", "system-context diagram", "state machine", "entity-relationship diagram",
-		"Silhouette test", "Relationship test", "Contact-sheet test", "Do not use cards as a universal container",
+		"Silhouette test", "Relationship test", "Surprise test", "Contact-sheet test", "Do not use cards as a universal container",
+		"reasonable reviewer expectation", "callout Item attached", "Do not manufacture novelty",
 	} {
 		if !strings.Contains(text, expected) {
 			t.Errorf("install-skill output omitted %q", expected)
@@ -193,8 +195,12 @@ func TestSpecJSONExposesPurposeFitVisualFormsAndAudits(t *testing.T) {
 		t.Fatalf("spec omitted purpose-fit visual forms: %#v", forms)
 	}
 	audits, ok := v4["composition_audits"].([]any)
-	if !ok || len(audits) != 3 {
+	if !ok || len(audits) != 4 || audits[2] != "surprise" {
 		t.Fatalf("spec omitted composition audits: %#v", v4["composition_audits"])
+	}
+	surprise, ok := v4["surprise_contract"].(map[string]any)
+	if !ok || !strings.Contains(fmt.Sprint(surprise["preferred_expression"]), "callout Item") || !strings.Contains(fmt.Sprint(surprise["grounding"]), "never manufactured novelty") {
+		t.Fatalf("spec omitted reviewer-surprise guidance: %#v", surprise)
 	}
 }
 

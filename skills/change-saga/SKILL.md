@@ -20,6 +20,20 @@ During authoring:
   without turning them into review verdicts;
 - optimize for a human reviewer to understand and inspect the change over time.
 
+Optimize for reviewer understanding and information gain, not exhaustive
+retelling. Establish enough of the surrounding system that a reviewer can form
+an accurate mental model, then spend the deck's scarce attention on what may
+violate that model: counterintuitive behavior, hidden coupling, consequential
+constraints, intentional deviations from repository conventions, rejected
+alternatives, and tradeoffs whose costs land elsewhere. For each such surprise,
+show the reasonable expectation, what the code actually does, why, and the
+consequence. Tie the actual behavior and consequence to exact evidence.
+Surprises are especially good callout Items: attach the callout to the visual
+element or transition that creates the surprise so the contrast remains in
+context. Do not manufacture drama. If investigation finds no meaningful
+deviation, say so and use the slides to teach system shape, risk boundaries,
+and proof instead.
+
 Only enter reviewer mode when the user explicitly asks to review, approve,
 reject, annotate, or comment on an already-authored saga.
 
@@ -183,7 +197,10 @@ it.
    small set of change decks grouped by reviewer intent—architecture, request
    flow, state transition, migration, operational risk, or proof—not by source
    directory. For every planned slide, write one intent and one takeaway before
-   choosing its visual grammar.
+   choosing its visual grammar. Build a surprise inventory first: note what a
+   reasonable reviewer would expect from nearby code or documented behavior,
+   where this change differs, why it differs, and what that choice costs or
+   enables. Use system-model slides to make those deviations intelligible.
 6. Create decks with `add-deck` and slides with `add-slide`. Choose a purpose-fit
    system-context, architecture, data-flow, sequence, state, entity,
    decision-logic, comparison, failure, or evidence composition. Use
@@ -213,7 +230,7 @@ it.
 11. Repeat all three gap views until no product atom is uncovered, no selector
     is stale, and every overlap has a defensible reviewer reason.
 12. Run `validate --json` and `status --json`, then perform the visual,
-    accessibility, relationship-silhouette, and contact-sheet audits in
+    accessibility, relationship-silhouette, surprise, and contact-sheet audits in
     `references/authoring.md`. A structurally valid deck that still makes the
     reviewer read paragraphs or decode decorative diagrams is not ready.
 

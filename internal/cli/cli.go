@@ -239,7 +239,7 @@ var commandDescription = map[string]string{
 	"plan progress":               "Append explicit workspace progress against the item. Progress helps coordination but\nnever proves correctness, acceptance-criterion coverage, or delivery.",
 	"plan record-merge":           "Append merge evidence for a declared merge unit. A merged state contributes delivery\nevidence only when its immutable commit and diff links resolve.",
 	"add-deck":                    "Add an independently reviewable deck to a v4 slide-native Saga. Exactly one deck is\nthe overview; change decks organize one coherent reviewer concern.",
-	"add-slide":                   "Add one visual argument to a v4 deck. Intent names the reviewer job; layout names\ngeometry, not meaning. Choose a purpose-fit system, architecture, data-flow, sequence,\nstate, entity, logic, comparison, failure, or evidence diagram before choosing styling.",
+	"add-slide":                   "Add one visual argument to a v4 deck. Intent names the reviewer job; layout names\ngeometry, not meaning. Establish the system model, then foreground consequential\ntradeoffs, hidden coupling, and deviations that may surprise a reviewer.",
 	"set-slide-content":           "Replace a slide's visual entrypoint while preserving its stable target and items.",
 	"add-item":                    "Add one semantic visual item, including an evidence-bearing callout overlay, and append\nit to the slide reading order. Exact diff evidence attaches here.",
 	"set-fragment-content":        "Replace a fragment entrypoint through the supported authoring API. Use --source -\nto read content from standard input; the fragment media type and metadata are preserved.",
@@ -1078,7 +1078,13 @@ func Spec(args []string, out io.Writer) error {
 					"logic-flow": "predicates, branches, joins, loops, and outcomes", "before-after": "matched axes and the meaningful delta",
 					"failure-path": "trigger, propagation, containment, cleanup, recovery, and outcome", "evidence": "claims or risks connected to tests, measurements, or observations",
 				},
-				"composition_audits": []string{"silhouette", "relationship", "contact-sheet"},
+				"editorial_goal": "establish the system model, then maximize reviewer information gain by surfacing consequential surprises",
+				"surprise_contract": map[string]any{
+					"sequence":             []string{"reasonable expectation", "actual behavior", "rationale", "consequence"},
+					"preferred_expression": "an evidence-bearing callout Item attached to the responsible node, edge, state, or transition",
+					"grounding":            "documented behavior, established repository patterns, historical design, or a plausible reviewer mental model; never manufactured novelty",
+				},
+				"composition_audits": []string{"silhouette", "relationship", "surprise", "contact-sheet"},
 			},
 		})
 	}
@@ -1714,6 +1720,18 @@ inside records, never filenames. Always use CLI commands and query targets;
 never invent, rename, nest, glob, or infer meaning from v4 storage files. Slide
 HTML must be self-contained.
 
+Optimize for reviewer understanding and information gain, not exhaustive
+retelling. Establish enough of the surrounding system for the reviewer to form
+an accurate mental model, then foreground where that model may break:
+counterintuitive behavior, hidden coupling, consequential constraints,
+intentional deviations from repository conventions, rejected alternatives,
+and tradeoffs whose costs land elsewhere. For each meaningful surprise, show
+the reasonable reviewer expectation, actual behavior, rationale, and consequence. A
+surprise is especially effective as a callout Item attached to the node, edge,
+state, or transition that creates it; give the callout exact evidence when it
+makes a code-backed claim. Do not manufacture novelty when the investigation
+finds no material deviation.
+
 ### Storyboard visual questions before creating slides
 
 Do not start by choosing a reusable SVG template. First inspect the change and
@@ -1721,6 +1739,8 @@ write a private storyboard. For every proposed slide, name:
 
 - the specific reviewer question it answers, not merely its topic;
 - its rhetorical intent and one-sentence takeaway;
+- whether it establishes the system model or resolves a specific reviewer
+  surprise, including expectation, actuality, rationale, and consequence;
 - the relationship the picture must make visible;
 - the visual form that truthfully encodes that relationship; and
 - the meaningful nodes, edges, states, regions, or callouts that will become
@@ -1763,7 +1783,10 @@ Before handoff, run three visual audits:
 2. **Relationship test:** every relationship essential to the takeaway is
    visibly encoded with an edge, boundary, lane, nesting, cardinality, axis,
    or transition—not left to nearby prose.
-3. **Contact-sheet test:** inspect all slides together. Reuse a visual grammar
+3. **Surprise test:** after reading the deck, a reviewer can name the system
+   model, the highest-consequence deviation from likely expectation, why it
+   exists, and the tradeoff it creates.
+4. **Contact-sheet test:** inspect all slides together. Reuse a visual grammar
    only when the underlying relationship is genuinely the same. If unrelated
    slides reduce to the same number and arrangement of cards, rewrite them.
 
@@ -2028,6 +2051,16 @@ branches for logic, matched axes for before/after, and
 trigger-to-recovery paths for failure behavior. A repeated row of cards is not
 a neutral visual language. Audit silhouette, encoded relationships, and the
 whole contact sheet before treating coverage as complete.
+
+Optimize the deck for reviewer understanding and surprise reduction. Establish
+the minimum system model, then foreground evidence-backed gaps between a
+reasonable reviewer expectation and the actual behavior: hidden coupling,
+counterintuitive outcomes, consequential constraints, tradeoffs, and deliberate
+deviations from repository norms. Show expectation, actual behavior, rationale,
+and consequence together. Prefer a callout Item attached to the responsible
+visual element and give it exact evidence. Do not manufacture novelty. The
+surprise audit fails when a reviewer cannot identify the system model, the
+highest-consequence deviation, why it exists, and the tradeoff it creates.
 
 Change Saga format v2
 

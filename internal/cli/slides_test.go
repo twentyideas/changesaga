@@ -28,6 +28,15 @@ func TestSlideNativeAuthoringLoopAndCompatibilityRefusal(t *testing.T) {
 	if err := Init(context.Background(), []string{"--mode", "slides", "--repo", repo, "--base", "main", "--head", "HEAD", "--title", "Visual", root}, &output); err != nil {
 		t.Fatal(err)
 	}
+	bootstrap, err := os.ReadFile(filepath.Join(root, "01-readme.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{"surprise inventory", "reasonable reviewer expectation", "callout Items", "Do not manufacture novelty"} {
+		if !strings.Contains(string(bootstrap), expected) {
+			t.Errorf("slide-native bootstrap omitted %q", expected)
+		}
+	}
 	if err := AddSlide(context.Background(), []string{"--deck", "overview", "--intent", "orient", "--layout", "hero", "--entrypoint", "assets/slide.svg", root, "nested-source"}, &output); err == nil || !strings.Contains(err.Error(), "simple filename") {
 		t.Fatalf("nested v4 entrypoint was not refused clearly: %v", err)
 	}

@@ -134,6 +134,16 @@ func TestCommandHelpNamesTheInvokedCommand(t *testing.T) {
 	if !strings.Contains(serve.String(), "change-saga serve ") {
 		t.Fatalf("serve -h did not describe serve:\n%s", serve.String())
 	}
+
+	var slide bytes.Buffer
+	if err := AddSlide(context.Background(), []string{"-h"}, &slide); err == nil {
+		t.Fatal("-h must report flag.ErrHelp")
+	}
+	for _, expected := range []string{"system model", "tradeoffs", "hidden coupling", "surprise a reviewer"} {
+		if !strings.Contains(slide.String(), expected) {
+			t.Fatalf("add-slide -h omitted %q:\n%s", expected, slide.String())
+		}
+	}
 }
 
 func TestOpenIsManagedByDefaultAndAcceptsLegacyDetachFlag(t *testing.T) {

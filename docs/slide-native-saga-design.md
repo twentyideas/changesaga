@@ -21,6 +21,17 @@ without losing the slide. Every product diff atom must be owned by an item;
 100% coverage remains an
 omission check, not proof that the explanation is good.
 
+The editorial objective is reviewer understanding and surprise reduction. The
+deck first supplies the minimum system model needed to predict behavior, then
+spends its attention where that prediction is likely to fail: counterintuitive
+behavior, hidden coupling, consequential constraints, tradeoffs, and deliberate
+departures from repository norms. A surprise is not a dramatic label; it is an
+evidence-backed gap between a reasonable reviewer expectation and what the
+change actually does. The best expression is often a callout attached to the
+responsible node, edge, state, or transition, making expectation, actual
+behavior, rationale, and consequence visible together. When there is no
+meaningful gap, the deck should say so rather than invent one.
+
 “Every diff captured visually” does not mean drawing every changed line. It
 means grouping exact atoms under the visual item they realize: a node, edge,
 transition, risk badge, before/after region, or concise callout. Supporting
@@ -193,6 +204,7 @@ limits are product defaults to test with real reviewers, not universal facts.
 | One idea | Unique title and one-sentence takeaway are required; one `intent`; at most three primary regions. |
 | Form fit | The visual grammar encodes the actual relationship: boundaries, containment, directed flow, time, states, cardinality, branches, matched comparison, or failure propagation. A card grid is not a neutral fallback. |
 | Deck diversity | A contact-sheet audit fails when unrelated reviewer questions reduce to the same primitive topology. Reuse a visual grammar only when the underlying relationship is genuinely the same. |
+| Reviewer surprise | The deck establishes the system model, then identifies each high-consequence gap between likely expectation and actual behavior, including its rationale, tradeoff, and exact evidence. Prefer an attached callout; unsupported or manufactured surprise fails editorial review. |
 | Image-first | Every non-title slide has a primary visual occupying at least 40% of the usable stage, except `statement` and `code`; at least two thirds of a deck's non-title slides are visual; two prose-only slides may not be adjacent. |
 | Items | 1–7 primary visible items; every non-decorative node/edge/callout is in `reading_order`; a callout is adjacent to or connected to the item named by `about`. |
 | Density | No more than 60 explanatory words, six bullets, one nesting level, 12 table cells, or 14 visible code lines. Hitting any two maxima is a warning even when each passes. |

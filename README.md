@@ -21,6 +21,15 @@ Slide form follows meaning: architecture, data flow, sequence, lifecycle,
 entity, logic, comparison, failure, and evidence questions should not collapse
 into one repeated card template.
 
+More importantly, a Saga should surface what may surprise the reviewer. It
+establishes enough of the surrounding system to build the right mental model,
+then highlights counterintuitive behavior, hidden coupling, meaningful
+tradeoffs, and intentional deviations from repository conventions. A strong
+surprise callout makes the reasonable expectation, the actual design, why they
+differ, and the consequence visible in context and links that explanation to
+exact code. It does not manufacture novelty or spend scarce attention restating
+obvious diffs.
+
 Change Saga turns a large code change into a reviewable document. It gives the
 change an overview, chapters, diagrams, examples, and links to the exact code
 behind each explanation. You can quickly move from any part of the document to
@@ -134,7 +143,11 @@ useful follow-up prompt is:
 
 > Keep the explanations concise, direct, and factual. Remove repetition. Prefer
 > a clear diagram or concrete example over another paragraph. Revise the Saga
-> until each section explains one coherent idea.
+> until each slide explains one coherent idea. Establish the system model, then
+> foreground the consequential behavior, tradeoffs, and deviations that may
+> surprise a reviewer. Show what they would reasonably expect, what actually
+> happens, why, and the consequence—preferably as a callout on the responsible
+> part of the visual.
 
 Review the Saga yourself before asking peers to review the change. AI can do a
 good job of connecting explanations to code, but complete coverage does not
@@ -163,8 +176,10 @@ argument:
 2. Change decks divide it into independently reviewable concerns.
 3. Diagrams, interactive HTML, screenshots, and examples show the important
    flows and data models.
-4. Semantic items inside each slide link to the exact diff ranges they explain.
-5. `change-saga status` reports any changed code that has not been accounted
+4. Expectation/actual callouts expose surprising behavior, tradeoffs, hidden
+   coupling, and intentional deviations from repository norms.
+5. Semantic items inside each slide link to the exact diff ranges they explain.
+6. `change-saga status` reports any changed code that has not been accounted
    for.
 
 The tool does not review the code or generate a verdict. It helps the author

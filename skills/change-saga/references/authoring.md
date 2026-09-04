@@ -63,6 +63,44 @@ transition, example, risk, metric, statement, and callout in `reading_order`.
 Every Item needs a concise label, a semantic description that stands without
 the picture, and an element or normalized-region selector.
 
+### Reviewer-surprise contract
+
+The deck should maximize what the reviewer learns, not the number of changed
+facts it repeats. First establish the smallest system model needed to predict
+the change. Then foreground the places where that prediction breaks or where a
+reasonable maintainer may hesitate:
+
+- behavior that is counterintuitive from the public contract or nearby code;
+- intentional deviations from repository conventions or existing architecture;
+- hidden coupling, ownership boundaries, ordering constraints, or state that
+  makes a local-looking change non-local;
+- tradeoffs, rejected alternatives, compatibility choices, and costs displaced
+  into operations, security, performance, migration, or future maintenance;
+- failure, fallback, cleanup, and recovery behavior that differs from the happy
+  path; and
+- unchanged behavior whose preservation is important but easy to assume
+  incorrectly.
+
+For each meaningful surprise, make four things legible: the reasonable
+expectation, the actual behavior or design, why the change chose it, and the
+consequence for users, operators, reviewers, or future code. Link the actual
+behavior and consequence to exact implementation evidence. Prefer a matched
+expectation/actual comparison, decision diagram, boundary map, or failure path
+over a warning paragraph.
+
+A surprise is an especially good callout Item. Attach it to the node, edge,
+state, or transition responsible for the unexpected behavior; use the callout
+body for the concise expectation/actual contrast and let the surrounding visual
+show cause and consequence. Give that callout its own evidence when it makes a
+code-backed claim.
+
+Do not manufacture novelty or label every implementation detail surprising.
+Ground the contrast in documentation, established patterns, historical design,
+or a plausible reviewer mental model. If the investigation finds no material
+surprise, say so and use the deck to teach the system, risk boundaries, and
+verification. The overview should reveal the highest-consequence surprise
+early enough to shape how the reviewer interprets later slides.
+
 A callout is an overlaid Item, not a different evidence layer. It may name the
 Item it explains with `about`, and its own `___diffs` may point to the exact code
 that substantiates the callout. Keep callout bodies at 240 characters or less.
@@ -108,6 +146,12 @@ Keep labels and callouts short: state the non-obvious invariant or tradeoff next
 to the visual relationship it explains. If the visual still needs a paragraph
 to make its point, split the argument or choose a better composition. Do not
 hide prose in SVG or HTML to evade the rendered density and legibility checks.
+
+Before handoff, apply a **surprise test** alongside the silhouette,
+relationship, and contact-sheet tests: after reading the deck, can a reviewer
+name the system model, the most consequential deviation from their likely
+expectation, why it exists, and the tradeoff it creates? If not, the deck is
+complete as an inventory but incomplete as an explanation.
 
 ## Legacy v2/v3 chapter and evidence contract
 
