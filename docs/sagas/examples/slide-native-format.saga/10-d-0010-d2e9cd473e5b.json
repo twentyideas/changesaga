@@ -1,0 +1,8 @@
+{
+  "version": 4,
+  "id": "implementation",
+  "title": "How the format works",
+  "role": "change",
+  "rank": 10,
+  "objective": "Review the format boundary, merge-friendly records, evidence model, and reused review runtime."
+}

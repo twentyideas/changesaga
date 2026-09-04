@@ -1,0 +1,19 @@
+{
+  "version": 4,
+  "id": "reviewer-flow",
+  "deck": "implementation",
+  "title": "Context remains visible while evidence comes to you",
+  "rank": 30,
+  "intent": "conclude",
+  "layout": "sequence",
+  "media_type": "image/svg+xml",
+  "entrypoint": "20-s-d2e9cd473e5b-0030-c0928c8fd2f8.svg",
+  "takeaway": "The active slide stays in view while linked code opens beside it, with legacy behavior guarded by tests.",
+  "reading_order": [
+    "thumbnail-rail",
+    "active-slide",
+    "code-drawer",
+    "compatibility-proof",
+    "context-callout"
+  ]
+}

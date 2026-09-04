@@ -1,0 +1,73 @@
+{
+  "version": 2,
+  "diffs": [
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=29\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Ftemplate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=27",
+      "note": "The renderer template adds slide navigation and presentation controls."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=42\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Ftemplate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=42",
+      "note": "The renderer template adds slide navigation and presentation controls."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=44\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Ftemplate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=44",
+      "note": "The renderer template adds slide navigation and presentation controls."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=65\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Ftemplate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=65",
+      "note": "The renderer template adds slide navigation and presentation controls."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=81\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Ftemplate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=81",
+      "note": "The renderer template adds slide navigation and presentation controls."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=95\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Ftemplate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=95",
+      "note": "The renderer template adds slide navigation and presentation controls."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=119\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Ftemplate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=119",
+      "note": "The renderer template adds slide navigation and presentation controls."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=130\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Ftemplate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=130",
+      "note": "The renderer template adds slide navigation and presentation controls."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=29\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Ftemplate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=27",
+      "note": "The renderer template adds slide navigation and presentation controls."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=46\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Ftemplate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=42",
+      "note": "The renderer template adds slide navigation and presentation controls."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=50\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Ftemplate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=48",
+      "note": "The renderer template adds slide navigation and presentation controls."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=71\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Ftemplate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=71",
+      "note": "The renderer template adds slide navigation and presentation controls."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=87\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Ftemplate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=87",
+      "note": "The renderer template adds slide navigation and presentation controls."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=101\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Ftemplate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=101",
+      "note": "The renderer template adds slide navigation and presentation controls."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=121\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Ftemplate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=120",
+      "note": "The renderer template adds slide navigation and presentation controls."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=127\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Ftemplate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=127",
+      "note": "The renderer template adds slide navigation and presentation controls."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=138\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Ftemplate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=138",
+      "note": "The renderer template adds slide navigation and presentation controls."
+    }
+  ]
+}

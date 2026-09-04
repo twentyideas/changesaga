@@ -1,0 +1,49 @@
+{
+  "version": 2,
+  "diffs": [
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=5\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery_reviewapp.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=5",
+      "note": "The query layer reuses review-app projections while reporting slide-native targets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=37\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery_reviewapp.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=14",
+      "note": "The query layer reuses review-app projections while reporting slide-native targets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=53\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery_reviewapp.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=53",
+      "note": "The query layer reuses review-app projections while reporting slide-native targets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=59\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery_reviewapp.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=59",
+      "note": "The query layer reuses review-app projections while reporting slide-native targets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=74\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery_reviewapp.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=70",
+      "note": "The query layer reuses review-app projections while reporting slide-native targets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=87\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery_reviewapp.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=83",
+      "note": "The query layer reuses review-app projections while reporting slide-native targets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=93\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery_reviewapp.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=91",
+      "note": "The query layer reuses review-app projections while reporting slide-native targets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=28\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery_reviewapp.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=28",
+      "note": "The query layer reuses review-app projections while reporting slide-native targets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=34\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery_reviewapp.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=34",
+      "note": "The query layer reuses review-app projections while reporting slide-native targets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=45\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery_reviewapp.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=45",
+      "note": "The query layer reuses review-app projections while reporting slide-native targets."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=54\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery_reviewapp.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=54",
+      "note": "The query layer reuses review-app projections while reporting slide-native targets."
+    }
+  ]
+}

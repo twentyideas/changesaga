@@ -1,0 +1,17 @@
+{
+  "version": 4,
+  "id": "format-shift",
+  "deck": "overview",
+  "title": "A Saga is now a guided visual argument",
+  "rank": 0,
+  "intent": "orient",
+  "layout": "before-after",
+  "media_type": "image/svg+xml",
+  "entrypoint": "20-s-9b1e43de9e41-0000-3ced0b3f5688.svg",
+  "takeaway": "V4 replaces report navigation with an intentionally authored sequence of visual review arguments.",
+  "reading_order": [
+    "report-tree",
+    "slide-sequence",
+    "rewrite-boundary-callout"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "version": 4,
+  "id": "thumbnail-rail",
+  "slide": "reviewer-flow",
+  "rank": 0,
+  "kind": "region",
+  "label": "Thumbnail rail",
+  "description": "Deck-grouped visual navigation showing every slide and its review state.",
+  "selector": {
+    "type": "element",
+    "element_id": "thumbnail-rail"
+  }
+}

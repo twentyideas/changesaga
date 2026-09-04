@@ -1,0 +1,13 @@
+{
+  "version": 4,
+  "id": "independent-reviews",
+  "slide": "flat-storage",
+  "rank": 20,
+  "kind": "node",
+  "label": "Independent review writes",
+  "description": "Comments, decisions, and reviewer identities append as separate records instead of mutating shared arrays.",
+  "selector": {
+    "type": "element",
+    "element_id": "independent-reviews"
+  }
+}

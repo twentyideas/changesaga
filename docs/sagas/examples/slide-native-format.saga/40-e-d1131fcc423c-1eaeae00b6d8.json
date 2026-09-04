@@ -1,0 +1,65 @@
+{
+  "version": 2,
+  "diffs": [
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=86\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Fmanifest.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=86",
+      "note": "The client manifest supplies the slide state needed to keep narrative position stable."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=421\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Fmanifest.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=421",
+      "note": "The client manifest supplies the slide state needed to keep narrative position stable."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=424\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Fmanifest.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=424",
+      "note": "The client manifest supplies the slide state needed to keep narrative position stable."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=427\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Fmanifest.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=427",
+      "note": "The client manifest supplies the slide state needed to keep narrative position stable."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=435\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Fmanifest.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=432",
+      "note": "The client manifest supplies the slide state needed to keep narrative position stable."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=437\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Fmanifest.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=437",
+      "note": "The client manifest supplies the slide state needed to keep narrative position stable."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=456\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Fmanifest.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=445",
+      "note": "The client manifest supplies the slide state needed to keep narrative position stable."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=463\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Fmanifest.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=459",
+      "note": "The client manifest supplies the slide state needed to keep narrative position stable."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=420\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Fmanifest.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=420",
+      "note": "The client manifest supplies the slide state needed to keep narrative position stable."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=423\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Fmanifest.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=423",
+      "note": "The client manifest supplies the slide state needed to keep narrative position stable."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=426\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Fmanifest.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=426",
+      "note": "The client manifest supplies the slide state needed to keep narrative position stable."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=431\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Fmanifest.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=431",
+      "note": "The client manifest supplies the slide state needed to keep narrative position stable."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=433\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Fmanifest.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=433",
+      "note": "The client manifest supplies the slide state needed to keep narrative position stable."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=441\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Fmanifest.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=441",
+      "note": "The client manifest supplies the slide state needed to keep narrative position stable."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=444\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fserver%2Fmanifest.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=444",
+      "note": "The client manifest supplies the slide state needed to keep narrative position stable."
+    }
+  ]
+}

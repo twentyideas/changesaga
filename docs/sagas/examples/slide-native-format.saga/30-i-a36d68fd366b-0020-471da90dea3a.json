@@ -1,0 +1,13 @@
+{
+  "version": 4,
+  "id": "exact-diffs",
+  "slide": "review-graph",
+  "rank": 20,
+  "kind": "node",
+  "label": "Exact diff evidence",
+  "description": "Changed lines and file events owned by the visual item that explains them.",
+  "selector": {
+    "type": "element",
+    "element_id": "exact-diffs"
+  }
+}

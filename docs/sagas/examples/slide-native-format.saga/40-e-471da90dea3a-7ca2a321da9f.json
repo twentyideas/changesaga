@@ -1,0 +1,153 @@
+{
+  "version": 2,
+  "diffs": [
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=15\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=15",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=19\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=19",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=34\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=34",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=199\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=198",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=229\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=228",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=256\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=255",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=304\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=302",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=308\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=308",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=326\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=312",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=330\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=330",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=383\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=380",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=402\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=400",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=425\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=424",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=446\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=446",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=465\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=465",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=495\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=495",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=499\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=499",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=610\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=610",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=625\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=625",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=665\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=665",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=667\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=667",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=728\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=725",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=733\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=733",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=753\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=742",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=755\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=755",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=296\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=296",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=303\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=303",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=353\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=353",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=429\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=429",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=459\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=459",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=463\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=463",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=574\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=574",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=589\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=589",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=629\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=629",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=631\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=631",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=693\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=693",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=703\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fcli%2Fquery.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=703",
+      "note": "The query API exposes slide diffs and reverse evidence ownership."
+    }
+  ]
+}

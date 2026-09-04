@@ -1,0 +1,13 @@
+{
+  "version": 4,
+  "id": "report-tree",
+  "slide": "format-shift",
+  "rank": 0,
+  "kind": "node",
+  "label": "Legacy report tree",
+  "description": "The v2/v3 chapter, section, and fragment hierarchy optimized for document navigation.",
+  "selector": {
+    "type": "element",
+    "element_id": "report-tree"
+  }
+}

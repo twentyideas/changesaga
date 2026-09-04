@@ -1,0 +1,101 @@
+{
+  "version": 2,
+  "diffs": [
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=21\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=21",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=23\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=23",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=26\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=26",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=29\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=29",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=32\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=32",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=36\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=36",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=40\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=40",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=44\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=44",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=46\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=46",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=651\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=651",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=656\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=656",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=669\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=old\u0026start=669",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=21\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=21",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=23\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=23",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=26\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=26",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=29\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=29",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=32\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=32",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=36\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=36",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=40\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=40",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=44\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=44",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=63\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=46",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=672\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=668",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=681\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=677",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    },
+    {
+      "uri": "saga-diff://v1/line?base=674003108d9417cad62fca36978d6d63305f1983\u0026end=698\u0026head=product-b3538c3912595e433f27864110b3bab07971a19421fb959965940313777a5c8f\u0026path=internal%2Fsaga%2Fvalidate.go\u0026repository=https%3A%2F%2Fgithub.com%2Ftrevordilley%2Fchange-saga\u0026side=new\u0026start=694",
+      "note": "Validation applies v4 Item and slide completeness rules."
+    }
+  ]
+}

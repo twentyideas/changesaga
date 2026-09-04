@@ -1,0 +1,18 @@
+{
+  "version": 4,
+  "id": "flat-storage",
+  "deck": "implementation",
+  "title": "Flat records keep parallel review lanes independent",
+  "rank": 10,
+  "intent": "explain",
+  "layout": "diagram",
+  "media_type": "image/svg+xml",
+  "entrypoint": "20-s-d2e9cd473e5b-0010-05af3388366f.svg",
+  "takeaway": "Compact deterministic records trade readable paths for portability and low-conflict parallel edits.",
+  "reading_order": [
+    "semantic-target",
+    "compact-records",
+    "independent-reviews",
+    "path-budget-callout"
+  ]
+}

@@ -10,6 +10,61 @@ tool, and what they have to do about it.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-04
+
+### Added
+
+- Slide-native v4 Sagas can be created explicitly with `init --mode slides`.
+  Decks organize independently reviewable concerns, slides present one visual
+  argument at a time, and semantic Items connect visible nodes, transitions,
+  regions, risks, and callouts to exact diff evidence. The reviewer provides
+  deck-grouped thumbnails, sequential navigation, fullscreen presentation, and
+  a linked-code drawer that preserves the active slide.
+- An opt-in living-documentation model for report Sagas adds sourced user
+  stories and acceptance criteria, embedded or external prototypes, technical
+  design fragments, and dependency-aware work plans. Work plans use waves to
+  coordinate parallel workspaces and append progress, assignment, dependency,
+  contract, conflict, and merge records without treating progress as delivery
+  evidence.
+- Structured CLI mutation and query operations cover living requirements,
+  citations, revisions, relations, design, prototypes, work plans, readiness,
+  and cross-Saga references. These capabilities remain optional for ordinary
+  retrospective PR Sagas.
+- Review decisions now identify a human or a distinct named AI reviewer,
+  including the AI agent kind and model. Multiple human and AI decisions are
+  retained as independent append-only records, so parallel review passes do
+  not overwrite each other or imply that an AI approval is human approval.
+- `rebase-evidence` safely rewrites evidence after a base branch moves only when
+  the base-independent product diff is identical. It supports dry runs,
+  preserves evidence intent, rolls immutable claims forward, and refuses
+  changed product identity.
+- The repository now includes a fully covered slide-native example Saga for the
+  v4 implementation itself.
+
+### Changed
+
+- Agent and CLI guidance now distinguishes retrospective PR review from
+  feature discovery, requirements, design, and parallel implementation
+  planning. Slide authoring emphasizes reviewer mental models, tradeoffs,
+  deviations, hidden coupling, and evidence-backed surprises instead of dense
+  prose.
+- Slide review decisions apply to the complete slide while Items remain the
+  precise targets for evidence and discussion. Human and AI approval totals are
+  visible separately on review surfaces.
+- Prose citations and code-bearing visual Items now have the same completion
+  rule: each concrete implementation statement needs a stable target with
+  focused diff evidence. Requirements provenance remains separate from
+  implementation evidence.
+
+### Format
+
+- **Format:** v4 is intentionally incompatible with report Sagas. Its on-disk
+  hierarchy is `Saga → Deck → Slide → Item → evidence`, stored as compact flat
+  records with deterministic target hashes and conservative filename/path
+  budgets. Existing v2/v3 Sagas remain readable as reports and are never
+  silently paginated or reinterpreted; moving content to v4 requires a semantic
+  rewrite.
+
 ## [0.0.10] - 2026-08-29
 
 ### Added

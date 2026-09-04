@@ -1,0 +1,13 @@
+{
+  "version": 4,
+  "id": "slide-sequence",
+  "slide": "format-shift",
+  "rank": 10,
+  "kind": "transition",
+  "label": "Guided slide sequence",
+  "description": "The v4 image-first sequence that presents one coherent reviewer argument per canvas.",
+  "selector": {
+    "type": "element",
+    "element_id": "slide-sequence"
+  }
+}

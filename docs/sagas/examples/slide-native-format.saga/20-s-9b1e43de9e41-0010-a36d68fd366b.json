@@ -1,0 +1,18 @@
+{
+  "version": 4,
+  "id": "review-graph",
+  "deck": "overview",
+  "title": "Explanation and proof have different jobs",
+  "rank": 10,
+  "intent": "explain",
+  "layout": "diagram",
+  "media_type": "image/svg+xml",
+  "entrypoint": "20-s-9b1e43de9e41-0010-a36d68fd366b.svg",
+  "takeaway": "Items own exact evidence, while reviewers approve or reject the complete slide argument.",
+  "reading_order": [
+    "slide-surface",
+    "semantic-items",
+    "exact-diffs",
+    "approval-boundary-callout"
+  ]
+}

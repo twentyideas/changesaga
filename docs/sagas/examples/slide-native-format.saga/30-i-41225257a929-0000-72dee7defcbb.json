@@ -1,0 +1,13 @@
+{
+  "version": 4,
+  "id": "legacy-contract",
+  "slide": "hard-boundary",
+  "rank": 0,
+  "kind": "node",
+  "label": "Legacy report contract",
+  "description": "The closed v2/v3 report hierarchy that remains readable without altered semantics.",
+  "selector": {
+    "type": "element",
+    "element_id": "legacy-contract"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "version": 4,
+  "id": "v4-loader",
+  "slide": "projection-runtime",
+  "rank": 0,
+  "kind": "node",
+  "label": "V4 loader",
+  "description": "The loader validates flat deck, slide, item, asset, reading-order, and evidence relationships.",
+  "selector": {
+    "type": "element",
+    "element_id": "v4-loader"
+  }
+}

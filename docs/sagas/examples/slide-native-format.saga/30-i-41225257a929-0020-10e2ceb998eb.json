@@ -1,0 +1,17 @@
+{
+  "version": 4,
+  "id": "semantic-rewrite-callout",
+  "slide": "hard-boundary",
+  "rank": 20,
+  "kind": "callout",
+  "label": "Semantic rewrite required",
+  "description": "The enforced boundary between report and slide-native authoring.",
+  "selector": {
+    "type": "element",
+    "element_id": "semantic-rewrite-callout"
+  },
+  "about": "v4-contract",
+  "body": "Expectation: an upgrader can convert reports. Actual: only explicit --mode slides creates v4. Rationale: pagination cannot create a visual argument.",
+  "placement": "overlay",
+  "leader": "arrow"
+}

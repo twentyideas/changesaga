@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">The review graph separates explanation from proof</title>
+  <desc id="desc">A slide contains semantic items which own exact diff evidence, while approval remains scoped to the complete slide.</desc>
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#071628"/><stop offset="1" stop-color="#1b1834"/></linearGradient>
+    <filter id="s"><feDropShadow dx="0" dy="9" stdDeviation="12" flood-opacity=".3"/></filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0 0L10 3 0 6z" fill="#7ea6ff"/></marker>
+    <style>.ey{font:600 16px system-ui;letter-spacing:3px;fill:#66e3c4}.t{font:700 42px system-ui;fill:#f7fbff}.h{font:700 22px system-ui;fill:#f7fbff}.b{font:500 17px system-ui;fill:#afbdd2}.dark{font:700 18px system-ui;fill:#17243a}.tiny{font:700 13px system-ui;letter-spacing:1px;fill:#728aaa}.edge{stroke:#7ea6ff;stroke-width:4;fill:none;marker-end:url(#arrow)}</style>
+  </defs>
+  <rect width="1280" height="720" fill="url(#bg2)"/>
+  <text x="72" y="67" class="ey">THE REVIEW GRAPH</text><text x="72" y="119" class="t">Explanation and proof have different jobs</text>
+  <g id="slide-surface" filter="url(#s)">
+    <rect x="76" y="177" width="530" height="400" rx="30" fill="#111f36" stroke="#3f5578" stroke-width="3"/>
+    <text x="112" y="222" class="tiny">SLIDE · COMPLETE REVIEW ARGUMENT</text>
+    <rect x="112" y="250" width="458" height="270" rx="18" fill="#f4f8ff"/>
+    <circle cx="240" cy="373" r="67" fill="#66e3c4"/><rect x="356" y="314" width="154" height="44" rx="12" fill="#d8e5ff"/><rect x="356" y="378" width="154" height="44" rx="12" fill="#ffdc92"/>
+    <path d="M307 373h40" stroke="#17243a" stroke-width="5" marker-end="url(#arrow)"/>
+    <text x="112" y="554" class="b">Reviewer sees the whole claim in context.</text>
+  </g>
+  <path d="M605 382h95" class="edge"/>
+  <g id="semantic-items" filter="url(#s)">
+    <rect x="710" y="193" width="230" height="166" rx="22" fill="#162a45" stroke="#66e3c4" stroke-width="3"/>
+    <text x="739" y="234" class="tiny">SEMANTIC ITEMS</text><text x="739" y="278" class="h">Node · edge</text><text x="739" y="311" class="h">Callout · risk</text><text x="739" y="337" class="b">Addressable meaning</text>
+  </g>
+  <path d="M940 278h80v90" class="edge"/>
+  <g id="exact-diffs" filter="url(#s)">
+    <rect x="990" y="378" width="218" height="166" rx="22" fill="#162a45" stroke="#7ea6ff" stroke-width="3"/>
+    <text x="1018" y="420" class="tiny">EXACT DIFF ATOMS</text><text x="1018" y="466" class="h" fill="#66e3c4">+ added lines</text><text x="1018" y="500" class="h" fill="#ff8196">− removed lines</text><text x="1018" y="526" class="b">Evidence, not verdict</text>
+  </g>
+  <g id="approval-boundary-callout">
+    <path d="M355 578v34h565" stroke="#ffce73" stroke-width="3" fill="none"/><circle cx="355" cy="578" r="6" fill="#ffce73"/>
+    <rect x="497" y="600" width="711" height="72" rx="16" fill="#ffce73"/>
+    <text x="523" y="629" class="dark">SURPRISE · Evidence is item-level; approve/reject is slide-level.</text>
+    <text x="523" y="654" class="dark" font-weight="500">Precision stays separate from the reviewer’s complete decision.</text>
+  </g>
+</svg>

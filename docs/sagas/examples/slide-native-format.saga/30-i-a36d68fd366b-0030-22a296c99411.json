@@ -1,0 +1,17 @@
+{
+  "version": 4,
+  "id": "approval-boundary-callout",
+  "slide": "review-graph",
+  "rank": 30,
+  "kind": "callout",
+  "label": "Different review granularity",
+  "description": "The deliberate separation between precise item evidence and a decision on the whole slide.",
+  "selector": {
+    "type": "element",
+    "element_id": "approval-boundary-callout"
+  },
+  "about": "slide-surface",
+  "body": "Expectation: approve each evidence target. Actual: items carry proof and comments; slides carry decisions. Consequence: approval reflects the complete argument.",
+  "placement": "bottom",
+  "leader": "line"
+}

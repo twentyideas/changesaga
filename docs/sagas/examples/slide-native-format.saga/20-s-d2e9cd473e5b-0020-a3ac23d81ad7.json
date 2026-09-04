@@ -1,0 +1,18 @@
+{
+  "version": 4,
+  "id": "projection-runtime",
+  "deck": "implementation",
+  "title": "A projection layer reuses the mature review runtime",
+  "rank": 20,
+  "intent": "explain",
+  "layout": "diagram",
+  "media_type": "image/svg+xml",
+  "entrypoint": "20-s-d2e9cd473e5b-0020-a3ac23d81ad7.svg",
+  "takeaway": "V4 stays distinct on disk while an in-memory adapter preserves established evidence and review behavior.",
+  "reading_order": [
+    "v4-loader",
+    "projection-adapter",
+    "existing-runtime",
+    "reuse-callout"
+  ]
+}

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">V4 is a hard format boundary</title>
+  <desc id="desc">Legacy v2 and v3 reports remain readable on one side while v4 slide sagas use a separate contract on the other; an explicit rewrite crosses the boundary.</desc>
+  <defs><linearGradient id="bg3" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0b172b"/><stop offset="1" stop-color="#24162d"/></linearGradient><filter id="sh"><feDropShadow dx="0" dy="10" stdDeviation="13" flood-opacity=".3"/></filter><style>.ey{font:600 16px system-ui;letter-spacing:3px;fill:#66e3c4}.t{font:700 44px system-ui;fill:#f8fbff}.h{font:700 27px system-ui;fill:#f8fbff}.b{font:500 18px system-ui;fill:#afbdd2}.k{font:700 14px system-ui;letter-spacing:1.4px;fill:#7890b2}.dark{font:650 17px system-ui;fill:#1a2740}</style></defs>
+  <rect width="1280" height="720" fill="url(#bg3)"/><text x="72" y="67" class="ey">INTENTIONAL INCOMPATIBILITY</text><text x="72" y="121" class="t">V4 is a hard boundary—not pagination</text>
+  <g id="legacy-contract" filter="url(#sh)">
+    <path d="M87 194h438a22 22 0 0 1 22 22v348a22 22 0 0 1-22 22H87a22 22 0 0 1-22-22V216a22 22 0 0 1 22-22z" fill="#142239" stroke="#435978" stroke-width="3"/>
+    <text x="104" y="242" class="k">V2 / V3 · REPORT</text><text x="104" y="289" class="h">Chapter tree</text>
+    <path d="M129 334v140m0-110h54m-54 54h54m-54 54h54" stroke="#6e83a4" stroke-width="4"/><g fill="#243652"><rect x="183" y="342" width="266" height="44" rx="9"/><rect x="183" y="396" width="266" height="44" rx="9"/><rect x="183" y="450" width="266" height="44" rx="9"/></g>
+    <text x="205" y="370" class="b">Section</text><text x="205" y="424" class="b">Fragment</text><text x="205" y="478" class="b">Landmark</text><text x="104" y="544" class="b">Still readable. Never reinterpreted.</text>
+  </g>
+  <g id="v4-contract" filter="url(#sh)">
+    <path d="M755 194h438a22 22 0 0 1 22 22v348a22 22 0 0 1-22 22H755a22 22 0 0 1-22-22V216a22 22 0 0 1 22-22z" fill="#142239" stroke="#66e3c4" stroke-width="3"/>
+    <text x="792" y="242" class="k">V4 · SLIDES</text><text x="792" y="289" class="h">Visual sequence</text>
+    <g transform="translate(792 331)"><rect width="146" height="92" rx="12" fill="#eaf1ff"/><rect x="170" width="146" height="92" rx="12" fill="#d9fff6"/><rect x="340" width="54" height="92" rx="12" fill="#273c5b"/><path d="M146 46h22M316 46h22" stroke="#7ea6ff" stroke-width="5"/></g>
+    <text x="792" y="470" class="b">Deck → Slide → Item → diff</text><text x="792" y="510" class="b">Authored for visual comprehension.</text><text x="792" y="544" class="b">Explicit <tspan fill="#66e3c4">--mode slides</tspan>.</text>
+  </g>
+  <g id="semantic-rewrite-callout">
+    <path d="M574 348h132" stroke="#ffce73" stroke-width="4" stroke-dasharray="8 9"/><path d="M692 334l18 14-18 14" fill="none" stroke="#ffce73" stroke-width="4"/>
+    <rect x="517" y="385" width="246" height="126" rx="18" fill="#ffce73"/>
+    <text x="542" y="420" class="dark">CROSSING REQUIRES</text><text x="542" y="453" class="dark" font-size="22">semantic rewrite</text><text x="542" y="484" class="dark" font-weight="500">—not an upgrader.</text>
+  </g>
+</svg>

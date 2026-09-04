@@ -1,0 +1,13 @@
+{
+  "version": 4,
+  "id": "projection-adapter",
+  "slide": "projection-runtime",
+  "rank": 10,
+  "kind": "node",
+  "label": "In-memory projection",
+  "description": "Decks, slides, and items are projected into established internal section, fragment, and landmark shapes.",
+  "selector": {
+    "type": "element",
+    "element_id": "projection-adapter"
+  }
+}

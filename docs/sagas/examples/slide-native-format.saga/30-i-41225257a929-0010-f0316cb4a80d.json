@@ -1,0 +1,13 @@
+{
+  "version": 4,
+  "id": "v4-contract",
+  "slide": "hard-boundary",
+  "rank": 10,
+  "kind": "node",
+  "label": "V4 slide contract",
+  "description": "The explicit slides mode with decks, visual slides, semantic items, and item-owned evidence.",
+  "selector": {
+    "type": "element",
+    "element_id": "v4-contract"
+  }
+}

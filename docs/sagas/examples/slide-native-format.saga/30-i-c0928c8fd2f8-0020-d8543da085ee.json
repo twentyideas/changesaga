@@ -1,0 +1,13 @@
+{
+  "version": 4,
+  "id": "code-drawer",
+  "slide": "reviewer-flow",
+  "rank": 20,
+  "kind": "transition",
+  "label": "Linked code drawer",
+  "description": "The exact supporting diff opens alongside the current slide instead of replacing it.",
+  "selector": {
+    "type": "element",
+    "element_id": "code-drawer"
+  }
+}

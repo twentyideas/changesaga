@@ -1,0 +1,17 @@
+{
+  "version": 4,
+  "id": "hard-boundary",
+  "deck": "implementation",
+  "title": "V4 is a hard boundary—not pagination",
+  "rank": 0,
+  "intent": "compare",
+  "layout": "before-after",
+  "media_type": "image/svg+xml",
+  "entrypoint": "20-s-d2e9cd473e5b-0000-41225257a929.svg",
+  "takeaway": "Legacy reports remain reports; adopting slides requires an explicit semantic rewrite.",
+  "reading_order": [
+    "legacy-contract",
+    "v4-contract",
+    "semantic-rewrite-callout"
+  ]
+}

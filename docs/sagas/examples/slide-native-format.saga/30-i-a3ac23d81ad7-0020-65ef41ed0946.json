@@ -1,0 +1,13 @@
+{
+  "version": 4,
+  "id": "existing-runtime",
+  "slide": "projection-runtime",
+  "rank": 20,
+  "kind": "node",
+  "label": "Established review runtime",
+  "description": "Evidence lookup, review state, deep linking, hydration, and the code drawer continue through mature paths.",
+  "selector": {
+    "type": "element",
+    "element_id": "existing-runtime"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "version": 4,
+  "id": "slide-surface",
+  "slide": "review-graph",
+  "rank": 0,
+  "kind": "region",
+  "label": "Complete slide argument",
+  "description": "The atomic reviewer surface that combines a visual claim, its context, and a single takeaway.",
+  "selector": {
+    "type": "element",
+    "element_id": "slide-surface"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "version": 4,
+  "id": "rewrite-boundary-callout",
+  "slide": "format-shift",
+  "rank": 20,
+  "kind": "callout",
+  "label": "Not automatic pagination",
+  "description": "The format boundary requiring legacy content to be semantically rewritten for slides.",
+  "selector": {
+    "type": "element",
+    "element_id": "rewrite-boundary-callout"
+  },
+  "about": "slide-sequence",
+  "body": "Expectation: paginate existing prose. Actual: v4 is a distinct authored visual format. Rationale: force synthesis. Consequence: old reports remain unchanged.",
+  "placement": "bottom",
+  "leader": "line"
+}

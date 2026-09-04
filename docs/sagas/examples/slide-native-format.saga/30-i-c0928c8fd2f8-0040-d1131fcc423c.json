@@ -1,0 +1,17 @@
+{
+  "version": 4,
+  "id": "context-callout",
+  "slide": "reviewer-flow",
+  "rank": 40,
+  "kind": "callout",
+  "label": "Context stays put",
+  "description": "The interaction outcome produced by the slide shell and evidence drawer.",
+  "selector": {
+    "type": "element",
+    "element_id": "context-callout"
+  },
+  "about": "code-drawer",
+  "body": "Result: selecting evidence opens code beside the active slide. Consequence: reviewers inspect implementation without losing their place in the argument.",
+  "placement": "bottom",
+  "leader": "none"
+}

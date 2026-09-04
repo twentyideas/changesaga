@@ -1,0 +1,17 @@
+{
+  "version": 4,
+  "id": "path-budget-callout",
+  "slide": "flat-storage",
+  "rank": 30,
+  "kind": "callout",
+  "label": "Readable paths were removed",
+  "description": "The portability tradeoff that keeps v4 usable in deeply nested workspaces.",
+  "selector": {
+    "type": "element",
+    "element_id": "path-budget-callout"
+  },
+  "about": "compact-records",
+  "body": "Expectation: filenames explain their content. Actual: compact hashes cap path growth. Rationale: real workspaces exceeded common limits. Consequence: inspect meaning through the CLI.",
+  "placement": "bottom",
+  "leader": "line"
+}

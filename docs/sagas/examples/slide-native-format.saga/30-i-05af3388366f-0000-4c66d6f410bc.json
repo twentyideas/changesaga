@@ -1,0 +1,13 @@
+{
+  "version": 4,
+  "id": "semantic-target",
+  "slide": "flat-storage",
+  "rank": 0,
+  "kind": "node",
+  "label": "Stable semantic identity",
+  "description": "Human meaning and durable URNs live in each record instead of its filesystem path.",
+  "selector": {
+    "type": "element",
+    "element_id": "semantic-target"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "version": 4,
+  "id": "reuse-callout",
+  "slide": "projection-runtime",
+  "rank": 30,
+  "kind": "callout",
+  "label": "Compatibility lives in memory",
+  "description": "The hidden coupling used to reuse mature behavior without preserving report semantics on disk.",
+  "selector": {
+    "type": "element",
+    "element_id": "reuse-callout"
+  },
+  "about": "projection-adapter",
+  "body": "Expectation: a new format needs a new runtime. Actual: v4 projects into legacy internal shapes. Tradeoff: less rewrite risk, but the adapter is a critical compatibility boundary.",
+  "placement": "bottom",
+  "leader": "line"
+}

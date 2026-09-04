@@ -1,0 +1,16 @@
+{
+  "$schema": "https://changesaga.dev/schema/v4/saga.schema.json",
+  "version": 4,
+  "id": "slide-native-format",
+  "title": "Slide-native Change Saga format",
+  "source": {
+    "repository": "https://github.com/trevordilley/change-saga",
+    "base": "6740031",
+    "head": "974eaa3"
+  },
+  "presentation": {
+    "mode": "slides",
+    "aspect_ratio": "16:9",
+    "overview_deck": "overview"
+  }
+}

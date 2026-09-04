@@ -1,0 +1,13 @@
+{
+  "version": 4,
+  "id": "semantic-items",
+  "slide": "review-graph",
+  "rank": 10,
+  "kind": "node",
+  "label": "Semantic items",
+  "description": "Addressable nodes, edges, regions, risks, transitions, statements, examples, metrics, and callouts.",
+  "selector": {
+    "type": "element",
+    "element_id": "semantic-items"
+  }
+}

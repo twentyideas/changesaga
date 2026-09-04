@@ -1,0 +1,13 @@
+{
+  "version": 4,
+  "id": "compact-records",
+  "slide": "flat-storage",
+  "rank": 10,
+  "kind": "node",
+  "label": "Deterministic flat records",
+  "description": "Category-prefixed files use ranks and hashed target keys for stable ordering and portable storage.",
+  "selector": {
+    "type": "element",
+    "element_id": "compact-records"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "version": 4,
+  "id": "compatibility-proof",
+  "slide": "reviewer-flow",
+  "rank": 30,
+  "kind": "statement",
+  "label": "Compatibility proof",
+  "description": "Contract, CLI, reference, and server tests protect v4 behavior and legacy report reading.",
+  "selector": {
+    "type": "element",
+    "element_id": "compatibility-proof"
+  }
+}

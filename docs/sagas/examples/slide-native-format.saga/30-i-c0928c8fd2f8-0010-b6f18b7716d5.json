@@ -1,0 +1,13 @@
+{
+  "version": 4,
+  "id": "active-slide",
+  "slide": "reviewer-flow",
+  "rank": 10,
+  "kind": "region",
+  "label": "Active slide",
+  "description": "The single focused visual argument that keeps reviewer position and context stable.",
+  "selector": {
+    "type": "element",
+    "element_id": "active-slide"
+  }
+}

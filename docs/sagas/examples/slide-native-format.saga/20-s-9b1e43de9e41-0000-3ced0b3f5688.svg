@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">A Saga is now a guided visual argument</title>
+  <desc id="desc">A dense report tree transforms into a focused sequence of visual slides, with a callout explaining that the change is semantic rather than pagination.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#081426"/><stop offset="1" stop-color="#17233e"/></linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#66e3c4"/><stop offset="1" stop-color="#7ea6ff"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="10" stdDeviation="14" flood-opacity=".28"/></filter>
+    <style>
+      .eyebrow{font:600 16px system-ui;letter-spacing:3px;fill:#66e3c4}.title{font:700 44px system-ui;fill:#f8fbff}.label{font:700 22px system-ui;fill:#f8fbff}.small{font:500 17px system-ui;fill:#aab9d2}.tiny{font:600 14px system-ui;fill:#7890b2}.call{font:600 17px system-ui;fill:#1b2740}.line{stroke:#6f83a4;stroke-width:3;fill:none}.soft{fill:#101d33;stroke:#314766;stroke-width:2}.slide{fill:#f7fbff;stroke:#7ea6ff;stroke-width:3}
+    </style>
+  </defs>
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <text x="72" y="67" class="eyebrow">THE REVIEW FORMAT CHANGED</text>
+  <text x="72" y="120" class="title">A Saga is now a guided visual argument</text>
+  <g id="report-tree" transform="translate(78 184)">
+    <text x="0" y="0" class="label">Before · report tree</text>
+    <rect x="0" y="28" width="388" height="390" rx="22" class="soft" filter="url(#shadow)"/>
+    <path d="M56 92h30m-15 0v226m0-174h30m-30 64h30m-30 64h30" class="line"/>
+    <g fill="#243654" stroke="#516887" stroke-width="2">
+      <rect x="101" y="118" width="226" height="48" rx="9"/><rect x="101" y="182" width="226" height="48" rx="9"/><rect x="101" y="246" width="226" height="48" rx="9"/><rect x="101" y="310" width="226" height="48" rx="9"/>
+    </g>
+    <text x="123" y="148" class="small">Chapter + prose</text><text x="123" y="212" class="small">Nested section</text><text x="123" y="276" class="small">Fragment</text><text x="123" y="340" class="small">More prose</text>
+    <text x="34" y="394" class="tiny">NAVIGATE THE DOCUMENT</text>
+  </g>
+  <path d="M505 390h95" stroke="url(#accent)" stroke-width="8" stroke-linecap="round"/><path d="M585 374l20 16-20 16" fill="none" stroke="#7ea6ff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <g id="slide-sequence" transform="translate(640 184)">
+    <text x="0" y="0" class="label">After · slide sequence</text>
+    <rect x="0" y="28" width="558" height="390" rx="22" class="soft" filter="url(#shadow)"/>
+    <rect x="38" y="74" width="360" height="226" rx="16" class="slide"/>
+    <circle cx="124" cy="188" r="47" fill="#66e3c4"/><path d="M184 154h156M184 187h120M184 220h142" stroke="#526986" stroke-width="12" stroke-linecap="round"/>
+    <g transform="translate(425 76)"><rect width="92" height="58" rx="8" fill="#dce7ff" stroke="#7ea6ff" stroke-width="3"/><rect y="72" width="92" height="58" rx="8" fill="#1e3150" stroke="#526986" stroke-width="2"/><rect y="144" width="92" height="58" rx="8" fill="#1e3150" stroke="#526986" stroke-width="2"/></g>
+    <text x="38" y="348" class="small">One idea. One canvas. Exact evidence on demand.</text>
+    <text x="38" y="382" class="tiny">FOLLOW THE ARGUMENT</text>
+  </g>
+  <g id="rewrite-boundary-callout">
+    <path d="M913 578V523" stroke="#ffce73" stroke-width="3"/><circle cx="913" cy="520" r="6" fill="#ffce73"/>
+    <rect x="640" y="578" width="558" height="92" rx="16" fill="#ffce73"/>
+    <text x="666" y="611" class="call">SURPRISE · This is not automatic pagination.</text>
+    <text x="666" y="641" class="call" font-weight="500">Existing reports stay reports; a v4 deck must be authored as visuals.</text>
+  </g>
+</svg>

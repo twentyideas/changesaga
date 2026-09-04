@@ -65,6 +65,16 @@ change-saga help
 
 ## Try the example Saga
 
+The repository includes a slide-native example that reviews the change which
+introduced the v4 format itself. From a source checkout, open it with:
+
+```sh
+./bin/change-saga open docs/sagas/examples/slide-native-format.saga
+```
+
+The example is intentionally self-referential: its semantic Items link every
+changed line in `6740031..974eaa3` to the visual argument that explains it.
+
 This repository's own since-inception Saga is attached to the `v0.0.6`
 release. After installing Change Saga, download it and open the local reviewer.
 
