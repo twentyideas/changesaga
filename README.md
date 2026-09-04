@@ -15,6 +15,8 @@ callout is an Item and links directly to the exact diff it explains. Existing
 v2/v3 reports are not silently paginated or reinterpreted. V4 uses compact,
 flat, category-prefixed files so deep checkout locations remain portable; its
 readable titles and stable target URNs live in the records rather than paths.
+Review decisions are explicitly per slide and appear on slide thumbnails;
+Items remain precise evidence and comment targets.
 Slide form follows meaning: architecture, data flow, sequence, lifecycle,
 entity, logic, comparison, failure, and evidence questions should not collapse
 into one repeated card template.
@@ -197,7 +199,7 @@ them. [SPEC.md](SPEC.md) defines the format.
 
 Reviews can be spread across multiple sessions. Reviewers can comment on text
 or code, highlight content, draw shapes, add sticky notes, mark files reviewed,
-and approve or reject individual parts of the saga.
+and approve or reject report sections or, in v4, complete slides.
 
 Every newly initialized saga also carries a small root `README.md`. It tells a
 human or AI assistant how to install and open the intended reviewer, and tells

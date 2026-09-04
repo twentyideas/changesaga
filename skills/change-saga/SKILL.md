@@ -145,6 +145,9 @@ itself. Put every non-decorative Item in `reading_order`; `add-item` does this
 automatically. Attach every exact diff atom to the narrowest Item. v4 refuses
 Saga-, deck-, and slide-level coverage. Use `query slide` and `query
 slide-diffs`; v4 deliberately refuses the report-oriented fragment queries.
+Approval is deliberately coarser than evidence: approve or reject the complete
+slide, while using Item-targeted threads and annotations for precise feedback.
+Do not create approval records for the Saga, a deck, or an Item.
 
 Apply the density and composition checks in
 [references/authoring.md](references/authoring.md). If the change cannot be

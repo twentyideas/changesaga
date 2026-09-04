@@ -135,6 +135,10 @@ func makeReviewActivityView(document *saga.Saga, scope string) *reviewActivityVi
 		appendReviews(section.Target, section.Reviews)
 		for _, fragment := range section.Fragments {
 			appendReviews(fragment.Target, fragment.Reviews)
+			for landmarkIndex := range fragment.Landmarks {
+				landmark := &fragment.Landmarks[landmarkIndex]
+				appendReviews(landmark.Target, landmark.Reviews)
+			}
 		}
 		for _, child := range section.Children {
 			walk(child)
@@ -218,6 +222,9 @@ func reviewActivityTargets(root *saga.Section) map[string]reviewActivityTarget {
 		if section.Kind == "saga" {
 			kind = "Saga"
 		}
+		if section.Kind == "deck" {
+			kind = "Deck"
+		}
 		if section.Kind == "chapter" {
 			kind, chapter = "Chapter", section.Title
 		}
@@ -232,9 +239,17 @@ func reviewActivityTargets(root *saga.Section) map[string]reviewActivityTarget {
 			if section.Kind != "chapter" && section.Kind != "saga" {
 				fragmentContext = childParent
 			}
-			result[fragment.Target] = reviewActivityTarget{Title: activityTitle(fragment.Title, fragment.ID), Context: fragmentContext, Kind: "Explanation"}
+			fragmentKind := "Explanation"
+			if fragment.SlideMeta != nil {
+				fragmentKind = "Slide"
+			}
+			result[fragment.Target] = reviewActivityTarget{Title: activityTitle(fragment.Title, fragment.ID), Context: fragmentContext, Kind: fragmentKind}
 			for _, landmark := range fragment.Landmarks {
-				result[landmark.Target] = reviewActivityTarget{Title: activityTitle(landmark.Label, landmark.ID), Context: activityTitle(fragment.Title, fragment.ID), Kind: "Marked place", Owner: fragment.Target}
+				landmarkKind := "Marked place"
+				if landmark.ItemMeta != nil {
+					landmarkKind = "Item"
+				}
+				result[landmark.Target] = reviewActivityTarget{Title: activityTitle(landmark.Label, landmark.ID), Context: activityTitle(fragment.Title, fragment.ID), Kind: landmarkKind, Owner: fragment.Target}
 			}
 		}
 		for _, child := range section.Children {

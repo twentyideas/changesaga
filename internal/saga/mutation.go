@@ -43,15 +43,18 @@ func MutationIndexFromDocument(document *Saga) MutationIndex {
 		if section.Path != "" {
 			dir = filepath.Join(document.Root, filepath.FromSlash(section.Path))
 		}
-		index.Targets[section.Target], index.ReviewTargets[section.Target] = dir, dir
+		index.Targets[section.Target] = dir
+		if document.Manifest.Version != SlideSagaVersion {
+			index.ReviewTargets[section.Target] = dir
+		}
 		for _, fragment := range section.Fragments {
-			index.Targets[fragment.Target], index.ReviewTargets[fragment.Target] = fragment.Directory, fragment.Directory
+			index.Targets[fragment.Target] = fragment.Directory
+			if document.Manifest.Version != SlideSagaVersion || fragment.SlideMeta != nil {
+				index.ReviewTargets[fragment.Target] = fragment.Directory
+			}
 			for landmarkIndex := range fragment.Landmarks {
 				landmark := &fragment.Landmarks[landmarkIndex]
 				index.Targets[landmark.Target] = landmark.Directory
-				if document.Manifest.Version == SlideSagaVersion {
-					index.ReviewTargets[landmark.Target] = landmark.Directory
-				}
 			}
 		}
 		for _, child := range section.Children {

@@ -21,6 +21,10 @@ func loadFlatReviewState(index MutationIndex, outline bool) (ReviewState, Valida
 	for target := range index.Targets {
 		targets[FlatTargetKey(target)] = target
 	}
+	reviewTargets := map[string]string{}
+	for target := range index.ReviewTargets {
+		reviewTargets[FlatTargetKey(target)] = target
+	}
 	threads := map[string]*Thread{}
 	for _, entry := range entries {
 		match := flatThreadName.FindStringSubmatch(entry.Name())
@@ -124,9 +128,9 @@ func loadFlatReviewState(index MutationIndex, outline bool) (ReviewState, Valida
 			}
 			thread.Events = append(thread.Events, event)
 		} else if match := flatReviewName.FindStringSubmatch(entry.Name()); match != nil && flatRegular(entry) {
-			target := targets[match[1]]
+			target := reviewTargets[match[1]]
 			if target == "" {
-				addIssue(&validation, "error", entry.Name(), "review references an unknown target key")
+				addIssue(&validation, "error", entry.Name(), "v4 decisions must target a slide")
 				continue
 			}
 			var review Review

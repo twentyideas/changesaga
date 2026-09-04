@@ -81,7 +81,14 @@ a{color:var(--accent)}
 .slide-thumbnail-card::before{content:counter(slide-thumbnail);position:absolute;left:0;top:4px;width:17px;text-align:right;color:var(--faint);font:10px/1 var(--mono)}
 .slide-thumbnail-preview{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;border:2px solid var(--line);border-radius:5px;background:#fff;box-shadow:0 1px 2px #1f23281f;transition:border-color .12s,box-shadow .12s}
 .slide-thumbnail-preview iframe,.slide-thumbnail-preview img{display:block;width:100%;height:100%;border:0;object-fit:contain;pointer-events:none}
-.slide-thumbnail-title{display:block;margin-top:4px;color:inherit;font:11.5px/1.3 var(--ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slide-thumbnail-caption{display:flex;align-items:center;gap:5px;margin-top:4px}
+.slide-thumbnail-title{display:block;min-width:0;flex:1;color:inherit;font:11.5px/1.3 var(--ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slide-thumbnail-status{position:relative;z-index:3;display:grid;place-items:center;width:16px;height:16px;flex:none;border:1px solid var(--line);border-radius:50%;background:var(--bg);color:var(--faint);font:700 10px/1 var(--ui);pointer-events:none}
+.slide-thumbnail-status::before{content:'·'}
+.slide-thumbnail-status[data-review-state=approved]{border-color:var(--green);background:var(--approve-bg);color:var(--green)}
+.slide-thumbnail-status[data-review-state=approved]::before{content:'✓'}
+.slide-thumbnail-status[data-review-state=rejected]{border-color:var(--red);background:var(--reject-bg);color:var(--red)}
+.slide-thumbnail-status[data-review-state=rejected]::before{content:'!'}
 .slide-thumbnail-hit{position:absolute;z-index:2;inset:0;width:100%;padding:0;border:0;border-radius:5px;background:transparent}
 .slide-thumbnail-hit:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .slide-thumbnail-card:hover .slide-thumbnail-preview{border-color:var(--faint)}
@@ -93,6 +100,8 @@ a{color:var(--accent)}
 .slide-native-slide[hidden]{display:none}.slide-native-slide.active{display:block}
 .slide-native-slide .fragment{margin:0;border:0;border-radius:0;height:100%;min-height:100%;background:transparent}
 .slide-native-slide .fragment-head{position:absolute;z-index:7;right:12px;top:42px;border:0;background:var(--frosted-bg);border-radius:8px}
+.slide-native-slide .fragment-head::before{content:'Review slide';align-self:center;padding-left:8px;color:var(--muted);font:600 10px/1 var(--ui);letter-spacing:.025em;text-transform:uppercase}
+.slide-native-slide .fragment-head [data-review-controls]{opacity:1}
 .slide-native-slide .fragment-stage{height:100%;min-height:100%;display:grid;place-items:center;padding:0}
 .slide-native-slide .fragment-frame{width:100%;height:100%;min-height:0;border:0;border-radius:0}
 .slide-native-slide .fragment-image{display:block;width:100%;height:100%;max-height:none;object-fit:contain}

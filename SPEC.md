@@ -27,6 +27,10 @@ Coverage in v4 is a `40-e` record whose filename keys it to an Item. Root-,
 deck-, and slide-level coverage is rejected. Chapter, section, fragment,
 landmark, nested preview-v4 packages, and v3 living-document roots are not
 reinterpreted when a v4 document is loaded.
+Approval decisions in v4 target slides only: a slide is the complete visual
+argument a reviewer accepts or rejects. Items remain addressable evidence,
+deep-link, and comment/annotation targets, but cannot carry approvals. Deck
+status is a derived rollup of its slide decisions, never a stored decision.
 Migration therefore requires an explicit rewrite into a separate destination,
 with evidence reconciled atom by atom; changing the manifest version is never
 a migration.

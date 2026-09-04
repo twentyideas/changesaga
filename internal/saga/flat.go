@@ -119,6 +119,20 @@ func FlatDiffReviewFilename(id string) string {
 	return fmt.Sprintf("85-f-%s.json", FlatKey("diff-review\x00"+id))
 }
 
+// IsFlatReviewRecord reports whether name belongs to the mutable review
+// overlay in a v4 Saga. Keeping this classification beside the filename
+// grammar lets caches observe review changes without mistaking authored deck,
+// slide, Item, or evidence records for mutable review state.
+func IsFlatReviewRecord(name string) bool {
+	return flatThreadName.MatchString(name) ||
+		flatMessageName.MatchString(name) ||
+		flatAttachmentName.MatchString(name) ||
+		flatAttachmentAsset.MatchString(name) ||
+		flatThreadEventName.MatchString(name) ||
+		flatReviewName.MatchString(name) ||
+		flatDiffReviewName.MatchString(name)
+}
+
 func validFlatRank(rank int) error {
 	if rank < 0 || rank > flatMaxRank {
 		return fmt.Errorf("rank must be between 0 and %d for the portable v4 layout", flatMaxRank)

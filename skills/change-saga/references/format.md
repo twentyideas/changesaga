@@ -24,6 +24,9 @@ Targets are `urn:change-saga:<saga>:deck:<deck>`,
 `urn:change-saga:<saga>:slide:<slide>:item:<item>`. Only the Item target may own
 coverage. Items include `callout`; a callout can name another Item with `about`
 and can own its own exact diff atoms.
+Approval decisions target slides only. Items remain valid targets for comments,
+annotations, evidence, claims, and deep links, but not approvals; deck status is
+derived from its slides.
 
 ```sh
 change-saga init --mode slides --base main --head HEAD --title "Title" review.saga
@@ -33,6 +36,7 @@ change-saga add-item --slide change-overview --kind callout --id reject-early --
 change-saga cover --target reject-early --uri 'saga-diff://v1/line?...' --note "Moves validation ahead of persistence." review.saga
 change-saga query slide --saga review.saga --target change-overview
 change-saga query slide-diffs --saga review.saga --target reject-early
+change-saga review --target change-overview --state approved review.saga
 ```
 
 Never migrate by editing `version` or renaming report packages. A later

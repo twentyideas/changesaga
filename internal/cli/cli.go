@@ -151,7 +151,8 @@ Choose the workflow:
     Start with "init --mode slides". Explain the change as a sequence of 16:9
     visual arguments whose form matches the relationship being explained—not
     a repeated card template. Every meaningful node, edge, region, and callout
-    is an Item; exact diff evidence attaches to Items, never to a whole slide.
+    is an Item; exact diff evidence and precise comments attach to Items, while
+    approval applies explicitly to each complete slide.
 
   Existing implementation or PR
     Use a Saga when the change is large enough to need a guided review across
@@ -728,7 +729,7 @@ func Reply(_ context.Context, args []string, out io.Writer) error {
 
 func Review(_ context.Context, args []string, out io.Writer) error {
 	flags := commandFlags("review", commandUsage["review"], out)
-	target := flags.String("target", ".", "review target path, ID, or URN; v4 supports decks, slides, and Items")
+	target := flags.String("target", ".", "review target path, ID, or URN; v4 decisions are per slide")
 	state := flags.String("state", "", "approved, rejected, closed, or open")
 	body := flags.String("body", "", "optional review note")
 	if err := flags.Parse(args); err != nil {
@@ -747,6 +748,9 @@ func Review(_ context.Context, args []string, out io.Writer) error {
 	}
 	reviewTarget := targetDir
 	if document.Manifest.Version == saga.SlideSagaVersion {
+		if _, ok := saga.MutationIndexFromDocument(document).ReviewTargets[resolvedTarget]; !ok {
+			return fmt.Errorf("v4 approval decisions must target a slide; use a thread to comment on an Item")
+		}
 		reviewTarget = resolvedTarget
 	}
 	if err := reviewstore.AddReview(document.Root, reviewTarget, *state, *body); err != nil {

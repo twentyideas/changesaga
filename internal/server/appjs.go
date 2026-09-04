@@ -227,6 +227,17 @@ const appJavaScript = `(() => {
     });
   }
 
+  function updateSlideReviewState(target, state) {
+    const status = reviewDecisionStatus(state);
+    qa('[data-slide-review-status]').filter(item => item.dataset.reviewTarget === target).forEach(item => {
+      item.dataset.reviewState = state;
+      item.setAttribute('aria-label', status);
+      item.title = status;
+      const card = item.closest('[data-slide-thumbnail-card]');
+      if (card) card.dataset.reviewState = state;
+    });
+  }
+
   let reviewProgressTimer = null;
   let reviewScrollTimer = null;
 
@@ -332,6 +343,7 @@ const appJavaScript = `(() => {
       setTimeout(() => candidate.classList.remove('decision-changed'), 650);
     });
     updateReviewDirectoryState(control.dataset.reviewTarget, state);
+    updateSlideReviewState(control.dataset.reviewTarget, state);
     updateReviewProgress(previous, state, animate, control.dataset.reviewTarget, note);
   }
 

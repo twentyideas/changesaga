@@ -131,9 +131,9 @@ The root manifest adds a required, closed presentation declaration:
 ```
 
 A deck manifest is small: `version`, stable `id`, `title`, `role`
-(`overview|change`), `rank`, and a one-sentence `objective`. Decks own discussion
-and approval; their displayed state is derived from their slides, as chapter
-state is today.
+(`overview|change`), `rank`, and a one-sentence `objective`. Slides own approval;
+deck state is a derived rollup of its slide decisions. Items own precise
+discussion and evidence without becoming approval targets.
 
 A slide manifest contains:
 
@@ -288,7 +288,7 @@ Preservation rules are strict:
 | Claims | Create a replacement claim targeting the new item and a `supersedes` relation; do not mutate the old claim. |
 | Verifications | Do not carry by default. A new analysis result may cite the old verification only when the statement and evidence are unchanged. |
 | Threads/annotations | Preserve in migration history. Keep active only when content and selector/geometry digests are identical; otherwise mark `needs_reanchor` and link to candidate successors. Never guess after split/merge. |
-| Approvals | Never activate on rewritten content. Preserve historical decisions and require fresh deck/slide review. |
+| Approvals | Never activate on rewritten content. Preserve historical decisions and require fresh per-slide review. |
 | Deep links | Store independent alias records. One-to-one aliases redirect; one-to-many aliases open a migration landing view listing successors. |
 | External Saga references | Add deck/slide/item target kinds. Revision-pinned legacy references keep resolving at their old revision; refreshed references follow explicit aliases, never silent retargeting. |
 

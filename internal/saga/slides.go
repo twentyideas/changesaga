@@ -104,38 +104,41 @@ func loadDecks(root string, manifest Manifest, options loadOptions, validation *
 		allowedAssets[value.Entrypoint] = true
 	}
 
-	if !options.outline {
-		for _, entry := range entries {
-			name := entry.Name()
-			matches := flatItemName.FindStringSubmatch(name)
-			if matches == nil || !regular[name] {
-				continue
-			}
-			path := filepath.Join(root, name)
-			var value ItemManifest
-			if err := readJSON(path, &value); err != nil {
-				addIssue(validation, "error", name, err.Error())
-				continue
-			}
-			slide := slidesByKey[matches[1]]
-			if slide == nil {
-				addIssue(validation, "error", name, "item filename references an unknown slide key")
-				continue
-			}
-			item := &Item{Path: name, Directory: root, ItemManifest: value, Target: ItemTarget(manifest.ID, slide.ID, value.ID)}
-			validateItem(item, slide, validation)
-			expected, nameErr := FlatItemFilename(slide.Target, item.Target, value.Rank)
-			if nameErr != nil || expected != name {
-				addIssue(validation, "error", name, "item filename does not match its parent, rank, and stable target")
-			}
-			key := FlatTargetKey(item.Target)
-			if previous := itemsByKey[key]; previous != nil {
-				addIssue(validation, "error", name, fmt.Sprintf("item storage key collides with %s", previous.Path))
-			}
-			itemsByKey[key] = item
-			slide.Items = append(slide.Items, item)
+	// Items are part of a slide's structural outline, not its potentially large
+	// evidence graph. Review targets must remain discoverable even in an outline
+	// load so an Item comment or decision cannot make the shell invalid.
+	for _, entry := range entries {
+		name := entry.Name()
+		matches := flatItemName.FindStringSubmatch(name)
+		if matches == nil || !regular[name] {
+			continue
 		}
+		path := filepath.Join(root, name)
+		var value ItemManifest
+		if err := readJSON(path, &value); err != nil {
+			addIssue(validation, "error", name, err.Error())
+			continue
+		}
+		slide := slidesByKey[matches[1]]
+		if slide == nil {
+			addIssue(validation, "error", name, "item filename references an unknown slide key")
+			continue
+		}
+		item := &Item{Path: name, Directory: root, ItemManifest: value, Target: ItemTarget(manifest.ID, slide.ID, value.ID)}
+		validateItem(item, slide, validation)
+		expected, nameErr := FlatItemFilename(slide.Target, item.Target, value.Rank)
+		if nameErr != nil || expected != name {
+			addIssue(validation, "error", name, "item filename does not match its parent, rank, and stable target")
+		}
+		key := FlatTargetKey(item.Target)
+		if previous := itemsByKey[key]; previous != nil {
+			addIssue(validation, "error", name, fmt.Sprintf("item storage key collides with %s", previous.Path))
+		}
+		itemsByKey[key] = item
+		slide.Items = append(slide.Items, item)
+	}
 
+	if !options.outline {
 		for _, entry := range entries {
 			name := entry.Name()
 			matches := flatEvidenceName.FindStringSubmatch(name)

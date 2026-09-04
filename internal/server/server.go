@@ -952,7 +952,11 @@ func (a *app) page(w http.ResponseWriter, r *http.Request) {
 		MutationToken:  a.mutationToken,
 		CoverageTotals: a.cachedCoverageTotals(),
 	}
-	data.ReviewItems = makeReviewProgressItems(document.Section)
+	if data.SlideNative {
+		data.ReviewItems = makeSlideReviewProgressItems(document.Section)
+	} else {
+		data.ReviewItems = makeReviewProgressItems(document.Section)
+	}
 	data.ReviewDecided, data.ReviewTotal = reviewProgressSummary(data.ReviewItems)
 	data.ActivityCount = reviewActivityCount(document)
 	data.Nav = makeNavTree(document.Section, threadsByTarget)
@@ -1185,6 +1189,35 @@ func makeReviewProgressItems(root *saga.Section) []*reviewProgressItem {
 			}
 			fragmentState, _, _, fragmentBody := latestReview(fragment.Reviews)
 			result = append(result, makeReviewProgressItem(fragment.Target, fragmentTitle, "#"+domID(fragment.Target), fragmentState, fragmentBody))
+		}
+		for _, child := range section.Children {
+			walk(child)
+		}
+	}
+	walk(root)
+	return result
+}
+
+// makeSlideReviewProgressItems reflects the v4 decision boundary: reviewers
+// approve complete visual arguments (slides), while Items remain precise
+// evidence and comment targets rather than becoming a checklist of approvals.
+func makeSlideReviewProgressItems(root *saga.Section) []*reviewProgressItem {
+	if root == nil {
+		return nil
+	}
+	var result []*reviewProgressItem
+	var walk func(*saga.Section)
+	walk = func(section *saga.Section) {
+		for _, fragment := range section.Fragments {
+			if fragment.SlideMeta == nil {
+				continue
+			}
+			title := fragment.Title
+			if title == "" {
+				title = fragment.ID
+			}
+			state, _, _, body := latestReview(fragment.Reviews)
+			result = append(result, makeReviewProgressItem(fragment.Target, title, "#"+domID(fragment.Target), state, body))
 		}
 		for _, child := range section.Children {
 			walk(child)
@@ -1884,12 +1917,17 @@ func (a *app) review(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "The saga could not be loaded. Run change-saga validate for details.", http.StatusConflict)
 		return
 	}
-	dir, ok := index.ReviewTargets[r.FormValue("target")]
+	target := r.FormValue("target")
+	dir, ok := index.ReviewTargets[target]
 	if !ok {
 		http.Error(w, "review target does not exist", http.StatusBadRequest)
 		return
 	}
-	if err := reviewstore.AddReview(a.root, dir, r.FormValue("state"), r.FormValue("body")); err != nil {
+	reviewTarget := dir
+	if index.Manifest.Version == saga.SlideSagaVersion {
+		reviewTarget = target
+	}
+	if err := reviewstore.AddReview(a.root, reviewTarget, r.FormValue("state"), r.FormValue("body")); err != nil {
 		writeMutationError(w)
 		return
 	}

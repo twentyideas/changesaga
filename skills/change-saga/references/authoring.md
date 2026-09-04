@@ -63,6 +63,9 @@ Item it explains with `about`, and its own `___diffs` may point to the exact cod
 that substantiates the callout. Keep callout bodies at 240 characters or less.
 Do not attach coverage to the Saga, deck, or slide. If an atom does not belong
 to an existing Item, improve the visual composition or add a focused Item.
+The slide is the approval unit. Use Item-targeted comments and annotations to
+make feedback precise, then approve or reject the complete visual argument;
+never turn the Item inventory into an approval checklist.
 
 At 1280×720 and 1024×576, verify that nothing clips or overlaps, labels remain
 legible, the reading order matches the intended scan path, every Item can be

@@ -72,8 +72,11 @@ func TestSlideNativeAuthoringLoopAndCompatibilityRefusal(t *testing.T) {
 	if err := Cover(context.Background(), []string{"--target", item.Target, "--uri", uri, root}, &output); err != nil {
 		t.Fatalf("item coverage failed: %v", err)
 	}
-	if err := Review(context.Background(), []string{"--target", item.Path, "--state", "approved", "--body", "Focused evidence checked.", root}, &output); err != nil {
-		t.Fatalf("item review by compact record path failed: %v", err)
+	if err := Review(context.Background(), []string{"--target", item.Path, "--state", "approved", root}, &output); err == nil || !strings.Contains(err.Error(), "must target a slide") {
+		t.Fatalf("Item approval was not explicitly refused: %v", err)
+	}
+	if err := Review(context.Background(), []string{"--target", document.Decks[0].Slides[0].Path, "--state", "approved", "--body", "Visual argument checked.", root}, &output); err != nil {
+		t.Fatalf("slide review by compact record path failed: %v", err)
 	}
 	if err := Thread(context.Background(), []string{"--target", item.Target, "--body", "Keep the validation boundary visible.", root}, &output); err != nil {
 		t.Fatalf("flat thread failed: %v", err)
@@ -85,8 +88,8 @@ func TestSlideNativeAuthoringLoopAndCompatibilityRefusal(t *testing.T) {
 		t.Fatalf("flat verification failed: %v", err)
 	}
 	document, validation, err = saga.Load(root)
-	if err != nil || !validation.Valid || len(document.Decks[0].Slides[0].Items[0].Reviews) != 1 || len(document.Threads) != 1 || len(document.Threads[0].Messages) != 1 || len(document.Claims) != 1 || len(document.Verifications) != 1 {
-		t.Fatalf("item review was not preserved: valid=%v err=%v items=%#v", validation.Valid, err, document.Decks[0].Slides[0].Items)
+	if err != nil || !validation.Valid || len(document.Decks[0].Slides[0].Reviews) != 1 || len(document.Decks[0].Slides[0].Items[0].Reviews) != 0 || len(document.Threads) != 1 || len(document.Threads[0].Messages) != 1 || len(document.Claims) != 1 || len(document.Verifications) != 1 {
+		t.Fatalf("slide approval or Item comment was not preserved: valid=%v err=%v slide=%#v", validation.Valid, err, document.Decks[0].Slides[0])
 	}
 	var queryOutput bytes.Buffer
 	if err := Query(context.Background(), []string{"slide", "--saga", root, "--repo", repo, "--target", document.Decks[0].Slides[0].Target}, &queryOutput); err != nil {

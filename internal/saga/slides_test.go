@@ -48,8 +48,14 @@ func TestLoadV4SlideNativeItemEvidence(t *testing.T) {
 		t.Fatalf("review projection lost Item identity or evidence: %#v", projected)
 	}
 	index := MutationIndexFromDocument(document)
-	if index.Targets[item.Target] != item.Directory || index.ReviewTargets[item.Target] != item.Directory {
-		t.Fatalf("item is not a stable mutation/review target: %#v", index)
+	if index.Targets[item.Target] != item.Directory {
+		t.Fatalf("item is not a stable mutation target: %#v", index)
+	}
+	if _, ok := index.ReviewTargets[item.Target]; ok {
+		t.Fatalf("v4 Item unexpectedly accepted an approval decision: %#v", index.ReviewTargets)
+	}
+	if index.ReviewTargets[slideTarget] != root {
+		t.Fatalf("slide is not the v4 approval boundary: %#v", index.ReviewTargets)
 	}
 
 	writeTestFile(t, filepath.Join(root, slideName), fmt.Sprintf(`{"version":4,"id":"change","deck":"wrong-deck","title":"Reject early","rank":0,"intent":"explain","layout":"diagram","media_type":"image/svg+xml","entrypoint":%q,"takeaway":"Invalid requests stop before persistence.","reading_order":["validate","why"]}`, assetName))
