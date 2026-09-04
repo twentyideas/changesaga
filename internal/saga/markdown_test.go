@@ -179,3 +179,44 @@ func TestValidateNarrativeMappingsWarnsAboutCitationFreeFragmentCoverage(t *test
 		t.Fatalf("focused citation narrative issues = %#v", result.Issues)
 	}
 }
+
+func TestValidateNarrativeMappingsRequiresDiffEvidenceForEveryFootnote(t *testing.T) {
+	directory := t.TempDir()
+	entrypoint := filepath.Join(directory, "content.md")
+	if err := os.WriteFile(entrypoint, []byte("The lease renews early.[^lease]\n\n[^lease]: Renewal starts before the lease midpoint.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	fragment := &Fragment{
+		Path: "lease.fragment", Directory: directory, Entrypoint: "content.md", MediaType: "text/markdown",
+	}
+	result := Validation{}
+	validateNarrativeMappings(fragment, &result)
+	if len(result.Issues) != 1 || !strings.Contains(result.Issues[0].Message, "footnote [^lease]") || !strings.Contains(result.Issues[0].Message, "exact-text landmark") {
+		t.Fatalf("missing citation landmark issues = %#v", result.Issues)
+	}
+
+	fragment.Landmarks = []Landmark{{
+		Path:     "lease.fragment/___landmarks/lease.landmark/landmark.json",
+		Selector: LandmarkSelector{Type: "text", Exact: "Renewal starts before the lease midpoint."},
+	}}
+	result = Validation{}
+	validateNarrativeMappings(fragment, &result)
+	if len(result.Issues) != 1 || !strings.Contains(result.Issues[0].Message, "no linked code") || !strings.Contains(result.Issues[0].Message, "diagram node") {
+		t.Fatalf("evidence-free citation issues = %#v", result.Issues)
+	}
+
+	fragment.Landmarks[0].Diffs = []DiffFile{{Version: CurrentVersion}}
+	result = Validation{}
+	validateNarrativeMappings(fragment, &result)
+	if len(result.Issues) != 0 {
+		t.Fatalf("linked prose citation issues = %#v", result.Issues)
+	}
+}
+
+func TestMarkdownFootnotesIgnoreFencedExamples(t *testing.T) {
+	source := "A claim.[^real]\n\n[^real]: Exact implementation evidence.\n\n```markdown\n[^example]: Not authored content.\n```\n"
+	footnotes := MarkdownFootnotes(source)
+	if len(footnotes) != 1 || footnotes[0].ID != "real" || footnotes[0].Definition != "Exact implementation evidence." {
+		t.Fatalf("footnotes = %#v", footnotes)
+	}
+}

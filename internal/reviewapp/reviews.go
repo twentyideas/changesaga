@@ -103,7 +103,7 @@ func firstReviewPath(preferred, fallback string) string {
 func normalizeTargetReview(ctx context.Context, resolver *gitattribution.Resolver, target string, review saga.Review) ReviewEvent {
 	return ReviewEvent{
 		ID: review.ID, Kind: "target_review", Target: target, State: review.State, Body: review.Body, CreatedAt: review.CreatedAt,
-		Attribution: attribution(ctx, resolver, review.Path), LegacyClaimedAuthor: review.Author,
+		Attribution: attribution(ctx, resolver, review.Path), LegacyClaimedAuthor: review.Author, Reviewer: review.Reviewer,
 	}
 }
 

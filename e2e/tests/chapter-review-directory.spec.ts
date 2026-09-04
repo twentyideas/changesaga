@@ -18,7 +18,7 @@ test("chapter review directory stays scoped and sticky while section bars own sy
   const chapterApproved = page.waitForResponse((response) => response.url().endsWith("/api/review") && response.request().method() === "POST");
   await chapterDecision.getByRole("button", { name: /^Approve / }).click();
   await chapterApproved;
-  await expect(chapterDecision.getByRole("button", { name: /^Undo approval/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(chapterDecision.getByRole("button", { name: /^Approval recorded/ })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("body")).toHaveAttribute("data-review-decided", decidedBeforeChapterReview ?? "0");
   expect(sectionRequests).toEqual([]);
 
@@ -55,15 +55,7 @@ test("chapter review directory stays scoped and sticky while section bars own sy
   await approved;
   await expect(destinationRow).toHaveAttribute("data-review-state", "approved");
   await expect(destinationRow.locator("[data-review-directory-status]")).toHaveText("Approved");
-  await expect(directoryDecision.getByRole("button", { name: /^Undo approval/ })).toHaveAttribute("aria-pressed", "true");
-
-  await decision.getByRole("button", { name: /^Undo approval/ }).click();
-  const form = decision.locator("[data-review-decision-form]");
-  await expect(form).toBeVisible();
-  const unreviewed = page.waitForResponse((response) => response.url().endsWith("/api/review") && response.request().method() === "POST");
-  await form.getByRole("button", { name: "Submit" }).click();
-  await unreviewed;
-  await expect(destinationRow).toHaveAttribute("data-review-state", "unreviewed");
+  await expect(directoryDecision.getByRole("button", { name: /^Approval recorded/ })).toHaveAttribute("aria-pressed", "true");
 
   await directoryDecision.getByRole("button", { name: /^Request changes on/ }).click();
   const directoryForm = directoryDecision.locator("[data-review-decision-form]");
@@ -74,5 +66,5 @@ test("chapter review directory stays scoped and sticky while section bars own sy
   await rejected;
   await expect(destinationRow).toHaveAttribute("data-review-state", "changes-requested");
   await expect(destinationRow.locator("[data-review-directory-status]")).toHaveText("Changes requested");
-  await expect(decision.getByRole("button", { name: /^Undo request for changes/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(decision.getByRole("button", { name: /^Changes requested on/ })).toHaveAttribute("aria-pressed", "true");
 });

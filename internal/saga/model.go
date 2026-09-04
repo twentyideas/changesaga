@@ -271,14 +271,28 @@ type Verification struct {
 }
 
 type Review struct {
-	Path              string    `json:"-"`
-	AttributionDetail string    `json:"-"`
-	Version           int       `json:"version"`
-	ID                string    `json:"id"`
-	Author            string    `json:"author,omitempty"`
-	State             string    `json:"state"`
-	Body              string    `json:"body,omitempty"`
-	CreatedAt         time.Time `json:"created_at"`
+	Path                string            `json:"-"`
+	AttributionDetail   string            `json:"-"`
+	AttributionIdentity string            `json:"-"`
+	Version             int               `json:"version"`
+	ID                  string            `json:"id"`
+	Author              string            `json:"author,omitempty"`
+	Reviewer            *ReviewerIdentity `json:"reviewer,omitempty"`
+	State               string            `json:"state"`
+	Body                string            `json:"body,omitempty"`
+	CreatedAt           time.Time         `json:"created_at"`
+}
+
+// ReviewerIdentity describes the persona that made a review decision. Git
+// remains the authority for who introduced the event; this metadata says
+// whether that person acted directly or through a particular AI reviewer.
+// It is optional only so review records created before this field existed stay
+// readable without being incorrectly relabeled as human decisions.
+type ReviewerIdentity struct {
+	Kind  string `json:"kind"`
+	Name  string `json:"name,omitempty"`
+	Agent string `json:"agent,omitempty"`
+	Model string `json:"model,omitempty"`
 }
 
 type Thread struct {

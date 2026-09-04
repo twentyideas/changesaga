@@ -30,7 +30,14 @@ stop and resolve the mismatch. Never put an unverified PR number into
 `saga.json`; a saga with no PR identity is better than one linked to the wrong
 review.
 
-## Overview contract
+## Legacy v2/v3 report contract
+
+The overview, chapter, landmark, and Markdown-citation guidance in this section
+applies only when maintaining an existing v2/v3 report saga. New review sagas
+use the slide-native v4 contract below and must not translate chapters or
+fragments into pages mechanically.
+
+### Overview contract
 
 The root overview should let a reviewer answer these before opening code:
 
@@ -47,9 +54,7 @@ overview must visually establish the affected components, primary workflows,
 boundaries, and chapter structure. Add a before/after view when the behavioral
 shift is otherwise easy to miss.
 
-## Visual-first contract
-
-### Slide-native v4
+## Slide-native v4 contract
 
 Slide-native review is a visual argument, not a report broken into pages. Each
 slide has one intent, one takeaway of at most 180 characters, and one bounded
@@ -76,8 +81,8 @@ evidence, contrast, focus, geometry, or text-equivalent checks.
 Treat visuals and examples as the primary explanation, not decoration added
 after the prose:
 
-- Start every substantial chapter with at least one diagram, interactive
-  walkthrough, or worked example. A short mechanical chapter may use a compact
+- Start every substantial deck with at least one diagram, interactive
+  walkthrough, or worked example. A short mechanical deck may use a compact
   before/after example instead of a diagram.
 - Use SVG for architecture, ownership boundaries, data models, stable request
   flows, and migration topology.
@@ -99,12 +104,14 @@ after the prose:
   Attach the exact realizing diff to the node, state, arrow, transition,
   example step, or control—not only to the enclosing fragment.
 
-Keep prose around a visual short: state what question it answers, call out the
-non-obvious invariant or tradeoff, and tell the reviewer where to look next.
-Split or replace long prose fragments that repeat relationships already visible
-in the artifact.
+Keep labels and callouts short: state the non-obvious invariant or tradeoff next
+to the visual relationship it explains. If the visual still needs a paragraph
+to make its point, split the argument or choose a better composition. Do not
+hide prose in SVG or HTML to evade the rendered density and legibility checks.
 
-## Chapter contract
+## Legacy v2/v3 chapter and evidence contract
+
+### Chapter contract
 
 A chapter is approximately a PR-sized review boundary. It should be coherent
 enough that another reviewer could take responsibility for it. Its overview
@@ -128,7 +135,7 @@ Split a chapter when it contains independently understandable behavior with a
 different risk profile or reviewer specialty. Do not create a chapter merely
 for each directory or language.
 
-## Landmark and hyperlink contract
+### Landmark and hyperlink contract
 
 End every Markdown heading with a stable, fragment-local anchor:
 
@@ -209,6 +216,13 @@ explain intent, while the landmark opens the exact implementation. The fragment
 is always addressable even when it has no inner landmarks.
 
 ### Diff citations in prose
+
+Treat prose citations and code-bearing visual nodes as equally important and
+equally incomplete without diffs. A rendered footnote is only syntax; it becomes
+a reviewable implementation citation when its definition has an exact-text
+landmark with focused evidence. This is the same stable-landmark-plus-diffs
+contract used for a diagram node, edge, state, or control. `citation add`
+records requirements provenance and is not a substitute for this link.
 
 Use Markdown footnotes as diff citations whenever a sentence or short prose
 range makes a concrete claim about implementation, behavior, an invariant, or
@@ -300,6 +314,11 @@ Before attaching broad coverage, perform an addressability inventory:
   retarget, or rewrite broad records, or with `remove-coverage` to delete one.
   Move broad visual ownership to semantic landmarks where that better matches
   the explanation.
+- If a merged base refresh makes otherwise unchanged mappings stale, use
+  `change-saga rebase-evidence --repo PATH --dry-run` and inspect the old/new
+  base, product identity, atom count, selector count, and claim impact. Apply
+  only when the product patch is exactly unchanged. The command refuses real
+  product changes and rolls claims forward without mutating their history.
 
 ## Claims and verification
 

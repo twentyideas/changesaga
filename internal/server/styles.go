@@ -199,14 +199,14 @@ body.presentation-mode .slide-native-stage:hover .slide-exit-presentation,body.p
 .tree-filter-check{display:flex;align-items:center;gap:6px;margin:0 6px 6px;color:var(--muted);font-size:12px}
 .tree-summary{margin:0 6px 6px;color:var(--faint);font:11px var(--mono)}
 .tree-empty{margin:8px 6px;color:var(--muted);font-size:12px}
-.file-tree{display:block}
-.file-tree summary,.file-tree a{display:flex;align-items:center;gap:6px;min-height:24px;padding:0 6px 0 calc(4px + var(--depth,0) * 12px);border-radius:var(--radius);color:var(--ink);text-decoration:none;font:12px var(--mono);white-space:nowrap}
+.file-tree{display:block;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin}
+.file-tree summary,.file-tree a{display:flex;align-items:center;gap:6px;width:max-content;min-width:100%;min-height:24px;padding:0 6px 0 calc(4px + var(--depth,0) * 12px);border-radius:var(--radius);color:var(--ink);text-decoration:none;font:12px var(--mono);white-space:nowrap}
 .file-tree summary{list-style:none;cursor:pointer;color:var(--muted)}
 .file-tree summary::-webkit-details-marker{display:none}
 .file-tree summary:hover,.file-tree a:hover{background:var(--bg-inset)}
 .file-tree .twisty{width:12px;height:12px;flex:none;color:var(--faint);transition:transform .12s ease}
 .file-tree details[open]>summary .twisty{transform:rotate(90deg)}
-.file-tree .tree-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.file-tree .tree-name{min-width:max-content;overflow:visible;text-overflow:clip}
 .file-tree .selected{background:var(--sel);box-shadow:inset 2px 0 var(--accent);color:var(--accent);font-weight:600}
 .file-tree .tree-state{display:grid;place-items:center;width:14px;flex:none;color:transparent}
 .file-tree .tree-state .i{width:12px;height:12px}
@@ -292,6 +292,14 @@ a.review-directory-comments:hover{color:var(--accent)}
 .section:hover>.section-actions>.diff-button,.section:hover>.section-actions>.permalink,.section:hover>.section-head>.section-actions>.diff-button,.section:hover>.section-head>.section-actions>.permalink,.section-head:focus-within>.section-actions>.diff-button,.section-head:focus-within>.section-actions>.permalink,.fragment:hover>.fragment-head>.fragment-actions>.diff-button,.fragment:hover>.fragment-head>.fragment-actions>.landmark-menu,.fragment:hover>.fragment-head>.fragment-actions>.permalink,.fragment-head:focus-within>.fragment-actions>.diff-button,.fragment-head:focus-within>.fragment-actions>.landmark-menu,.fragment-head:focus-within>.fragment-actions>.permalink{opacity:1}
 .review-controls{position:relative;display:flex;align-items:center;gap:3px;opacity:.5;transition:opacity .14s}
 section:hover>.section-actions .review-controls,.section:hover>.section-head>.section-actions .review-controls,.fragment:hover>.fragment-head>.fragment-actions .review-controls,.review-controls:focus-within{opacity:1}
+.review-identities{display:inline-flex;align-items:center;gap:4px;max-width:min(520px,42vw);overflow-x:auto;scrollbar-width:thin}
+.review-identity{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;max-width:260px;padding:2px 6px;border:1px solid var(--line-soft);border-radius:99px;background:var(--bg-subtle);color:var(--muted);font:10.5px var(--ui)}
+.review-identity.approved{border-color:color-mix(in srgb,var(--green) 32%,var(--line-soft));background:var(--approve-bg)}
+.review-identity.rejected{border-color:color-mix(in srgb,var(--red) 32%,var(--line-soft));background:var(--reject-bg)}
+.review-identity .reviewer-kind{font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--fg)}
+.review-identity.ai .reviewer-kind{color:var(--accent)}
+.review-identity .reviewer-author,.review-identity .reviewer-ai{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.review-identity .reviewer-ai{max-width:140px;color:var(--faint);font-family:var(--mono)}
 .review-decision-note{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:4px;color:var(--muted);font:11px var(--ui)}
 .review-decision-note[hidden]{display:none}
 .review-decision-group{display:inline-flex;align-items:center;gap:1px;padding:2px;border:1px solid var(--line-soft);border-radius:7px;background:var(--bg-subtle)}

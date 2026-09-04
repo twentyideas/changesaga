@@ -147,22 +147,35 @@ type reviewProgressItem struct {
 // completion. ReviewState is the storage-compatible decision used by the
 // shared controls; State is the deliberately smaller three-state UI contract.
 type chapterReviewItem struct {
-	Target       string
-	Title        string
-	Href         string
-	KindLabel    string
-	Depth        int
-	State        string
-	StateClass   string
-	Status       string
-	CommentCount int
-	CommentLabel string
-	ActivityHref string
-	HasActivity  bool
-	ReviewState  string
-	ReviewAuthor string
-	ReviewDetail string
-	ReviewBody   string
+	Target          string
+	Title           string
+	Href            string
+	KindLabel       string
+	Depth           int
+	State           string
+	StateClass      string
+	Status          string
+	CommentCount    int
+	CommentLabel    string
+	ActivityHref    string
+	HasActivity     bool
+	ReviewState     string
+	ReviewAuthor    string
+	ReviewDetail    string
+	ReviewBody      string
+	ReviewDecisions []reviewDecisionView
+}
+
+type reviewDecisionView struct {
+	State     string
+	Author    string
+	Detail    string
+	Body      string
+	Kind      string
+	KindLabel string
+	Name      string
+	Agent     string
+	Model     string
 }
 
 // navNodeView is the sidebar documentation tree. It exposes titles, links and a
@@ -197,6 +210,7 @@ type sectionView struct {
 	ReviewAuthor           string
 	ReviewDetail           string
 	ReviewBody             string
+	ReviewDecisions        []reviewDecisionView
 }
 
 type fragmentView struct {
@@ -224,6 +238,7 @@ type fragmentView struct {
 	ReviewAuthor      string
 	ReviewDetail      string
 	ReviewBody        string
+	ReviewDecisions   []reviewDecisionView
 }
 
 type landmarkView struct {
@@ -1011,6 +1026,8 @@ func requestedChapter(r *http.Request) (string, bool) {
 func reviewProgress(section *saga.Section, threads map[string][]*threadView) (status, class, icon string) {
 	items := makeChapterReviewDirectory(section, threads)
 	allApproved := len(items) > 0
+	allHumanApproved := len(items) > 0
+	hasUnspecifiedApproval := false
 	for _, item := range items {
 		if item.ReviewState == "rejected" {
 			return "Needs changes", "rejected", "reject"
@@ -1018,8 +1035,18 @@ func reviewProgress(section *saga.Section, threads map[string][]*threadView) (st
 		if item.ReviewState != "approved" {
 			allApproved = false
 		}
+		if item.Status != "Approved" {
+			allHumanApproved = false
+		}
+		hasUnspecifiedApproval = hasUnspecifiedApproval || item.Status == "Approval recorded"
 	}
 	if allApproved {
+		if hasUnspecifiedApproval {
+			return "Approval recorded", "approved", "check"
+		}
+		if !allHumanApproved {
+			return "AI review complete", "approved", "check"
+		}
 		return "Approved", "approved", "check"
 	}
 	for _, item := range items {
@@ -1142,6 +1169,7 @@ func makeChapterReviewItem(target, title, kind string, depth int, reviews []saga
 		State: "unreviewed", StateClass: "unreviewed", Status: "Unreviewed",
 		CommentCount: comments, HasActivity: rawState != "" || comments > 0,
 		ReviewAuthor: author, ReviewDetail: detail, ReviewBody: body,
+		ReviewDecisions: reviewDecisionViews(reviews),
 	}
 	if comments > 0 {
 		item.ActivityHref = "/?activity=1&target=" + url.QueryEscape(target)
@@ -1153,7 +1181,7 @@ func makeChapterReviewItem(target, title, kind string, depth int, reviews []saga
 	}
 	switch rawState {
 	case "approved":
-		item.State, item.StateClass, item.Status, item.ReviewState = "approved", "approved", "Approved", "approved"
+		item.State, item.StateClass, item.Status, item.ReviewState = "approved", "approved", reviewApprovalStatus(reviews), "approved"
 	case "rejected":
 		item.State, item.StateClass, item.Status, item.ReviewState = "changes-requested", "changes-requested", "Changes requested", "rejected"
 	}
@@ -1180,7 +1208,11 @@ func makeReviewProgressItems(root *saga.Section) []*reviewProgressItem {
 				title = section.ID
 			}
 			state, _, _, body := latestReview(section.Reviews)
-			result = append(result, makeReviewProgressItem(section.Target, title, "#"+domID(section.Target), state, body))
+			item := makeReviewProgressItem(section.Target, title, "#"+domID(section.Target), state, body)
+			if state == "approved" {
+				item.Status = reviewApprovalStatus(section.Reviews)
+			}
+			result = append(result, item)
 		}
 		for _, fragment := range section.Fragments {
 			fragmentTitle := fragment.Title
@@ -1188,7 +1220,11 @@ func makeReviewProgressItems(root *saga.Section) []*reviewProgressItem {
 				fragmentTitle = fragment.ID
 			}
 			fragmentState, _, _, fragmentBody := latestReview(fragment.Reviews)
-			result = append(result, makeReviewProgressItem(fragment.Target, fragmentTitle, "#"+domID(fragment.Target), fragmentState, fragmentBody))
+			item := makeReviewProgressItem(fragment.Target, fragmentTitle, "#"+domID(fragment.Target), fragmentState, fragmentBody)
+			if fragmentState == "approved" {
+				item.Status = reviewApprovalStatus(fragment.Reviews)
+			}
+			result = append(result, item)
 		}
 		for _, child := range section.Children {
 			walk(child)
@@ -1407,6 +1443,7 @@ func makeSectionView(section *saga.Section, scope viewScope) *sectionView {
 		Attached: attached, Threads: scope.threads[section.Target], DirectoryManaged: scope.directoryManaged,
 	}
 	view.ReviewState, view.ReviewAuthor, view.ReviewDetail, view.ReviewBody = latestReview(section.Reviews)
+	view.ReviewDecisions = reviewDecisionViews(section.Reviews)
 	if scope.summary {
 		view.Deferred = true
 		return view
@@ -1437,6 +1474,7 @@ func makeFragmentView(fragment *saga.Fragment, scope viewScope) *fragmentView {
 	}
 	view := &fragmentView{Fragment: fragment, DOMID: domID(fragment.Target), DirectoryManaged: scope.directoryManaged}
 	view.ReviewState, view.ReviewAuthor, view.ReviewDetail, view.ReviewBody = latestReview(fragment.Reviews)
+	view.ReviewDecisions = reviewDecisionViews(fragment.Reviews)
 	view.URL = fragmentAssetURL(fragment)
 	if scope.deferContent {
 		// A descriptor names the explanation and carries its review controls.
@@ -1659,40 +1697,87 @@ func makeFileViews(changes gitdiff.ChangeSet, target string, reviews []saga.Diff
 }
 
 func latestReview(reviews []saga.Review) (string, string, string, string) {
-	if len(reviews) == 0 {
+	current := saga.CurrentReviews(reviews)
+	state := saga.AggregateReviewState(reviews)
+	if len(current) == 0 {
 		return "", "", "", ""
 	}
-	values := append([]saga.Review(nil), reviews...)
-	sort.Slice(values, func(i, j int) bool {
-		if values[i].CreatedAt.Equal(values[j].CreatedAt) {
-			return values[i].ID < values[j].ID
+	// Use the newest decision that determines the aggregate for compact notes.
+	last := current[len(current)-1]
+	for index := len(current) - 1; index >= 0; index-- {
+		if current[index].State == state {
+			last = current[index]
+			break
 		}
-		return values[i].CreatedAt.Before(values[j].CreatedAt)
-	})
-	last := values[len(values)-1]
-	return last.State, last.Author, last.AttributionDetail, last.Body
+	}
+	return state, last.Author, last.AttributionDetail, last.Body
+}
+
+func reviewApprovalStatus(reviews []saga.Review) string {
+	hasAI := false
+	for _, review := range saga.CurrentReviews(reviews) {
+		if review.State != "approved" || review.Reviewer == nil {
+			continue
+		}
+		if review.Reviewer.Kind == "human" {
+			return "Approved"
+		}
+		hasAI = true
+	}
+	if hasAI {
+		return "AI approved"
+	}
+	return "Approval recorded"
+}
+
+func reviewDecisionViews(reviews []saga.Review) []reviewDecisionView {
+	current := saga.CurrentReviews(reviews)
+	result := make([]reviewDecisionView, 0, len(current))
+	for _, review := range current {
+		// Legacy records keep their original aggregate affordance and remain in
+		// activity history, but do not masquerade as an explicit identity chip.
+		if review.Reviewer == nil {
+			continue
+		}
+		item := reviewDecisionView{
+			State: review.State, Author: review.Author, Detail: review.AttributionDetail, Body: review.Body,
+			Kind: review.Reviewer.Kind, Name: review.Reviewer.Name, Agent: review.Reviewer.Agent, Model: review.Reviewer.Model,
+		}
+		if review.Reviewer.Kind == "human" {
+			item.KindLabel = "Human"
+		} else {
+			item.KindLabel = "AI"
+		}
+		result = append(result, item)
+	}
+	return result
 }
 
 func applyGitAttribution(ctx context.Context, resolver *gitattribution.Resolver, document *saga.Saga) {
 	type target struct {
-		path   string
-		author *string
-		detail *string
+		path     string
+		author   *string
+		detail   *string
+		identity *string
 	}
 	var targets []target
-	collect := func(path string, author *string, detail *string) {
-		targets = append(targets, target{path: path, author: author, detail: detail})
+	collect := func(path string, author *string, detail *string, identity ...*string) {
+		var key *string
+		if len(identity) > 0 {
+			key = identity[0]
+		}
+		targets = append(targets, target{path: path, author: author, detail: detail, identity: key})
 	}
 	var walk func(*saga.Section)
 	walk = func(section *saga.Section) {
 		for index := range section.Reviews {
 			review := &section.Reviews[index]
-			collect(review.Path, &review.Author, &review.AttributionDetail)
+			collect(review.Path, &review.Author, &review.AttributionDetail, &review.AttributionIdentity)
 		}
 		for _, fragment := range section.Fragments {
 			for index := range fragment.Reviews {
 				review := &fragment.Reviews[index]
-				collect(review.Path, &review.Author, &review.AttributionDetail)
+				collect(review.Path, &review.Author, &review.AttributionDetail, &review.AttributionIdentity)
 			}
 		}
 		for _, child := range section.Children {
@@ -1723,6 +1808,9 @@ func applyGitAttribution(ctx context.Context, resolver *gitattribution.Resolver,
 		switch value.State {
 		case gitattribution.Committed:
 			*target.author = value.Name
+			if target.identity != nil {
+				*target.identity = "git:" + strings.ToLower(strings.TrimSpace(value.Email))
+			}
 			commitID := value.CommitID
 			if len(commitID) > 12 {
 				commitID = commitID[:12]
@@ -1730,12 +1818,21 @@ func applyGitAttribution(ctx context.Context, resolver *gitattribution.Resolver,
 			*target.detail = fmt.Sprintf("%s · committed %s · %s", value.Email, value.CommittedAt.Format("2006-01-02 15:04 MST"), commitID)
 		case gitattribution.Uncommitted:
 			*target.author = "Local / uncommitted"
+			if target.identity != nil {
+				*target.identity = "local"
+			}
 			*target.detail = "This review event has not been committed yet."
 		case gitattribution.Rewritten:
 			*target.author = "History rewritten"
+			if target.identity != nil {
+				*target.identity = "history-rewritten"
+			}
 			*target.detail = "Git history no longer contains the commit that introduced this review event. Stored legacy identity is not authoritative."
 		default:
 			*target.author = "Git history unavailable"
+			if target.identity != nil {
+				*target.identity = "history-unavailable"
+			}
 			*target.detail = "Git attribution is unavailable. Stored legacy identity is not authoritative."
 		}
 	}
@@ -1931,7 +2028,7 @@ func (a *app) review(w http.ResponseWriter, r *http.Request) {
 	if index.Manifest.Version == saga.SlideSagaVersion {
 		reviewTarget = target
 	}
-	if err := reviewstore.AddReview(a.root, reviewTarget, r.FormValue("state"), r.FormValue("body")); err != nil {
+	if err := reviewstore.AddReview(a.root, reviewTarget, r.FormValue("state"), r.FormValue("body"), saga.ReviewerIdentity{Kind: "human"}); err != nil {
 		writeMutationError(w)
 		return
 	}

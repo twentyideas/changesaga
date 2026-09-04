@@ -13,10 +13,10 @@ import (
 
 func TestReviewActivityShowsDecisionHistoryAndResolvedConversations(t *testing.T) {
 	root := validServerSaga(t)
-	if err := reviewstore.AddReview(root, root, "open", "First **review round**"); err != nil {
+	if err := reviewstore.AddReview(root, root, "open", "First **review round**", saga.ReviewerIdentity{Kind: "human"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := reviewstore.AddReview(root, root, "approved", "Approved after the follow-up"); err != nil {
+	if err := reviewstore.AddReview(root, root, "approved", "Approved after the follow-up", saga.ReviewerIdentity{Kind: "human"}); err != nil {
 		t.Fatal(err)
 	}
 	target := saga.FragmentTarget("test", "overview")

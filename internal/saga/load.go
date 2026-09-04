@@ -570,6 +570,9 @@ func loadReviews(root, dir string, validation *Validation) ([]Review, error) {
 		if value.Version != CurrentVersion || !stableID.MatchString(value.ID) || value.CreatedAt.IsZero() || !validReviewState(value.State) {
 			addIssue(validation, "error", relativePath(root, path), "review requires version 2, a stable id, created_at, and a valid state")
 		}
+		if err := ValidateReviewerIdentity(value.Reviewer); err != nil {
+			addIssue(validation, "error", relativePath(root, path), err.Error())
+		}
 		result = append(result, value)
 	})
 	sort.Slice(result, func(i, j int) bool {

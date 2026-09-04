@@ -79,7 +79,7 @@ test("@critical creates a comment and reply, then resolves and reopens the threa
   expect(events.every(({ path }) => path.startsWith(`___review/threads/${threadRecord.id}.thread/events/`))).toBe(true);
 });
 
-test("approves, rejects, undoes, updates the progress map, and marks a source file reviewed", async ({ page, saga }) => {
+test("appends and replaces one human review without erasing other reviewers, updates progress, and marks a source file reviewed", async ({ page, saga }) => {
   const progress = page.locator("[data-review-progress]");
   const initialDecided = Number(await page.locator("body").getAttribute("data-review-decided"));
   const overviewControls = page.locator('[data-review-controls][data-review-title="Overview"]');
@@ -87,16 +87,8 @@ test("approves, rejects, undoes, updates the progress map, and marks a source fi
   const approved = page.waitForResponse((response) => response.url().endsWith("/api/review") && response.request().method() === "POST");
   await overviewControls.getByRole("button", { name: "Approve Overview" }).click();
   await approved;
-  await expect(overviewControls.getByRole("button", { name: /Undo approval for Overview/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(overviewControls.getByRole("button", { name: /Approval recorded for Overview/ })).toHaveAttribute("aria-pressed", "true");
   await expect(progress).toHaveAttribute("aria-label", `Review progress: ${initialDecided + 1} of ${await page.locator("body").getAttribute("data-review-total")} decisions`);
-
-  await overviewControls.getByRole("button", { name: /Undo approval for Overview/ }).click();
-  const undoForm = overviewControls.locator("[data-review-decision-form]");
-  await undoForm.getByRole("textbox", { name: "Optional review note" }).fill("Rechecking the implementation.");
-  const undone = page.waitForResponse((response) => response.url().endsWith("/api/review") && response.request().method() === "POST");
-  await undoForm.getByRole("button", { name: "Submit" }).click();
-  await undone;
-  await expect(overviewControls.getByRole("button", { name: "Approve Overview" })).toHaveAttribute("aria-pressed", "false");
 
   await overviewControls.getByRole("button", { name: "Request changes on Overview" }).click();
   const rejectForm = overviewControls.locator("[data-review-decision-form]");
@@ -104,8 +96,20 @@ test("approves, rejects, undoes, updates the progress map, and marks a source fi
   const rejected = page.waitForResponse((response) => response.url().endsWith("/api/review") && response.request().method() === "POST");
   await rejectForm.getByRole("button", { name: "Submit" }).click();
   await rejected;
-  await expect(overviewControls.getByRole("button", { name: /Undo request for changes on Overview/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(overviewControls.getByRole("button", { name: /Changes requested on Overview/ })).toHaveAttribute("aria-pressed", "true");
   await expect(progress.locator('[data-review-progress-note="Cover the rollback path."]')).toHaveCount(1);
+
+  const reapproved = page.waitForResponse((response) => response.url().endsWith("/api/review") && response.request().method() === "POST");
+  await overviewControls.getByRole("button", { name: "Approve Overview" }).click();
+  await reapproved;
+  await expect(overviewControls.getByRole("button", { name: /Approval recorded for Overview/ })).toHaveAttribute("aria-pressed", "true");
+  const targetReviews = reviewFiles(saga, /\/overview\.fragment\/___approvals\/.*-(approved|rejected)\.json$/);
+  expect(targetReviews).toHaveLength(3);
+  expect(targetReviews.map((path) => readJSON(path).reviewer)).toEqual([
+    { kind: "human" },
+    { kind: "human" },
+    { kind: "human" }
+  ]);
 
   await page.getByRole("tab", { name: "Code Diff" }).click();
   const fileMenu = page.locator('summary[aria-label="Mark this file reviewed"]');

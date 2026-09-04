@@ -46,29 +46,31 @@ to a neutral document outline rather than guessing.
 
 ## Navigation
 
-The Saga sidebar is a collapsed documentation tree, like a wiki's page tree. It
-lists the overview and the chapters; only the open page expands, and it expands
-into its own headings. It never shows how many fragments or sections a chapter
-contains, never mirrors the on-disk hierarchy, and never repeats a label it is
-already nested under.
+V4 is a native presentation. A thumbnail rail groups authored slides by deck;
+Previous/Next and unmodified arrow or Page keys move through the sequence. The
+current deck, slide title, and position stay visible so reviewers can orient and
+resume. Fullscreen presentation hides application and review chrome without
+changing the active slide.
+
+V2/v3 remain legacy reports with their documentation tree and collapsible
+chapters. The renderer must never reinterpret their fragments as slides or
+manufacture deck-break slides. A report becomes a presentation only through an
+explicit semantic rewrite to v4.
 
 The Code Diff sidebar is a different thing and should stay that way: a compact,
 filterable changed-file tree with counts, status, and a selected file.
 
-The outline is built from the saga's own manifests rather than from the rendered
-page, so it names every destination in the document — including the ones inside
-chapters the page has not fetched. That is what makes it navigation rather than
-a view of what happens to be loaded.
+Both navigation surfaces are built from manifests rather than incidental
+rendered state, so every destination remains addressable before its content is
+active.
 
 ## The page is a shell
 
-`GET /` renders the saga's identity, the coverage totals, the overview's
-explanations as descriptors, one summary per chapter, and the navigation
-outline. It renders no explanation content at all. A chapter body arrives from
-`/api/section` when the reviewer opens that chapter, and an explanation from
-`/api/fragment` when it comes into view, is pointed at, or is needed to answer a
-permalink. `/api/locate` says which chapter and which explanation own an anchor,
-so a deep link into an unopened chapter still resolves.
+For v4, `GET /` renders the deck and slide manifests, thumbnail navigator, and
+one active visual review surface. Deep links select the owning slide and Item;
+the visual asset is served through its stable slide target. V2/v3 keep the
+bounded legacy shell: chapter bodies arrive from `/api/section`, fragments from
+`/api/fragment`, and `/api/locate` resolves anchors in unopened chapters.
 
 Three rules follow from that, and breaking any of them is a regression:
 
@@ -93,16 +95,14 @@ explanation on screen has arrived and any anchor in the URL has been resolved.
 It is the page saying it has settled, which is what a reviewer can see and what
 the browser suite waits for instead of guessing.
 
-## Chapter review directories
+## Review controls
 
-A chapter bar exposes the same approve, request-changes, and comment actions as
-the other section bars. Opening it also fetches a directory of the
-approval-bearing sections and explanations inside it as part of the
-already-bounded `/api/section` response. The directory is expanded by default,
-collapsible, and sticky within the chapter so it follows only while that chapter
-is being read.
+In v4 the complete slide is the approval target. Items provide precise comments,
+annotations, and evidence links without becoming a second approval checklist.
+Deck and Saga status are derived rollups. V2/v3 retain section/fragment controls
+and the chapter review directory in their legacy report reader.
 
-Each row mirrors the decision control on its target's own bar and projects
+In the legacy chapter directory, each row mirrors the decision control on its target's own bar and projects
 append-only approval events into exactly `Unreviewed`, `Approved`, or `Changes requested`.
 Its discussion count is a separate signal: it combines non-withdrawn comment
 and annotation threads, including threads on an explanation's landmarks, but

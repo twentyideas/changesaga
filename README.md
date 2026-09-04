@@ -156,14 +156,14 @@ A normal PR description sits above a flat file-by-file diff. That works for
 small changes. With a large change, the reviewer has to understand the whole
 system while reading isolated files in an arbitrary order.
 
-A saga introduces the change gradually:
+A slide-native saga turns the expression of the code change into a guided visual
+argument:
 
-1. The overview explains the goal and the shape of the change.
-2. Chapters divide it into reviewable pieces—the PRs you might have created if
-   you had split the work.
+1. An overview deck establishes the goal and shape of the change.
+2. Change decks divide it into independently reviewable concerns.
 3. Diagrams, interactive HTML, screenshots, and examples show the important
    flows and data models.
-4. Each part links to the files and exact diff ranges that implement it.
+4. Semantic items inside each slide link to the exact diff ranges they explain.
 5. `change-saga status` reports any changed code that has not been accounted
    for.
 
@@ -173,25 +173,32 @@ it can build the first draft, create diagrams and examples, and iterate until
 the complete diff is represented. The reviewer still decides whether the
 change is correct.
 
-Saga content can be Markdown, text, images, SVG, or interactive HTML with
-JavaScript. Concrete implementation statements in prose should cite exact diffs
-with footnote-style references. Code-bearing diagram nodes and edges should each
-link directly to their own files and diff ranges; SVG element bounds become
-hoverable links automatically. Headings, exact text, controls, and image regions
-can use the same focused mapping model. Everything remains ordinary files in a
-`.saga` directory. That structured directory format is intentionally friendly
-to parallel development: chapters, fragments, evidence, claims, verifications,
-and review actions live in small independent records, so separate agents or
-branches can own different parts without funneling routine work through one
-shared file. This localizes merge conflicts rather than claiming to eliminate
-them. [SPEC.md](SPEC.md) defines the format.
+Version 4 is intentionally slide-native rather than a compatibility mode for
+older reports. Slides use self-contained SVG, raster, or sandboxed HTML visual
+entrypoints; prose formats are not slide entrypoints. Each slide makes one
+review argument, and its addressable items carry the exact implementation
+evidence. Existing v2/v3 sagas remain readable as legacy reports and must be
+semantically rewritten—not mechanically upgraded or paginated—to become v4.
+
+Everything remains ordinary files in a `.saga` directory. The v4 flat format
+keeps decks, slides, items, evidence, claims, verifications, and review actions
+in small independent records so separate agents or branches can work without a
+shared presentation file. [SPEC.md](SPEC.md) defines the format.
+
+In legacy report sagas, prose citations and visual nodes have the same evidence requirement. A Markdown
+footnote marker and definition are not a finished citation until the definition
+is an exact-text landmark with focused diff evidence. Likewise, a code-bearing
+diagram node is unfinished without its element landmark and diffs. Requirements
+provenance created with `citation add` is different: it records where a story or
+decision came from and does not substitute for implementation evidence.
 
 ## Reviewing a saga
 
 `change-saga open` starts a local review application with three views:
 
-- **Saga** presents the overview and chapters. Linked code opens in a large
-  drawer without losing the narrative.
+- **Saga** presents v4 as decks of authored slides with thumbnails, sequential
+  navigation, and fullscreen presentation. Linked code opens in a drawer
+  without losing the active slide. V2/v3 retain their legacy report reader.
 - **Code Diff** provides a traditional changed-file tree and diff view, with
   links back to every relevant explanation.
 - **Coverage** shows the mapping in both directions: code to explanations and
@@ -274,6 +281,23 @@ summaries can be bounded with `--json` or silenced with `--quiet`. Repair broad
 mappings using the `evidence_file` from `query mappings`:
 `replace-coverage --record PATH --batch -` atomically splits or retargets one,
 while `remove-coverage --record PATH` deletes one.
+
+If a base branch advances and is then merged into the feature while the product
+patch stays byte-for-byte identical, use the guarded bulk migration instead of
+hand-editing every URI:
+
+```sh
+change-saga rebase-evidence --repo ../source --dry-run checkout.saga
+change-saga rebase-evidence --repo ../source checkout.saga
+```
+
+The command proves the unchanged base-independent product identity and verifies
+every translated selector before writing. It refuses a changed product diff,
+preserves evidence targets, notes, paths, sides, and ranges, and rolls affected
+immutable claims forward through v3 `supersedes` relations. Replacement claims
+remain unverified unless `--carry-verifications` is explicitly requested; a
+carried result is a new `analysis` verification with an audit trail, never an
+edit or a claim that the original check was rerun.
 
 ## Manual CLI workflow
 

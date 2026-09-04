@@ -1,6 +1,6 @@
 ---
 name: change-saga
-description: 'Author, update, validate, and open a Git-native, visual successor to the pull-request description for a large PR number, URL, branch, commit range, or working-tree change. Use for requests like "make a change saga for PR 123" or "draft this change for review": explain the complete changeset through chapters, workflows, data-flow and data-model diagrams, interactive HTML, worked examples, and fully accounted diff URIs. The primary purpose is to create the artifact submitted for human review, not to perform the review; only conduct review actions when explicitly requested.'
+description: 'Author, update, validate, and open a Git-native, slide-native successor to the pull-request description for a large PR number, URL, branch, commit range, or working-tree change. Use for requests like "make a change saga for PR 123" or "draft this change for review": explain the complete changeset through visual decks and slides, purpose-fit diagrams, interactive HTML, worked examples, and fully accounted diff URIs. The primary purpose is to create the artifact submitted for human review, not to perform the review; only conduct review actions when explicitly requested.'
 ---
 
 # Change Saga
@@ -31,13 +31,13 @@ dense prose.
 Treat generated content as a first draft, even when using a frontier model.
 After the evidence and structure are correct, perform a separate editorial
 pass: make explanations concise, direct, and factual; remove repetition and
-vague framing; and revise prose and diagrams until each fragment communicates
-one coherent idea. Expect iteration rather than assuming the first complete
-draft is ready for review.
+vague framing; and revise each slide until it communicates one coherent idea.
+Expect iteration rather than assuming the first complete draft is ready for
+review.
 
 The structured directory format is intentionally friendly to parallel
 development. When work is parallelized, partition ownership along independent
-chapters and fragments, and let each lane add its own evidence, claims,
+decks and slides, and let each lane add its own Items, evidence, claims,
 verifications, and review records. Avoid aggregating unrelated work into shared
 files; merge the lanes before the final coverage and validation passes. This
 localizes Git conflicts but does not make parallel edits conflict-free.
@@ -164,126 +164,58 @@ it.
    the default branch when PR metadata is available.
 2. Inspect the PR description, commit/file summary, full diff, tests, and any
    existing `.saga`. Do not modify product code while authoring unless asked.
-3. Initialize the saga when none exists:
+3. Initialize the saga in slide-native mode when none exists:
 
    ```sh
-   change-saga init --base <base> --head <head> --title "<title>" \
+   change-saga init --mode slides --base <base> --head <head> --title "<title>" \
      [--pr <number> --pr-url <url>] <name>.saga
    ```
 
    Use `WORKTREE` as the head only for tracked in-progress changes. Warn that the
-   current engine does not account for untracked files.
+   current engine does not account for untracked files. Never change a v2/v3
+   manifest version to simulate this step; legacy reports require a semantic
+   rewrite into a separate v4 saga.
 4. Page `change-saga query gaps --kind uncovered --saga <name>.saga` as the
    coverage work queue. Query `gaps --kind stale` for reconciliation work and
    `gaps --kind overlap` for mappings that need justification. Preserve the
    returned snapshot across the loop and restart if it changes unexpectedly.
-5. Read the relevant code and diff context. Identify the affected end-to-end
-   workflows, data flows, data models, state transitions, and concrete
-   before/after examples. Use those to draft the overview and chapter map before
-   attaching evidence. Group changes by reviewer intent,
-   such as architecture, request flow, data migration, frontend behavior,
-   operational risk, or tests. Do not group solely by file extension or assign a
-   broad range before understanding it.
-6. Divide the change into a small set of independently reviewable chapters with
-   `change-saga add-chapter`. Treat each chapter like a PR that could be assigned and
-   approved on its own. Use recursive sections inside a chapter only when they
-   improve a reviewer's path through that unit.
-7. Author the empty root and chapter overview files using the visual-first
-   content contract in `references/authoring.md`; generated authoring text must
-   never appear in the handed-off saga. Lead the saga with a system or
-   change map, and lead every substantial chapter with a diagram, interactive
-   walkthrough, or worked example. Use SVG for architecture, data models, and
-   stable flows. Use sandboxed HTML with bundled JavaScript for alternate paths,
-   state transitions, before/after comparisons, and explorable examples. Use
-   Markdown to orient and connect those artifacts, not as the default container
-   for everything. Build focused fragments with `change-saga add-fragment`,
-   then write or replace their entrypoints through `change-saga
-   set-fragment-content --target TARGET --source FILE|-`. Do not edit
-   `content.md`, manifests, or other fragment-package files directly. Make every
-   meaningful subpart addressable using the landmark
-   contract in `references/authoring.md`: annotate Markdown headings directly,
-   then use `change-saga add-landmark --description "<semantic meaning>"` for each addressable heading, HTML/SVG
-   element, exact text, or image region. In prose, cite concrete implementation
-   claims with Markdown footnotes and make the plain-text citation definition
-   an exact-text landmark; evidence on that landmark lets the inline citation
-   and its reference entry open the code drawer. Attach exact diff atoms to the returned
-   landmark target when code realizes it. Treat this as a required
-   addressability pass before broad coverage: every concrete prose statement
-   about implementation, behavior, an invariant, or a data transition must
-   either carry a focused footnote citation or live under a deliberately
-   evidence-bearing heading landmark. Do not finish a substantive prose
-   fragment with zero citations merely because its diff atoms are covered at
-   fragment scope. Zero citations are appropriate only for pure orientation,
-   background, or prose whose exact code ownership is already expressed by
-   focused heading landmarks. Before moving on from a visual, enumerate its
-   meaningful nodes **and edges** and confirm each code-bearing node, arrow,
-   transition, or state has a stable element ID, a landmark, and focused
-   evidence rather than relying on fragment-level coverage. For SVG,
-   `--element-id` automatically creates the on-canvas link from the element's
-   rendered bounds; use `--hotspot` only to override an awkward hit area. Keep
-   one review idea per fragment and avoid decorative media.
-8. Attach only the atoms actually explained or demonstrated by a fragment (or a
-   deliberately higher target) with `change-saga cover --target`. `--target`
-   accepts a section or fragment path, a target URN, or the
-   `<fragment-path>#<landmark-id>` shorthand. Always pass `--note`
-   with a concise, reviewer-facing explanation of what changed in that source
-   file and why it belongs to this narrative target. Make the note useful before
-   code is expanded; do not restate the path or say only “implementation” or
-   “tests.” Use `old` for deletions and `new` for additions. Cover rename, mode,
-   and binary events explicitly. Prefer the absolute URIs emitted by `query
-   gaps` when source and saga live in different repositories. Use `--dry-run`
-   to see exactly which records an invocation would write before writing them.
-   When every changed atom in one file genuinely belongs to the same narrative
-   target, `--path FILE --changed-lines` derives its exact old/new line atoms,
-   coalesces gapless lines into canonical dense ranges, and includes file
-   events such as `add` automatically. Do not use this convenience to collapse
-   multiple concerns into one broad record. Generated evidence paths identify
-   their selector set, so a second explanation for the same selectors requires
-   `replace-coverage` rather than creating a duplicate record.
-9. When attaching many selectors, pipe newline-delimited JSON records (or one
-   JSON array) to `change-saga cover --batch -`. Each record carries its own
-   `target`, `path`, `side`, `lines`, `changed_lines`, `event`, `old_path`,
-   `new_path`, `note`, and `name`; `--target` and `--note` supply batch-wide defaults. The whole
-   batch is resolved before anything is written and a failing record leaves the
-   saga untouched. A batch is a delivery optimization only: every record still
-   maps the exact atoms it explains, never a widened range. Give a record an
-   explicit `name` only when you want a stable handle; a reused name is an
-   error, not an overwrite.
-10. Run `change-saga query mappings --sort scrutiny`. Its `evidence_file` is
-    the supported repair handle: use `change-saga replace-coverage --record
-    PATH --batch -` to atomically split, retarget, or rewrite a record, and
-    `change-saga remove-coverage --record PATH` to delete one. Prefer
-    landmark-level ownership for broad visual fragments. A mapping
-    score directs scrutiny; it is not a correctness grade and a low score is
-    not proof that the explanation is true.
-    Then audit addressability independently of atom completeness: use `query
-    children` and `query fragment-diffs` on every substantive fragment. Move
-    direct fragment-level evidence down to prose citations, heading landmarks,
-    SVG nodes, or SVG edges whenever the authored content identifies that
-    narrower concept. A complete saga with avoidably broad targets is not ready
-    for handoff.
-11. Record falsifiable assertions with `change-saga add-claim`. Each claim must
-    target the exact narrative element making it and cite exact supporting diff
-    URIs. Claims never contribute to coverage. Append an explicit result with
-    `change-saga verify-claim`: use `unverified` when the assertion has not
-    actually been checked, and otherwise record the reproducible method,
-    outcome, and command when applicable. Never convert prose confidence into a
-    `verified` result.
-12. Repeat the three `query gaps` views until no product atom is uncovered, no
-    selector is stale, and every overlap is defensible because multiple
-    reviewer journeys genuinely need the same change.
-13. Run both `change-saga validate --json` and `change-saga status --json`.
-    Treat untouched scaffolds and visual-mapping warnings as unfinished
-    authoring, then perform the
-    visual and reviewer-readiness checks in `references/authoring.md`. Replace
-    walls of text with diagrams or concrete examples before handoff.
-    Treat a citation-free implementation narrative or a code-bearing visual
-    node/edge without its own landmark as unfinished even when status reports
-    complete coverage.
-    `change-saga validate --fix` adds missing stable anchors to Markdown
-    headings in narrative fragments and changes nothing else; it never touches
-    review history. Summarize the chapter structure, coverage result, saga-only
-    changes, and limitations.
+5. Read the relevant code and diff context. Storyboard an overview deck plus a
+   small set of change decks grouped by reviewer intent—architecture, request
+   flow, state transition, migration, operational risk, or proof—not by source
+   directory. For every planned slide, write one intent and one takeaway before
+   choosing its visual grammar.
+6. Create decks with `add-deck` and slides with `add-slide`. Choose a purpose-fit
+   system-context, architecture, data-flow, sequence, state, entity,
+   decision-logic, comparison, failure, or evidence composition. Use
+   `set-slide-content` to install a self-contained SVG, raster image, or
+   sandboxed HTML entrypoint. Do not use prose as the slide or repeat one generic
+   card-grid silhouette across unrelated reviewer questions.
+7. Enumerate every meaningful visual node, edge, region, transition, statement,
+   risk, metric, example, and callout with `add-item`. Keep 1–7 primary Items per
+   slide, include every non-decorative Item in `reading_order`, and give each a
+   semantic description that stands without the picture. The slide is the
+   approval unit; Items are the precise evidence and discussion units.
+8. Attach only the exact atoms each Item explains with `change-saga cover
+   --target`. Always provide a concise reviewer-facing note. Use `old` for
+   deletions and `new` for additions, cover rename/mode/binary events explicitly,
+   and prefer the absolute URIs returned by `query gaps`. Batch authoring may
+   reduce calls, but it never justifies widened selectors or slide-level
+   ownership; v4 rejects Saga-, deck-, and slide-level coverage.
+9. Run `query mappings --sort scrutiny` and use `replace-coverage` or
+   `remove-coverage` to repair broad or misplaced ownership. If mappings became
+   stale only because an incorporated base advanced while product identity
+   remained byte-for-byte unchanged, preview `rebase-evidence --dry-run` and
+   apply it only after checking the old/new bases and complete impact. Do not
+   carry verifications unless an explicit analysis carry-forward is warranted.
+10. Record falsifiable assertions with `add-claim` against the exact Item making
+    them, and append reproducible results with `verify-claim`. Claims never
+    contribute to coverage, and prose confidence is not verification.
+11. Repeat all three gap views until no product atom is uncovered, no selector
+    is stale, and every overlap has a defensible reviewer reason.
+12. Run `validate --json` and `status --json`, then perform the visual,
+    accessibility, relationship-silhouette, and contact-sheet audits in
+    `references/authoring.md`. A structurally valid deck that still makes the
+    reviewer read paragraphs or decode decorative diagrams is not ready.
 
 Never make a selector wider merely to reach 100%. If an atom does not fit the
 current story, improve the structure or call out the unexplained change.
@@ -351,6 +283,14 @@ reviewer should remain attached to the current terminal.
 
 When reviewing without the UI, read the saga through the query API described
 above rather than searching for or reading saga metadata files directly.
+When recording an approval or rejection from the CLI, always declare the
+reviewer persona. Use `--reviewer-kind human` only for a decision the human made
+directly. For your own AI review, use `--reviewer-kind ai` together with an
+independent `--reviewer-name`, `--agent`, and the exact `--model`; never turn an
+AI pass into a human approval. Give simultaneous passes stable distinct names
+such as `Claude 1` and `Claude 2` even when their model is identical.
+Multiple reviewers may decide the same target, and your decision must not erase
+or stand in for theirs.
 Conduct correctness review in three passes:
 
 1. Read the code diff independently before reading the author's conclusions.

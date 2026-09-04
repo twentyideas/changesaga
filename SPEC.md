@@ -227,6 +227,15 @@ and focused on one claim so its exact-text selector is durable. Footnote syntax
 does not itself create coverage; the landmark's independent `___diffs` records
 remain the authoritative association.
 
+A prose diff citation and a code-bearing visual landmark have identical
+completion criteria: a stable addressable landmark plus focused diff evidence.
+A footnote marker or definition without that evidence is an incomplete citation,
+just as an SVG node without linked diffs is incomplete. Validators SHOULD warn
+for each Markdown footnote definition that lacks a matching exact-text landmark
+or whose landmark owns no diff evidence. Living-Saga provenance citations are a
+separate requirements surface and do not satisfy this implementation-evidence
+contract.
+
 Addressable subparts use one `<id>.landmark` package under `___landmarks/`.
 Its `landmark.json` conforms to
 [`schema/v2/landmark.schema.json`](schema/v2/landmark.schema.json) and contains a
@@ -429,6 +438,33 @@ This projection does not rewrite evidence or advance the Saga's declared head.
 Its purpose is to produce the formal maintenance work queue before content and
 coverage are reconciled against the new source state.
 
+### 6.2 Exact evidence rebase
+
+`change-saga rebase-evidence` is the only supported bulk identity migration for
+a moved declared base. It resolves the Saga's current source comparison and
+MUST prove that every candidate selector already carries the same
+base-independent product identity as that comparison. It MUST also rebuild each
+candidate using only the new resolved base and prove the result still selects a
+current atom. A different repository, product identity, selector shape, or
+unmatched translated selector MUST refuse the entire operation without writes.
+Multiple old base cohorts MUST be refused rather than partially migrated.
+
+The operation preserves evidence record paths, targets, ordering, notes, paths,
+sides, ranges, and events. Only the exact base field in each canonical URI may
+change. `--dry-run` performs the same proof and reports the complete impact
+without mutation. Application is serialized under the Saga authoring lock; a
+failed multi-file write restores original evidence and removes newly appended
+records.
+
+Claims remain immutable. Every claim containing migrated evidence is copied to
+a new claim ID with translated evidence, and a v3 `supersedes` relation points
+from the replacement to the original. A v2 Saga with an affected claim MUST be
+upgraded before migration. Verification is not inherited by default. With
+`--carry-verifications`, the latest result is appended for the replacement as a
+new `analysis` verification whose summary identifies the source verification
+and unchanged product identity; this records logical carry-forward and MUST NOT
+imply that a command or test was rerun.
+
 ## 7. Claims and verification
 
 Author claims are independent `___claims/<id>.json` records conforming to
@@ -562,9 +598,21 @@ a container and derives its progress from the independently reviewed sections
 and fragments inside it.
 Append-only approval events live in the target's `___approvals/` directory and
 use state `approved`, `rejected`, `closed`, or `open` as defined by
-[`schema/v2/review.schema.json`](schema/v2/review.schema.json). The latest event, resolving `created_at` ties by the greater `id`, is the
-displayed state; repository policy, not this format, decides whether an approval
-permits merging.
+[`schema/v2/review.schema.json`](schema/v2/review.schema.json). New events carry
+a `reviewer` persona: `kind` is `human` or `ai`; AI personas also require a
+distinct reviewer name, agent kind, and model. Git still supplies the
+authoritative author identity. The name identifies one independent review seat
+(for example `Claude 1` and `Claude 2`) even when both seats use the same model.
+Legacy events without a persona remain valid and are displayed as unspecified.
+
+The latest event for each distinct Git author and reviewer persona is that
+reviewer's current decision, resolving `created_at` ties by the greater `id`.
+An `open` or `closed` event retracts only that persona's active decision. The
+displayed aggregate is rejected when any current reviewer rejects, approved
+when at least one current reviewer approves and none reject, and otherwise
+unreviewed. Every current decision remains visible; an AI approval is never
+presented as a human approval. Repository policy, not this format, decides
+which combination of approvals permits merging.
 
 ## 10. Reserved names
 

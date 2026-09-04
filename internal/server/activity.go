@@ -40,6 +40,11 @@ type reviewActivityItem struct {
 	Href              string
 	Author            string
 	AttributionDetail string
+	ReviewerKind      string
+	ReviewerLabel     string
+	ReviewerName      string
+	ReviewerAgent     string
+	ReviewerModel     string
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 	Body              template.HTML
@@ -125,6 +130,22 @@ func makeReviewActivityView(document *saga.Saga, scope string) *reviewActivityVi
 				Href: sagaHref(target), Author: review.Author, AttributionDetail: review.AttributionDetail,
 				CreatedAt: review.CreatedAt, UpdatedAt: review.CreatedAt,
 				Slide: place.Slide,
+			}
+			item.ReviewerKind, item.ReviewerLabel = "unspecified", "Unspecified reviewer"
+			if review.Reviewer != nil {
+				item.ReviewerKind, item.ReviewerName, item.ReviewerAgent, item.ReviewerModel = review.Reviewer.Kind, review.Reviewer.Name, review.Reviewer.Agent, review.Reviewer.Model
+				if review.Reviewer.Kind == "human" {
+					item.ReviewerLabel = "Human"
+				} else {
+					item.ReviewerLabel = "AI"
+				}
+			}
+			if item.Author == "" {
+				item.Author = "Unattributed reviewer"
+			}
+			item.Author += " · " + item.ReviewerLabel
+			if item.ReviewerKind == "ai" {
+				item.Author += " · " + item.ReviewerName + " · " + item.ReviewerAgent + " · " + item.ReviewerModel
 			}
 			if strings.TrimSpace(review.Body) != "" {
 				item.Body = markdownWithAnchors(review.Body, item.DOMID)

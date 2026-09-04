@@ -83,6 +83,27 @@ test("@critical navigates the saga, linked code, code tree, and coverage in both
   expect(saga.sourceRepo).not.toBe(saga.sagaRepo);
 });
 
+test("deeply indented Code Diff paths scroll horizontally without truncation", async ({ page, saga }) => {
+  await page.goto(saga.baseURL);
+  await page.getByRole("tab", { name: "Code Diff" }).click();
+
+  const tree = page.getByRole("tree", { name: "Changed files" });
+  const file = tree.locator("[data-tree-file]").first();
+  const name = file.locator(".tree-name");
+  const fullName = "a-very-long-component-name-that-must-remain-readable-without-an-ellipsis.ts";
+  await file.evaluate((element, value) => {
+    element.style.setProperty("--depth", "14");
+    const label = element.querySelector(".tree-name");
+    if (label) label.textContent = value;
+  }, fullName);
+
+  await expect(name).toHaveText(fullName);
+  await expect(name).toHaveCSS("text-overflow", "clip");
+  await expect.poll(() => tree.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true);
+  await tree.evaluate(element => element.scrollTo({ left: element.scrollWidth }));
+  await expect.poll(() => tree.evaluate(element => element.scrollLeft)).toBeGreaterThan(0);
+});
+
 test("renders Markdown, SVG, raster, and interactive HTML fragments", async ({ page, saga }) => {
   const markdown = page.locator('[data-fragment-title="Overview"] [data-selectable]');
   await expect(markdown).toContainText("Reviewer path");

@@ -123,8 +123,14 @@ type SourceSnapshot struct {
 }
 
 type CompactReview struct {
-	LatestState string `json:"latest_state,omitempty"`
-	OpenThreads int    `json:"open_threads"`
+	// LatestState is retained as a wire-compatible name for the aggregate of
+	// every reviewer's current decision.
+	LatestState    string `json:"latest_state,omitempty"`
+	HumanApprovals int    `json:"human_approvals"`
+	AIApprovals    int    `json:"ai_approvals"`
+	Rejections     int    `json:"rejections"`
+	Unspecified    int    `json:"unspecified_decisions"`
+	OpenThreads    int    `json:"open_threads"`
 }
 
 type CompactDiffs struct {
@@ -407,16 +413,17 @@ type ReviewMessage struct {
 }
 
 type ReviewEvent struct {
-	ID                  string       `json:"id"`
-	Kind                string       `json:"kind"`
-	Target              string       `json:"target,omitempty"`
-	Diff                string       `json:"diff,omitempty"`
-	State               string       `json:"state,omitempty"`
-	Body                string       `json:"body,omitempty"`
-	Anchor              *saga.Anchor `json:"anchor,omitempty"`
-	CreatedAt           time.Time    `json:"created_at"`
-	Attribution         Attribution  `json:"attribution"`
-	LegacyClaimedAuthor string       `json:"legacy_claimed_author,omitempty"`
+	ID                  string                 `json:"id"`
+	Kind                string                 `json:"kind"`
+	Target              string                 `json:"target,omitempty"`
+	Diff                string                 `json:"diff,omitempty"`
+	State               string                 `json:"state,omitempty"`
+	Body                string                 `json:"body,omitempty"`
+	Anchor              *saga.Anchor           `json:"anchor,omitempty"`
+	CreatedAt           time.Time              `json:"created_at"`
+	Attribution         Attribution            `json:"attribution"`
+	LegacyClaimedAuthor string                 `json:"legacy_claimed_author,omitempty"`
+	Reviewer            *saga.ReviewerIdentity `json:"reviewer,omitempty"`
 }
 
 type ReviewThread struct {

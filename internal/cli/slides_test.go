@@ -72,10 +72,10 @@ func TestSlideNativeAuthoringLoopAndCompatibilityRefusal(t *testing.T) {
 	if err := Cover(context.Background(), []string{"--target", item.Target, "--uri", uri, root}, &output); err != nil {
 		t.Fatalf("item coverage failed: %v", err)
 	}
-	if err := Review(context.Background(), []string{"--target", item.Path, "--state", "approved", root}, &output); err == nil || !strings.Contains(err.Error(), "must target a slide") {
+	if err := Review(context.Background(), []string{"--target", item.Path, "--state", "approved", "--reviewer-kind", "human", root}, &output); err == nil || !strings.Contains(err.Error(), "must target a slide") {
 		t.Fatalf("Item approval was not explicitly refused: %v", err)
 	}
-	if err := Review(context.Background(), []string{"--target", document.Decks[0].Slides[0].Path, "--state", "approved", "--body", "Visual argument checked.", root}, &output); err != nil {
+	if err := Review(context.Background(), []string{"--target", document.Decks[0].Slides[0].Path, "--state", "approved", "--reviewer-kind", "human", "--body", "Visual argument checked.", root}, &output); err != nil {
 		t.Fatalf("slide review by compact record path failed: %v", err)
 	}
 	if err := Thread(context.Background(), []string{"--target", item.Target, "--body", "Keep the validation boundary visible.", root}, &output); err != nil {

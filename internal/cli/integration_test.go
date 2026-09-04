@@ -125,10 +125,10 @@ func TestAuthoringLoopAgainstGitDiff(t *testing.T) {
 	if err := Reply(context.Background(), []string{"--thread", threadID, "--state", "open", root}, &output); err != nil {
 		t.Fatal(err)
 	}
-	if err := Review(context.Background(), []string{"--target", ".", "--state", "approved", root}, &output); err != nil {
+	if err := Review(context.Background(), []string{"--target", ".", "--state", "approved", "--reviewer-kind", "human", root}, &output); err != nil {
 		t.Fatal(err)
 	}
-	if err := Review(context.Background(), []string{"--target", "overview.fragment", "--state", "approved", root}, &output); err != nil {
+	if err := Review(context.Background(), []string{"--target", "overview.fragment", "--state", "approved", "--reviewer-kind", "human", root}, &output); err != nil {
 		t.Fatal(err)
 	}
 	document, validation, err := saga.Load(root)

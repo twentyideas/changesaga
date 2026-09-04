@@ -386,8 +386,26 @@ metadata edits. Coverage commands accept `--json` for bounded counts and
 created evidence paths. Failures remain one structured JSON result on stdout
 with a non-zero exit status. `--quiet` suppresses successful output.
 
+`rebase-evidence --repo PATH --dry-run` is the guarded repair for a base ref
+that advanced and was incorporated into the head without changing the product
+patch. It compares the persisted base-independent product identity with the
+current one, validates every translated selector against a current atom, and
+refuses the whole operation if the repository, product identity, or selector
+shape changed. Apply without `--dry-run` only after inspecting the counts and
+old/new base OIDs. Affected claims are replaced, not edited, and linked to their
+predecessors with v3 `supersedes` relations. Leave replacement claims
+unverified by default; use `--carry-verifications` only when logical
+equivalence is sufficient and an explicit analysis audit trail is desired.
+
 Unique target IDs are accepted anywhere an authoring command accepts a path or
 URN. Ambiguous landmark IDs are rejected with the matching URNs.
+
+Markdown prose citations use the same completion rule as code-bearing diagram
+nodes: the footnote definition must be an exact-text landmark and that landmark
+must own focused diff evidence. A marker and rendered definition alone are not
+a linked citation. Validation reports each definition missing its landmark or
+diffs. Requirements provenance created through `citation add` is intentionally
+separate and does not count as implementation evidence.
 
 ## Proposed structured review mutation contract
 
@@ -450,7 +468,8 @@ shape schema, so annotation creation is not a separate persistence operation.
   "if_snapshot": "sha256:...",
   "target": "urn:change-saga:checkout:chapter:backend",
   "state": "approved",
-  "body": "The retry concern is resolved."
+  "body": "The retry concern is resolved.",
+  "reviewer": {"kind": "ai", "name": "Codex 1", "agent": "codex", "model": "gpt-5.6-sol"}
 }
 ```
 
@@ -467,6 +486,18 @@ There is deliberately no `author`, `created_by`, commit, or attribution input.
 Writers create local event files and return attribution status `uncommitted`.
 They do not run `git add` or `git commit`. After the user commits the event,
 the read side derives identity from that introducing commit.
+
+Target review decisions do require a reviewer persona. `kind` is `human` only
+when the person made the decision directly. AI decisions use `kind: "ai"` and
+name a distinct review seat, the agent kind, and exact model. Distinct names
+such as `Claude 1` and `Claude 2` preserve independent passes even when the
+agent and model are otherwise identical. This metadata complements rather than
+replaces Git attribution: it makes a person's direct review distinguishable
+from AI due diligence run under the same Git identity. Review state is projected
+per Git author and persona, so multiple people and AI reviewers can approve or
+reject the same target without overwriting one another.
+Every decision is an independent event file. There is no shared reviewer array
+to rewrite, so concurrent review branches normally merge as disjoint additions.
 
 ## HTTP mapping
 

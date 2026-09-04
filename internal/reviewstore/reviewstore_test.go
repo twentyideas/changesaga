@@ -71,8 +71,12 @@ func TestReviewRecordsAreAppendOnlyAndFileGranular(t *testing.T) {
 		t.Fatal(err)
 	}
 	runConcurrently(t,
-		func() error { return AddReview(root, root, "approved", "Looks good") },
-		func() error { return AddReview(root, root, "rejected", "One concern") },
+		func() error {
+			return AddReview(root, root, "approved", "Looks good", saga.ReviewerIdentity{Kind: "human"})
+		},
+		func() error {
+			return AddReview(root, root, "rejected", "One concern", saga.ReviewerIdentity{Kind: "human"})
+		},
 		func() error { return AddDiffReview(root, fileURI, "reviewed") },
 		func() error { return AddDiffReview(root, fileURI, "unreviewed") },
 	)
@@ -90,6 +94,50 @@ func TestReviewRecordsAreAppendOnlyAndFileGranular(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestAddReviewPersistsExplicitReviewerPersona(t *testing.T) {
+	root := newTestSaga(t)
+	if err := AddReview(root, root, "approved", "Human pass", saga.ReviewerIdentity{Kind: "human"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := AddReview(root, root, "approved", "AI pass", saga.ReviewerIdentity{Kind: "ai", Name: "Codex 1", Agent: "codex", Model: "gpt-5.6-sol"}); err != nil {
+		t.Fatal(err)
+	}
+	document, validation, err := saga.Load(root)
+	if err != nil || !validation.Valid || len(document.Section.Reviews) != 2 {
+		t.Fatalf("reviews did not load: reviews=%#v validation=%#v err=%v", document.Section.Reviews, validation, err)
+	}
+	if document.Section.Reviews[0].Reviewer == nil || document.Section.Reviews[1].Reviewer == nil {
+		t.Fatalf("reviewer provenance was omitted: %#v", document.Section.Reviews)
+	}
+}
+
+func TestNamedAIReviewersAppendConcurrentlyWithoutSharedFiles(t *testing.T) {
+	root := newTestSaga(t)
+	identities := []saga.ReviewerIdentity{
+		{Kind: "ai", Name: "Claude 1", Agent: "claude-code", Model: "claude-opus-4.1"},
+		{Kind: "ai", Name: "Claude 2", Agent: "claude-code", Model: "claude-opus-4.1"},
+		{Kind: "ai", Name: "Codex 1", Agent: "codex", Model: "gpt-5.6-sol"},
+		{Kind: "ai", Name: "Codex 2", Agent: "codex", Model: "gpt-5.6-sol"},
+	}
+	operations := make([]func() error, 0, len(identities))
+	for _, identity := range identities {
+		identity := identity
+		operations = append(operations, func() error {
+			return AddReview(root, root, "approved", identity.Name+" pass", identity)
+		})
+	}
+	runConcurrently(t, operations...)
+	assertEntryCount(t, filepath.Join(root, "___approvals"), len(identities))
+	document, validation, err := saga.Load(root)
+	if err != nil || !validation.Valid {
+		t.Fatalf("parallel AI reviews did not load: validation=%#v err=%v", validation, err)
+	}
+	current := saga.CurrentReviews(document.Section.Reviews)
+	if len(current) != len(identities) {
+		t.Fatalf("current AI decisions = %#v, want one per named reviewer", current)
 	}
 }
 
@@ -261,7 +309,7 @@ func TestMutationRefusesStructurallyInvalidSagaWithoutSideEffect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := AddReview(root, root, "approved", "should not exist"); err == nil || !strings.Contains(err.Error(), "structurally invalid") {
+	if err := AddReview(root, root, "approved", "should not exist", saga.ReviewerIdentity{Kind: "human"}); err == nil || !strings.Contains(err.Error(), "structurally invalid") {
 		t.Fatalf("AddReview error = %v, want invalid saga refusal", err)
 	}
 	after, err := os.ReadDir(root)
@@ -287,7 +335,7 @@ func TestMutationValidationDoesNotParseCoverageMappings(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "overview.fragment", "___diffs", "large.json"), []byte("not parsed by review mutation\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := AddReview(root, root, "approved", "Review state is independent."); err != nil {
+	if err := AddReview(root, root, "approved", "Review state is independent.", saga.ReviewerIdentity{Kind: "human"}); err != nil {
 		t.Fatalf("review mutation parsed the coverage generation: %v", err)
 	}
 	assertEntryCount(t, filepath.Join(root, "___approvals"), 1)

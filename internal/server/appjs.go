@@ -312,11 +312,11 @@ const appJavaScript = `(() => {
         const selected = button.dataset.reviewDecision === state;
         button.setAttribute('aria-pressed', String(selected));
         if (button.dataset.reviewDecision === 'approved') {
-          button.setAttribute('aria-label', (selected ? 'Undo approval for ' : 'Approve ') + candidateTitle + (selected && author ? ' by ' + author : '') + (selected && note ? '. Comment: ' + note : ''));
-          if (selected) button.removeAttribute('title'); else button.title = 'Approve';
+          button.setAttribute('aria-label', (selected ? 'Approval recorded for ' : 'Approve ') + candidateTitle + (selected && author ? ' by ' + author : '') + (selected && note ? '. Comment: ' + note : ''));
+          button.title = 'Approve';
         } else {
-          button.setAttribute('aria-label', (selected ? 'Undo request for changes on ' : 'Request changes on ') + candidateTitle + (selected && author ? ' by ' + author : '') + (selected && note ? '. Comment: ' + note : ''));
-          if (selected) button.removeAttribute('title'); else button.title = 'Request changes';
+          button.setAttribute('aria-label', (selected ? 'Changes requested on ' : 'Request changes on ') + candidateTitle + (selected && author ? ' by ' + author : '') + (selected && note ? '. Comment: ' + note : ''));
+          button.title = 'Request changes';
         }
         const tooltip = q('[data-review-decision-tooltip]', button);
         const tooltipAuthor = tooltip ? q('[data-review-decision-author]', tooltip) : null;
@@ -371,10 +371,31 @@ const appJavaScript = `(() => {
     q('[name=target]', form).value = control.dataset.reviewTarget;
     q('[name=state]', form).value = state;
     const field = q('[name=body]', form);
-    field.placeholder = state === 'rejected' ? 'What needs to change? (optional)' : 'Why are you undoing this decision? (optional)';
+    field.placeholder = state === 'rejected' ? 'What needs to change? (optional)' : 'Add a review note (optional)';
     form.hidden = false;
     requestAnimationFrame(() => form.classList.add('open'));
     field.focus();
+  }
+
+  function upsertLocalHumanDecision(control, state, body = '') {
+    let list = q('[data-review-identities]', control);
+    if (!list) {
+      list = document.createElement('span');
+      list.className = 'review-identities';
+      list.dataset.reviewIdentities = '';
+      control.insertBefore(list, q('.review-decision-group', control));
+    }
+    let identity = qa('.review-identity.human', list).find(item => q('.reviewer-author', item)?.textContent === 'Local / uncommitted');
+    if (!identity) {
+      identity = document.createElement('span');
+      identity.className = 'review-identity human';
+      identity.innerHTML = '<span class="reviewer-kind">Human</span><span class="reviewer-author">Local / uncommitted</span>';
+      list.append(identity);
+    }
+    identity.classList.remove('approved', 'rejected');
+    identity.classList.add(state);
+    identity.title = 'This review event has not been committed yet.' + (body ? '\n' + body : '');
+    return qa('.review-identity.rejected', list).length ? 'rejected' : 'approved';
   }
 
   async function persistReviewDecision(control, state, body = '') {
@@ -389,7 +410,9 @@ const appJavaScript = `(() => {
         candidate.dataset.reviewAuthor = 'Local / uncommitted';
         candidate.dataset.reviewDetail = 'This review event has not been committed yet.';
       });
-      setReviewControlState(control, state, true, body.trim());
+      let aggregate = state;
+      controls.forEach(candidate => { aggregate = upsertLocalHumanDecision(candidate, state, body.trim()); });
+      setReviewControlState(control, aggregate, true, aggregate === state ? body.trim() : '');
     } catch (error) {
       alert('Could not save this review decision: ' + error.message);
       throw error;
@@ -401,11 +424,6 @@ const appJavaScript = `(() => {
   function activateReviewDecision(button) {
     const control = button.closest('[data-review-controls]');
     const requested = button.dataset.reviewDecision;
-    const current = control.dataset.reviewState || '';
-    if (current === requested) {
-      openReviewComposer(control, 'open');
-      return;
-    }
     if (requested === 'rejected') {
       openReviewComposer(control, 'rejected');
       return;
@@ -2229,7 +2247,8 @@ const appJavaScript = `(() => {
       if (place?.fragment) await hydrateFragment(document.getElementById(place.fragment));
       element = document.getElementById(id);
     }
-    const chapter = element?.closest('[data-chapter]');
+    const destination = document.getElementById(id);
+    const chapter = destination?.closest('[data-chapter]');
     if (chapter) await setChapterOpen(chapter, true);
     return document.getElementById(id);
   }
