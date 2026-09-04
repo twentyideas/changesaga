@@ -114,6 +114,15 @@ func TestSessionReadOperations(t *testing.T) {
 			if len(value.Items) != 3 {
 				t.Fatalf("review items = %#v", value.Items)
 			}
+			var targetReview *ReviewEvent
+			for _, item := range value.Items {
+				if item.Kind == "target_review" {
+					targetReview = item.Event
+				}
+			}
+			if targetReview == nil || targetReview.Reviewer == nil || targetReview.Reviewer.Kind != "ai" || targetReview.Reviewer.Name != "Codex 1" || targetReview.Reviewer.Agent != "codex" || targetReview.Reviewer.Model != "gpt-5.6-sol" {
+				t.Fatalf("target review provenance = %#v", targetReview)
+			}
 			filtered, err := fixture.session.Reviews(ctx, ReviewQuery{Thread: "thread-1", State: "open"})
 			if err != nil || len(filtered.Items) != 1 || filtered.Items[0].Thread == nil || filtered.Items[0].Thread.Attribution.Status != "committed" || filtered.Items[0].Thread.Messages[0].Fragments[0].Data != "Please clarify.\n" {
 				t.Fatalf("filtered reviews = %#v, err=%v", filtered, err)
@@ -350,7 +359,7 @@ func newServiceFixture(t *testing.T) serviceFixture {
 	asset := filepath.Join(root, "overview.fragment", "diagram.png")
 	writeFile(t, asset, "not-executed-image-bytes")
 	writeJSON(t, filepath.Join(root, "overview.fragment", "___diffs", "coverage.json"), saga.DiffFile{Version: 2, Diffs: []saga.DiffReference{{URI: current.URI, Note: "fragment ownership"}, {URI: stale, Note: "needs repair"}}})
-	writeJSON(t, filepath.Join(root, "overview.fragment", "___approvals", "review.json"), saga.Review{Version: 2, ID: "review-1", State: "approved", Body: "Looks good.", CreatedAt: mustTime("2026-08-20T10:02:00Z")})
+	writeJSON(t, filepath.Join(root, "overview.fragment", "___approvals", "review.json"), saga.Review{Version: 2, ID: "review-1", Reviewer: &saga.ReviewerIdentity{Kind: "ai", Name: "Codex 1", Agent: "codex", Model: "gpt-5.6-sol"}, State: "approved", Body: "Looks good.", CreatedAt: mustTime("2026-08-20T10:02:00Z")})
 	writeJSON(t, filepath.Join(root, "details.chapter", "chapter.json"), saga.ChapterManifest{Version: 2, ID: "details", Title: "Details", Order: 2})
 	writeJSON(t, filepath.Join(root, "details.chapter", "details.fragment", "fragment.json"), saga.FragmentManifest{Version: 2, ID: "details-body", Title: "Details body", MediaType: "text/plain", Entrypoint: "content.txt"})
 	writeFile(t, filepath.Join(root, "details.chapter", "details.fragment", "content.txt"), "Details.\n")

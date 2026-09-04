@@ -812,7 +812,7 @@ func TestAsyncReviewDecisionPersistsWithoutRedirect(t *testing.T) {
 		t.Fatalf("written async review should validate: validation=%#v err=%v", validation, err)
 	}
 	reviews := document.Section.Fragments[0].Reviews
-	if len(reviews) != 1 || reviews[0].State != "rejected" || reviews[0].Body != "Please cover the failure path." {
+	if len(reviews) != 1 || reviews[0].State != "rejected" || reviews[0].Body != "Please cover the failure path." || reviews[0].Reviewer == nil || reviews[0].Reviewer.Kind != "human" {
 		t.Fatalf("unexpected async review: %#v", reviews)
 	}
 }
@@ -989,7 +989,10 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	writeServerFile(t, filepath.Join(fragmentDir, "content.md"), "# Story {#story}\n")
 	landmarkTarget := saga.LandmarkTarget("test", "overview", "story-text")
 	fragment := &saga.Fragment{ID: "overview", Title: "Overview", Target: "urn:change-saga:test:fragment:overview", Directory: fragmentDir, MediaType: "text/markdown", Entrypoint: "content.md", Landmarks: []saga.Landmark{{Version: 2, ID: "story-text", Label: "Story text", Target: landmarkTarget, Selector: saga.LandmarkSelector{Type: "text", Exact: "Story"}}}}
-	fragment.Reviews = []saga.Review{{State: "approved", Author: "Ada", AttributionDetail: "ada@example.test · committed abc123", Body: "Ready to merge.", CreatedAt: time.Date(2026, 8, 19, 12, 0, 0, 0, time.UTC)}}
+	fragment.Reviews = []saga.Review{
+		{ID: "ai-review", State: "approved", Author: "Ada", AttributionIdentity: "git:ada@example.test", AttributionDetail: "ada@example.test · committed abc122", Reviewer: &saga.ReviewerIdentity{Kind: "ai", Name: "Codex 1", Agent: "codex", Model: "gpt-5.6-sol"}, Body: "Automated review passed.", CreatedAt: time.Date(2026, 8, 19, 11, 0, 0, 0, time.UTC)},
+		{ID: "human-review", State: "approved", Author: "Ada", AttributionIdentity: "git:ada@example.test", AttributionDetail: "ada@example.test · committed abc123", Reviewer: &saga.ReviewerIdentity{Kind: "human"}, Body: "Ready to merge.", CreatedAt: time.Date(2026, 8, 19, 12, 0, 0, 0, time.UTC)},
+	}
 	emptyFragment := &saga.Fragment{ID: "empty", Title: "No changes", Target: "urn:change-saga:test:fragment:empty", Directory: fragmentDir, MediaType: "text/plain", Entrypoint: "missing.txt"}
 	section := &saga.Section{Kind: "chapter", ID: "root", Title: "Test", Target: "urn:change-saga:test:saga", Path: "private/root.chapter", Fragments: []*saga.Fragment{fragment, emptyFragment}}
 	thread := &saga.Thread{ID: "thread", Target: fragment.Target, Anchor: saga.Anchor{Type: "region", Coordinate: "normalized", Shapes: []saga.Shape{{Type: "rect", X: .1, Y: .2, Width: .3, Height: .4, Color: "#336699"}}}, State: "open", Messages: []*saga.Message{{ID: "message", CreatedAt: time.Date(2026, 8, 19, 12, 0, 0, 0, time.UTC)}}}
@@ -1034,6 +1037,9 @@ func TestPageTemplateAndMarkdown(t *testing.T) {
 	}
 	if strings.Count(renderedPage, `class="annotation-toolbox"`) != 1 || !strings.Contains(renderedPage, `data-annotation-tools="`+fragment.Target+`"`) || !strings.Contains(renderedPage, `aria-controls="annotation-toolbox"`) || !strings.Contains(renderedPage, `data-review-progress`) || !strings.Contains(renderedPage, `data-review-decided="2" data-review-total="3"`) || !strings.Contains(renderedPage, `aria-label="Review progress: 2 of 3 decisions"`) || !strings.Contains(renderedPage, `class="review-progress-segment approved"`) || !strings.Contains(renderedPage, `class="review-progress-segment rejected"`) || !strings.Contains(renderedPage, `class="review-progress-segment pending"`) || !strings.Contains(renderedPage, `data-review-progress-note="Ready to merge."`) || !strings.Contains(renderedPage, `Comment: Ready to merge.`) || !strings.Contains(renderedPage, `data-review-progress-tooltip`) || !strings.Contains(renderedPage, `href="/#`+domID(fragment.Target)+`"`) || !strings.Contains(renderedPage, `data-review-controls`) || !strings.Contains(renderedPage, `data-review-author="Ada"`) || !strings.Contains(renderedPage, `data-review-detail="ada@example.test · committed abc123"`) || !strings.Contains(renderedPage, `data-review-decision="approved" aria-pressed="true"`) || !strings.Contains(renderedPage, `data-review-comment`) || !strings.Contains(renderedPage, `data-review-note title="Ready to merge."`) || !strings.Contains(renderedPage, `i-approve-filled`) || !strings.Contains(renderedPage, `i-reject-filled`) || !strings.Contains(renderedPage, `data-shared-review-form`) || strings.Contains(renderedPage, `decision-dialog`) || strings.Contains(renderedPage, `class="review-form"`) {
 		t.Fatal("fast inline review controls and progress were not rendered")
+	}
+	if !strings.Contains(renderedPage, `class="review-identity approved ai"`) || !strings.Contains(renderedPage, `class="review-identity approved human"`) || !strings.Contains(renderedPage, `Codex 1 · codex · gpt-5.6-sol`) {
+		t.Fatal("human and AI reviewer identities were not both rendered")
 	}
 	if !strings.Contains(renderedPage, `body data-saga-id="test"`) || !strings.Contains(renderedPage, `data-undo disabled`) || !strings.Contains(renderedPage, `data-redo disabled`) || strings.Contains(renderedPage, `name="record_history"`) {
 		t.Fatal("annotation command history controls were not rendered")
@@ -1399,8 +1405,8 @@ func TestTargetCodeLoadsOneNarrativeMappingWithoutGlobalSnapshot(t *testing.T) {
 // Resume state is read from the document and the thread index, so a chapter
 // reports where a reviewer left off before its body has ever been fetched.
 func TestChapterResumeState(t *testing.T) {
-	approved := saga.Review{State: "approved", CreatedAt: time.Unix(10, 0)}
-	rejected := saga.Review{State: "rejected", CreatedAt: time.Unix(10, 0)}
+	approved := saga.Review{State: "approved", Reviewer: &saga.ReviewerIdentity{Kind: "human"}, CreatedAt: time.Unix(10, 0)}
+	rejected := saga.Review{State: "rejected", Reviewer: &saga.ReviewerIdentity{Kind: "human"}, CreatedAt: time.Unix(10, 0)}
 	commented := &saga.Section{Kind: "chapter", ID: "commented", Title: "Commented",
 		Fragments: []*saga.Fragment{{ID: "talked", Target: "urn:change-saga:test:fragment:talked"}}}
 	chapters := []*saga.Section{
@@ -1433,11 +1439,16 @@ func TestChapterResumeState(t *testing.T) {
 	if status, _, _ := reviewProgress(allApproved, nil); status != "Approved" {
 		t.Fatalf("a chapter with every child approved reported %q", status)
 	}
+	aiApproved := &saga.Section{Kind: "chapter", ID: "ai-complete", Title: "AI complete",
+		Fragments: []*saga.Fragment{{ID: "part", Target: "urn:change-saga:test:fragment:ai-complete", Reviews: []saga.Review{{State: "approved", Reviewer: &saga.ReviewerIdentity{Kind: "ai", Name: "Codex 1", Agent: "codex", Model: "gpt-5.6-sol"}, CreatedAt: time.Unix(10, 0)}}}}}
+	if status, _, _ := reviewProgress(aiApproved, nil); status != "AI review complete" {
+		t.Fatalf("an AI-only chapter implied human approval: %q", status)
+	}
 }
 
 func TestChapterReviewDirectoryProjectsIndependentStatesAndSignals(t *testing.T) {
 	decision := func(state string) []saga.Review {
-		return []saga.Review{{State: state, CreatedAt: time.Unix(10, 0)}}
+		return []saga.Review{{State: state, Reviewer: &saga.ReviewerIdentity{Kind: "human"}, CreatedAt: time.Unix(10, 0)}}
 	}
 	landmarkTarget := "urn:change-saga:test:landmark:diagram:edge"
 	diagram := &saga.Fragment{

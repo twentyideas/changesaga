@@ -1,6 +1,6 @@
 import { expectNoSeriousAccessibilityViolations, expect, test } from "../support/test.js";
 
-test("chapter review directory stays scoped and sticky while section bars own synchronized decisions", async ({ page, largeSaga }) => {
+test("chapter review directory stays available as a compact deck overlay while section bars own synchronized decisions", async ({ page, largeSaga }) => {
   const sectionRequests: string[] = [];
   const fragmentRequests: string[] = [];
   page.on("request", (request) => {
@@ -12,22 +12,26 @@ test("chapter review directory stays scoped and sticky while section bars own sy
   await page.goto(largeSaga.baseURL, { waitUntil: "load" });
   const chapter = page.locator("section.chapter").first();
   await expect(chapter.locator("[data-chapter-review-directory]")).toHaveCount(0);
+  const chapterID = await chapter.getAttribute("id");
+  await page.goto(`${largeSaga.baseURL}/#${chapterID}`, { waitUntil: "load" });
   const chapterDecision = chapter.locator(":scope > .chapter-head [data-review-controls]");
   await expect(chapterDecision).toHaveCount(1);
   const decidedBeforeChapterReview = await page.locator("body").getAttribute("data-review-decided");
   const chapterApproved = page.waitForResponse((response) => response.url().endsWith("/api/review") && response.request().method() === "POST");
   await chapterDecision.getByRole("button", { name: /^Approve / }).click();
   await chapterApproved;
-  await expect(chapterDecision.getByRole("button", { name: /^Undo approval/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(chapterDecision.getByRole("button", { name: /^Approval recorded/ })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("body")).toHaveAttribute("data-review-decided", decidedBeforeChapterReview ?? "0");
-  expect(sectionRequests).toEqual([]);
+  expect(sectionRequests, "opening the chapter permalink fetches its deck once").toHaveLength(1);
 
   await chapter.getByRole("button", { name: /^Open / }).click();
   const directory = chapter.locator("[data-chapter-review-directory]");
+  await expect(directory).not.toHaveAttribute("open", "");
+  await directory.locator("summary").click();
   await expect(directory).toHaveAttribute("open", "");
   await expect(directory.locator("[data-review-directory-target]").first()).toBeVisible();
   expect(sectionRequests).toHaveLength(1);
-  expect(await directory.evaluate((element) => getComputedStyle(element).position)).toBe("sticky");
+  expect(await directory.evaluate((element) => getComputedStyle(element).position)).toBe("fixed");
   await expectNoSeriousAccessibilityViolations(page);
 
   const rows = directory.locator("[data-review-directory-target]");
@@ -55,15 +59,7 @@ test("chapter review directory stays scoped and sticky while section bars own sy
   await approved;
   await expect(destinationRow).toHaveAttribute("data-review-state", "approved");
   await expect(destinationRow.locator("[data-review-directory-status]")).toHaveText("Approved");
-  await expect(directoryDecision.getByRole("button", { name: /^Undo approval/ })).toHaveAttribute("aria-pressed", "true");
-
-  await decision.getByRole("button", { name: /^Undo approval/ }).click();
-  const form = decision.locator("[data-review-decision-form]");
-  await expect(form).toBeVisible();
-  const unreviewed = page.waitForResponse((response) => response.url().endsWith("/api/review") && response.request().method() === "POST");
-  await form.getByRole("button", { name: "Submit" }).click();
-  await unreviewed;
-  await expect(destinationRow).toHaveAttribute("data-review-state", "unreviewed");
+  await expect(directoryDecision.getByRole("button", { name: /^Approval recorded/ })).toHaveAttribute("aria-pressed", "true");
 
   await directoryDecision.getByRole("button", { name: /^Request changes on/ }).click();
   const directoryForm = directoryDecision.locator("[data-review-decision-form]");
@@ -74,5 +70,5 @@ test("chapter review directory stays scoped and sticky while section bars own sy
   await rejected;
   await expect(destinationRow).toHaveAttribute("data-review-state", "changes-requested");
   await expect(destinationRow.locator("[data-review-directory-status]")).toHaveText("Changes requested");
-  await expect(decision.getByRole("button", { name: /^Undo request for changes/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(decision.getByRole("button", { name: /^Changes requested on/ })).toHaveAttribute("aria-pressed", "true");
 });

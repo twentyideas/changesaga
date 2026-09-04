@@ -134,14 +134,14 @@ a{color:var(--accent)}
 .tree-filter-check{display:flex;align-items:center;gap:6px;margin:0 6px 6px;color:var(--muted);font-size:12px}
 .tree-summary{margin:0 6px 6px;color:var(--faint);font:11px var(--mono)}
 .tree-empty{margin:8px 6px;color:var(--muted);font-size:12px}
-.file-tree{display:block}
-.file-tree summary,.file-tree a{display:flex;align-items:center;gap:6px;min-height:24px;padding:0 6px 0 calc(4px + var(--depth,0) * 12px);border-radius:var(--radius);color:var(--ink);text-decoration:none;font:12px var(--mono);white-space:nowrap}
+.file-tree{display:block;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin}
+.file-tree summary,.file-tree a{display:flex;align-items:center;gap:6px;width:max-content;min-width:100%;min-height:24px;padding:0 6px 0 calc(4px + var(--depth,0) * 12px);border-radius:var(--radius);color:var(--ink);text-decoration:none;font:12px var(--mono);white-space:nowrap}
 .file-tree summary{list-style:none;cursor:pointer;color:var(--muted)}
 .file-tree summary::-webkit-details-marker{display:none}
 .file-tree summary:hover,.file-tree a:hover{background:var(--bg-inset)}
 .file-tree .twisty{width:12px;height:12px;flex:none;color:var(--faint);transition:transform .12s ease}
 .file-tree details[open]>summary .twisty{transform:rotate(90deg)}
-.file-tree .tree-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.file-tree .tree-name{min-width:max-content;overflow:visible;text-overflow:clip}
 .file-tree .selected{background:var(--sel);box-shadow:inset 2px 0 var(--accent);color:var(--accent);font-weight:600}
 .file-tree .tree-state{display:grid;place-items:center;width:14px;flex:none;color:transparent}
 .file-tree .tree-state .i{width:12px;height:12px}
@@ -152,6 +152,9 @@ a{color:var(--accent)}
 /* Content ---------------------------------------------------------------- */
 .content{width:min(1080px,100%);padding:26px clamp(16px,3vw,40px) 96px}
 .code-mode .content{width:100%;padding:0 0 40px}
+.shell.saga-mode{grid-template-columns:minmax(0,1fr)}
+.shell.saga-mode>.sidebar{display:none}
+.shell.saga-mode>.content{width:100%;padding-inline:clamp(18px,5vw,72px)}
 .view{display:none}
 .view.active{display:block}
 .page-heading{margin:0 0 18px}
@@ -166,6 +169,64 @@ a{color:var(--accent)}
 .alert .i{color:var(--amber);margin-top:1px}
 .alert strong{display:block;margin-bottom:2px}
 .remaining{margin:0;padding:24px;color:var(--muted);text-align:center;font-size:12.5px}
+
+/* Guided Saga deck ------------------------------------------------------- */
+.saga-deck{position:relative;width:min(1040px,100%);min-height:calc(100vh - var(--top) - 122px);margin:0 auto;padding-top:clamp(12px,3vh,34px)}
+.saga-slide-progress{position:fixed;z-index:29;top:var(--top);left:0;width:100%;height:3px;background:transparent;opacity:.16;transition:opacity .55s ease}
+.saga-slide-progress>span{display:block;width:0;height:100%;background:var(--accent);transition:width .32s cubic-bezier(.2,.8,.2,1)}
+.saga-slide-progress.engaged,.saga-slide-progress:focus-within{opacity:.72;transition-duration:.14s}
+.saga-deck.deck-ready .page-heading:not(.saga-slide-active),
+.saga-deck.deck-ready .fragment:not(.saga-slide-active),
+.saga-deck.deck-ready .chapter-pages>.chapter:not(.saga-slide-active):not(.saga-slide-context),
+.saga-deck.deck-ready .chapter-pages>.section:not(.chapter):not(.saga-section-context),
+.saga-deck.deck-ready .chapter-body .section:not(.saga-section-context){display:none}
+.saga-deck .page-heading.saga-slide-active{display:flex;min-height:min(620px,calc(100vh - var(--top) - 150px));margin:0;justify-content:center;flex-direction:column;padding:clamp(24px,6vw,72px)}
+.slide-eyebrow,.chapter-break-label{margin:0 0 9px;color:var(--accent);font:600 11px var(--mono);letter-spacing:.11em;text-transform:uppercase}
+.slide-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
+.slide-title-row h1{max-width:820px;margin:0;font:650 clamp(32px,5vw,58px)/1.08 var(--ui);letter-spacing:-.045em}
+.slide-title-row>.section-actions{flex:none;margin-top:7px}
+.saga-deck .coverage-totals{margin-top:18px;font-size:12px}
+.saga-overview{margin:0}
+.saga-deck .fragment.saga-slide-active{width:min(960px,100%);min-height:min(620px,calc(100vh - var(--top) - 150px));margin:0 auto;padding:8px 0 70px;border:0;animation:saga-slide-arrive .24s ease-out}
+.saga-deck .fragment.saga-slide-active>.fragment-head{min-height:34px;margin-bottom:8px}
+.saga-deck .fragment.saga-slide-active>.fragment-head .fragment-actions{opacity:1}
+.saga-deck .fragment.saga-slide-active>.fragment-stage{font-size:clamp(15px,1.25vw,18px)}
+.saga-deck .fragment.saga-slide-active .fragment-markdown{max-width:820px;margin-inline:auto;font-size:clamp(15px,1.25vw,18px);line-height:1.62}
+.saga-deck .fragment.saga-slide-active .fragment-markdown h1{font-size:clamp(25px,3.2vw,38px)}
+.saga-deck .fragment.saga-slide-active .fragment-markdown h2{font-size:clamp(21px,2.6vw,31px)}
+.saga-deck .fragment.saga-slide-active .fragment-markdown h3{font-size:clamp(17px,2vw,23px)}
+.saga-deck .chapter-index{margin:0;padding:0;border:0}
+.saga-deck .chapter-index>h2{display:none}
+.saga-deck .chapter-pages{border:0}
+.saga-deck .chapter-pages>.chapter{border:0}
+.saga-deck .chapter.saga-slide-active{display:flex;min-height:min(620px,calc(100vh - var(--top) - 150px));align-items:center;justify-content:center;margin:0;animation:saga-slide-arrive .24s ease-out}
+.saga-deck .chapter.saga-slide-active>.chapter-head{display:flex;width:min(760px,100%);align-items:flex-start;justify-content:center;flex-direction:column;padding:clamp(32px,7vw,86px);border-left:3px solid var(--accent-line)}
+.saga-deck .chapter.saga-slide-active>.chapter-head h2{order:1;margin:0;font:650 clamp(30px,5vw,54px)/1.1 var(--ui);letter-spacing:-.04em}
+.saga-deck .chapter.saga-slide-active>.chapter-head h2 a{color:var(--ink)}
+.saga-deck .chapter.saga-slide-active .chapter-break-label{order:0}
+.saga-deck .chapter.saga-slide-active .chapter-break-copy{order:2;max-width:510px;margin:16px 0 0;color:var(--muted);font-size:15px;line-height:1.55}
+.saga-deck .chapter.saga-slide-active>.chapter-head>.section-actions{order:3;margin-top:18px}
+.saga-deck .chapter.saga-slide-active .chapter-toggle{order:4;display:inline-flex;width:auto;height:auto;align-items:center;gap:8px;margin-top:28px;padding:8px 13px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-weight:600}
+.saga-deck .chapter.saga-slide-active .chapter-toggle:hover{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.saga-deck .chapter.saga-slide-context{margin:0}
+.saga-deck .chapter.saga-slide-context>.chapter-head{display:none}
+.saga-deck .chapter.saga-slide-context>.chapter-body{padding:0}
+.saga-deck .chapter-body>.threads,
+.saga-deck .chapter-body>.section>.threads{display:none}
+.saga-deck .chapter-body>.chapter-review-directory{position:fixed;z-index:22;top:calc(var(--top) + 12px);left:12px;width:min(440px,calc(100vw - 24px));max-height:calc(100vh - var(--top) - 80px);margin:0;box-shadow:0 10px 28px #1f232824}
+.saga-deck .chapter-body>.chapter-review-directory:not([open]){width:auto;max-width:calc(100vw - 24px);border-left-width:1px;box-shadow:none}
+.saga-deck .section.saga-section-context{margin:0;padding:0;border:0}
+.saga-deck .section.saga-section-context>.section-head{display:none}
+.saga-deck .section.saga-section-current>.section-head{display:flex;width:min(960px,100%);margin:0 auto 8px;padding:0 0 8px;border-bottom:1px solid var(--line-soft)}
+.saga-deck .section.saga-section-current>.section-head h2{font:600 12px var(--ui);color:var(--muted);letter-spacing:.01em}
+.saga-slide-nav{position:fixed;z-index:24;left:50%;bottom:18px;display:grid;grid-template-columns:110px minmax(120px,260px) 110px;align-items:center;gap:8px;transform:translateX(-50%);padding:5px;border:1px solid var(--line-soft);border-radius:99px;background:var(--frosted-bg);box-shadow:0 8px 24px #1f23281a;backdrop-filter:blur(12px)}
+.slide-nav-button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:5px 12px;border-radius:99px;background:transparent;color:var(--muted);font-weight:600}
+.slide-nav-button:hover{background:var(--bg-inset);color:var(--ink)}
+.slide-nav-button:disabled{opacity:.26;cursor:default}
+.slide-nav-button.previous .i{transform:rotate(180deg)}
+.slide-nav-context{overflow:hidden;color:var(--muted);text-align:center;text-overflow:ellipsis;white-space:nowrap;font:11px var(--mono)}
+@keyframes saga-slide-arrive{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.saga-deck .fragment.saga-slide-active,.saga-deck .chapter.saga-slide-active{animation:none}.saga-slide-progress>span{transition:none}}
 
 /* Chapter list ----------------------------------------------------------- */
 .chapter-index{margin-top:28px;border-top:1px solid var(--line-soft);padding-top:14px}
@@ -227,6 +288,14 @@ a.review-directory-comments:hover{color:var(--accent)}
 .section:hover>.section-actions>.diff-button,.section:hover>.section-actions>.permalink,.section:hover>.section-head>.section-actions>.diff-button,.section:hover>.section-head>.section-actions>.permalink,.section-head:focus-within>.section-actions>.diff-button,.section-head:focus-within>.section-actions>.permalink,.fragment:hover>.fragment-head>.fragment-actions>.diff-button,.fragment:hover>.fragment-head>.fragment-actions>.landmark-menu,.fragment:hover>.fragment-head>.fragment-actions>.permalink,.fragment-head:focus-within>.fragment-actions>.diff-button,.fragment-head:focus-within>.fragment-actions>.landmark-menu,.fragment-head:focus-within>.fragment-actions>.permalink{opacity:1}
 .review-controls{position:relative;display:flex;align-items:center;gap:3px;opacity:.5;transition:opacity .14s}
 section:hover>.section-actions .review-controls,.section:hover>.section-head>.section-actions .review-controls,.fragment:hover>.fragment-head>.fragment-actions .review-controls,.review-controls:focus-within{opacity:1}
+.review-identities{display:inline-flex;align-items:center;gap:4px;max-width:min(520px,42vw);overflow-x:auto;scrollbar-width:thin}
+.review-identity{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;max-width:260px;padding:2px 6px;border:1px solid var(--line-soft);border-radius:99px;background:var(--bg-subtle);color:var(--muted);font:10.5px var(--ui)}
+.review-identity.approved{border-color:color-mix(in srgb,var(--green) 32%,var(--line-soft));background:var(--approve-bg)}
+.review-identity.rejected{border-color:color-mix(in srgb,var(--red) 32%,var(--line-soft));background:var(--reject-bg)}
+.review-identity .reviewer-kind{font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--fg)}
+.review-identity.ai .reviewer-kind{color:var(--accent)}
+.review-identity .reviewer-author,.review-identity .reviewer-ai{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.review-identity .reviewer-ai{max-width:140px;color:var(--faint);font-family:var(--mono)}
 .review-decision-note{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:4px;color:var(--muted);font:11px var(--ui)}
 .review-decision-note[hidden]{display:none}
 .review-decision-group{display:inline-flex;align-items:center;gap:1px;padding:2px;border:1px solid var(--line-soft);border-radius:7px;background:var(--bg-subtle)}
@@ -263,6 +332,7 @@ section:hover>.section-actions .review-controls,.section:hover>.section-head>.se
 .fragment{position:relative;scroll-margin-top:calc(var(--top) + 12px);margin:14px 0;padding:0 0 0 12px;border-left:2px solid transparent;outline:0}
 .fragment.active-fragment{border-left-color:var(--active-fragment-line)}
 .fragment-head{position:relative;z-index:20;display:flex;justify-content:flex-end;gap:8px;align-items:center;min-height:22px}
+.fragment-slide-title{min-width:0;margin:0 auto 0 0;font:600 13px/1.35 var(--ui);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .annotation-tools-toggle{color:var(--faint)}
 .annotation-tools-toggle[aria-expanded=true]{background:var(--accent-soft);color:var(--accent)}
 .fragment-stage{position:relative;min-height:40px}
@@ -725,11 +795,20 @@ mark.annotation-revealed{box-shadow:0 0 0 2px var(--ink)}
 .brand span{display:none}
 .view-tab{padding:0 8px}
 .review-progress{flex-basis:110px;gap:1px;padding-inline:2px}
-.shell,.shell.code-mode{display:block}
+.shell,.shell.code-mode,.shell.saga-mode{display:block}
 .sidebar{position:static;height:auto;max-height:42vh;padding:8px}
 .shell.code-mode .sidebar{position:fixed;z-index:25;top:var(--top);bottom:0;left:0;width:min(300px,86vw);max-height:none;height:auto;box-shadow:12px 0 30px #1f232826;transform:none;transition:transform .18s}
 .shell.code-mode.tree-hidden .sidebar{transform:translateX(-105%);padding:8px}
 .content{padding:16px 12px 90px}
+.shell.saga-mode>.content{padding:12px 14px 88px}
+.saga-deck{padding-top:6px}
+.saga-deck .page-heading.saga-slide-active,.saga-deck .chapter.saga-slide-active{min-height:calc(100vh - var(--top) - 108px)}
+.saga-deck .page-heading.saga-slide-active,.saga-deck .chapter.saga-slide-active>.chapter-head{padding:24px 8px}
+.slide-title-row{gap:12px;flex-direction:column}
+.slide-title-row>.section-actions{align-self:flex-end;margin-top:0}
+.saga-slide-nav{bottom:10px;grid-template-columns:48px minmax(110px,1fr) 48px;width:min(310px,calc(100vw - 24px))}
+.slide-nav-button{padding:5px}
+.slide-nav-button span{display:none}
 .code-mode .content{padding:0 0 40px}
 .chapter-body{padding-left:10px}
 .chapter-review-directory{top:calc(var(--top) + 4px)}

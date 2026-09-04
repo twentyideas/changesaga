@@ -6,6 +6,9 @@ const appJavaScript = `(() => {
   const mutationToken = q('meta[name="change-saga-mutation-token"]')?.content || '';
   let drawing = null;
   let activeFragment = null;
+  let activeSagaSlide = null;
+  let sagaChromeTimer = null;
+  let sagaNavigating = false;
   let selectedTool = 'select';
   let annotationColor = '#d04832';
   let diffLayout = 'inline';
@@ -206,11 +209,11 @@ const appJavaScript = `(() => {
         const selected = button.dataset.reviewDecision === state;
         button.setAttribute('aria-pressed', String(selected));
         if (button.dataset.reviewDecision === 'approved') {
-          button.setAttribute('aria-label', (selected ? 'Undo approval for ' : 'Approve ') + candidateTitle + (selected && author ? ' by ' + author : '') + (selected && note ? '. Comment: ' + note : ''));
-          if (selected) button.removeAttribute('title'); else button.title = 'Approve';
+          button.setAttribute('aria-label', (selected ? 'Approval recorded for ' : 'Approve ') + candidateTitle + (selected && author ? ' by ' + author : '') + (selected && note ? '. Comment: ' + note : ''));
+          button.title = 'Approve';
         } else {
-          button.setAttribute('aria-label', (selected ? 'Undo request for changes on ' : 'Request changes on ') + candidateTitle + (selected && author ? ' by ' + author : '') + (selected && note ? '. Comment: ' + note : ''));
-          if (selected) button.removeAttribute('title'); else button.title = 'Request changes';
+          button.setAttribute('aria-label', (selected ? 'Changes requested on ' : 'Request changes on ') + candidateTitle + (selected && author ? ' by ' + author : '') + (selected && note ? '. Comment: ' + note : ''));
+          button.title = 'Request changes';
         }
         const tooltip = q('[data-review-decision-tooltip]', button);
         const tooltipAuthor = tooltip ? q('[data-review-decision-author]', tooltip) : null;
@@ -264,10 +267,31 @@ const appJavaScript = `(() => {
     q('[name=target]', form).value = control.dataset.reviewTarget;
     q('[name=state]', form).value = state;
     const field = q('[name=body]', form);
-    field.placeholder = state === 'rejected' ? 'What needs to change? (optional)' : 'Why are you undoing this decision? (optional)';
+    field.placeholder = state === 'rejected' ? 'What needs to change? (optional)' : 'Add a review note (optional)';
     form.hidden = false;
     requestAnimationFrame(() => form.classList.add('open'));
     field.focus();
+  }
+
+  function upsertLocalHumanDecision(control, state, body = '') {
+    let list = q('[data-review-identities]', control);
+    if (!list) {
+      list = document.createElement('span');
+      list.className = 'review-identities';
+      list.dataset.reviewIdentities = '';
+      control.insertBefore(list, q('.review-decision-group', control));
+    }
+    let identity = qa('.review-identity.human', list).find(item => q('.reviewer-author', item)?.textContent === 'Local / uncommitted');
+    if (!identity) {
+      identity = document.createElement('span');
+      identity.className = 'review-identity human';
+      identity.innerHTML = '<span class="reviewer-kind">Human</span><span class="reviewer-author">Local / uncommitted</span>';
+      list.append(identity);
+    }
+    identity.classList.remove('approved', 'rejected');
+    identity.classList.add(state);
+    identity.title = 'This review event has not been committed yet.' + (body ? '\n' + body : '');
+    return qa('.review-identity.rejected', list).length ? 'rejected' : 'approved';
   }
 
   async function persistReviewDecision(control, state, body = '') {
@@ -282,7 +306,9 @@ const appJavaScript = `(() => {
         candidate.dataset.reviewAuthor = 'Local / uncommitted';
         candidate.dataset.reviewDetail = 'This review event has not been committed yet.';
       });
-      setReviewControlState(control, state, true, body.trim());
+      let aggregate = state;
+      controls.forEach(candidate => { aggregate = upsertLocalHumanDecision(candidate, state, body.trim()); });
+      setReviewControlState(control, aggregate, true, aggregate === state ? body.trim() : '');
     } catch (error) {
       alert('Could not save this review decision: ' + error.message);
       throw error;
@@ -294,11 +320,6 @@ const appJavaScript = `(() => {
   function activateReviewDecision(button) {
     const control = button.closest('[data-review-controls]');
     const requested = button.dataset.reviewDecision;
-    const current = control.dataset.reviewState || '';
-    if (current === requested) {
-      openReviewComposer(control, 'open');
-      return;
-    }
     if (requested === 'rejected') {
       openReviewComposer(control, 'rejected');
       return;
@@ -1085,7 +1106,143 @@ const appJavaScript = `(() => {
 
   function toggleChapter(button) {
 	const chapter = button.closest('[data-chapter]');
+	if (q('[data-saga-deck]')?.classList.contains('deck-ready')) {
+	  if (chapter !== activeSagaSlide) void showSagaSlide(chapter, {focus:true});
+	  else void advanceSaga(1, {focus:true});
+	  return;
+	}
 	void setChapterOpen(chapter, button.getAttribute('aria-expanded') !== 'true');
+  }
+
+  function sagaSlides() {
+    const deck = q('[data-saga-deck]');
+    if (!deck) return [];
+    const title = q('[data-saga-title-slide]', deck);
+    return [title, ...qa('article.fragment, section.chapter', deck)].filter(Boolean);
+  }
+
+  function engageSagaChrome() {
+    const progress = q('[data-saga-slide-progress]');
+    if (!progress) return;
+    progress.classList.add('engaged');
+    clearTimeout(sagaChromeTimer);
+    sagaChromeTimer = setTimeout(() => progress.classList.remove('engaged'), 1250);
+  }
+
+  function sagaSlideGroup(slide) {
+    const chapter = slide?.matches?.('[data-chapter]') ? slide : slide?.closest?.('[data-chapter]');
+    if (chapter) return {title:chapter.dataset.slideTitle || q('.chapter-head h2', chapter)?.textContent.trim() || 'Chapter', slides:qa(':scope article.fragment', chapter)};
+    return {title:'Overview', slides:[q('[data-saga-title-slide]'), ...qa('article.fragment', q('[data-saga-deck]')).filter(fragment => !fragment.closest('[data-chapter]'))].filter(Boolean)};
+  }
+
+  function updateSagaSlideChrome(slide) {
+    const progress = q('[data-saga-slide-progress]');
+    const context = q('[data-saga-slide-context]');
+    const previous = q('[data-saga-slide-prev]');
+    const next = q('[data-saga-slide-next]');
+    const slides = sagaSlides();
+    const globalIndex = slides.indexOf(slide);
+    const chapterBreak = slide?.matches?.('[data-chapter]');
+    const group = sagaSlideGroup(slide);
+    const groupIndex = group.slides.indexOf(slide);
+    const value = chapterBreak ? 0 : groupIndex < 0 || group.slides.length === 0 ? 0 : Math.round((groupIndex + 1) / group.slides.length * 100);
+    if (progress) {
+      progress.setAttribute('aria-valuenow', String(value));
+      progress.setAttribute('aria-label', 'Progress through ' + group.title);
+      const fill = q('[data-saga-slide-progress-fill]', progress);
+      if (fill) fill.style.width = value + '%';
+    }
+    if (context) context.textContent = chapterBreak ? 'Breather break · ' + group.title : group.title;
+    if (previous) previous.disabled = globalIndex <= 0;
+    if (next) {
+      const unopenedBreak = chapterBreak && Boolean(slide.dataset.sectionHref);
+      next.disabled = globalIndex < 0 || globalIndex >= slides.length - 1 && !unopenedBreak;
+      next.setAttribute('aria-label', chapterBreak ? 'Begin ' + group.title : 'Next slide');
+    }
+    engageSagaChrome();
+  }
+
+  function markSagaSlide(slide) {
+    qa('.saga-slide-active').forEach(element => element.classList.remove('saga-slide-active'));
+    qa('.saga-slide-context').forEach(element => element.classList.remove('saga-slide-context'));
+    qa('.saga-section-context').forEach(element => element.classList.remove('saga-section-context', 'saga-section-current'));
+    slide.classList.add('saga-slide-active');
+    if (slide.matches('.fragment')) {
+      const chapter = slide.closest('[data-chapter]');
+      if (chapter) chapter.classList.add('saga-slide-context');
+      const sections = [];
+      let section = slide.parentElement?.closest('.section:not(.chapter)');
+      while (section) {
+        sections.push(section);
+        section = section.parentElement?.closest('.section:not(.chapter)');
+      }
+      sections.forEach(candidate => candidate.classList.add('saga-section-context'));
+      if (sections[0]) sections[0].classList.add('saga-section-current');
+    }
+    activeSagaSlide = slide;
+    updateSagaSlideChrome(slide);
+  }
+
+  async function showSagaSlide(slide, options = {}) {
+    const deck = q('[data-saga-deck]');
+    if (!deck || !slide || sagaNavigating) return slide || null;
+    sagaNavigating = true;
+    try {
+      if (activeFragment && activeFragment !== slide) hideAnnotationTools();
+      if (slide.matches('.fragment')) {
+        const chapter = slide.closest('[data-chapter]');
+        if (chapter) {
+          await setChapterOpen(chapter, true);
+          const directory = q(':scope > [data-chapter-body] > [data-chapter-review-directory]', chapter);
+          if (directory && !directory.dataset.deckPrepared) {
+            directory.open = false;
+            directory.dataset.deckPrepared = 'true';
+          }
+        }
+        await hydrateFragment(slide);
+        setActiveFragment(slide);
+      } else if (slide.matches('[data-chapter]')) {
+        const body = q('[data-chapter-body]', slide);
+        const toggle = q('[data-chapter-toggle]', slide);
+        if (body) body.hidden = true;
+        if (toggle) {
+          toggle.setAttribute('aria-expanded', 'false');
+          toggle.setAttribute('aria-label', 'Open ' + (slide.dataset.slideTitle || 'chapter'));
+        }
+        slide.classList.remove('open');
+      }
+      markSagaSlide(slide);
+      deck.classList.add('deck-ready');
+      if (options.scroll !== false) scrollTo({top:0, behavior:options.instant ? 'auto' : 'smooth'});
+      if (options.focus) slide.focus?.({preventScroll:true});
+      globalThis.requestAnimationFrame?.(positionFragmentOverlays);
+      return slide;
+    } finally {
+      sagaNavigating = false;
+    }
+  }
+
+  async function advanceSaga(direction, options = {}) {
+    if (sagaNavigating || !activeSagaSlide) return;
+    let slides = sagaSlides();
+    let index = slides.indexOf(activeSagaSlide);
+    if (direction > 0 && activeSagaSlide.matches?.('[data-chapter]')) {
+      const chapter = activeSagaSlide;
+      await setChapterOpen(chapter, true);
+      slides = sagaSlides();
+      index = slides.indexOf(chapter);
+    }
+    const destination = slides[index + (direction < 0 ? -1 : 1)];
+    if (destination) await showSagaSlide(destination, options);
+    else updateSagaSlideChrome(activeSagaSlide);
+  }
+
+  function initializeSagaDeck() {
+    const deck = q('[data-saga-deck]');
+    if (!deck) return Promise.resolve(null);
+    const title = q('[data-saga-title-slide]', deck);
+    if (!title) return Promise.resolve(null);
+    return showSagaSlide(title, {scroll:false, instant:true});
   }
 
   // Code Diff, Coverage, and Review Activity are deliberately absent from the root document.
@@ -1458,7 +1615,10 @@ const appJavaScript = `(() => {
     if (toolbox) toolbox.hidden = name !== 'saga' || !toolbox.dataset.annotationTarget;
     if (codeMeta) codeMeta.hidden = name !== 'code';
     const shell = q('[data-shell]');
-    if (shell) shell.classList.toggle('code-mode', name === 'code');
+    if (shell) {
+      shell.classList.toggle('code-mode', name === 'code');
+      shell.classList.toggle('saga-mode', name === 'saga');
+    }
     // A hidden view measures as zero, so the bubbles are placed once the saga
     // view is actually on screen.
     if (name === 'saga') globalThis.requestAnimationFrame?.(positionFragmentOverlays);
@@ -2018,7 +2178,11 @@ const appJavaScript = `(() => {
       const wrapper = parseShellHTML(await fetchShell(href));
       body.replaceChildren(...Array.from(wrapper.childNodes));
       delete chapter.dataset.sectionHref;
-      observeDeferredFragments(body);
+      // A deck fetches only its active slide. Hydrating every descriptor in a
+      // newly opened chapter would make the presentation pay report-sized
+      // startup costs again; the ordinary disclosure fallback keeps its
+      // viewport observer behavior when JavaScript deck setup is unavailable.
+      if (!q('[data-saga-deck]')?.classList.contains('deck-ready')) observeDeferredFragments(body);
     } catch (_) {
       const placeholder = q('[data-section-placeholder]', body);
       if (placeholder) placeholder.textContent = 'This chapter could not be loaded. Close and reopen to try again.';
@@ -2081,6 +2245,7 @@ const appJavaScript = `(() => {
   function observeDeferredFragments(root = document) {
     const arriving = [];
     within(root, '[data-fragment-href]').forEach(article => {
+      if (q('[data-saga-deck]')?.classList.contains('deck-ready') && !article.classList.contains('saga-slide-active')) return;
       if (!fragmentObserver) { arriving.push(hydrateFragment(article)); return; }
       // What is already on screen is fetched now rather than one frame later.
       // The observer's first callback costs a frame the reviewer would spend
@@ -2121,8 +2286,15 @@ const appJavaScript = `(() => {
       if (place?.fragment) await hydrateFragment(document.getElementById(place.fragment));
       element = document.getElementById(id);
     }
-    const chapter = element?.closest('[data-chapter]');
+    const destination = document.getElementById(id);
+    const chapter = destination?.closest('[data-chapter]');
     if (chapter) await setChapterOpen(chapter, true);
+    const containingSection = destination?.closest?.('.section');
+    const slide = destination?.closest('.fragment') ||
+      (destination?.matches?.('[data-chapter]') ? destination : null) ||
+      (destination?.matches?.('.section') ? q('.fragment', destination) : null) ||
+      (containingSection ? q('.fragment', containingSection) : null);
+    if (slide && q('[data-saga-deck]')?.classList.contains('deck-ready')) await showSagaSlide(slide, {instant:true});
     return document.getElementById(id);
   }
 
@@ -3015,6 +3187,10 @@ const appJavaScript = `(() => {
   });
 
   document.addEventListener('click', event => {
+    const slidePrevious = event.target.closest?.('[data-saga-slide-prev]');
+    if (slidePrevious) { void advanceSaga(-1, {focus:true}); return; }
+    const slideNext = event.target.closest?.('[data-saga-slide-next]');
+    if (slideNext) { void advanceSaga(1, {focus:true}); return; }
     const retryFile = event.target.closest?.('[data-retry-file]');
     if (retryFile) {
       void hydrateReviewFile(retryFile.closest('[data-file-diff-href]'), {force:true});
@@ -3258,6 +3434,13 @@ const appJavaScript = `(() => {
         return;
       }
     }
+    const sagaDeck = q('[data-saga-deck].active.deck-ready');
+    const interactive = event.target.closest?.('input,textarea,select,button,a,summary,[contenteditable="true"],pre,code,.dialog,.diff-drawer');
+    if (sagaDeck && !interactive && !event.metaKey && !event.ctrlKey && !event.altKey && (event.key === 'ArrowRight' || event.key === 'PageDown' || event.key === 'ArrowLeft' || event.key === 'PageUp')) {
+      event.preventDefault();
+      void advanceSaga(event.key === 'ArrowLeft' || event.key === 'PageUp' ? -1 : 1, {focus:true});
+      return;
+    }
     const direction = shortcutDirection(event);
     if (direction) {
       const editable = event.target.matches?.('input,textarea,[contenteditable="true"]');
@@ -3471,10 +3654,8 @@ const appJavaScript = `(() => {
   prepareLandmarks();
   prepareDiffCitations();
   prepareTextHighlights();
-  const shellArriving = observeDeferredFragments();
-
-  const firstFragment = q('.fragment');
-  if (firstFragment) setActiveFragment(firstFragment);
+  const deckOpening = initializeSagaDeck();
+  const shellArriving = deckOpening.then(() => observeDeferredFragments());
   const reviewProgressMap = q('[data-review-progress]');
   reviewProgressMap?.addEventListener('pointerover', event => {
     const segment = event.target.closest?.('[data-review-progress-target]');
@@ -3504,6 +3685,7 @@ const appJavaScript = `(() => {
     clearTimeout(reviewScrollTimer);
     reviewScrollTimer = setTimeout(() => progress.classList.remove('scrolling'), 650);
   }, {passive:true});
+  q('[data-saga-deck]')?.addEventListener('pointermove', engageSagaChrome, {passive:true});
   const requestedView = new URL(location.href).searchParams.get('view');
   const activityRequested = new URL(location.href).searchParams.has('activity') || requestedView === 'activity';
   const initialView = requestedView === 'code' || requestedView === 'manifest' ? requestedView : 'saga';

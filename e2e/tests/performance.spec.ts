@@ -89,8 +89,8 @@ test("ships the saga as a shell and fetches each chapter and explanation once, w
   const sagaView = page.locator('[data-view="saga"]');
   await expect(sagaView.locator("section.chapter")).toHaveCount(largeSagaScale.chapters);
   await expect(sagaView.locator("[data-section-href]")).toHaveCount(largeSagaScale.chapters);
-  // The overview owns its own explanation; every other one is inside a chapter
-  // nobody has opened, so it is named by a summary and nothing more.
+  // The title is the only active slide. Overview descriptors are present but
+  // remain unfetched until the reviewer advances.
   const shell = await page.evaluate(() => ({
     elements: window.document.querySelector('[data-view="saga"]')!.getElementsByTagName("*").length,
     explanations: window.document.querySelectorAll('[data-view="saga"] article.fragment').length
@@ -102,12 +102,16 @@ test("ships the saga as a shell and fetches each chapter and explanation once, w
   expect(shell.explanations, "only the overview's own explanations are on the page").toBeLessThan(largeSagaScale.chapters);
   expect(sectionRequests, "no chapter is fetched before it is opened").toEqual([]);
 
-  // The overview's own explanation is fetched because it is on screen, and it
-  // is the only one: the rest are inside chapters that are still closed.
+  expect(fragmentRequests, "the title slide does not fetch an explanation").toEqual([]);
+  await page.locator("[data-saga-slide-next]").click();
+  // The first overview explanation is fetched only when it becomes the active
+  // slide; the rest remain inside chapter decks that have not begun.
   await expect(page.locator(".fragment-markdown").first()).toBeVisible();
   expect(fragmentRequests.length, "only the explanations on screen are fetched").toBeLessThanOrEqual(2);
 
   const chapter = sagaView.locator("section.chapter").first();
+  await page.locator("[data-saga-slide-next]").click();
+  await expect(chapter.getByText("Breather break")).toBeVisible();
   await chapter.getByRole("button", { name: /^Open / }).click();
   const chapterExplanations = chapter.locator("[data-chapter-body] article.fragment");
   await expect(chapterExplanations.first()).toBeAttached();
@@ -116,10 +120,12 @@ test("ships the saga as a shell and fetches each chapter and explanation once, w
   expect(sectionRequests, "opening one chapter fetches exactly that chapter").toHaveLength(1);
   await expect(chapter.locator(".fragment-markdown").first()).toBeVisible();
 
-  // Closing and reopening the same chapter asks the server nothing again.
-  await chapter.getByRole("button", { name: /^Close / }).click();
+  // Returning to the breather and beginning the same chapter again asks the
+  // server nothing again.
+  await page.locator("[data-saga-slide-prev]").click();
+  await expect(chapter.getByText("Breather break")).toBeVisible();
   await chapter.getByRole("button", { name: /^Open / }).click();
-  expect(sectionRequests, "reopening a chapter must not fetch it again").toHaveLength(1);
+  expect(sectionRequests, "re-entering a chapter must not fetch it again").toHaveLength(1);
 
   // A deep link into a chapter nobody has opened still resolves: the anchor is
   // located, its chapter is fetched, and the page scrolls to it.
@@ -161,6 +167,7 @@ test("loads a coverage file diff only once the reviewer opens that file", async 
 
 test("loads a linked-code file diff on demand and keeps it answerable to its explanation", async ({ page, largeSaga }) => {
   await page.goto(largeSaga.baseURL, { waitUntil: "load" });
+  await page.locator("[data-saga-slide-next]").click();
   const overview = page.locator('[data-view="saga"] article.fragment').first();
   await expect(overview.locator(".fragment-markdown")).toBeVisible();
   await overview.hover();

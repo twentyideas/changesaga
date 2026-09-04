@@ -175,6 +175,11 @@ func validateAuthoredFragment(entrypoint, mediaType, path string, result *Valida
 	if strings.Contains(trimmed, "Replace with a useful diagram") || strings.Contains(trimmed, "<h1>Interactive fragment</h1>") {
 		addIssue(result, "error", path, "fragment still contains the generated example; replace it with reviewer-facing content")
 	}
+	if mediaType == "text/markdown" {
+		if words := MarkdownSlideWordCount(trimmed); words > MarkdownSlideWordBudget {
+			addIssue(result, "warning", path, fmt.Sprintf("slide has %d prose words; split it into one-idea slides or replace prose with a visual or concrete example (maximum %d)", words, MarkdownSlideWordBudget))
+		}
+	}
 }
 
 func validateMarkdownHeadingAnchors(entrypoint, path string, result *Validation) {
@@ -671,7 +676,30 @@ func validateVisualMappings(fragment *Fragment, result *Validation) {
 }
 
 func validateNarrativeMappings(fragment *Fragment, result *Validation) {
-	if fragment.MediaType != "text/markdown" || len(fragment.Diffs) == 0 {
+	if fragment.MediaType != "text/markdown" {
+		return
+	}
+	content, err := os.ReadFile(filepath.Join(fragment.Directory, filepath.FromSlash(fragment.Entrypoint)))
+	if err == nil {
+		for _, footnote := range MarkdownFootnotes(string(content)) {
+			var citation *Landmark
+			for index := range fragment.Landmarks {
+				landmark := &fragment.Landmarks[index]
+				if landmark.Selector.Type == "text" && landmark.Selector.Exact == footnote.Definition {
+					citation = landmark
+					break
+				}
+			}
+			if citation == nil {
+				addIssue(result, "warning", fragment.Path, fmt.Sprintf("Markdown footnote [^%s] is not linked to code; create an exact-text landmark for its definition and attach focused diff evidence", footnote.ID))
+				continue
+			}
+			if len(citation.Diffs) == 0 {
+				addIssue(result, "warning", citation.Path, fmt.Sprintf("Markdown footnote [^%s] has an exact-text landmark but no linked code; attach focused diff evidence just as you would for a diagram node", footnote.ID))
+			}
+		}
+	}
+	if len(fragment.Diffs) == 0 {
 		return
 	}
 	for _, landmark := range fragment.Landmarks {

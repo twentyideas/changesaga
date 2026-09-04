@@ -80,6 +80,17 @@ non-obvious invariant or tradeoff, and tell the reviewer where to look next.
 Split or replace long prose fragments that repeat relationships already visible
 in the artifact.
 
+Every fragment is one slide in the reviewer, and every chapter is a short deck.
+Author for that physical constraint: one review idea per slide, with the
+important point legible without scrolling through an essay. A Markdown slide
+may contain at most 100 words of explanatory prose; fenced code/examples and
+plain-text footnote definitions are supporting material and do not count.
+Validation reports an over-budget slide as unfinished authoring work. Do not
+shrink, hide, or move prose into HTML to evade the limit—split the idea or show
+it with a diagram, walkthrough, or concrete example. The supported add/replace
+commands reject over-budget Markdown atomically; the validation warning exists
+to identify older or directly edited content that still needs the same repair.
+
 ## Chapter contract
 
 A chapter is approximately a PR-sized review boundary. It should be coherent
@@ -186,6 +197,13 @@ is always addressable even when it has no inner landmarks.
 
 ### Diff citations in prose
 
+Treat prose citations and code-bearing visual nodes as equally important and
+equally incomplete without diffs. A rendered footnote is only syntax; it becomes
+a reviewable implementation citation when its definition has an exact-text
+landmark with focused evidence. This is the same stable-landmark-plus-diffs
+contract used for a diagram node, edge, state, or control. `citation add`
+records requirements provenance and is not a substitute for this link.
+
 Use Markdown footnotes as diff citations whenever a sentence or short prose
 range makes a concrete claim about implementation, behavior, an invariant, or
 a data transition. Keep the paragraph readable,
@@ -276,6 +294,11 @@ Before attaching broad coverage, perform an addressability inventory:
   retarget, or rewrite broad records, or with `remove-coverage` to delete one.
   Move broad visual ownership to semantic landmarks where that better matches
   the explanation.
+- If a merged base refresh makes otherwise unchanged mappings stale, use
+  `change-saga rebase-evidence --repo PATH --dry-run` and inspect the old/new
+  base, product identity, atom count, selector count, and claim impact. Apply
+  only when the product patch is exactly unchanged. The command refuses real
+  product changes and rolls claims forward without mutating their history.
 
 ## Claims and verification
 

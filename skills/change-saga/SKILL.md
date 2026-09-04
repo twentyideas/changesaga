@@ -195,7 +195,20 @@ children.
    evidence rather than relying on fragment-level coverage. For SVG,
    `--element-id` automatically creates the on-canvas link from the element's
    rendered bounds; use `--hotspot` only to override an awkward hit area. Keep
-   one review idea per fragment and avoid decorative media.
+   Treat every fragment as one presentation slide, not a miniature document.
+   Keep one review idea per slide and avoid decorative media. Markdown slides
+   have a hard authoring target of at most 100 explanatory prose words (fenced
+   examples and citation definitions are excluded). Authoring commands refuse
+   an over-budget Markdown slide without writing; split the idea or replace
+   prose with a visual when validation reports dense legacy content.
+   Apply one completion rule to prose and visuals: a Markdown footnote is not
+   linked merely because its marker and definition render. Its plain-text
+   definition must be an exact-text landmark and that landmark must own focused
+   diff evidence—the same requirement as a code-bearing diagram node or edge.
+   Run validation and repair every per-footnote warning before handoff. Do not
+   confuse prose diff citations with `citation add` provenance records;
+   provenance explains where a requirement came from, not where it is
+   implemented.
 8. Attach only the atoms actually explained or demonstrated by a fragment (or a
    deliberately higher target) with `change-saga cover --target`. `--target`
    accepts a section or fragment path, a target URN, or the
@@ -236,6 +249,14 @@ children.
     SVG nodes, or SVG edges whenever the authored content identifies that
     narrower concept. A complete saga with avoidably broad targets is not ready
     for handoff.
+    If all mappings became stale only because the declared base advanced after
+    that base was incorporated into the head, run `change-saga rebase-evidence
+    --repo <source-checkout> --dry-run <saga>` instead of editing URIs. Proceed
+    only when it reports the expected old/new base, unchanged product identity,
+    atom count, selector count, and claim impact. The command refuses real
+    product changes. Applying it rolls immutable claims forward; do not pass
+    `--carry-verifications` unless the unchanged product identity justifies an
+    explicit analysis carry-forward for this review.
 11. Record falsifiable assertions with `change-saga add-claim`. Each claim must
     target the exact narrative element making it and cite exact supporting diff
     URIs. Claims never contribute to coverage. Append an explicit result with
@@ -325,6 +346,14 @@ reviewer should remain attached to the current terminal.
 
 When reviewing without the UI, read the saga through the query API described
 above rather than searching for or reading saga metadata files directly.
+When recording an approval or rejection from the CLI, always declare the
+reviewer persona. Use `--reviewer-kind human` only for a decision the human made
+directly. For your own AI review, use `--reviewer-kind ai` together with an
+independent `--reviewer-name`, `--agent`, and the exact `--model`; never turn an
+AI pass into a human approval. Give simultaneous passes stable distinct names
+such as `Claude 1` and `Claude 2` even when their model is identical.
+Multiple reviewers may decide the same target, and your decision must not erase
+or stand in for theirs.
 Conduct correctness review in three passes:
 
 1. Read the code diff independently before reading the author's conclusions.

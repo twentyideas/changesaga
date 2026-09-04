@@ -13,12 +13,12 @@ import {
   restPointer
 } from "../support/annotations.js";
 import { readJSON, reviewFiles, serverRequest } from "../support/fixture-builder.js";
-import { expect, expectNoSeriousAccessibilityViolations, test } from "../support/test.js";
+import { expect, expectNoSeriousAccessibilityViolations, openSagaSlide, test } from "../support/test.js";
 
 const overviewSelector = '[data-fragment-title="Overview"]';
 
 test("@critical pins a drawn comment to its mark, reveals it on hover and focus, and replies inside the bubble", async ({ page, saga }) => {
-  const overview = page.locator(overviewSelector);
+  const overview = await openSagaSlide(page, "Overview");
   await addRectangleComment(page, overview, "The rectangle marks the retry boundary.");
   await restPointer(page);
 
@@ -78,7 +78,7 @@ test("@critical pins a drawn comment to its mark, reveals it on hover and focus,
 });
 
 test("@critical keeps an annotation comment on its mark across a reload", async ({ page, saga }) => {
-  const overview = page.locator(overviewSelector);
+  const overview = await openSagaSlide(page, "Overview");
   await addRectangleComment(page, overview, "Persisted rectangle comment.");
   const threads = reviewFiles(saga, /\/thread\.json$/);
   expect(threads).toHaveLength(1);
@@ -106,7 +106,7 @@ test("@critical keeps an annotation comment on its mark across a reload", async 
 });
 
 test("@critical pins sticky note and highlight comments to their own marks", async ({ page, saga }) => {
-  const overview = page.locator(overviewSelector);
+  const overview = await openSagaSlide(page, "Overview");
   await addStickyNoteComment(page, overview, "Sticky bubble check");
   await restPointer(page);
 
@@ -139,7 +139,7 @@ test("@critical pins sticky note and highlight comments to their own marks", asy
 });
 
 test("@critical leaves comments that were not drawn on the content in the list below it", async ({ page, saga }) => {
-  const overview = page.locator(overviewSelector);
+  const overview = await openSagaSlide(page, "Overview");
   await overview.getByRole("button", { name: "Comment on Overview" }).click();
   const composer = page.locator("form.annotation-compose");
   await composer.locator('textarea[name="body"]').fill("A comment on the whole explanation.");
@@ -152,23 +152,19 @@ test("@critical leaves comments that were not drawn on the content in the list b
   await expect(fragmentThread).toContainText("A comment on the whole explanation.");
   await expect(page.locator("[data-annotation-bubble]")).toHaveCount(0);
 
-  // A chapter comment keeps the same placement it always had: in the list
-  // inside the chapter. The page ships that chapter as a summary, so reading
-  // the comment means opening the chapter, exactly as seeing it always did.
-  const chapter = page.locator("section.chapter", { has: page.getByRole("link", { name: "Architecture" }) });
-  await chapter.getByRole("button", { name: "Open Architecture" }).click();
+  // Chapter comments are authored from the breather slide and remain ordinary
+  // target comments in the shared activity history.
+  const chapter = page.locator('section.chapter[data-slide-title="Architecture"]');
+  await page.goto(`${saga.baseURL}/#${await chapter.getAttribute("id")}`);
+  await expect(chapter.locator(".chapter-break-label")).toBeVisible();
   await chapter.getByRole("button", { name: "Comment on Architecture" }).first().click();
   await composer.locator('textarea[name="body"]').fill("A comment on the whole chapter.");
   await Promise.all([page.waitForNavigation(), composer.getByRole("button", { name: "Comment" }).click()]);
 
-  // Navigating to the chapter opens it, which is what reading anything inside
-  // it has always meant; the page now fetches the body at the same moment.
-  await page.goto(`${saga.baseURL}/#${await chapter.getAttribute("id")}`);
-  await expect(chapter.getByRole("button", { name: "Close Architecture" })).toHaveAttribute("aria-expanded", "true");
-
-  const chapterThread = page.locator("article.thread").filter({ hasText: "A comment on the whole chapter." });
+  await page.locator("[data-open-activity]").click();
+  const chapterThread = page.locator("#review-drawer [data-activity-item]").filter({ hasText: "A comment on the whole chapter." });
   await expect(chapterThread).toHaveCount(1);
-  await expect(chapterThread.locator("xpath=ancestor::*[@data-annotation-bubble]")).toHaveCount(0);
+  await expect(chapterThread).toBeVisible();
   await expect(page.locator("[data-annotation-bubble]")).toHaveCount(0);
 
   const anchors = reviewFiles(saga, /\/thread\.json$/).map((path) => readJSON<{ anchor: { type: string } }>(path).anchor.type);
@@ -176,7 +172,7 @@ test("@critical leaves comments that were not drawn on the content in the list b
 });
 
 test("@critical keeps an annotated comment's mark selectable, movable, and removable", async ({ page, saga }) => {
-  const overview = page.locator(overviewSelector);
+  const overview = await openSagaSlide(page, "Overview");
   await addStickyNoteComment(page, overview, "Movable sticky");
   await restPointer(page);
 

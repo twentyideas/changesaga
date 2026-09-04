@@ -173,9 +173,16 @@ func SetAnchor(root, threadID string, anchor saga.Anchor) error {
 	})
 }
 
-func AddReview(root, targetDir, state, body string) error {
+func AddReview(root, targetDir, state, body string, reviewer saga.ReviewerIdentity) error {
 	if state != "approved" && state != "rejected" && state != "closed" && state != "open" {
 		return fmt.Errorf("review requires approved, rejected, closed, or open state")
+	}
+	reviewer.Kind = strings.TrimSpace(reviewer.Kind)
+	reviewer.Name = strings.TrimSpace(reviewer.Name)
+	reviewer.Agent = strings.TrimSpace(reviewer.Agent)
+	reviewer.Model = strings.TrimSpace(reviewer.Model)
+	if err := saga.ValidateReviewerIdentity(&reviewer); err != nil {
+		return err
 	}
 	return mutate(root, func(index saga.MutationIndex) error {
 		cleanTarget, err := filepath.Abs(targetDir)
@@ -198,7 +205,7 @@ func AddReview(root, targetDir, state, body string) error {
 		}
 		now := time.Now().UTC()
 		id := store.EventID(now)
-		review := saga.Review{Version: saga.CurrentVersion, ID: id, State: state, Body: strings.TrimSpace(body), CreatedAt: now}
+		review := saga.Review{Version: saga.CurrentVersion, ID: id, Reviewer: &reviewer, State: state, Body: strings.TrimSpace(body), CreatedAt: now}
 		return store.WriteJSON(filepath.Join(dir, id+"-"+state+".json"), review, true)
 	})
 }

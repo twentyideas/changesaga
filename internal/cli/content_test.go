@@ -31,6 +31,39 @@ func TestSetFragmentContentSupportsStdinAndJSON(t *testing.T) {
 	assertValid(t, root)
 }
 
+func TestMarkdownAuthoringCommandsRefuseDenseSlidesWithoutWriting(t *testing.T) {
+	root := newAuthoredSaga(t)
+	overview := filepath.Join(root, "overview.fragment", "content.md")
+	before, err := os.ReadFile(overview)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dense := "# Too much {#too-much}\n\n" + strings.Repeat("explanation ", 101)
+	var output bytes.Buffer
+	err = setFragmentContent(context.Background(), []string{"--target", "overview.fragment", "--source", "-", root}, &output, strings.NewReader(dense))
+	if err == nil || !strings.Contains(err.Error(), "maximum 100") {
+		t.Fatalf("dense replacement error = %v", err)
+	}
+	after, readErr := os.ReadFile(overview)
+	if readErr != nil || !bytes.Equal(after, before) {
+		t.Fatalf("refused replacement changed the slide: %v", readErr)
+	}
+
+	source := filepath.Join(t.TempDir(), "dense.md")
+	if err := os.WriteFile(source, []byte(dense), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	output.Reset()
+	err = AddFragment(context.Background(), []string{"--name", "dense", "--title", "Dense", "--source", source, root}, &output)
+	if err == nil || !strings.Contains(err.Error(), "maximum 100") {
+		t.Fatalf("dense new slide error = %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(root, "dense.fragment")); !os.IsNotExist(statErr) {
+		t.Fatalf("refused new slide left a package: %v", statErr)
+	}
+	assertValid(t, root)
+}
+
 func TestStableIDsResolveAcrossHierarchyCommands(t *testing.T) {
 	root := newAuthoredSaga(t)
 	var output bytes.Buffer

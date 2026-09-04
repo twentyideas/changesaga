@@ -84,7 +84,7 @@ func (e *StatusError) Error() string { return "command reported a non-success st
 // commandUsage is the single source of each command's usage line so the
 // overview, the per-command -h banner, and argument errors cannot drift apart.
 var commandOrder = []string{
-	"init", "upgrade", "story", "citation", "relation", "design", "plan", "add-chapter", "add-section", "add-fragment", "set-fragment-content", "add-landmark", "cover", "remove-coverage", "replace-coverage", "add-claim", "verify-claim",
+	"init", "upgrade", "story", "citation", "relation", "design", "plan", "add-chapter", "add-section", "add-fragment", "set-fragment-content", "add-landmark", "cover", "remove-coverage", "replace-coverage", "rebase-evidence", "add-claim", "verify-claim",
 	"thread", "reply", "review", "validate", "status", "compare", "query",
 	"serve", "open", "install-skill", "spec",
 }
@@ -124,6 +124,7 @@ var commandUsage = map[string]string{
 	"cover":                       "change-saga cover [flags] [--batch FILE|-] [--dry-run] <saga>",
 	"remove-coverage":             "change-saga remove-coverage --record PATH [--dry-run] [--json|--quiet] <saga>",
 	"replace-coverage":            "change-saga replace-coverage --record PATH [coverage flags] [--batch FILE|-] [--dry-run] <saga>",
+	"rebase-evidence":             "change-saga rebase-evidence [--repo PATH] [--carry-verifications] [--dry-run] [--json|--quiet] <saga>",
 	"add-claim":                   "change-saga add-claim --target TARGET --kind KIND --statement TEXT --diff URI [--diff URI...] <saga>",
 	"verify-claim":                "change-saga verify-claim --claim ID --status STATUS --summary TEXT [flags] <saga>",
 	"thread":                      "change-saga thread [flags] <saga>",
@@ -227,6 +228,9 @@ var commandDescription = map[string]string{
 	"plan progress":               "Append explicit workspace progress against the item. Progress helps coordination but\nnever proves correctness, acceptance-criterion coverage, or delivery.",
 	"plan record-merge":           "Append merge evidence for a declared merge unit. A merged state contributes delivery\nevidence only when its immutable commit and diff links resolve.",
 	"set-fragment-content":        "Replace a fragment entrypoint through the supported authoring API. Use --source -\nto read content from standard input; the fragment media type and metadata are preserved.",
+	"add-chapter":                 "Add one independently reviewable slideshow. The reader inserts a breather break before\neach chapter and guides reviewers through its slides in order.",
+	"add-section":                 "Group related slides within a chapter without creating another report page. Keep the\nsection focused enough that its title orients the active slide.",
+	"add-fragment":                "Add one slide carrying one review idea. Prefer a diagram, interactive walkthrough, or\nconcrete example; Markdown has a 100-word explanatory-prose budget.",
 	"add-landmark":                "Create a coverable target for one Markdown heading, exact text span, HTML/SVG\nelement, or normalized image region inside a fragment. An SVG --element-id is\nmeasured into an on-canvas link automatically; --hotspot overrides its bounds.\nHTML elements need --hotspot for an on-canvas link. Visual landmarks require a\nsemantic --description for non-visual consumers.",
 	"cover": `Attach the exact diff atoms a narrative target explains. --target accepts a
 section or fragment path, a target URN, or <fragment-path>#<landmark-id>.
@@ -236,12 +240,13 @@ new_path, note, name, and uris; the whole batch is resolved before anything is w
 failing record leaves the saga untouched.`,
 	"remove-coverage":  "Delete one exact coverage record named by query mappings or fragment-diffs.",
 	"replace-coverage": "Atomically replace one coverage record with one or more newly resolved records.\nUse --batch to split or retarget broad evidence without leaving partial coverage.",
+	"rebase-evidence":  "Refresh exact evidence after the Saga's declared base moves while the product diff is\nbyte-for-byte identical. The command refuses changed product identity, previews with\n--dry-run, rolls immutable claims forward, and only carries verification when requested.",
 	"add-claim":        "Record one falsifiable author assertion and its exact supporting diff evidence.\nClaims do not count toward coverage and are independently verified.",
 	"verify-claim":     "Append an independent verification result without rewriting the claim or prior results.",
 	"open":             "Start a managed loopback reviewer, open it in a browser, and return after\nprinting the PID and active URL.",
 	"serve":            "Serve the saga on loopback for review. Detached instances are managed with\nchange-saga serve status [SAGA] and change-saga serve stop [SAGA].",
 	"install-skill":    "Print the agent-agnostic prompt that installs the change-saga authoring skill.\nPipe it to a coding agent; it neither writes to this repository nor creates a saga.",
-	"validate":         "Check the saga against the format. --fix adds missing stable anchors to Markdown\nheadings in narrative fragments and changes nothing else.",
+	"validate":         "Check the format and authoring completeness, including a warning for every Markdown\nfootnote without an evidence-bearing exact-text landmark. --fix adds missing stable\nheading anchors and changes nothing else.",
 	"compare":          "Project an incoming Git comparison onto the maintained Saga's source evidence.\nThe command never compares prose or visual content. Direct intersections identify\ntargets that must update; nearby additions identify targets to reconsider; ownerless\nchanges require new Saga content.",
 }
 
@@ -527,6 +532,24 @@ func addFragment(_ context.Context, args []string, out io.Writer, scope authorin
 	if err != nil {
 		return err
 	}
+	if resolvedType == "text/markdown" && *source != "" {
+		slideContent := content
+		if slideContent == nil {
+			info, statErr := os.Stat(*source)
+			if statErr != nil {
+				return statErr
+			}
+			if !info.IsDir() {
+				slideContent, err = os.ReadFile(*source)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		if err := enforceSlideProseBudget(slideContent, resolvedType); err != nil {
+			return err
+		}
+	}
 	if *entrypointFlag != "" {
 		// Entrypoints use the format's portable slash-path grammar. Do not
 		// normalize a Windows backslash into a different, accepted path.
@@ -660,11 +683,22 @@ func Review(_ context.Context, args []string, out io.Writer) error {
 	target := flags.String("target", ".", "saga, chapter, section, or fragment path")
 	state := flags.String("state", "", "approved, rejected, closed, or open")
 	body := flags.String("body", "", "optional review note")
+	reviewerKind := flags.String("reviewer-kind", "", "required reviewer persona: human or ai")
+	reviewerName := flags.String("reviewer-name", "", "distinct AI reviewer name, for example Claude 1 (required for AI reviews)")
+	agent := flags.String("agent", "", "AI agent kind, for example codex (required for AI reviews)")
+	model := flags.String("model", "", "AI model name (required for AI reviews)")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() != 1 {
 		return fmt.Errorf("usage: %s", commandUsage["review"])
+	}
+	if strings.TrimSpace(*reviewerKind) == "" {
+		return fmt.Errorf("review requires --reviewer-kind human or ai")
+	}
+	reviewer := saga.ReviewerIdentity{Kind: *reviewerKind, Name: *reviewerName, Agent: *agent, Model: *model}
+	if err := saga.ValidateReviewerIdentity(&reviewer); err != nil {
+		return err
 	}
 	document, _, err := saga.Load(flags.Arg(0))
 	if err != nil {
@@ -674,7 +708,7 @@ func Review(_ context.Context, args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if err := reviewstore.AddReview(document.Root, targetDir, *state, *body); err != nil {
+	if err := reviewstore.AddReview(document.Root, targetDir, *state, *body, reviewer); err != nil {
 		return err
 	}
 	fmt.Fprintf(out, "Recorded %s review for %s\n", *state, *target)
@@ -1638,6 +1672,11 @@ Use this authoring loop, consulting each command's "-h" output for exact flags:
    evidence-bearing landmark instead of covering only the enclosing fragment.
    SVG element bounds become on-canvas links automatically; use "--hotspot"
    only to override awkward geometry.
+   Apply the same completion rule to prose citations and visual nodes: a
+   footnote marker and definition are not linked until the definition is an
+   exact-text landmark with focused diffs. Repair every per-footnote validation
+   warning before handoff. Requirements provenance from "citation add" records
+   source context and does not replace implementation evidence.
 5. "change-saga cover" connects a focused fragment or landmark to the exact diff atoms
    it explains and includes a concise what-and-why note. "--target" accepts a
    path, a target URN, or the "<fragment-path>#<landmark-id>" shorthand. Use
@@ -1665,6 +1704,11 @@ Use this authoring loop, consulting each command's "-h" output for exact flags:
    substantive fragment. Move direct fragment-level evidence to citations,
    headings, SVG nodes, or SVG edges whenever the authored content identifies
    that narrower target.
+   If a merged base refresh makes otherwise unchanged mappings stale, run
+   "change-saga rebase-evidence --repo PATH --dry-run" and inspect the exact
+   old/new base, product identity, atom count, selector count, and claim impact.
+   Apply only when the product patch is unchanged; the command refuses real
+   product changes and rolls immutable claims forward.
 8. Record falsifiable assertions with "change-saga add-claim" and append an
    explicit result with "change-saga verify-claim". Claims never contribute to
    coverage. Use "unverified" when an assertion has not actually been checked;
@@ -1735,6 +1779,14 @@ one, first read the code diff independently and record provisional findings;
 then inspect mappings, claims, verifications, and narrative intent; finally
 reconcile contradictions and independently test author claims. Do not let the
 author's explanation anchor the first correctness pass.
+When recording a decision, always declare the reviewer persona. Use
+"--reviewer-kind human" only for a decision the human made directly. For the
+agent's own review, use "--reviewer-kind ai" together with an independent
+"--reviewer-name", "--agent", and the exact "--model"; never turn an AI pass
+into a human approval. Give simultaneous passes stable distinct names such as
+"Claude 1" and "Claude 2" even when their model is identical. Multiple reviewers
+may decide the same target, and one persona's later decision supersedes only
+that same persona's prior decision.
 `
 
 const defaultSVGFragment = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300" role="img" aria-label="Diagram placeholder">
@@ -1759,6 +1811,12 @@ Any saga, chapter, section, or fragment may own ___diffs/*.json evidence. Every
 evidence entry is an absolute saga-diff://v1 URI containing repository URI, immutable
 base/head identities, and a line range or file event.
 
+When a declared base advances but the exact product patch does not,
+change-saga rebase-evidence proves the base-independent product identity before
+rewriting only selector base identities. It refuses product changes. Affected
+claims are replaced through v3 supersedes relations and verification carry-forward
+is explicit rather than automatic.
+
 Addressable Markdown headings, exact text, HTML/SVG elements, and image regions
 live in independent ___landmarks/<id>.landmark packages beneath a fragment.
 Create them with change-saga add-landmark, then pass the printed path or URN to
@@ -1772,6 +1830,10 @@ understand their role without interpreting SVG or HTML geometry.
 Markdown footnotes are the prose citation convention. When a footnote
 definition is an exact-text landmark with evidence, the renderer turns both its
 inline reference and footer entry into controls that open the linked diffs.
+A prose citation and a code-bearing visual node have the same completion rule:
+each needs a stable landmark with focused diff evidence. A rendered footnote
+without that association is incomplete. Requirements provenance citations are
+separate and do not prove implementation.
 
 Falsifiable author assertions live as independent ___claims/<id>.json records.
 Append-only ___verifications/<id>.json records mark them unverified, verified,
@@ -1788,6 +1850,13 @@ threads include replacement code. Append-only file URI events track reviewed
 state, and approvals may target the saga, a chapter, a section, or a fragment.
 Every comment owns a thread directory, every reply owns a message directory, and
 each state transition is a new file; review operations never update shared arrays.
+Approval events declare a human or AI reviewer persona in addition to their
+Git-derived author. AI personas name an independent review seat, their agent
+kind, and model. The latest event is projected per author and persona,
+preserving concurrent decisions by
+other reviewers; legacy events without persona metadata remain unspecified.
+Every decision is an independent file, so parallel review branches add records
+instead of rewriting a shared reviewer list.
 
 All-atoms-mapped is an omission invariant, not a correctness or explanation-
 quality verdict. Use query mappings --sort scrutiny to inspect broad or thin

@@ -78,6 +78,9 @@ func setFragmentContentScoped(_ context.Context, args []string, out io.Writer, s
 		if fragment == nil || fragment.Target != targetURN {
 			return fmt.Errorf("--target must identify a fragment, not a saga, chapter, section, or landmark")
 		}
+		if err := enforceSlideProseBudget(data, fragment.MediaType); err != nil {
+			return err
+		}
 		entrypoint := filepath.Join(fragment.Directory, filepath.FromSlash(fragment.Entrypoint))
 		if _, ensureErr := store.EnsureDirWithin(document.Root, filepath.Dir(entrypoint)); ensureErr != nil {
 			return ensureErr
@@ -106,4 +109,15 @@ func setFragmentContentScoped(_ context.Context, args []string, out io.Writer, s
 	}
 	fmt.Fprintf(out, "Updated %s (%d bytes)\n", result.Target, result.Bytes)
 	return nil
+}
+
+func enforceSlideProseBudget(content []byte, mediaType string) error {
+	if mediaType != "text/markdown" {
+		return nil
+	}
+	words := saga.MarkdownSlideWordCount(string(content))
+	if words <= saga.MarkdownSlideWordBudget {
+		return nil
+	}
+	return fmt.Errorf("Markdown slide has %d prose words; split it into one-idea slides or replace prose with a visual or concrete example (maximum %d)", words, saga.MarkdownSlideWordBudget)
 }

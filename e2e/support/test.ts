@@ -79,6 +79,20 @@ export async function waitForSettledSaga(page: Page): Promise<void> {
   await page.locator("body[data-shell-ready]").waitFor();
 }
 
+/** Open one authored slide through the same permalink path a reviewer uses. */
+export async function openSagaSlide(page: Page, title: string): Promise<import("@playwright/test").Locator> {
+  const slide = page.locator(`[data-fragment-title="${title.replaceAll('"', '\\"')}"]`);
+  const id = await slide.getAttribute("id");
+  if (!id) throw new Error(`Saga slide ${title} has no permalink target`);
+  const destination = new URL(page.url());
+  destination.search = "";
+  destination.hash = id;
+  await page.goto(destination.toString());
+  await waitForSettledSaga(page);
+  await slide.waitFor({ state: "visible" });
+  return slide;
+}
+
 async function seriousAccessibilityViolations(page: Page, include?: string): Promise<SeriousViolation[]> {
   const builder = new AxeBuilder({ page });
   if (include) builder.include(include);

@@ -1,4 +1,4 @@
-import { expect, test } from "../support/test.js";
+import { expect, openSagaSlide, test } from "../support/test.js";
 import { canonicalLineURI } from "../support/fixture-builder.js";
 
 test("bounded Code Diff retries a building snapshot, preserves its deep link, and streams every hunk", async ({ page, largeSaga }) => {
@@ -75,7 +75,7 @@ test("linked code streams every changed hunk and expands collapsed context from 
   });
 
   await page.goto(saga.baseURL, { waitUntil: "load" });
-  const overview = page.locator('[data-view="saga"] article.fragment').filter({ has: page.locator(".fragment-markdown") }).first();
+  const overview = await openSagaSlide(page, "Overview");
   await expect(overview).toBeVisible();
   await overview.hover();
   await overview.locator("[data-open-diffs]:visible").first().click();
@@ -135,7 +135,7 @@ test("collapsing a linked file cancels its remaining diff pages", async ({ page,
   });
 
   await page.goto(saga.baseURL, { waitUntil: "load" });
-  const overview = page.locator('[data-view="saga"] article.fragment').filter({ has: page.locator(".fragment-markdown") }).first();
+  const overview = await openSagaSlide(page, "Overview");
   await overview.hover();
   await overview.locator("[data-open-diffs]:visible").first().click();
   const attached = page.locator(".diff-drawer.open details.attached-file").first();
@@ -158,7 +158,7 @@ test("a repeated file-diff cursor stops instead of spinning from cache", async (
   });
 
   await page.goto(saga.baseURL, { waitUntil: "load" });
-  const overview = page.locator('[data-view="saga"] article.fragment').filter({ has: page.locator(".fragment-markdown") }).first();
+  const overview = await openSagaSlide(page, "Overview");
   await overview.hover();
   await overview.locator("[data-open-diffs]:visible").first().click();
   const attached = page.locator(".diff-drawer.open details.attached-file").first();
@@ -175,7 +175,7 @@ test("linked code uses the shared side-by-side layout selected in Code Diff", as
   await split.click();
   await expect(split).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("tab", { name: "Saga" }).click();
-  const overview = page.locator('[data-view="saga"] article.fragment').filter({ has: page.locator(".fragment-markdown") }).first();
+  const overview = await openSagaSlide(page, "Overview");
   await overview.hover();
   await overview.locator("[data-open-diffs]:visible").first().click();
   const attached = page.locator(".diff-drawer.open details.attached-file").first();

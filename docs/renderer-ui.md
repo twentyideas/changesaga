@@ -46,11 +46,16 @@ to a neutral document outline rather than guessing.
 
 ## Navigation
 
-The Saga sidebar is a collapsed documentation tree, like a wiki's page tree. It
-lists the overview and the chapters; only the open page expands, and it expands
-into its own headings. It never shows how many fragments or sections a chapter
-contains, never mirrors the on-disk hierarchy, and never repeats a label it is
-already nested under.
+Saga is a guided presentation, not a documentation tree. Every fragment is one
+slide, each chapter is a deck, and the chapter boundary renders as a dedicated
+“Breather break” slide before the next deck begins. Previous/Next controls and
+left/right or page-up/page-down keys move through the sequence. The active
+chapter name is shown, but no numeric “8 of 37” counter reveals or emphasizes
+the total length.
+
+A thin progress rail describes progress only within the current chapter deck.
+It becomes legible while the reviewer moves or navigates, then fades back so it
+does not compete with the active slide. It resets at each breather break.
 
 The Code Diff sidebar is a different thing and should stay that way: a compact,
 filterable changed-file tree with counts, status, and a selected file.
@@ -63,12 +68,12 @@ a view of what happens to be loaded.
 ## The page is a shell
 
 `GET /` renders the saga's identity, the coverage totals, the overview's
-explanations as descriptors, one summary per chapter, and the navigation
-outline. It renders no explanation content at all. A chapter body arrives from
-`/api/section` when the reviewer opens that chapter, and an explanation from
-`/api/fragment` when it comes into view, is pointed at, or is needed to answer a
-permalink. `/api/locate` says which chapter and which explanation own an anchor,
-so a deep link into an unopened chapter still resolves.
+explanations as descriptors, and one breather slide per chapter. It renders no
+explanation content at all. A chapter body arrives when the reviewer advances
+past its breather via `/api/section`; only the active explanation is then loaded
+from `/api/fragment`. `/api/locate` says which chapter and which explanation own
+an anchor, so a deep link into an unopened deck still resolves and activates the
+right slide.
 
 Three rules follow from that, and breaking any of them is a regression:
 
@@ -93,14 +98,15 @@ explanation on screen has arrived and any anchor in the URL has been resolved.
 It is the page saying it has settled, which is what a reviewer can see and what
 the browser suite waits for instead of guessing.
 
-## Chapter review directories
+## Review controls in a deck
 
-A chapter bar exposes the same approve, request-changes, and comment actions as
-the other section bars. Opening it also fetches a directory of the
+A chapter breather exposes the same approve, request-changes, and comment actions as
+the other section bars. Entering it also fetches a directory of the
 approval-bearing sections and explanations inside it as part of the
 already-bounded `/api/section` response. The directory is expanded by default,
-collapsible, and sticky within the chapter so it follows only while that chapter
-is being read.
+available approval-bearing targets. The directory remains part of the bounded
+response and activity model, but the guided reader does not pin a second table
+over the slides: the active slide and section context expose their own controls.
 
 Each row mirrors the decision control on its target's own bar and projects
 append-only approval events into exactly `Unreviewed`, `Approved`, or `Changes requested`.

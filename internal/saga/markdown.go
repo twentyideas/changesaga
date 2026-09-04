@@ -1,6 +1,15 @@
 package saga
 
-import "strings"
+import (
+	"strings"
+	"unicode"
+)
+
+// MarkdownSlideWordBudget is deliberately small enough that a fragment must
+// present one idea rather than become a paginated report. Fenced examples and
+// citation definitions are evidence/supporting material, so they do not spend
+// the slide's explanatory prose budget.
+const MarkdownSlideWordBudget = 100
 
 // MarkdownHeading describes the small heading subset supported by the
 // reference renderer. Explicit anchors use: ## Heading {#stable-anchor}.
@@ -9,6 +18,14 @@ type MarkdownHeading struct {
 	Text     string
 	Anchor   string
 	Explicit bool
+}
+
+// MarkdownFootnote describes the single-line, plain-text definition used by
+// prose diff citations. Keeping this subset deliberately small makes the
+// definition suitable for an exact-text landmark.
+type MarkdownFootnote struct {
+	ID         string
+	Definition string
 }
 
 func ParseMarkdownHeading(line string) (MarkdownHeading, bool) {
@@ -61,4 +78,66 @@ func MarkdownHeadings(source string) []MarkdownHeading {
 		}
 	}
 	return headings
+}
+
+// MarkdownFootnotes returns prose citation definitions outside fenced code.
+// Change Saga's authoring contract keeps these definitions on one line and in
+// plain text so the same bytes can be selected by an exact-text landmark.
+func MarkdownFootnotes(source string) []MarkdownFootnote {
+	var footnotes []MarkdownFootnote
+	inCode := false
+	for _, line := range strings.Split(strings.ReplaceAll(source, "\r\n", "\n"), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "```") {
+			inCode = !inCode
+			continue
+		}
+		if inCode || !strings.HasPrefix(trimmed, "[^") {
+			continue
+		}
+		separator := strings.Index(trimmed, "]:")
+		if separator <= 2 {
+			continue
+		}
+		id := trimmed[2:separator]
+		definition := strings.TrimSpace(trimmed[separator+2:])
+		if id == "" || definition == "" || strings.ContainsAny(id, " \t\r\n[]") {
+			continue
+		}
+		footnotes = append(footnotes, MarkdownFootnote{ID: id, Definition: definition})
+	}
+	return footnotes
+}
+
+// MarkdownSlideWordCount counts visible explanatory prose outside fenced code
+// and single-line footnote definitions. It is intentionally a presentation
+// heuristic rather than a Markdown parser: authors need a stable guardrail,
+// not typography-dependent token accounting.
+func MarkdownSlideWordCount(source string) int {
+	count := 0
+	inCode := false
+	for _, line := range strings.Split(strings.ReplaceAll(source, "\r\n", "\n"), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "```") {
+			inCode = !inCode
+			continue
+		}
+		if inCode || markdownFootnoteDefinition(trimmed) {
+			continue
+		}
+		for _, field := range strings.Fields(trimmed) {
+			if strings.IndexFunc(field, func(character rune) bool { return unicode.IsLetter(character) || unicode.IsDigit(character) }) >= 0 {
+				count++
+			}
+		}
+	}
+	return count
+}
+
+func markdownFootnoteDefinition(line string) bool {
+	if !strings.HasPrefix(line, "[^") {
+		return false
+	}
+	separator := strings.Index(line, "]:")
+	return separator > 2 && !strings.ContainsAny(line[2:separator], " \t\r\n[]")
 }

@@ -1,4 +1,4 @@
-import { expectNoSeriousAccessibilityViolations, expect, test } from "../support/test.js";
+import { expectNoSeriousAccessibilityViolations, expect, openSagaSlide, test } from "../support/test.js";
 
 const focusableSelector = 'a[href], area[href], button, input, select, textarea, iframe, summary, [tabindex], [contenteditable="true"]';
 
@@ -69,7 +69,7 @@ test("@critical exposes the workspace switcher as a real tablist with selection 
 
   await sagaTab.click();
   await expect(page.getByRole("tabpanel", { name: "Saga" })).toBeVisible();
-  const overview = page.locator('[data-fragment-title="Overview"]');
+  const overview = await openSagaSlide(page, "Overview");
   await overview.getByRole("button", { name: "Show annotation tools for Overview" }).click();
   const annotationTools = overview.getByRole("toolbar", { name: "Annotation tools for Overview" });
   await expect(annotationTools).toBeVisible();
@@ -93,7 +93,7 @@ test("@critical keeps the closed linked-code drawer inert with no focusable desc
   expect(closed.candidates).toBeGreaterThan(0);
   expect(closed.focusable, "focusable descendants of the closed drawer").toEqual([]);
 
-  const overview = page.locator('[data-fragment-title="Overview"]');
+  const overview = await openSagaSlide(page, "Overview");
   await overview.scrollIntoViewIfNeeded();
   // Linked-code counts arrive from the same intent prefetch a reviewer starts
   // by pointing at the explanation.
@@ -135,6 +135,7 @@ test("@critical has no serious or critical axe violations on any workspace view"
 
   await page.getByRole("tab", { name: "Saga" }).click();
   await page.goto(`${saga.baseURL}/chapters/architecture`);
+  await page.getByRole("button", { name: "Open Architecture" }).click();
   await expect(page.getByRole("tabpanel", { name: "Saga" }).getByText("The renderer and persistence boundary stay independent.")).toBeVisible();
   await expectNoSeriousAccessibilityViolations(page);
 });

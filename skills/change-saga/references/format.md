@@ -95,6 +95,7 @@ change-saga verify-claim --claim <claim-id> --status verified --method test --su
 change-saga query mappings --saga <name>.saga --repo <source-checkout> --sort scrutiny
 change-saga replace-coverage --record <evidence_file> --batch replacements.jsonl --repo <source-checkout> <name>.saga
 change-saga remove-coverage --record <evidence_file> <name>.saga
+change-saga rebase-evidence --repo <source-checkout> --dry-run <name>.saga
 change-saga query claims --saga <name>.saga --status unverified
 change-saga validate --json <name>.saga
 change-saga status --json --repo <source-checkout> <name>.saga
@@ -103,7 +104,8 @@ change-saga compare --json --repo <source-checkout> --against-saga <incoming.sag
 change-saga open --repo <source-checkout> <name>.saga
 change-saga serve status <name>.saga
 change-saga serve stop <name>.saga
-change-saga review --target path/to/demo.fragment --state approved <name>.saga
+change-saga review --target path/to/demo.fragment --state approved --reviewer-kind human <name>.saga
+change-saga review --target path/to/demo.fragment --state approved --reviewer-kind ai --reviewer-name "Codex 1" --agent codex --model gpt-5.6-sol <name>.saga
 change-saga reply --thread <id> --state withdrawn <name>.saga
 ```
 
@@ -137,7 +139,10 @@ Evidence contains absolute `saga-diff://v1/line?...` or
 `saga-diff://v1/event?...` URIs. Each URI includes the absolute repository URI,
 resolved base identity, stable product-patch identity, and line range or event. Saga-only
 commits preserve the product identity; product changes do not. Do not hand-edit a URI
-to make stale evidence pass; regenerate it against the intended source state.
+to make stale evidence pass. When a merged base refresh preserves the exact product
+identity, use `change-saga rebase-evidence --dry-run` and inspect its proof before
+applying it. For any product change, regenerate focused evidence against the intended
+source state instead.
 `saga-diff://v1/file?...` identifies a whole changed file only for review
 progress; it is not coverage evidence.
 
@@ -177,3 +182,10 @@ Do not supply or persist reviewer names. Canonical identity is the committer
 name and email, commit OID, and committer timestamp of the commit that first
 introduced each individual event file. Legacy `author` and `created_by` fields
 remain loadable but are not authoritative.
+Approval events additionally declare whether the committer reviewed directly
+as a human or through an AI. AI reviews name a distinct review seat, the agent
+kind, and exact model, allowing `Claude 1` and `Claude 2` to retain independent
+decisions even when they share a model. Multiple authors and personas can hold
+concurrent decisions on one target; a later event supersedes only the same
+author's matching persona. Each event remains its own file, so parallel review
+branches add files instead of editing a shared reviewer list.

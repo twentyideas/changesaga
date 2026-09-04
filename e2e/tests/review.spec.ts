@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { canonicalLineURI, git, readJSON, relativeToSaga, reviewFiles } from "../support/fixture-builder.js";
-import { expect, test, waitForSettledSaga } from "../support/test.js";
+import { expect, openSagaSlide, test, waitForSettledSaga } from "../support/test.js";
 
 async function submitWithNavigation(page: import("@playwright/test").Page, action: () => Promise<void>): Promise<void> {
   await Promise.all([page.waitForNavigation(), action()]);
@@ -8,7 +8,7 @@ async function submitWithNavigation(page: import("@playwright/test").Page, actio
 }
 
 test("@critical creates a comment and reply, then resolves and reopens the thread with exact append-only records", async ({ page, saga }) => {
-  const overview = page.locator('[data-fragment-title="Overview"]');
+  const overview = await openSagaSlide(page, "Overview");
   await overview.getByRole("button", { name: "Comment on Overview" }).click();
   const composer = page.locator("form.annotation-compose");
   const actionGap = await composer.locator(".dialog-actions").evaluate((actions) => {
@@ -79,7 +79,8 @@ test("@critical creates a comment and reply, then resolves and reopens the threa
   expect(events.every(({ path }) => path.startsWith(`___review/threads/${threadRecord.id}.thread/events/`))).toBe(true);
 });
 
-test("approves, rejects, undoes, updates the progress map, and marks a source file reviewed", async ({ page, saga }) => {
+test("appends and replaces one human review without erasing other reviewers, updates progress, and marks a source file reviewed", async ({ page, saga }) => {
+  await openSagaSlide(page, "Overview");
   const progress = page.locator("[data-review-progress]");
   const initialDecided = Number(await page.locator("body").getAttribute("data-review-decided"));
   const overviewControls = page.locator('[data-review-controls][data-review-title="Overview"]');
@@ -87,16 +88,8 @@ test("approves, rejects, undoes, updates the progress map, and marks a source fi
   const approved = page.waitForResponse((response) => response.url().endsWith("/api/review") && response.request().method() === "POST");
   await overviewControls.getByRole("button", { name: "Approve Overview" }).click();
   await approved;
-  await expect(overviewControls.getByRole("button", { name: /Undo approval for Overview/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(overviewControls.getByRole("button", { name: /Approval recorded for Overview/ })).toHaveAttribute("aria-pressed", "true");
   await expect(progress).toHaveAttribute("aria-label", `Review progress: ${initialDecided + 1} of ${await page.locator("body").getAttribute("data-review-total")} decisions`);
-
-  await overviewControls.getByRole("button", { name: /Undo approval for Overview/ }).click();
-  const undoForm = overviewControls.locator("[data-review-decision-form]");
-  await undoForm.getByRole("textbox", { name: "Optional review note" }).fill("Rechecking the implementation.");
-  const undone = page.waitForResponse((response) => response.url().endsWith("/api/review") && response.request().method() === "POST");
-  await undoForm.getByRole("button", { name: "Submit" }).click();
-  await undone;
-  await expect(overviewControls.getByRole("button", { name: "Approve Overview" })).toHaveAttribute("aria-pressed", "false");
 
   await overviewControls.getByRole("button", { name: "Request changes on Overview" }).click();
   const rejectForm = overviewControls.locator("[data-review-decision-form]");
@@ -104,8 +97,20 @@ test("approves, rejects, undoes, updates the progress map, and marks a source fi
   const rejected = page.waitForResponse((response) => response.url().endsWith("/api/review") && response.request().method() === "POST");
   await rejectForm.getByRole("button", { name: "Submit" }).click();
   await rejected;
-  await expect(overviewControls.getByRole("button", { name: /Undo request for changes on Overview/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(overviewControls.getByRole("button", { name: /Changes requested on Overview/ })).toHaveAttribute("aria-pressed", "true");
   await expect(progress.locator('[data-review-progress-note="Cover the rollback path."]')).toHaveCount(1);
+
+  const reapproved = page.waitForResponse((response) => response.url().endsWith("/api/review") && response.request().method() === "POST");
+  await overviewControls.getByRole("button", { name: "Approve Overview" }).click();
+  await reapproved;
+  await expect(overviewControls.getByRole("button", { name: /Approval recorded for Overview/ })).toHaveAttribute("aria-pressed", "true");
+  const targetReviews = reviewFiles(saga, /\/overview\.fragment\/___approvals\/.*-(approved|rejected)\.json$/);
+  expect(targetReviews).toHaveLength(3);
+  expect(targetReviews.map((path) => readJSON(path).reviewer)).toEqual([
+    { kind: "human" },
+    { kind: "human" },
+    { kind: "human" }
+  ]);
 
   await page.getByRole("tab", { name: "Code Diff" }).click();
   const fileMenu = page.locator('summary[aria-label="Mark this file reviewed"]');
@@ -128,7 +133,7 @@ test("@critical keeps saga and source repositories separate and reloads Git-deri
   const sourceHeadBefore = git(saga.sourceRepo, "rev-parse", "HEAD");
   const sourceStatusBefore = git(saga.sourceRepo, "status", "--short");
 
-  const overview = page.locator('[data-fragment-title="Overview"]');
+  const overview = await openSagaSlide(page, "Overview");
   await overview.getByRole("button", { name: "Comment on Overview" }).click();
   const composer = page.locator("form.annotation-compose");
   await composer.locator('textarea[name="body"]').fill("Committed attribution check.");

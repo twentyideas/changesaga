@@ -21,6 +21,7 @@ import (
 
 	"github.com/twentyideas/changesaga/internal/coverage"
 	"github.com/twentyideas/changesaga/internal/diffuri"
+	"github.com/twentyideas/changesaga/internal/gitattribution"
 	"github.com/twentyideas/changesaga/internal/gitdiff"
 	"github.com/twentyideas/changesaga/internal/saga"
 )
@@ -141,6 +142,7 @@ func (s *session) Snapshot() string { return s.snapshot }
 
 func (s *session) build(ctx context.Context) error {
 	s.indexSection(s.document.Section, "")
+	s.resolveReviewIdentities(ctx)
 	if s.summaryOnly {
 		for _, target := range s.report.Targets {
 			s.directCurrent[target.Target] = target.Covered
@@ -161,6 +163,27 @@ func (s *session) build(ctx context.Context) error {
 	s.sortAtomOwners()
 	s.indexReviewItems(ctx)
 	return nil
+}
+
+func (s *session) resolveReviewIdentities(ctx context.Context) {
+	resolver := gitattribution.New(ctx, s.document.Root)
+	for _, entry := range s.targets {
+		for index := range entry.reviews {
+			review := &entry.reviews[index]
+			value := attribution(ctx, resolver, review.Path)
+			switch value.Status {
+			case "committed":
+				if value.Committer != nil {
+					review.AttributionIdentity = "git:" + strings.ToLower(strings.TrimSpace(value.Committer.Email))
+					review.Author = value.Committer.Name
+				}
+			case "uncommitted":
+				review.AttributionIdentity, review.Author = "local", "Local / uncommitted"
+			default:
+				review.AttributionIdentity = value.Status
+			}
+		}
+	}
 }
 
 // sortAtomOwners gives every atom a deterministic owner order. The slices are
@@ -335,7 +358,19 @@ func (s *session) finishNode(target string, recursive bool) Node {
 	entry := s.targets[target]
 	node := entry.node
 	if reviews := entry.reviews; len(reviews) > 0 {
-		node.Review.LatestState = reviews[len(reviews)-1].State
+		node.Review.LatestState = saga.AggregateReviewState(reviews)
+		for _, review := range saga.CurrentReviews(reviews) {
+			if review.State == "rejected" {
+				node.Review.Rejections++
+			}
+			if review.Reviewer == nil {
+				node.Review.Unspecified++
+			} else if review.State == "approved" && review.Reviewer.Kind == "human" {
+				node.Review.HumanApprovals++
+			} else if review.State == "approved" && review.Reviewer.Kind == "ai" {
+				node.Review.AIApprovals++
+			}
+		}
 	}
 	for _, thread := range s.document.Threads {
 		if thread.Target == target && thread.State == "open" {

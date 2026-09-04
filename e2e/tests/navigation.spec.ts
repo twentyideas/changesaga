@@ -1,24 +1,58 @@
 import { expectNoSeriousAccessibilityViolations, expect, test } from "../support/test.js";
 
+test("presents chapters as guided decks separated by quiet breather slides", async ({ page, saga }) => {
+  const deck = page.locator("[data-saga-deck]");
+  await expect(deck.locator("[data-saga-title-slide]")).toHaveClass(/saga-slide-active/);
+  await expect(page.locator(".saga-side")).toBeHidden();
+  await expect(page.locator("[data-saga-slide-nav]")).not.toContainText(/\d+\s+of\s+\d+/);
+
+  await page.keyboard.press("ArrowRight");
+  const firstSlide = deck.locator("article.fragment.saga-slide-active");
+  await expect(firstSlide).toBeVisible();
+  await expect(firstSlide).not.toHaveAttribute("data-fragment-href", /./);
+
+  const chapter = deck.locator('section.chapter[data-slide-title="Architecture"]');
+  const chapterID = await chapter.getAttribute("id");
+  await page.goto(`${saga.baseURL}/#${chapterID}`);
+  await page.locator("body[data-shell-ready]").waitFor();
+  await expect(chapter.locator(".chapter-break-label")).toHaveText("Breather break");
+  await expect(page.locator("[data-saga-slide-progress]")).toHaveAttribute("aria-valuenow", "0");
+
+  await chapter.getByRole("button", { name: "Open Architecture" }).click();
+  await expect(chapter.locator("article.fragment.saga-slide-active")).toBeVisible();
+  await expect(page.locator("[data-saga-slide-context]")).toHaveText("Architecture");
+  await expect.poll(async () => Number(await page.locator("[data-saga-slide-progress]").getAttribute("aria-valuenow"))).toBeGreaterThan(0);
+
+  await page.waitForTimeout(1900);
+  await expect.poll(async () => Number(await page.locator("[data-saga-slide-progress]").evaluate((element) => getComputedStyle(element).opacity))).toBeLessThan(0.3);
+});
+
 test("@critical navigates the saga, linked code, code tree, and coverage in both directions", async ({ page, saga }) => {
   await expect(page).toHaveTitle("Wave One Review · Change Saga");
   await expect(page.getByRole("heading", { name: "Wave One Review" })).toBeVisible();
+  await expect.poll(async () => Number(await page.locator("[data-saga-slide-progress]").getAttribute("aria-valuenow"))).toBeGreaterThan(0);
+  const overview = page.locator('[data-fragment-title="Overview"]');
+  const overviewID = await overview.getAttribute("id");
+  await page.goto(`${saga.baseURL}/#${overviewID}`);
   await expect(page.getByText("Wave 1 connects the story to the exact source changes.")).toBeVisible();
   // The whole page, chrome included: the workspace tablist and the closed
   // linked-code drawer are now correct, so nothing is scoped out of this scan.
   await expectNoSeriousAccessibilityViolations(page);
 
-  const contents = page.getByRole("navigation", { name: "Contents" });
-  await contents.getByRole("link", { name: "Architecture", exact: true }).click();
+  const architecture = page.locator('section.chapter[data-slide-title="Architecture"]');
+  const architectureID = await architecture.getAttribute("id");
+  await page.goto(`${saga.baseURL}/#${architectureID}`);
   await expect(page).toHaveURL(/#.+chapter-architecture-/);
-  await expect(page.getByRole("button", { name: "Close Architecture" })).toHaveAttribute("aria-expanded", "true");
+  await expect(architecture.locator(".chapter-break-label")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open Architecture" })).toHaveAttribute("aria-expanded", "false");
+  await page.getByRole("button", { name: "Open Architecture" }).click();
   await expect(page.getByRole("tabpanel", { name: "Saga" }).getByText("The renderer and persistence boundary stay independent.")).toBeVisible();
   await page.goto(`${saga.baseURL}/chapters/architecture`);
   await expect(page).toHaveURL(/\/#.+chapter-architecture-/);
-  await expect(page.getByRole("button", { name: "Close Architecture" })).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator('section.chapter[data-slide-title="Architecture"] .chapter-break-label')).toBeVisible();
 
-  const overview = page.locator('[data-fragment-title="Overview"]');
-  await overview.scrollIntoViewIfNeeded();
+  await page.goto(`${saga.baseURL}/#${overviewID}`);
+  await expect(overview).toBeVisible();
   await overview.hover();
   await overview.locator(":scope > .fragment-head").getByRole("button", { name: /Open linked code with \d+ additions? and \d+ deletions?/ }).click();
   const drawer = page.getByRole("complementary", { name: "Linked code" });
@@ -83,7 +117,31 @@ test("@critical navigates the saga, linked code, code tree, and coverage in both
   expect(saga.sourceRepo).not.toBe(saga.sagaRepo);
 });
 
+test("deeply indented Code Diff paths scroll horizontally without truncation", async ({ page, saga }) => {
+  await page.goto(saga.baseURL);
+  await page.getByRole("tab", { name: "Code Diff" }).click();
+
+  const tree = page.getByRole("tree", { name: "Changed files" });
+  const file = tree.locator("[data-tree-file]").first();
+  const name = file.locator(".tree-name");
+  const fullName = "a-very-long-component-name-that-must-remain-readable-without-an-ellipsis.ts";
+  await file.evaluate((element, value) => {
+    element.style.setProperty("--depth", "14");
+    const label = element.querySelector(".tree-name");
+    if (label) label.textContent = value;
+  }, fullName);
+
+  await expect(name).toHaveText(fullName);
+  await expect(name).toHaveCSS("text-overflow", "clip");
+  await expect.poll(() => tree.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true);
+  await tree.evaluate(element => element.scrollTo({ left: element.scrollWidth }));
+  await expect.poll(() => tree.evaluate(element => element.scrollLeft)).toBeGreaterThan(0);
+});
+
 test("renders Markdown, SVG, raster, and interactive HTML fragments", async ({ page, saga }) => {
+  const overview = page.locator('[data-fragment-title="Overview"]');
+  const overviewID = await overview.getAttribute("id");
+  await page.goto(`${saga.baseURL}/#${overviewID}`);
   const markdown = page.locator('[data-fragment-title="Overview"] [data-selectable]');
   await expect(markdown).toContainText("Reviewer path");
   await expect(markdown.locator("table")).toContainText("Linked narrative");
@@ -98,9 +156,11 @@ test("renders Markdown, SVG, raster, and interactive HTML fragments", async ({ p
   await expect(citationDrawer).toHaveAttribute("aria-hidden", "false");
   await expect(citationDrawer.getByText("src/app.go", { exact: true })).toBeVisible();
   await citationDrawer.getByRole("button", { name: "Close linked code" }).click();
+  const diagramFragment = page.locator('[data-fragment-title="Architecture Diagram"]');
+  const diagramID = await diagramFragment.getAttribute("id");
+  await page.goto(`${saga.baseURL}/#${diagramID}`);
   const diagram = page.frameLocator('iframe[title="Architecture Diagram"]');
   await expect(diagram.getByRole("img", { name: "Review flow diagram" })).toBeVisible();
-  const diagramFragment = page.locator('[data-fragment-title="Architecture Diagram"]');
   const elementHotspot = diagramFragment.locator('[data-auto-landmark-hotspot="true"][data-element-id="render-boundary"]');
   await expect(elementHotspot).toBeVisible();
   await elementHotspot.hover();
@@ -123,8 +183,14 @@ test("renders Markdown, SVG, raster, and interactive HTML fragments", async ({ p
   await expect(elementDrawer).toHaveAttribute("aria-hidden", "false");
   await expect(elementDrawer.locator("details.attached-file")).toHaveCount(1);
   await elementDrawer.getByRole("button", { name: "Close linked code" }).click();
-  await expect(page.locator('[data-fragment-title="Raster Preview"] img[alt="Raster Preview"]')).toBeVisible();
+  const rasterFragment = page.locator('[data-fragment-title="Raster Preview"]');
+  const rasterID = await rasterFragment.getAttribute("id");
+  await page.goto(`${saga.baseURL}/#${rasterID}`);
+  await expect(rasterFragment.locator('img[alt="Raster Preview"]')).toBeVisible();
 
+  const interactiveFragment = page.locator('[data-fragment-title="Interactive Demo"]');
+  const interactiveID = await interactiveFragment.getAttribute("id");
+  await page.goto(`${saga.baseURL}/#${interactiveID}`);
   const demo = page.frameLocator('iframe[title="Interactive Demo"]');
   await expect(demo.getByRole("button", { name: "Run demo" })).toBeVisible();
   await demo.getByRole("button", { name: "Run demo" }).click();

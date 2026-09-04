@@ -123,8 +123,8 @@ test("@critical refuses to mutate or serve a structurally invalid saga with zero
   const refused: Array<[string, string[]]> = [
     ["comment", ["thread", "--target", "overview.fragment", "--body", "Should never be stored.", sagaRoot]],
     ["reply", ["reply", "--thread", "20250101T000000000Z", "--body", "Should never be stored.", sagaRoot]],
-    ["approval", ["review", "--target", "overview.fragment", "--state", "approved", "--body", "Should never be stored.", sagaRoot]],
-    ["rejection", ["review", "--target", ".", "--state", "rejected", sagaRoot]]
+    ["approval", ["review", "--target", "overview.fragment", "--state", "approved", "--reviewer-kind", "human", "--body", "Should never be stored.", sagaRoot]],
+    ["rejection", ["review", "--target", ".", "--state", "rejected", "--reviewer-kind", "human", sagaRoot]]
   ];
   for (const [label, args] of refused) {
     const result = runCLI(sagaRepositories, args);

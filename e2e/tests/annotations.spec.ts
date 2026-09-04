@@ -1,9 +1,9 @@
 import { annotationBubble, dragOn, openAnnotationBubble, openAnnotationTools, selectExactText } from "../support/annotations.js";
 import { readJSON, reviewFiles } from "../support/fixture-builder.js";
-import { expect, test } from "../support/test.js";
+import { expect, openSagaSlide, test } from "../support/test.js";
 
 test("@critical drafts, undoes, redoes, submits, moves, recolors, and deletes visual annotations", async ({ page, saga }) => {
-  const overview = page.locator('[data-fragment-title="Overview"]');
+  const overview = await openSagaSlide(page, "Overview");
   const overlay = overview.locator("svg.review-overlay");
   await overview.focus();
   let tools = await openAnnotationTools(overview);

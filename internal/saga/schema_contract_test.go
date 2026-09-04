@@ -257,6 +257,10 @@ func TestAnnotationColorGrammarMatchesThreadSchema(t *testing.T) {
 }
 
 func TestSchemaEnumsMatchRuntimeStates(t *testing.T) {
+	reviewerKinds := schemaEnum(t, loadSchema(t, "review.schema.json"), "properties", "reviewer", "properties", "kind", "enum")
+	if want := []string{"ai", "human"}; !equal(reviewerKinds, want) {
+		t.Errorf("reviewer kinds %v, want %v", reviewerKinds, want)
+	}
 	approvals := schemaEnum(t, loadSchema(t, "review.schema.json"), "properties", "state", "enum")
 	for _, state := range approvals {
 		if !validReviewState(state) {

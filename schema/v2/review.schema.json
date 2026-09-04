@@ -9,6 +9,27 @@
     "version": { "const": 2 },
     "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
     "author": { "type": "string", "minLength": 1 },
+    "reviewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["human", "ai"] },
+        "name": { "type": "string", "minLength": 1 },
+        "agent": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "ai" } }, "required": ["kind"] },
+          "then": { "required": ["name", "agent", "model"] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "human" } }, "required": ["kind"] },
+          "then": { "not": { "anyOf": [{ "required": ["name"] }, { "required": ["agent"] }, { "required": ["model"] }] } }
+        }
+      ]
+    },
     "state": { "enum": ["approved", "rejected", "closed", "open"] },
     "body": { "type": "string" },
     "created_at": { "type": "string", "format": "date-time" }
